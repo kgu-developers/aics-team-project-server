@@ -1,0 +1,69 @@
+apply plugin: 'jacoco'
+
+jacoco {
+    toolVersion = "0.8.12"
+    reportsDirectory = layout.buildDirectory.dir('jacoco')
+}
+
+test {
+    useJUnitPlatform()
+    dependsOn testFixturesClasses
+
+    testClassesDirs += sourceSets.testFixtures.output.classesDirs
+    classpath += sourceSets.testFixtures.runtimeClasspath
+
+    finalizedBy 'jacocoTestReport'
+}
+
+jacocoTestReport {
+    dependsOn test
+    excludedClassFilesForReport(classDirectories)
+    executionData fileTree(dir: layout.buildDirectory, includes: ["jacoco/test.exec", "jacoco/testFixtures.exec"])
+    reports {
+        xml.required = true
+        csv.required = false
+        html.required = true
+    }
+
+    finalizedBy 'jacocoTestCoverageVerification'
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    excludedClassFilesForReport(classDirectories)
+    violationRules {
+        rule {
+            element = 'CLASS'
+
+            limit {
+                counter = 'METHOD'
+                value = 'COVEREDRATIO'
+                minimum = 0.00
+            }
+        }
+    }
+}
+
+private excludedClassFilesForReport(classDirectories) {
+    classDirectories.setFrom(
+            files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: [
+                        "**/request/**",
+                        "**/response/**",
+                        "**/exception/**",
+                        "**/config/**",
+                        "**/infrastructure/**",
+                        "**/aspect/**",
+                        "**/Q**",
+                        "kgu/developers/api/AicsApiApplication.class",
+                        "kgu/developers/admin/AicsAdminApplication.class",
+                        "kgu/developers/auth/AicsAuthApplication.class",
+                        // TODO 현재는 미구현으로 인한 제외
+                        "**/api/**/presentation/**",
+                        "**/admin/**/presentation/**",
+                        "**/auth/**/presentation/**",
+                        "**/file/**"
+                ])
+            })
+    )
+}
