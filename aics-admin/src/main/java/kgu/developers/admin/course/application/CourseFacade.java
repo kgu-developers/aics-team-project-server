@@ -1,0 +1,42 @@
+package kgu.developers.admin.course.application;
+
+import kgu.developers.domain.course.application.command.CourseCommandService;
+import kgu.developers.domain.course.application.query.CourseQueryService;
+import kgu.developers.domain.course.domain.Course;
+import kgu.developers.domain.course.domain.SemesterType;
+import kgu.developers.domain.course.domain.StatusType;
+import kgu.developers.admin.course.presentation.request.CourseRequest;
+import kgu.developers.admin.course.presentation.response.CourseListResponse;
+import kgu.developers.admin.course.presentation.response.CoursePersistResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class CourseFacade {
+	private final CourseCommandService courseCommandService;
+	private final CourseQueryService courseQueryService;
+
+	public CoursePersistResponse createCourse(CourseRequest request) {
+		Long id = courseCommandService.createCourse(request.name(), Integer.parseInt(request.year()), SemesterType.valueOf(request.semester()), StatusType.valueOf(request.status()));
+		return CoursePersistResponse.of(id);
+	}
+
+	public void updateCourse(Long id, CourseRequest request) {
+		Course course = courseQueryService.getCourseById(id);
+		courseCommandService.updateCourse(course, request.name(), Integer.parseInt(request.year()), SemesterType.valueOf(request.semester()), StatusType.valueOf(request.status()));
+	}
+
+	public void deleteCourse(Long id) {
+		Course course = courseQueryService.getCourseById(id);
+		courseCommandService.deleteCourse(course);
+	}
+
+	public Course getCourseById(Long id) {
+        return courseQueryService.getCourseById(id);
+	}
+
+	public CourseListResponse getAllCourses() {
+		return CourseListResponse.from(courseQueryService.getAllCourses());
+	}
+}
