@@ -30,11 +30,9 @@ public class TeamMessageJpaEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
 
-    // TeamThread는 같은 모듈 내 애그리거트이지만 연관관계 매핑 없이 id로만 참조한다.
     @Column(name = "thread_id", nullable = false)
     private Long threadId;
 
-    // User 엔티티는 아직 구현되지 않았으므로 FK 매핑 없이 학번(student_number) 문자열로만 참조한다.
     @Column(name = "sender_id", nullable = false, length = 20)
     private String senderId;
 
@@ -45,7 +43,6 @@ public class TeamMessageJpaEntity extends BaseTimeEntity {
     @Column(name = "related_type", nullable = false, length = 30)
     private TeamMessageRelatedType relatedType;
 
-    // 폴리모픽 참조(related_type에 따라 대상 테이블이 다름) — 의도적으로 FK 없음.
     @Column(name = "related_id")
     private Long relatedId;
 

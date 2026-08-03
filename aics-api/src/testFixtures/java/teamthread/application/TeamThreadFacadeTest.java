@@ -1,11 +1,12 @@
-package kgu.developers.api.teamthread.application;
+package teamthread.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import kgu.developers.api.teamthread.application.TeamThreadFacade;
 import kgu.developers.api.teamthread.presentation.response.TeamThreadResponse;
 import kgu.developers.domain.teamthread.application.command.TeamThreadCommandService;
-import kgu.developers.domain.teamthread.domain.FakeTeamThreadRepository;
+import mock.repository.FakeTeamThreadRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package kgu.developers.domain.teammessage.domain;
+package mock.repository;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import kgu.developers.domain.teammessage.domain.TeamMessage;
+import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
+import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;

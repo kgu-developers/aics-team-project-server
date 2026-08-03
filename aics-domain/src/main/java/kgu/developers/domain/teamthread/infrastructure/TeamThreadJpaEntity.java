@@ -27,7 +27,6 @@ public class TeamThreadJpaEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
 
-    // Team 엔티티는 아직 구현되지 않았으므로 FK 매핑 없이 순수 id 컬럼으로만 참조한다.
     @Column(name = "team_id", nullable = false, unique = true)
     private Long teamId;
 

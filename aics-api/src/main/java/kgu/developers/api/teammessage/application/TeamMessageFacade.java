@@ -28,7 +28,6 @@ public class TeamMessageFacade {
     private final TeamMessageQueryService teamMessageQueryService;
 
     public TeamMessagePersistResponse postMessage(Long teamId, TeamMessageCreateRequest request) {
-        // 스레드는 팀당 하나만 존재하며, 최초 메시지 등록 시점에 지연 생성될 수 있다.
         TeamThread teamThread = teamThreadCommandService.getOrCreateThread(teamId);
         TeamMessage teamMessage = teamMessageCommandService.postMessage(
             teamThread.getId(), request.senderId(), request.relatedType(), request.relatedId(), request.message());

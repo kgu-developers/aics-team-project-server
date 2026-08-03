@@ -1,10 +1,11 @@
-package kgu.developers.api.teammessage.application;
+package teammessage.application;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import kgu.developers.api.teammessage.application.TeamMessageFacade;
 import kgu.developers.api.teammessage.presentation.request.TeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePageResponse;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePersistResponse;
@@ -12,11 +13,11 @@ import kgu.developers.api.teammessage.presentation.response.UnreadMessageCountRe
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
-import kgu.developers.domain.teammessage.domain.FakeTeamMessageRepository;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teamthread.application.command.TeamThreadCommandService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
-import kgu.developers.domain.teamthread.domain.FakeTeamThreadRepository;
+import mock.repository.FakeTeamMessageRepository;
+import mock.repository.FakeTeamThreadRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

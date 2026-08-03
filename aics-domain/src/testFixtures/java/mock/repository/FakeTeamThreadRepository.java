@@ -1,10 +1,12 @@
-package kgu.developers.domain.teamthread.domain;
+package mock.repository;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import kgu.developers.domain.teamthread.domain.TeamThread;
+import kgu.developers.domain.teamthread.domain.TeamThreadRepository;
 
 public class FakeTeamThreadRepository implements TeamThreadRepository {
 
