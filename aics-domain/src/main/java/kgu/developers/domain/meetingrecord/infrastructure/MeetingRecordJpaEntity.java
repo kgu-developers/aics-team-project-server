@@ -33,7 +33,6 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
 
-    // Team 엔티티는 아직 구현되지 않아 FK 객체가 아닌 순수 id 컬럼으로만 참조한다.
     @Column(nullable = false)
     private Long teamId;
 
@@ -41,7 +40,6 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
     @Enumerated(STRING)
     private MeetingPhase phase;
 
-    // User(학번) 엔티티도 아직 구현되지 않아 순수 학번 문자열로만 참조한다.
     @Column(nullable = false, length = 20)
     private String authorId;
 

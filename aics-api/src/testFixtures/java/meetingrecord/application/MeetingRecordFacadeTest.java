@@ -1,4 +1,4 @@
-package kgu.developers.api.meetingrecord.application;
+package meetingrecord.application;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import kgu.developers.api.meetingrecord.application.MeetingRecordFacade;
 import kgu.developers.api.meetingrecord.presentation.request.MeetingRecordCreateRequest;
 import kgu.developers.api.meetingrecord.presentation.request.MeetingRecordUpdateRequest;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordDetailResponse;
@@ -14,8 +15,8 @@ import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordPersi
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.meetingrecord.application.command.MeetingRecordCommandService;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
-import kgu.developers.domain.meetingrecord.domain.FakeMeetingRecordRepository;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
+import mock.repository.FakeMeetingRecordRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

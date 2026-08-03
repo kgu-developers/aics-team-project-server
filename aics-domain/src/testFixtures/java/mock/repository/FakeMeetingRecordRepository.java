@@ -1,4 +1,4 @@
-package kgu.developers.domain.meetingrecord.domain;
+package mock.repository;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -7,6 +7,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
+import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 
 public class FakeMeetingRecordRepository implements MeetingRecordRepository {
 

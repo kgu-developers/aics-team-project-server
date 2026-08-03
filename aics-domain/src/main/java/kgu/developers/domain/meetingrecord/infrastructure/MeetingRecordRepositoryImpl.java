@@ -22,7 +22,6 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
     public MeetingRecord save(MeetingRecord meetingRecord) {
         MeetingRecordJpaEntity savedEntity = jpaMeetingRecordRepository.save(MeetingRecordJpaEntity.toEntity(meetingRecord));
 
-        // 참석자 목록은 도메인 객체가 들고 있는 상태를 정답으로 보고 매번 전체 치환한다.
         jpaMeetingParticipantRepository.deleteAllByMeetingRecordId(savedEntity.getId());
         List<MeetingParticipant> savedParticipants = saveParticipants(savedEntity.getId(), meetingRecord.getParticipants());
 
