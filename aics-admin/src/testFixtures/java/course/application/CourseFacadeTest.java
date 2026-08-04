@@ -33,14 +33,15 @@ class CourseFacadeTest {
   @InjectMocks
   private CourseFacade courseFacade;
 
-  private final CourseRequest request = new CourseRequest("객체지향프로그래밍", "2026", "FALL", "DRAFT");
+  private final CourseRequest request =
+      new CourseRequest("객체지향프로그래밍", 2026, SemesterType.FALL, StatusType.DRAFT);
 
   private Course course() {
     return Course.create("객체지향프로그래밍", 2026, SemesterType.FALL, StatusType.DRAFT);
   }
 
   @Test
-  @DisplayName("createCourse는 문자열 요청을 변환해 커맨드 서비스에 넘기고 id를 응답한다")
+  @DisplayName("createCourse는 요청 값을 커맨드 서비스에 넘기고 id를 응답한다")
   void createCourse() {
     given(courseCommandService.createCourse("객체지향프로그래밍", 2026, SemesterType.FALL, StatusType.DRAFT))
         .willReturn(1L);
