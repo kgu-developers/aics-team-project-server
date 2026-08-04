@@ -4,12 +4,11 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CourseRepository {
-    Course save(Course course);
+  Course save(Course course);
 
-    Optional<Course> findById(Long id);
+  Optional<Course> findById(Long id);
 
-    List<Course> findAllOrderByYearAndName();
+  List<Course> findAllOrderByYearAndName();
 
-    void deleteById(Long id);
+  void deleteById(Long id);
 }
-
