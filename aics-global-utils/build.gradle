@@ -9,3 +9,5 @@ jar {
 dependencies {
 
 }
+
+apply from: "../gradle/jacoco.gradle"
