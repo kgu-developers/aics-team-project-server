@@ -19,49 +19,45 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ROLE_ADMIN')")
 public class CourseControllerImpl implements CourseController {
 
-	private final CourseFacade courseFacade;
+  private final CourseFacade courseFacade;
 
-	@Override
-	@PostMapping
-	public ResponseEntity<CoursePersistResponse> createCourse(
-		@Valid @RequestBody CourseRequest request
-	) {
-		CoursePersistResponse response = courseFacade.createCourse(request);
-		return ResponseEntity.status(HttpStatus.CREATED).body(response);
-	}
+  @Override
+  @PostMapping
+  public ResponseEntity<CoursePersistResponse> createCourse(
+      @Valid @RequestBody CourseRequest request) {
+    CoursePersistResponse response = courseFacade.createCourse(request);
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+  }
 
-	@GetMapping("/{id}")
-	@Override
-	public ResponseEntity<Course> getCourseById(
-			@Positive @PathVariable Long id
-	) {
-		Course response = courseFacade.getCourseById(id);
-		return ResponseEntity.ok(response);
-	}
+  @GetMapping("/{id}")
+  @Override
+  public ResponseEntity<Course> getCourseById(
+      @Positive @PathVariable Long id) {
+    Course response = courseFacade.getCourseById(id);
+    return ResponseEntity.ok(response);
+  }
 
-	@Override
-	@GetMapping
-	public ResponseEntity<CourseListResponse> getCourses() {
-		CourseListResponse response = courseFacade.getAllCourses();
-		return ResponseEntity.ok(response);
-	}
+  @Override
+  @GetMapping
+  public ResponseEntity<CourseListResponse> getCourses() {
+    CourseListResponse response = courseFacade.getAllCourses();
+    return ResponseEntity.ok(response);
+  }
 
-	@Override
-	@PutMapping("/{id}")
-	public ResponseEntity<Void> updateCourse(
-		@Positive @PathVariable Long id,
-		@Valid @RequestBody CourseRequest request
-	) {
-		courseFacade.updateCourse(id, request);
-		return ResponseEntity.noContent().build();
-	}
+  @Override
+  @PutMapping("/{id}")
+  public ResponseEntity<Void> updateCourse(
+      @Positive @PathVariable Long id,
+      @Valid @RequestBody CourseRequest request) {
+    courseFacade.updateCourse(id, request);
+    return ResponseEntity.noContent().build();
+  }
 
-	@Override
-	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> deleteCourse(
-		@Positive @PathVariable Long id
-	) {
-		courseFacade.deleteCourse(id);
-		return ResponseEntity.noContent().build();
-	}
+  @Override
+  @DeleteMapping("/{id}")
+  public ResponseEntity<Void> deleteCourse(
+      @Positive @PathVariable Long id) {
+    courseFacade.deleteCourse(id);
+    return ResponseEntity.noContent().build();
+  }
 }
