@@ -18,6 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class LoggingUtils {
 
+	// startTime 속성이 없는 요청(인터셉터를 거치지 않은 경우)의 소요 시간
+	private static final long UNKNOWN_DURATION = -1;
+
 	public static List<String> getArguments(JoinPoint joinPoint) {
 		return Arrays.stream(joinPoint.getArgs())
 			.map(LoggingUtils::getObjectFields)
@@ -71,9 +74,8 @@ public class LoggingUtils {
 		String httpMethod = request.getMethod();
 		int httpStatus = response.getStatus();
 
-		long startTime = (Long)request.getAttribute("startTime");
-		long endTime = System.currentTimeMillis();
-		long duration = endTime - startTime;
+		Object startTime = request.getAttribute("startTime");
+		long duration = (startTime == null) ? UNKNOWN_DURATION : System.currentTimeMillis() - (Long)startTime;
 
 		if (ex == null) {
 			log.info("[DURATION] ENDPOINT : {} {} || STATUS : {} || DURATION : {}ms", httpMethod, requestUrl,
