@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.StringJoiner;
 
 import org.aspectj.lang.JoinPoint;
 import org.springframework.security.core.Authentication;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import kgu.developers.globalutils.annotation.NoLogging;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -21,35 +23,52 @@ public class LoggingUtils {
 	// startTime 속성이 없는 요청(인터셉터를 거치지 않은 경우)의 소요 시간
 	private static final long UNKNOWN_DURATION = -1;
 
+	// 이름에 아래 키워드가 포함된 필드는 값 대신 마스킹해 기록한다. @NoLogging으로 개별 지정도 가능하다.
+	private static final List<String> SENSITIVE_FIELD_KEYWORDS = List.of(
+		"password", "passwd", "secret", "token", "credential", "authorization", "apikey");
+	private static final String MASKED = "****";
+
 	public static List<String> getArguments(JoinPoint joinPoint) {
 		return Arrays.stream(joinPoint.getArgs())
 			.map(LoggingUtils::getObjectFields)
 			.toList();
 	}
 
+	// ponytail: 최상위 필드만 마스킹한다. 중첩 객체는 toString으로 출력되므로 필요해지면 재귀 처리로 확장.
 	public static String getObjectFields(Object obj) {
-		StringBuilder result = new StringBuilder();
 		if (obj == null) {
 			return "null";
 		}
 		Class<?> objClass = obj.getClass();
-		result.append(objClass.getSimpleName()).append(" {");
+		StringJoiner result = new StringJoiner(", ", objClass.getSimpleName() + " {", "}");
 
-		Field[] fields = objClass.getDeclaredFields();
-		for (int i = 0; i < fields.length; i++) {
-			fields[i].setAccessible(true);
-			try {
-				result.append(fields[i].getName()).append(" = ")
-					.append(fields[i].get(obj));
-			} catch (IllegalAccessException e) {
-				result.append(fields[i].getName()).append("=ACCESS_DENIED");
+		for (Field field : objClass.getDeclaredFields()) {
+			if (field.isSynthetic()) {
+				continue;
 			}
-			if (i < fields.length - 1) {
-				result.append(", ");
-			}
+			result.add(field.getName() + " = " + getFieldValue(obj, field));
 		}
-		result.append("}");
 		return result.toString();
+	}
+
+	private static String getFieldValue(Object obj, Field field) {
+		if (isSensitive(field)) {
+			return MASKED;
+		}
+		field.setAccessible(true);
+		try {
+			return String.valueOf(field.get(obj));
+		} catch (IllegalAccessException e) {
+			return "ACCESS_DENIED";
+		}
+	}
+
+	private static boolean isSensitive(Field field) {
+		if (field.isAnnotationPresent(NoLogging.class)) {
+			return true;
+		}
+		String fieldName = field.getName().toLowerCase();
+		return SENSITIVE_FIELD_KEYWORDS.stream().anyMatch(fieldName::contains);
 	}
 
 	public static String getParameterMessage(List<String> arguments) {
