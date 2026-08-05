@@ -1,6 +1,7 @@
 package kgu.developers.globalutils.encryption;
 
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
@@ -12,9 +13,10 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import lombok.extern.slf4j.Slf4j;
+import kgu.developers.globalutils.encryption.exception.DecryptionFailedException;
+import kgu.developers.globalutils.encryption.exception.EncryptionFailedException;
+import kgu.developers.globalutils.encryption.exception.InvalidSecretKeyException;
 
-@Slf4j
 @Component
 public class AesUtil {
 
@@ -27,6 +29,10 @@ public class AesUtil {
 	private static String SECRET_KEY = "";
 
 	public AesUtil(@Value("${file.secret-key}") String secretKey) {
+		int length = secretKey.getBytes(StandardCharsets.UTF_8).length;
+		if (length != 16 && length != 24 && length != 32) {
+			throw new InvalidSecretKeyException();
+		}
 		SECRET_KEY = secretKey;
 	}
 
@@ -44,10 +50,9 @@ public class AesUtil {
 			System.arraycopy(encryptedBytes, 0, ivAndEncryptedBytes, IV_LENGTH, encryptedBytes.length);
 
 			return Base64.getEncoder().encodeToString(ivAndEncryptedBytes);
-		} catch (Exception e) {
-			log.error("암호화 도중 에러가 발생했습니다.: {}", e.getMessage());
+		} catch (GeneralSecurityException e) {
+			throw new EncryptionFailedException(e);
 		}
-		return null;
 	}
 
 	public static String decrypt(String encryptedInput) {
@@ -61,10 +66,9 @@ public class AesUtil {
 			cipher.init(Cipher.DECRYPT_MODE, keySpec(), new GCMParameterSpec(TAG_LENGTH_BIT, iv));
 
 			return new String(cipher.doFinal(encryptedBytes), StandardCharsets.UTF_8);
-		} catch (Exception e) {
-			log.error("복호화 도중 에러가 발생했습니다.: {}", e.getMessage());
+		} catch (GeneralSecurityException | IllegalArgumentException e) {
+			throw new DecryptionFailedException(e);
 		}
-		return null;
 	}
 
 	private static SecretKeySpec keySpec() {
