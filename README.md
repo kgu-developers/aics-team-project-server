@@ -28,24 +28,30 @@ Each module's `src` tree here is a skeleton: folder structure and `build.gradle`
 
 | 항목 | `local` 값 | 왜 이렇게 두었나 |
 |---|---|---|
-| DB 계정 | `root` / `root` | 로컬 PostgreSQL 기본 계정 |
+| DB 계정 | `root` / `root` | PostgreSQL 기본 계정이 아니라 **이 프로젝트의 로컬 규약**입니다. 직접 만들어야 합니다 |
 | `ddl-auto` | `update` | 엔티티를 고치면 테이블이 따라 바뀝니다 (운영은 `validate`) |
 | JWT 서명 키 | 고정된 개발용 키 | admin·auth가 같은 키를 써야 토큰이 통합니다 |
 | 파일 암호화 키 | `local-dev-key-16` | 정확히 16바이트 |
 | 쿠키 `Secure` 옵션 (auth) | `false` | 로컬은 https가 아니라서, 켜두면 브라우저가 쿠키를 버립니다 |
 | HTTP Basic 계정 (admin) | `admin` / `admin` (권한 `PROFESSOR`) | Postman으로 관리자 API를 찔러볼 때 사용 |
 
+`root` 롤과 `aics` 데이터베이스가 없다면 먼저 만들어 주세요.
+
+```bash
+createuser -s root
+psql -d postgres -c "ALTER USER root WITH PASSWORD 'root'"
+createdb -U root aics
+```
+
 ### 3. 잘 떴는지 확인하기
 
 로그에 `Started AicsAdminApplication ...` 이 찍히면 성공입니다. 실제로 요청까지 확인하려면:
 
 ```bash
-# 1) 관리자 API — 위에서 받은 쿠키로 (PROFESSOR 계정이어야 200)
-curl -b 'accessToken=<복사한 값>' http://localhost:8081/api/v1/admin/oop/courses
-
-# 2) 쿠키 대신 Basic 계정으로도 됩니다
 curl -u admin:admin http://localhost:8081/api/v1/admin/oop/courses
 ```
+
+`{"contents":[...]}` 가 오면 정상입니다. 인증 없이 부르면 401, 권한이 `PROFESSOR`가 아니면 403입니다.
 
 API 문서는 <http://localhost:8081/swagger-ui/index.html> (인증 필요, 위 Basic 계정으로 로그인).
 
