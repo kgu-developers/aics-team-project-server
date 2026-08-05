@@ -15,7 +15,7 @@ spring:
     user:
       name: admin
       password: admin
-      roles: ADMIN
+      roles: PROFESSOR
 
 # 로컬 전용 값. dev/prod는 환경변수로 주입한다.
 file:

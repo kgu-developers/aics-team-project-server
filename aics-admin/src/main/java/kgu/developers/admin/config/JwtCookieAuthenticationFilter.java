@@ -49,6 +49,11 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
+	@Override
+	protected boolean shouldNotFilterErrorDispatch() {
+		return false;
+	}
+
 	private Authentication authentication(Claims claims) {
 		String role = claims.get(ROLE, String.class);
 		List<GrantedAuthority> authorities = role == null
