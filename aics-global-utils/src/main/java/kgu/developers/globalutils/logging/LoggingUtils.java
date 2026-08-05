@@ -54,12 +54,17 @@ public class LoggingUtils {
     if (isSensitive(field)) {
       return MASKED;
     }
-    field.setAccessible(true);
+
     try {
-      return String.valueOf(field.get(obj));
-    } catch (IllegalAccessException e) {
+      field.setAccessible(true);
+      return escapeLineBreaks(String.valueOf(field.get(obj)));
+    } catch (IllegalAccessException | RuntimeException e) {
       return "ACCESS_DENIED";
     }
+  }
+
+  private static String escapeLineBreaks(String value) {
+    return value.replace("\r", "\\r").replace("\n", "\\n");
   }
 
   private static boolean isSensitive(Field field) {

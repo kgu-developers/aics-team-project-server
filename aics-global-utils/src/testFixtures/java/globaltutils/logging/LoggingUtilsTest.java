@@ -1,7 +1,9 @@
 package globaltutils.logging;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +25,17 @@ class LoggingUtilsTest {
   void setUp() {
     appender = new ListAppender<>();
     appender.start();
-    ((Logger)LoggerFactory.getLogger(LoggingUtils.class)).addAppender(appender);
+    logger().addAppender(appender);
+  }
+
+  @AfterEach
+  void tearDown() {
+    logger().detachAppender(appender);
+    appender.stop();
+  }
+
+  private Logger logger() {
+    return (Logger)LoggerFactory.getLogger(LoggingUtils.class);
   }
 
   @Test
@@ -84,7 +96,43 @@ class LoggingUtilsTest {
     assertThat(appender.list.get(0).getFormattedMessage()).doesNotContain("DURATION : -1ms");
   }
 
+  @Test
+  @DisplayName("값에 섞인 개행은 이스케이프해 로그 한 줄을 위조하지 못하게 한다")
+  void getObjectFieldsEscapesLineBreaks() {
+    String result = LoggingUtils.getObjectFields(
+        new LoginRequest("hong\r\n[REQUEST] CLIENT IP : 9.9.9.9", "s3cret", "eyJhbGci"));
+
+    assertThat(result).contains("loginId = hong\\r\\n[REQUEST] CLIENT IP : 9.9.9.9");
+    assertThat(result).doesNotContain("\n");
+    assertThat(result).doesNotContain("\r");
+  }
+
+  @Test
+  @DisplayName("필드 값의 toString이 터져도 로깅은 요청을 깨뜨리지 않는다")
+  void getObjectFieldsSurvivesFailingToString() {
+    String result = LoggingUtils.getObjectFields(new Holder());
+
+    assertThat(result).contains("value = ACCESS_DENIED");
+  }
+
+  @Test
+  @DisplayName("접근이 막힌 JDK 내부 필드도 예외를 전파하지 않는다")
+  void getObjectFieldsSurvivesInaccessibleField() {
+    assertThatCode(() -> LoggingUtils.getObjectFields("hello")).doesNotThrowAnyException();
+  }
+
   private record LoginRequest(String loginId, String password, String accessToken) {
+  }
+
+  private static class Exploding {
+    @Override
+    public String toString() {
+      throw new IllegalStateException("boom");
+    }
+  }
+
+  private static class Holder {
+    private final Exploding value = new Exploding();
   }
 
   private record MemberRequest(String name, @NoLogging String phoneNumber) {
