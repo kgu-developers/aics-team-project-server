@@ -11,6 +11,12 @@ spring:
     redis:
       password: ${REDIS_PASSWORD:}
 
+  security:
+    user:
+      name: admin
+      password: admin
+      roles: ADMIN
+
 # 로컬 전용 값. dev/prod는 환경변수로 주입한다.
 file:
   secret-key: ${FILE_SECRET_KEY:local-dev-key-16}

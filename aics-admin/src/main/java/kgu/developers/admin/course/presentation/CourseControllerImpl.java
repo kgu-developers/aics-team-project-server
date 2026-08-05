@@ -10,13 +10,11 @@ import kgu.developers.admin.course.presentation.response.CoursePersistResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/admin/oop/courses")
-@PreAuthorize("hasRole('ROLE_ADMIN')")
 public class CourseControllerImpl implements CourseController {
 
   private final CourseFacade courseFacade;
