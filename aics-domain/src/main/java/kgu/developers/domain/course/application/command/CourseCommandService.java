@@ -6,9 +6,11 @@ import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CourseCommandService {
     private final CourseRepository courseRepository;
 

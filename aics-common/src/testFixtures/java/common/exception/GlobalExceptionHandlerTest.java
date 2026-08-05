@@ -3,6 +3,7 @@ package common.exception;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -10,10 +11,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.common.exception.ExceptionCode;
@@ -61,6 +70,17 @@ class GlobalExceptionHandlerTest {
     void serverFault() {
       throw new CustomException(TestExceptionCode.SERVER_FAULT, new IllegalStateException("원인"));
     }
+
+    @PostMapping("/body")
+    void body(@Valid @RequestBody TestRequest request) {
+    }
+
+    @GetMapping("/param/{id}")
+    void param(@Positive @PathVariable Long id) {
+    }
+  }
+
+  record TestRequest(@NotBlank String name) {
   }
 
   private MockMvc mockMvc;
@@ -88,5 +108,24 @@ class GlobalExceptionHandlerTest {
         .andExpect(status().isInternalServerError())
         .andExpect(jsonPath("$.code").value("SERVER_FAULT"))
         .andExpect(jsonPath("$.message").value("서버 오류입니다."));
+  }
+
+  @Test
+  @DisplayName("본문 검증 실패는 400과 어긋난 필드를 알려준다")
+  void handlesInvalidBody() throws Exception {
+    mockMvc.perform(post("/body")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\": \" \"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+        .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("name")));
+  }
+
+  @Test
+  @DisplayName("경로 변수 검증 실패도 400과 같은 형식으로 응답한다")
+  void handlesInvalidPathVariable() throws Exception {
+    mockMvc.perform(get("/param/-5"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
   }
 }

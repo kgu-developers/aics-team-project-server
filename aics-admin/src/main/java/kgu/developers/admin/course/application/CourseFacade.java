@@ -6,6 +6,7 @@ import kgu.developers.domain.course.domain.Course;
 import kgu.developers.admin.course.presentation.request.CourseRequest;
 import kgu.developers.admin.course.presentation.response.CourseListResponse;
 import kgu.developers.admin.course.presentation.response.CoursePersistResponse;
+import kgu.developers.admin.course.presentation.response.CourseResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -30,8 +31,8 @@ public class CourseFacade {
 		courseCommandService.deleteCourse(course);
 	}
 
-	public Course getCourseById(Long id) {
-        return courseQueryService.getCourseById(id);
+	public CourseResponse getCourseById(Long id) {
+        return CourseResponse.from(courseQueryService.getCourseById(id));
 	}
 
 	public CourseListResponse getAllCourses() {

@@ -8,10 +8,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import kgu.developers.domain.course.domain.Course;
 import kgu.developers.admin.course.presentation.request.CourseRequest;
 import kgu.developers.admin.course.presentation.response.CourseListResponse;
 import kgu.developers.admin.course.presentation.response.CoursePersistResponse;
+import kgu.developers.admin.course.presentation.response.CourseResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,7 +34,7 @@ public interface CourseController {
 	);
 
 	@GetMapping("/{id}")
-	ResponseEntity<Course> getCourseById(
+	ResponseEntity<CourseResponse> getCourseById(
 			@Positive @PathVariable Long id
 	);
 

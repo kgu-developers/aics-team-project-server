@@ -2,11 +2,11 @@ package kgu.developers.admin.course.presentation;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import kgu.developers.domain.course.domain.Course;
 import kgu.developers.admin.course.application.CourseFacade;
 import kgu.developers.admin.course.presentation.request.CourseRequest;
 import kgu.developers.admin.course.presentation.response.CourseListResponse;
 import kgu.developers.admin.course.presentation.response.CoursePersistResponse;
+import kgu.developers.admin.course.presentation.response.CourseResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,9 +29,9 @@ public class CourseControllerImpl implements CourseController {
 
   @GetMapping("/{id}")
   @Override
-  public ResponseEntity<Course> getCourseById(
+  public ResponseEntity<CourseResponse> getCourseById(
       @Positive @PathVariable Long id) {
-    Course response = courseFacade.getCourseById(id);
+    CourseResponse response = courseFacade.getCourseById(id);
     return ResponseEntity.ok(response);
   }
 

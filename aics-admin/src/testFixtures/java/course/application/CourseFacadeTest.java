@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.admin.course.application.CourseFacade;
 import kgu.developers.admin.course.presentation.request.CourseRequest;
+import kgu.developers.admin.course.presentation.response.CourseResponse;
 import kgu.developers.domain.course.application.command.CourseCommandService;
 import kgu.developers.domain.course.application.query.CourseQueryService;
 import kgu.developers.domain.course.domain.Course;
@@ -72,12 +73,12 @@ class CourseFacadeTest {
   }
 
   @Test
-  @DisplayName("getCourseById는 쿼리 서비스 결과를 그대로 반환한다")
+  @DisplayName("getCourseById는 도메인 대신 응답 DTO로 감싸 반환한다")
   void getCourseById() {
     Course course = course();
     given(courseQueryService.getCourseById(1L)).willReturn(course);
 
-    assertThat(courseFacade.getCourseById(1L)).isEqualTo(course);
+    assertThat(courseFacade.getCourseById(1L)).isEqualTo(CourseResponse.from(course));
   }
 
   @Test
@@ -86,6 +87,7 @@ class CourseFacadeTest {
     List<Course> courses = List.of(course());
     given(courseQueryService.getAllCourses()).willReturn(courses);
 
-    assertThat(courseFacade.getAllCourses().contents()).isEqualTo(courses);
+    assertThat(courseFacade.getAllCourses().contents())
+        .isEqualTo(courses.stream().map(CourseResponse::from).toList());
   }
 }

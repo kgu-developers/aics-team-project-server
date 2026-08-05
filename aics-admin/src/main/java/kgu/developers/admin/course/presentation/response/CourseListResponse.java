@@ -11,11 +11,11 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 @Builder
 public record CourseListResponse(
 	@Schema(description = "등록된 강좌 리스트", requiredMode = REQUIRED)
-	List<Course> contents
+	List<CourseResponse> contents
 ) {
-	public static CourseListResponse from(List<Course> contents) {
+	public static CourseListResponse from(List<Course> courses) {
 		return CourseListResponse.builder()
-			.contents(contents)
+			.contents(courses.stream().map(CourseResponse::from).toList())
 			.build();
 	}
 }
