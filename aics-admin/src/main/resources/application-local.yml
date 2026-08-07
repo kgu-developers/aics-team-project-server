@@ -14,7 +14,8 @@ spring:
   security:
     user:
       name: admin
-      password: admin
+      # bcrypt 해시 평문은 "admin".
+      password: "$2a$10$nKxI21dQHbHpp4SRpVmIBOp1j6YjpAE0GW79cVz.6M01em.9TTXjm"
       roles: PROFESSOR
 
 # 로컬 전용 값. dev/prod는 환경변수로 주입한다.

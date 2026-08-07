@@ -10,6 +10,7 @@ import io.jsonwebtoken.JwtException;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,10 +18,11 @@ import org.springframework.stereotype.Component;
 public class AuthFacade {
     private final UserQueryService userQueryService;
     private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
 
     public LoginResponse login(LoginRequest request) {
         User user = findForLogin(request.student_number());
-        if (!request.password().equals(user.getPassword())) {
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
         return LoginResponse.of(

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import kgu.developers.auth.api.application.AuthFacade;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
@@ -33,6 +34,9 @@ class AuthFacadeTest {
   @Mock
   private JwtUtil jwtUtil;
 
+  @Mock
+  private PasswordEncoder passwordEncoder;
+
   @InjectMocks
   private AuthFacade userFacade;
 
@@ -47,6 +51,7 @@ class AuthFacadeTest {
   @DisplayName("login은 학번과 비밀번호가 맞으면 accessToken과 refreshToken을 반환한다")
   void login() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 

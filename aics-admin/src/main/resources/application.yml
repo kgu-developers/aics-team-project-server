@@ -38,6 +38,7 @@ spring:
   security:
     user:
       name: ${ADMIN_USERNAME}
+      # bcrypt 해시(평문 아님)
       password: ${ADMIN_PASSWORD}
       roles: ADMIN
 
