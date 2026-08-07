@@ -14,8 +14,12 @@ public class RefreshTokenStore {
 
     private final JpaRefreshTokenRepository refreshTokenRepository;
 
+    // 새 엔티티를 save하면 version이 0이라, 회전을 거친 행과 merge될 때 StaleObjectStateException이 난다.
+    // 기존 행이 있으면 그 행을 그대로 갱신한다.
     public void save(String studentNumber, String refreshToken) {
-        refreshTokenRepository.save(new RefreshTokenJpaEntity(studentNumber, refreshToken));
+        refreshTokenRepository.findById(studentNumber).ifPresentOrElse(
+                stored -> stored.updateToken(refreshToken),
+                () -> refreshTokenRepository.save(new RefreshTokenJpaEntity(studentNumber, refreshToken)));
     }
 
     // 보관 중인 토큰이 expected와 다르면 false. 같더라도 커밋 시점에 @Version이 어긋나면
