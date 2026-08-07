@@ -59,6 +59,7 @@ public class JwtUtil {
 	private Claims parseClaims(String token, String expectedType) {
 		Claims claims = Jwts.parser()
 			.setSigningKey(secretKey)
+			.requireIssuer(issuer)
 			.parseClaimsJws(token)
 			.getBody();
 

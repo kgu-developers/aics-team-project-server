@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import kgu.developers.globalutils.jwt.JwtUtil;
 
@@ -95,6 +96,31 @@ class JwtUtilTest {
     String foreign = other.createRefreshToken(STUDENT_NUMBER);
 
     assertThatThrownBy(() -> jwtUtil.parseRefreshTokenSubject(foreign))
+        .isInstanceOf(JwtException.class);
+  }
+
+  @Test
+  @DisplayName("같은 키로 서명됐어도 발급자가 다르면 거부한다")
+  void rejectsTokenFromAnotherIssuer() {
+    JwtUtil other = new JwtUtil(SECRET, "evil@example.com", Duration.ofMinutes(30), Duration.ofDays(14));
+
+    assertThatThrownBy(() -> jwtUtil.parseAccessTokenClaims(other.createAccessToken(STUDENT_NUMBER, "ADMIN")))
+        .isInstanceOf(JwtException.class);
+    assertThatThrownBy(() -> jwtUtil.parseRefreshTokenSubject(other.createRefreshToken(STUDENT_NUMBER)))
+        .isInstanceOf(JwtException.class);
+  }
+
+  @Test
+  @DisplayName("발급자 클레임이 아예 없는 토큰도 거부한다")
+  void rejectsTokenWithoutIssuer() {
+    String noIssuer = Jwts.builder()
+        .setSubject(STUDENT_NUMBER)
+        .claim("type", "access")
+        .setExpiration(new Date(System.currentTimeMillis() + 60_000))
+        .signWith(SignatureAlgorithm.HS256, SECRET.getBytes(UTF_8))
+        .compact();
+
+    assertThatThrownBy(() -> jwtUtil.parseAccessTokenClaims(noIssuer))
         .isInstanceOf(JwtException.class);
   }
 
