@@ -10,6 +10,7 @@ import io.jsonwebtoken.JwtException;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -44,7 +45,7 @@ public class AuthFacade {
         User user = findForRefresh(studentNumber);
         String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
 
-        if (!refreshTokenStore.replace(studentNumber, refreshToken, newRefreshToken)) {
+        if (!rotate(studentNumber, refreshToken, newRefreshToken)) {
             throw new InvalidTokenException();
         }
 
@@ -60,6 +61,14 @@ public class AuthFacade {
             refreshTokenStore.delete(jwtUtil.parseRefreshTokenSubject(refreshToken));
         } catch (JwtException e) {
             // 무시
+        }
+    }
+
+    private boolean rotate(String studentNumber, String refreshToken, String newRefreshToken) {
+        try {
+            return refreshTokenStore.replace(studentNumber, refreshToken, newRefreshToken);
+        } catch (OptimisticLockingFailureException e) {
+            return false;
         }
     }
 

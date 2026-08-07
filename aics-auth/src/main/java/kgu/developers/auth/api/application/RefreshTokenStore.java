@@ -18,6 +18,8 @@ public class RefreshTokenStore {
         refreshTokenRepository.save(new RefreshTokenJpaEntity(studentNumber, refreshToken));
     }
 
+    // 보관 중인 토큰이 expected와 다르면 false. 같더라도 커밋 시점에 @Version이 어긋나면
+    // OptimisticLockingFailureException으로 터지므로, 호출부가 그것도 무효 토큰으로 받는다.
     public boolean replace(String studentNumber, String expected, String replacement) {
         RefreshTokenJpaEntity stored = refreshTokenRepository.findById(studentNumber).orElse(null);
         if (stored == null || !stored.getToken().equals(expected)) {

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import kgu.developers.auth.api.application.AuthFacade;
@@ -113,6 +114,21 @@ class AuthFacadeTest {
     // 탈취본/재사용 요청이 정상 세션의 토큰을 지우면 안 된다.
     verify(refreshTokenStore, never()).save(any(), any());
     verify(refreshTokenStore, never()).delete(any());
+  }
+
+  @Test
+  @DisplayName("refresh는 회전 경쟁에서 밀려 낙관적 락이 깨지면 재발급하지 않는다")
+  void refreshLosingOptimisticLock() {
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
+    given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
+        .willThrow(new OptimisticLockingFailureException("conflict"));
+
+    assertThatThrownBy(() -> userFacade.refresh("refresh-token"))
+        .isInstanceOf(InvalidTokenException.class);
+
+    verify(refreshTokenStore, never()).save(any(), any());
   }
 
   @Test
