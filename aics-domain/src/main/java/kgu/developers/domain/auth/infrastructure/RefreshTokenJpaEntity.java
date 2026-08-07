@@ -20,18 +20,18 @@ public class RefreshTokenJpaEntity {
     @Column(length = 16)
     private String studentNumber;
 
-    @Column(nullable = false, length = 512)
-    private String token;
+    @Column(nullable = false, length = 64)
+    private String tokenHash;
 
     @Version
     private long version;
 
-    public RefreshTokenJpaEntity(String studentNumber, String token) {
+    public RefreshTokenJpaEntity(String studentNumber, String tokenHash) {
         this.studentNumber = studentNumber;
-        this.token = token;
+        this.tokenHash = tokenHash;
     }
 
-    public void updateToken(String token) {
-        this.token = token;
+    public void updateTokenHash(String tokenHash) {
+        this.tokenHash = tokenHash;
     }
 }
