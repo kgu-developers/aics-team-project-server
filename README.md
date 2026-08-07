@@ -48,7 +48,7 @@ createdb -U root aics
 로그에 `Started AicsAdminApplication ...` 이 찍히면 성공입니다. 실제로 요청까지 확인하려면:
 
 ```bash
-curl -u admin:admin http://localhost:8081/api/v1/admin/oop/users
+curl -u admin http://localhost:8081/api/v1/admin/oop/users
 ```
 
 `{"contents":[...]}` 가 오면 정상입니다. 인증 없이 부르면 401, 권한이 `PROFESSOR`가 아니면 403입니다.
