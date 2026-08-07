@@ -25,6 +25,7 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.DuplicateEmailException;
 import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
+import kgu.developers.domain.user.exception.InvalidCredentialsException;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -105,9 +106,10 @@ class UserServiceTest {
   @DisplayName("updatePassword는 평문이 아닌 해시를 저장한다")
   void updatePassword() {
     User user = user();
+    given(passwordEncoder.matches("12345678", "12345678")).willReturn(true);
     given(passwordEncoder.encode("87654321")).willReturn("hashed");
 
-    commandService.updatePassword(user, "87654321");
+    commandService.updatePassword(user, "12345678", "87654321");
 
     assertThat(user.getPassword()).isEqualTo("hashed");
     verify(userRepository).save(user);
@@ -115,12 +117,27 @@ class UserServiceTest {
   }
 
   @Test
+  @DisplayName("updatePassword는 현재 비밀번호가 틀리면 아무것도 바꾸지 않는다")
+  void updatePasswordWithWrongCurrentPassword() {
+    User user = user();
+    given(passwordEncoder.matches("wrong-password", "12345678")).willReturn(false);
+
+    assertThatThrownBy(() -> commandService.updatePassword(user, "wrong-password", "87654321"))
+        .isInstanceOf(InvalidCredentialsException.class);
+
+    assertThat(user.getPassword()).isEqualTo("12345678");
+    verify(userRepository, never()).save(any(User.class));
+    verify(refreshTokenRepository, never()).deleteById(any(String.class));
+  }
+
+  @Test
   @DisplayName("updatePassword가 실패하면 refresh token을 지우지 않는다")
   void updatePasswordDoesNotRevokeOnFailure() {
     User user = user();
+    given(passwordEncoder.matches("12345678", "12345678")).willReturn(true);
     given(passwordEncoder.encode("87654321")).willThrow(new IllegalStateException("boom"));
 
-    assertThatThrownBy(() -> commandService.updatePassword(user, "87654321"))
+    assertThatThrownBy(() -> commandService.updatePassword(user, "12345678", "87654321"))
         .isInstanceOf(IllegalStateException.class);
 
     verify(refreshTokenRepository, never()).deleteById(any(String.class));

@@ -37,7 +37,7 @@ class UserControllerTest {
   private static final String STUDENT_NUMBER = "202699999";
   private static final String OTHER_STUDENT_NUMBER = "202611111";
   private static final String BODY = """
-      {"password":"87654321"}""";
+      {"currentPassword":"12345678","password":"87654321"}""";
 
   @SpringBootConfiguration
   static class TestApp {
@@ -65,7 +65,21 @@ class UserControllerTest {
             .content(BODY))
         .andExpect(status().isOk());
 
-    verify(userFacade).updateUserPassword(STUDENT_NUMBER, new UserUpdateRequest("87654321"));
+    verify(userFacade).updateUserPassword(STUDENT_NUMBER,
+        new UserUpdateRequest("12345678", "87654321"));
+  }
+
+  @Test
+  @DisplayName("현재 비밀번호가 빠지면 400을 응답하고 변경하지 않는다")
+  void updateWithoutCurrentPassword() throws Exception {
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
+            .cookie(accessTokenCookie(STUDENT_NUMBER))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"password":"87654321"}"""))
+        .andExpect(status().isBadRequest());
+
+    verify(userFacade, never()).updateUserPassword(any(), any());
   }
 
   @Test

@@ -15,6 +15,6 @@ public class UserFacade {
 
     public void updateUserPassword(String studentNumber, UserUpdateRequest request) {
         User user = userQueryService.getUserByStudentNumber(studentNumber);
-        userCommandService.updatePassword(user, request.password());
+        userCommandService.updatePassword(user, request.currentPassword(), request.password());
     }
 }

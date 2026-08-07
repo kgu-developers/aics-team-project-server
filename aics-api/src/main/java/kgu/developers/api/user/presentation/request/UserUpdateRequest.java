@@ -9,7 +9,11 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 @Builder
 public record UserUpdateRequest (
-    @Schema(description = "비밀번호", example = "12345678", requiredMode = REQUIRED)
+    @Schema(description = "현재 비밀번호", example = "12345678", requiredMode = REQUIRED)
+    @NotBlank
+    String currentPassword,
+
+    @Schema(description = "새 비밀번호", example = "87654321", requiredMode = REQUIRED)
     @NotBlank
     @Size(min = 8, max = 64)
     String password

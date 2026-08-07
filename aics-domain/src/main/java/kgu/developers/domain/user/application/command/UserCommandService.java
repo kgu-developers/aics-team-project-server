@@ -6,6 +6,7 @@ import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.DuplicateEmailException;
 import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
+import kgu.developers.domain.user.exception.InvalidCredentialsException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -41,8 +42,12 @@ public class UserCommandService {
         revokeRefreshToken(user);
     }
 
-    public void updatePassword(User user, String password) {
-        user.updatePassword(passwordEncoder.encode(password));
+    public void updatePassword(User user, String currentPassword, String newPassword) {
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new InvalidCredentialsException();
+        }
+
+        user.updatePassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         revokeRefreshToken(user);
     }
