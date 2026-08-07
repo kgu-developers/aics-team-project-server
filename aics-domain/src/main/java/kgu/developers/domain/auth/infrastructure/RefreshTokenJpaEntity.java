@@ -26,4 +26,8 @@ public class RefreshTokenJpaEntity {
         this.studentNumber = studentNumber;
         this.token = token;
     }
+
+    public void updateToken(String token) {
+        this.token = token;
+    }
 }

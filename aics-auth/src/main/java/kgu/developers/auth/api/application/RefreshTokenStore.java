@@ -18,12 +18,14 @@ public class RefreshTokenStore {
         refreshTokenRepository.save(new RefreshTokenJpaEntity(studentNumber, refreshToken));
     }
 
-    public String consume(String studentNumber) {
-        String token = refreshTokenRepository.findById(studentNumber)
-            .map(RefreshTokenJpaEntity::getToken)
-            .orElse(null);
-        delete(studentNumber);
-        return token;
+    public boolean replace(String studentNumber, String expected, String replacement) {
+        RefreshTokenJpaEntity stored = refreshTokenRepository.findById(studentNumber).orElse(null);
+        if (stored == null || !stored.getToken().equals(expected)) {
+            return false;
+        }
+
+        stored.updateToken(replacement);
+        return true;
     }
 
     public void delete(String studentNumber) {

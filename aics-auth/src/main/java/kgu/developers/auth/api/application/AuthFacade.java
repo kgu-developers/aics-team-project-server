@@ -34,19 +34,21 @@ public class AuthFacade {
             throw new InvalidTokenException();
         }
 
-        String student_number;
+        String studentNumber;
         try {
-            student_number = jwtUtil.parseRefreshTokenSubject(refreshToken);
+            studentNumber = jwtUtil.parseRefreshTokenSubject(refreshToken);
         } catch (JwtException e) {
             throw new InvalidTokenException();
         }
 
-        // 서명이 유효해도 서버에 저장된 토큰과 다르면(이미 썼거나 탈취본이면) 거부한다.
-        if (!refreshToken.equals(refreshTokenStore.consume(student_number))) {
+        User user = findForRefresh(studentNumber);
+        String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
+
+        if (!refreshTokenStore.replace(studentNumber, refreshToken, newRefreshToken)) {
             throw new InvalidTokenException();
         }
 
-        return issue(findForRefresh(student_number));
+        return tokens(user, newRefreshToken);
     }
 
     // 쿠키가 없거나 깨졌으면 지울 것도 없다. 로그아웃 자체는 성공시킨다.
@@ -64,6 +66,10 @@ public class AuthFacade {
     private LoginResponse issue(User user) {
         String refreshToken = jwtUtil.createRefreshToken(user.getStudentNumber());
         refreshTokenStore.save(user.getStudentNumber(), refreshToken);
+        return tokens(user, refreshToken);
+    }
+
+    private LoginResponse tokens(User user, String refreshToken) {
         return LoginResponse.of(
                 jwtUtil.createAccessToken(user.getStudentNumber(), user.getGlobalRole().name()),
                 refreshToken);
