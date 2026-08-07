@@ -1,8 +1,10 @@
 package user.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +22,7 @@ import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
 
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -49,6 +52,18 @@ class UserServiceTest {
     ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
     verify(userRepository).save(captor.capture());
     assertThat(captor.getValue().getPassword()).isEqualTo("hashed");
+  }
+
+  @Test
+  @DisplayName("createUser는 이미 있는 학번이면 DuplicateStudentNumberException을 던진다")
+  void createUserWithDuplicateStudentNumber() {
+    given(userRepository.existsByStudentNumber("202699999")).willReturn(true);
+
+    assertThatThrownBy(() -> commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수",
+        "12345678", STUDENT, "010-1234-6789"))
+        .isInstanceOf(DuplicateStudentNumberException.class);
+
+    verify(userRepository, never()).save(any(User.class));
   }
 
   @Test

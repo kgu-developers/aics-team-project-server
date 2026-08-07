@@ -1,10 +1,9 @@
 package kgu.developers.domain.user.application.command;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +18,9 @@ public class UserCommandService {
 
     public String createUser(String student_number, String email, String name, String password,
                              UserGlobalRole global_role, String phone) {
+        if (UserRepository.existsByStudentNumber(student_number)) {
+            throw new DuplicateStudentNumberException();
+        }
         User user = User.create(student_number, email, name, passwordEncoder.encode(password), global_role, phone);
         return UserRepository.save(user).getStudent_number();
     }
