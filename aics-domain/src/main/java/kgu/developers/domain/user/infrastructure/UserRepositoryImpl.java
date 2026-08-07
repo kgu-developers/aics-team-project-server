@@ -22,13 +22,13 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public boolean existsByStudentNumber(String student_number) {
-        return jpaUserRepository.existsById(student_number);
+    public boolean existsByStudentNumber(String studentNumber) {
+        return jpaUserRepository.existsById(studentNumber);
     }
 
     @Override
-    public Optional<User> findByStudentNumber(String student_number) {
-        Optional<UserJpaEntity> optionalEntity = jpaUserRepository.findByStudentNumberAndDeletedAtIsNull(student_number);
+    public Optional<User> findByStudentNumber(String studentNumber) {
+        Optional<UserJpaEntity> optionalEntity = jpaUserRepository.findByStudentNumberAndDeletedAtIsNull(studentNumber);
         return optionalEntity.map(UserJpaEntity::toDomain);
     }
 

@@ -41,28 +41,28 @@ public class UserJpaEntity extends BaseTimeEntity {
 
     public User toDomain() {
         return User.builder()
-                .student_number(studentNumber)
+                .studentNumber(studentNumber)
                 .email(email)
                 .name(name)
                 .password(password)
-                .global_role(globalRole)
+                .globalRole(globalRole)
                 .phone(phone)
-                .created_at(getCreatedAt())
-                .updated_at(getUpdatedAt())
-                .deleted_at(getDeletedAt())
+                .createdAt(getCreatedAt())
+                .updatedAt(getUpdatedAt())
+                .deletedAt(getDeletedAt())
                 .build();
     }
 
     public static UserJpaEntity toEntity(User user) {
         UserJpaEntity entity = UserJpaEntity.builder()
-                .studentNumber(user.getStudent_number())
+                .studentNumber(user.getStudentNumber())
                 .email(user.getEmail())
                 .name(user.getName())
                 .password(user.getPassword())
-                .globalRole(user.getGlobal_role())
+                .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
                 .build();
-        entity.setDeletedAt(user.getDeleted_at());
+        entity.setDeletedAt(user.getDeletedAt());
         return entity;
     }
 }

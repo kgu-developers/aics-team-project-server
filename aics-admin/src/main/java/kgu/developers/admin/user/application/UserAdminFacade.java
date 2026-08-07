@@ -17,22 +17,22 @@ public class UserAdminFacade {
     private final UserQueryService userQueryService;
 
     public UserAdminPersistResponse createUser(UserAdminRequest request) {
-        String student_number = userCommandService.createUser(request.student_number(), request.email(), request.name(), request.password(), request.global_role(), request.phone());
-        return UserAdminPersistResponse.of(student_number);
+        String studentNumber = userCommandService.createUser(request.studentNumber(), request.email(), request.name(), request.password(), request.globalRole(), request.phone());
+        return UserAdminPersistResponse.of(studentNumber);
     }
 
-    public void updateUser(String student_number, UserAdminRequest request) {
-        User user = userQueryService.getUserByStudentNumber(student_number);
-        userCommandService.updateUser(user, request.name(), request.password(), request.global_role(), request.phone());
+    public void updateUser(String studentNumber, UserAdminRequest request) {
+        User user = userQueryService.getUserByStudentNumber(studentNumber);
+        userCommandService.updateUser(user, request.name(), request.password(), request.globalRole(), request.phone());
     }
 
-    public void deleteUser(String student_number) {
-        User user = userQueryService.getUserByStudentNumber(student_number);
+    public void deleteUser(String studentNumber) {
+        User user = userQueryService.getUserByStudentNumber(studentNumber);
         userCommandService.deleteUser(user);
     }
 
-    public UserAdminResponse getUserByStudentNumber(String student_number) {
-        return UserAdminResponse.from(userQueryService.getUserByStudentNumber(student_number));
+    public UserAdminResponse getUserByStudentNumber(String studentNumber) {
+        return UserAdminResponse.from(userQueryService.getUserByStudentNumber(studentNumber));
     }
 
     public UserAdminListResponse getAllUsers() {

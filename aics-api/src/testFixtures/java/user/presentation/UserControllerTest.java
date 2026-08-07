@@ -52,14 +52,14 @@ class UserControllerTest {
   @MockitoBean
   private UserFacade userFacade;
 
-  private Cookie accessTokenCookie(String student_number) {
-    return new Cookie("accessToken", jwtUtil.createAccessToken(student_number, "STUDENT"));
+  private Cookie accessTokenCookie(String studentNumber) {
+    return new Cookie("accessToken", jwtUtil.createAccessToken(studentNumber, "STUDENT"));
   }
 
   @Test
   @DisplayName("본인 학번이면 비밀번호를 변경한다")
   void updateOwnPassword() throws Exception {
-    mockMvc.perform(put("/api/v1/oop/users/{student_number}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .cookie(accessTokenCookie(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
@@ -71,7 +71,7 @@ class UserControllerTest {
   @Test
   @DisplayName("다른 사람 학번이면 403을 응답하고 변경하지 않는다")
   void updateOthersPassword() throws Exception {
-    mockMvc.perform(put("/api/v1/oop/users/{student_number}/password", OTHER_STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", OTHER_STUDENT_NUMBER)
             .cookie(accessTokenCookie(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
@@ -83,7 +83,7 @@ class UserControllerTest {
   @Test
   @DisplayName("토큰이 없으면 401을 응답한다")
   void updateWithoutToken() throws Exception {
-    mockMvc.perform(put("/api/v1/oop/users/{student_number}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
         .andExpect(status().isUnauthorized());

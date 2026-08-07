@@ -13,8 +13,8 @@ public class UserFacade {
     private final UserCommandService userCommandService;
     private final UserQueryService userQueryService;
 
-    public void updateUserPassword(String student_number, UserUpdateRequest request) {
-        User user = userQueryService.getUserByStudentNumber(student_number);
+    public void updateUserPassword(String studentNumber, UserUpdateRequest request) {
+        User user = userQueryService.getUserByStudentNumber(studentNumber);
         userCommandService.updatePassword(user, request.password());
     }
 }

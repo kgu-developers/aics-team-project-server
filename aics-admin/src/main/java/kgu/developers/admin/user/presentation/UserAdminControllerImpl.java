@@ -28,10 +28,10 @@ public class UserAdminControllerImpl implements UserAdminController {
   }
 
   @Override
-  @GetMapping("/{student_number}")
+  @GetMapping("/{studentNumber}")
   public ResponseEntity<UserAdminResponse> getUserByStudentNumber(
-      @NotBlank @PathVariable String student_number) {
-    UserAdminResponse response = userAdminFacade.getUserByStudentNumber(student_number);
+      @NotBlank @PathVariable String studentNumber) {
+    UserAdminResponse response = userAdminFacade.getUserByStudentNumber(studentNumber);
     return ResponseEntity.ok(response);
   }
 
@@ -43,19 +43,19 @@ public class UserAdminControllerImpl implements UserAdminController {
   }
 
   @Override
-  @PutMapping("/{student_number}")
+  @PutMapping("/{studentNumber}")
   public ResponseEntity<Void> updateUser(
-      @NotBlank @PathVariable String student_number,
+      @NotBlank @PathVariable String studentNumber,
       @Valid @RequestBody UserAdminRequest request) {
-    userAdminFacade.updateUser(student_number, request);
+    userAdminFacade.updateUser(studentNumber, request);
     return ResponseEntity.noContent().build();
   }
 
   @Override
-  @DeleteMapping("/{student_number}")
+  @DeleteMapping("/{studentNumber}")
   public ResponseEntity<Void> deleteUser(
-      @NotBlank @PathVariable String student_number) {
-    userAdminFacade.deleteUser(student_number);
+      @NotBlank @PathVariable String studentNumber) {
+    userAdminFacade.deleteUser(studentNumber);
     return ResponseEntity.noContent().build();
   }
 }

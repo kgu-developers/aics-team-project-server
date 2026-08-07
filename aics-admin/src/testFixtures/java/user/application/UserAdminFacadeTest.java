@@ -49,7 +49,7 @@ class UserAdminFacadeTest {
     given(userCommandService.createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT,
         "010-1234-6789")).willReturn(STUDENT_NUMBER);
 
-    assertThat(userAdminFacade.createUser(request).student_number()).isEqualTo(STUDENT_NUMBER);
+    assertThat(userAdminFacade.createUser(request).studentNumber()).isEqualTo(STUDENT_NUMBER);
 
     verify(userCommandService).createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT,
         "010-1234-6789");

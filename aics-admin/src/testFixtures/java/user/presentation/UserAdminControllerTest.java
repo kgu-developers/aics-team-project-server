@@ -66,7 +66,7 @@ class UserAdminControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.student_number").value(STUDENT_NUMBER));
+        .andExpect(jsonPath("$.studentNumber").value(STUDENT_NUMBER));
   }
 
   @Test
@@ -100,7 +100,7 @@ class UserAdminControllerTest {
 
     mockMvc.perform(get(BASE_URL + "/" + STUDENT_NUMBER))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.student_number").value(STUDENT_NUMBER))
+        .andExpect(jsonPath("$.studentNumber").value(STUDENT_NUMBER))
         .andExpect(jsonPath("$.name").value("김철수"))
         .andExpect(jsonPath("$.password").doesNotExist());
   }

@@ -76,7 +76,7 @@ class UserServiceTest {
 
     assertThat(user.getName()).isEqualTo("김영희");
     assertThat(user.getPassword()).isEqualTo("hashed");
-    assertThat(user.getGlobal_role()).isEqualTo(PROFESSOR);
+    assertThat(user.getGlobalRole()).isEqualTo(PROFESSOR);
     verify(userRepository).save(user);
   }
 
@@ -99,7 +99,7 @@ class UserServiceTest {
 
     commandService.deleteUser(user);
 
-    assertThat(user.getDeleted_at()).isNotNull();
+    assertThat(user.getDeletedAt()).isNotNull();
     verify(userRepository).save(user);
   }
 }

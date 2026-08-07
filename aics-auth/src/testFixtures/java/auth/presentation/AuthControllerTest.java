@@ -31,7 +31,7 @@ class AuthControllerTest {
 
   private static final String URL = "/api/v1/oop/auth/login";
   private static final String BODY = """
-      {"student_number":"202699999","password":"12345678"}""";
+      {"studentNumber":"202699999","password":"12345678"}""";
 
   @Mock
   private AuthFacade authFacade;

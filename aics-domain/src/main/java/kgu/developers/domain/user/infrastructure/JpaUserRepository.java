@@ -6,7 +6,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JpaUserRepository extends JpaRepository<UserJpaEntity, String> {
-    Optional<UserJpaEntity> findByStudentNumberAndDeletedAtIsNull(String student_number);
+    Optional<UserJpaEntity> findByStudentNumberAndDeletedAtIsNull(String studentNumber);
 
     List<UserJpaEntity> findAllByDeletedAtIsNullOrderByStudentNumberAsc();
 }

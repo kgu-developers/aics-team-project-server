@@ -16,19 +16,19 @@ public class UserCommandService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public String createUser(String student_number, String email, String name, String password,
-                             UserGlobalRole global_role, String phone) {
-        if (userRepository.existsByStudentNumber(student_number)) {
+    public String createUser(String studentNumber, String email, String name, String password,
+                             UserGlobalRole globalRole, String phone) {
+        if (userRepository.existsByStudentNumber(studentNumber)) {
             throw new DuplicateStudentNumberException();
         }
-        User user = User.create(student_number, email, name, passwordEncoder.encode(password), global_role, phone);
-        return userRepository.save(user).getStudent_number();
+        User user = User.create(studentNumber, email, name, passwordEncoder.encode(password), globalRole, phone);
+        return userRepository.save(user).getStudentNumber();
     }
 
-    public void updateUser(User user, String name, String password, UserGlobalRole global_role, String phone) {
+    public void updateUser(User user, String name, String password, UserGlobalRole globalRole, String phone) {
         user.updateName(name);
         user.updatePassword(passwordEncoder.encode(password));
-        user.updateGlobalRole(global_role);
+        user.updateGlobalRole(globalRole);
         user.updatePhone(phone);
         userRepository.save(user);
     }

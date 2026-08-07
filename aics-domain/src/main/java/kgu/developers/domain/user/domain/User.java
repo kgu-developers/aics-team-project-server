@@ -10,26 +10,26 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class User {
-    private String student_number;
+    private String studentNumber;
     private String email;
     private String name;
     private String password;
 
-    private UserGlobalRole global_role;
+    private UserGlobalRole globalRole;
     private String phone;
 
-    protected LocalDateTime created_at;
-    protected LocalDateTime updated_at;
-    protected LocalDateTime deleted_at;
+    protected LocalDateTime createdAt;
+    protected LocalDateTime updatedAt;
+    protected LocalDateTime deletedAt;
 
-    public static User create(String student_number, String email, String name, String password,
-                                 UserGlobalRole global_role, String phone) {
+    public static User create(String studentNumber, String email, String name, String password,
+                                 UserGlobalRole globalRole, String phone) {
         return User.builder()
-                .student_number(student_number)
+                .studentNumber(studentNumber)
                 .email(email)
                 .name(name)
                 .password(password)
-                .global_role(global_role)
+                .globalRole(globalRole)
                 .phone(phone)
                 .build();
     }
@@ -42,8 +42,8 @@ public class User {
         this.password = password;
     }
 
-    public void updateGlobalRole(UserGlobalRole global_role) {
-        this.global_role = global_role;
+    public void updateGlobalRole(UserGlobalRole globalRole) {
+        this.globalRole = globalRole;
     }
 
     public void updatePhone(String phone) {
@@ -51,6 +51,6 @@ public class User {
     }
 
     public void delete() {
-        deleted_at = LocalDateTime.now();
+        deletedAt = LocalDateTime.now();
     }
 }

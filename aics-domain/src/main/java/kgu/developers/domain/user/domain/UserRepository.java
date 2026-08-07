@@ -6,9 +6,9 @@ import java.util.Optional;
 public interface UserRepository {
     User save(User user);
 
-    boolean existsByStudentNumber(String student_number);
+    boolean existsByStudentNumber(String studentNumber);
 
-    Optional<User> findByStudentNumber(String student_number);
+    Optional<User> findByStudentNumber(String studentNumber);
 
     List<User> findAllOrderByStudentNumber();
 }

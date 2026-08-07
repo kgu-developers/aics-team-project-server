@@ -12,7 +12,7 @@ import lombok.Builder;
 @Builder
 public record UserResponse(
         @Schema(description = "학번", example = "202699999", requiredMode = REQUIRED)
-        String student_number,
+        String studentNumber,
 
         @Schema(description = "이메일", example = "kgu@kyonggi.ac.kr", requiredMode = REQUIRED)
         String email,
@@ -21,26 +21,26 @@ public record UserResponse(
         String name,
 
         @Schema(description = "권한", example = "STUDENT", requiredMode = REQUIRED)
-        UserGlobalRole global_role,
+        UserGlobalRole globalRole,
 
         @Schema(description = "전화번호", example = "010-1234-6789", requiredMode = REQUIRED)
         String phone,
 
         @Schema(description = "생성 일시")
-        LocalDateTime created_at,
+        LocalDateTime createdAt,
 
         @Schema(description = "수정 일시")
-        LocalDateTime updated_at
+        LocalDateTime updatedAt
 ) {
     public static UserResponse from(User user) {
         return UserResponse.builder()
-                .student_number(user.getStudent_number())
+                .studentNumber(user.getStudentNumber())
                 .email(user.getEmail())
                 .name(user.getName())
-                .global_role(user.getGlobal_role())
+                .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
-                .created_at(user.getCreated_at())
-                .updated_at(user.getUpdated_at())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
                 .build();
     }
 }

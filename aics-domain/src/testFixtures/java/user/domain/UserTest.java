@@ -21,13 +21,13 @@ class UserTest {
   void create() {
     User user = user();
 
-    assertThat(user.getStudent_number()).isEqualTo("202699999");
+    assertThat(user.getStudentNumber()).isEqualTo("202699999");
     assertThat(user.getEmail()).isEqualTo("kgu@kyonggi.ac.kr");
     assertThat(user.getName()).isEqualTo("김철수");
     assertThat(user.getPassword()).isEqualTo("12345678");
-    assertThat(user.getGlobal_role()).isEqualTo(STUDENT);
+    assertThat(user.getGlobalRole()).isEqualTo(STUDENT);
     assertThat(user.getPhone()).isEqualTo("010-1234-6789");
-    assertThat(user.getDeleted_at()).isNull();
+    assertThat(user.getDeletedAt()).isNull();
   }
 
   @Test
@@ -42,7 +42,7 @@ class UserTest {
 
     assertThat(user.getName()).isEqualTo("김영희");
     assertThat(user.getPassword()).isEqualTo("87654321");
-    assertThat(user.getGlobal_role()).isEqualTo(PROFESSOR);
+    assertThat(user.getGlobalRole()).isEqualTo(PROFESSOR);
     assertThat(user.getPhone()).isEqualTo("010-9876-5432");
   }
 
@@ -53,7 +53,7 @@ class UserTest {
 
     user.updateName("김영희");
 
-    assertThat(user.getStudent_number()).isEqualTo("202699999");
+    assertThat(user.getStudentNumber()).isEqualTo("202699999");
     assertThat(user.getEmail()).isEqualTo("kgu@kyonggi.ac.kr");
   }
 
@@ -64,6 +64,6 @@ class UserTest {
 
     user.delete();
 
-    assertThat(user.getDeleted_at()).isNotNull();
+    assertThat(user.getDeletedAt()).isNotNull();
   }
 }

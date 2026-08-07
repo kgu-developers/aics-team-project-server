@@ -23,7 +23,7 @@ public interface UserController {
 			description = "학번은 URL 경로 변수 입니다.",
 			example = "202699999",
 			required = true
-		) @NotBlank @PathVariable String student_number,
+		) @NotBlank @PathVariable String studentNumber,
 		@Parameter(
 			description = "비밀번호 변경 request 객체 입니다.",
 			required = true

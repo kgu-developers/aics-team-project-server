@@ -10,7 +10,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 public record LoginRequest(
         @Schema(description = "학번", example = "202699999", requiredMode = REQUIRED)
         @NotBlank
-        String student_number,
+        String studentNumber,
 
         @Schema(description = "비밀번호", example = "12345678", requiredMode = REQUIRED)
         @NotBlank

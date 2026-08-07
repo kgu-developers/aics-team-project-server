@@ -19,8 +19,8 @@ public class UserQueryService {
         return userRepository.findAllOrderByStudentNumber();
     }
 
-    public User getUserByStudentNumber(String student_number) {
-        return userRepository.findByStudentNumber(student_number)
+    public User getUserByStudentNumber(String studentNumber) {
+        return userRepository.findByStudentNumber(studentNumber)
                 .orElseThrow(UserNotFoundException::new);
     }
 }

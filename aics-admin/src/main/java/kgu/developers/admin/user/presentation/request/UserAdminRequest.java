@@ -15,7 +15,7 @@ public record UserAdminRequest(
         @Schema(description = "학번", example = "202699999", requiredMode = REQUIRED)
         @NotBlank
         @Size(max = 16)
-        String student_number,
+        String studentNumber,
 
         @Schema(description = "이메일", example = "kgu@kyonggi.ac.kr", requiredMode = REQUIRED)
         @NotBlank
@@ -35,7 +35,7 @@ public record UserAdminRequest(
 
         @Schema(description = "권한", example = "STUDENT", requiredMode = REQUIRED)
         @NotNull
-        UserGlobalRole global_role,
+        UserGlobalRole globalRole,
 
         @Schema(description = "전화번호", example = "010-1234-6789", requiredMode = REQUIRED)
         @NotBlank

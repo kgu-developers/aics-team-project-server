@@ -22,17 +22,16 @@ public class UserControllerImpl implements UserController {
   private final UserFacade userFacade;
 
   @Override
-  @PutMapping("/{student_number}/password")
+  @PutMapping("/{studentNumber}/password")
   public ResponseEntity<String> updateUserPassword(
-      @NotBlank @PathVariable String student_number,
+      @NotBlank @PathVariable String studentNumber,
       @Valid @RequestBody UserUpdateRequest request) {
-    // 토큰 subject(= 본인 학번)와 경로변수가 다르면 403. 남의 비밀번호 변경 차단.
     String loginStudentNumber = SecurityContextHolder.getContext().getAuthentication().getName();
-    if (!student_number.equals(loginStudentNumber)) {
+    if (!studentNumber.equals(loginStudentNumber)) {
       throw new AccessDeniedException("본인의 비밀번호만 변경할 수 있습니다.");
     }
 
-    userFacade.updateUserPassword(student_number, request);
+    userFacade.updateUserPassword(studentNumber, request);
     return ResponseEntity.ok("Password changed successfully");
   }
 }

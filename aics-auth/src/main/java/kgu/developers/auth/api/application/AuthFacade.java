@@ -21,13 +21,13 @@ public class AuthFacade {
     private final PasswordEncoder passwordEncoder;
 
     public LoginResponse login(LoginRequest request) {
-        User user = findForLogin(request.student_number());
+        User user = findForLogin(request.studentNumber());
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
         return LoginResponse.of(
-                jwtUtil.createAccessToken(user.getStudent_number(), user.getGlobal_role().name()),
-                jwtUtil.createRefreshToken(user.getStudent_number()));
+                jwtUtil.createAccessToken(user.getStudentNumber(), user.getGlobalRole().name()),
+                jwtUtil.createRefreshToken(user.getStudentNumber()));
     }
 
     public LoginResponse refresh(String refreshToken) {
@@ -44,8 +44,8 @@ public class AuthFacade {
 
         User user = findForRefresh(student_number);
         return LoginResponse.of(
-                jwtUtil.createAccessToken(user.getStudent_number(), user.getGlobal_role().name()),
-                jwtUtil.createRefreshToken(user.getStudent_number()));
+                jwtUtil.createAccessToken(user.getStudentNumber(), user.getGlobalRole().name()),
+                jwtUtil.createRefreshToken(user.getStudentNumber()));
     }
 
     private User findForRefresh(String student_number) {
