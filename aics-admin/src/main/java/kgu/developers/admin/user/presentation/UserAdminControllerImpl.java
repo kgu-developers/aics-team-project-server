@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import kgu.developers.admin.user.application.UserAdminFacade;
 import kgu.developers.admin.user.presentation.request.UserAdminRequest;
+import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminPersistResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
@@ -46,7 +47,7 @@ public class UserAdminControllerImpl implements UserAdminController {
   @PutMapping("/{studentNumber}")
   public ResponseEntity<Void> updateUser(
       @NotBlank @PathVariable String studentNumber,
-      @Valid @RequestBody UserAdminRequest request) {
+      @Valid @RequestBody UserAdminUpdateRequest request) {
     userAdminFacade.updateUser(studentNumber, request);
     return ResponseEntity.noContent().build();
   }

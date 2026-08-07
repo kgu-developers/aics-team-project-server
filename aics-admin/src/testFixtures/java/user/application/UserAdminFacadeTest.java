@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.admin.user.application.UserAdminFacade;
 import kgu.developers.admin.user.presentation.request.UserAdminRequest;
+import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -39,6 +40,9 @@ class UserAdminFacadeTest {
   private final UserAdminRequest request =
       new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
 
+  private final UserAdminUpdateRequest updateRequest =
+      new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", STUDENT, "010-9876-5432");
+
   private User user() {
     return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
   }
@@ -61,9 +65,10 @@ class UserAdminFacadeTest {
     User user = user();
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
 
-    userAdminFacade.updateUser(STUDENT_NUMBER, request);
+    userAdminFacade.updateUser(STUDENT_NUMBER, updateRequest);
 
-    verify(userCommandService).updateUser(user, "김철수", "12345678", STUDENT, "010-1234-6789");
+    verify(userCommandService).updateUser(user, "new@kyonggi.ac.kr", "김영희", "87654321", STUDENT,
+        "010-9876-5432");
   }
 
   @Test

@@ -1,6 +1,7 @@
 package kgu.developers.admin.user.application;
 
 import kgu.developers.admin.user.presentation.request.UserAdminRequest;
+import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminPersistResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
@@ -21,9 +22,10 @@ public class UserAdminFacade {
         return UserAdminPersistResponse.of(studentNumber);
     }
 
-    public void updateUser(String studentNumber, UserAdminRequest request) {
+    public void updateUser(String studentNumber, UserAdminUpdateRequest request) {
         User user = userQueryService.getUserByStudentNumber(studentNumber);
-        userCommandService.updateUser(user, request.name(), request.password(), request.globalRole(), request.phone());
+        userCommandService.updateUser(user, request.email(), request.name(), request.password(), request.globalRole(),
+                request.phone());
     }
 
     public void deleteUser(String studentNumber) {

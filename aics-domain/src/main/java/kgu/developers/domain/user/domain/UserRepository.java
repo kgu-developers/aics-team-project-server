@@ -8,6 +8,8 @@ public interface UserRepository {
 
     boolean existsByStudentNumber(String studentNumber);
 
+    boolean existsByEmailAndStudentNumberNot(String email, String studentNumber);
+
     Optional<User> findByStudentNumber(String studentNumber);
 
     List<User> findAllOrderByStudentNumber();

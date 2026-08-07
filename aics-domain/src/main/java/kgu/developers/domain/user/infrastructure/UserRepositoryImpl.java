@@ -27,6 +27,11 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public boolean existsByEmailAndStudentNumberNot(String email, String studentNumber) {
+        return jpaUserRepository.existsByEmailAndStudentNumberNot(email, studentNumber);
+    }
+
+    @Override
     public Optional<User> findByStudentNumber(String studentNumber) {
         Optional<UserJpaEntity> optionalEntity = jpaUserRepository.findByStudentNumberAndDeletedAtIsNull(studentNumber);
         return optionalEntity.map(UserJpaEntity::toDomain);

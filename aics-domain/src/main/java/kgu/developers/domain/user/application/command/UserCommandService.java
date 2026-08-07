@@ -3,6 +3,7 @@ package kgu.developers.domain.user.application.command;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.DuplicateEmailException;
 import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,11 +22,15 @@ public class UserCommandService {
         if (userRepository.existsByStudentNumber(studentNumber)) {
             throw new DuplicateStudentNumberException();
         }
+        checkEmailAvailable(email, studentNumber);
         User user = User.create(studentNumber, email, name, passwordEncoder.encode(password), globalRole, phone);
         return userRepository.save(user).getStudentNumber();
     }
 
-    public void updateUser(User user, String name, String password, UserGlobalRole globalRole, String phone) {
+    public void updateUser(User user, String email, String name, String password, UserGlobalRole globalRole,
+                           String phone) {
+        checkEmailAvailable(email, user.getStudentNumber());
+        user.updateEmail(email);
         user.updateName(name);
         user.updatePassword(passwordEncoder.encode(password));
         user.updateGlobalRole(globalRole);
@@ -41,5 +46,11 @@ public class UserCommandService {
     public void deleteUser(User user) {
         user.delete();
         userRepository.save(user);
+    }
+
+    private void checkEmailAvailable(String email, String studentNumber) {
+        if (userRepository.existsByEmailAndStudentNumberNot(email, studentNumber)) {
+            throw new DuplicateEmailException();
+        }
     }
 }

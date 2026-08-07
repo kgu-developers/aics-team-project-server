@@ -22,6 +22,7 @@ import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
 
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.DuplicateEmailException;
 import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
 
 @ExtendWith(MockitoExtension.class)
@@ -72,12 +73,27 @@ class UserServiceTest {
     User user = user();
     given(passwordEncoder.encode("87654321")).willReturn("hashed");
 
-    commandService.updateUser(user, "김영희", "87654321", PROFESSOR, "010-9876-5432");
+    commandService.updateUser(user, "new@kyonggi.ac.kr", "김영희", "87654321", PROFESSOR, "010-9876-5432");
 
+    assertThat(user.getEmail()).isEqualTo("new@kyonggi.ac.kr");
     assertThat(user.getName()).isEqualTo("김영희");
     assertThat(user.getPassword()).isEqualTo("hashed");
     assertThat(user.getGlobalRole()).isEqualTo(PROFESSOR);
     verify(userRepository).save(user);
+  }
+
+  @Test
+  @DisplayName("updateUser는 다른 회원이 쓰는 이메일이면 DuplicateEmailException을 던진다")
+  void updateUserWithDuplicateEmail() {
+    User user = user();
+    given(userRepository.existsByEmailAndStudentNumberNot("taken@kyonggi.ac.kr", "202699999"))
+        .willReturn(true);
+
+    assertThatThrownBy(() -> commandService.updateUser(user, "taken@kyonggi.ac.kr", "김영희", "87654321",
+        PROFESSOR, "010-9876-5432"))
+        .isInstanceOf(DuplicateEmailException.class);
+
+    verify(userRepository, never()).save(any(User.class));
   }
 
   @Test

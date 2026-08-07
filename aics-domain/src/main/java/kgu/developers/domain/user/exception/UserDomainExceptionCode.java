@@ -17,6 +17,7 @@ public enum UserDomainExceptionCode implements ExceptionCode {
     INVALID_CREDENTIALS(UNAUTHORIZED, "학번 또는 비밀번호가 올바르지 않습니다."),
     INVALID_TOKEN(UNAUTHORIZED, "유효하지 않은 토큰입니다."),
     DUPLICATE_STUDENT_NUMBER(CONFLICT, "이미 존재하는 학번입니다."),
+    DUPLICATE_EMAIL(CONFLICT, "이미 사용 중인 이메일입니다."),
     ;
 
     private final HttpStatus status;

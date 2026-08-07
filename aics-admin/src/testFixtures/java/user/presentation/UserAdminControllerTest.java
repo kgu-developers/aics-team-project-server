@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.admin.user.application.UserAdminFacade;
 import kgu.developers.admin.user.presentation.UserAdminControllerImpl;
 import kgu.developers.admin.user.presentation.request.UserAdminRequest;
+import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminPersistResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
@@ -47,6 +48,9 @@ class UserAdminControllerTest {
 
   private final UserAdminRequest request =
       new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+
+  private final UserAdminUpdateRequest updateRequest =
+      new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", STUDENT, "010-9876-5432");
 
   @BeforeEach
   void setUp() {
@@ -121,10 +125,10 @@ class UserAdminControllerTest {
   void updateUser() throws Exception {
     mockMvc.perform(put(BASE_URL + "/" + STUDENT_NUMBER)
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+            .content(objectMapper.writeValueAsString(updateRequest)))
         .andExpect(status().isNoContent());
 
-    verify(userAdminFacade).updateUser(STUDENT_NUMBER, request);
+    verify(userAdminFacade).updateUser(STUDENT_NUMBER, updateRequest);
   }
 
   @Test

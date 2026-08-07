@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import kgu.developers.admin.user.presentation.request.UserAdminRequest;
+import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminPersistResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
@@ -67,7 +68,7 @@ public interface UserAdminController {
 		@Parameter(
 			description = "유저 수정 request 객체 입니다.",
 			required = true
-		) @Valid @RequestBody UserAdminRequest request
+		) @Valid @RequestBody UserAdminUpdateRequest request
 	);
 
 	@Operation(summary = "유저 삭제 API", description = """
