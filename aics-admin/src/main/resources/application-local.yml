@@ -1,4 +1,9 @@
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -18,9 +23,8 @@ spring:
       password: "$2a$10$nKxI21dQHbHpp4SRpVmIBOp1j6YjpAE0GW79cVz.6M01em.9TTXjm"
       roles: PROFESSOR
 
-# 로컬 전용 값. dev/prod는 환경변수로 주입한다.
 file:
-  secret-key: ${FILE_SECRET_KEY:local-dev-key-16}
+  secret-key: ${FILE_SECRET_KEY}
 
 jwt:
-  secret_key: ${JWT_SECRET_KEY:bG9jYWwtZGV2LWp3dC1rZXktbG9jYWwtZGV2LWp3dC1rZXk=}
+  secret_key: ${JWT_SECRET_KEY}

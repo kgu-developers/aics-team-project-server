@@ -1,4 +1,9 @@
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -11,10 +16,8 @@ spring:
     redis:
       password: ${REDIS_PASSWORD:}
 
-# 로컬 전용 값. dev/prod는 환경변수로 주입한다.
 file:
-  secret-key: ${FILE_SECRET_KEY:local-dev-key-16}
+  secret-key: ${FILE_SECRET_KEY}
 
 jwt:
-  # auth 서버와 같은 키여야 발급한 토큰을 여기서 검증할 수 있다.
-  secret_key: ${JWT_SECRET_KEY:bG9jYWwtZGV2LWp3dC1rZXktbG9jYWwtZGV2LWp3dC1rZXk=}
+  secret_key: ${JWT_SECRET_KEY}

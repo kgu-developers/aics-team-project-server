@@ -42,5 +42,8 @@ out/
 ## macOS
 .DS_Store
 
+## 환경변수
+.env
+
 ## Frontend Example ##
 frontend-example/
