@@ -31,6 +31,27 @@ class JwtUtilTest {
   }
 
   @Test
+  @DisplayName("32바이트 미만 키는 기동 시점에 거부한다 (HS256 최소 키 길이)")
+  void rejectsShortSecretKey() {
+    String shortKey = "0123456789abcdef0123456789abcde";  // 31바이트
+
+    assertThatThrownBy(
+        () -> new JwtUtil(shortKey, ISSUER, Duration.ofMinutes(30), Duration.ofDays(14)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("31바이트")
+        .hasMessageNotContaining(shortKey);
+  }
+
+  @Test
+  @DisplayName("정확히 32바이트인 키는 받아들인다")
+  void acceptsMinimumLengthSecretKey() {
+    String key = "0123456789abcdef0123456789abcdef";  // 32바이트
+
+    assertThat(new JwtUtil(key, ISSUER, Duration.ofMinutes(30), Duration.ofDays(14))
+        .createRefreshToken(STUDENT_NUMBER)).isNotBlank();
+  }
+
+  @Test
   @DisplayName("accessToken은 학번을 subject로, 발급자와 만료를 담는다")
   void createAccessToken() {
     Claims claims = claimsOf(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT"));
