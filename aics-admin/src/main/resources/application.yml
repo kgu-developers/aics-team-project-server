@@ -52,11 +52,14 @@ springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
   swagger-ui:
+    enabled: false
     operations-sorter: alpha
     tags-sorter: alpha
+  api-docs:
+    enabled: false
 
 jwt:
-  issuer: ${JWT_ISSUER:kgudevelopers@gmail.com}
+  issuer: ${JWT_ISSUER}
   secret_key: ${JWT_SECRET_KEY}
 
 docs:

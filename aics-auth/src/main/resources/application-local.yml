@@ -16,6 +16,12 @@ spring:
     redis:
       password: ${REDIS_PASSWORD:}
 
+springdoc:
+  swagger-ui:
+    enabled: true
+  api-docs:
+    enabled: true
+
 file:
   secret-key: ${FILE_SECRET_KEY}
 
