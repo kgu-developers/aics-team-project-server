@@ -13,16 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class UserCommandService {
-    private final UserRepository UserRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
     public String createUser(String student_number, String email, String name, String password,
                              UserGlobalRole global_role, String phone) {
-        if (UserRepository.existsByStudentNumber(student_number)) {
+        if (userRepository.existsByStudentNumber(student_number)) {
             throw new DuplicateStudentNumberException();
         }
         User user = User.create(student_number, email, name, passwordEncoder.encode(password), global_role, phone);
-        return UserRepository.save(user).getStudent_number();
+        return userRepository.save(user).getStudent_number();
     }
 
     public void updateUser(User user, String name, String password, UserGlobalRole global_role, String phone) {
@@ -30,16 +30,16 @@ public class UserCommandService {
         user.updatePassword(passwordEncoder.encode(password));
         user.updateGlobalRole(global_role);
         user.updatePhone(phone);
-        UserRepository.save(user);
+        userRepository.save(user);
     }
 
     public void updatePassword(User user, String password) {
         user.updatePassword(passwordEncoder.encode(password));
-        UserRepository.save(user);
+        userRepository.save(user);
     }
 
     public void deleteUser(User user) {
         user.delete();
-        UserRepository.save(user);
+        userRepository.save(user);
     }
 }

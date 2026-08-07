@@ -13,14 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserQueryService {
-    private final UserRepository UserRepository;
+    private final UserRepository userRepository;
 
     public List<User> getAllUsers() {
-        return UserRepository.findAllOrderByStudentNumber();
+        return userRepository.findAllOrderByStudentNumber();
     }
 
     public User getUserByStudentNumber(String student_number) {
-        return UserRepository.findByStudentNumber(student_number)
+        return userRepository.findByStudentNumber(student_number)
                 .orElseThrow(UserNotFoundException::new);
     }
 }
