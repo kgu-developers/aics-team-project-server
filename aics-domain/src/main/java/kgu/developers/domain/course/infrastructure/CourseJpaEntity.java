@@ -60,6 +60,7 @@ public class CourseJpaEntity extends BaseTimeEntity {
                 .semester(course.getSemester())
                 .status(course.getStatus())
                 .build();
+        entity.createdAt = course.getCreated_at();
         entity.setDeletedAt(course.getDeleted_at());
         return entity;
     }
