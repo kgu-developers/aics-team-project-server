@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import kgu.developers.domain.auth.infrastructure.JpaRefreshTokenRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import static kgu.developers.domain.user.domain.UserGlobalRole.PROFESSOR;
 import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
@@ -33,6 +34,9 @@ class UserServiceTest {
 
   @Mock
   private PasswordEncoder passwordEncoder;
+
+  @Mock
+  private JpaRefreshTokenRepository refreshTokenRepository;
 
   @InjectMocks
   private UserCommandService commandService;
@@ -80,6 +84,7 @@ class UserServiceTest {
     assertThat(user.getPassword()).isEqualTo("hashed");
     assertThat(user.getGlobalRole()).isEqualTo(PROFESSOR);
     verify(userRepository).save(user);
+    verify(refreshTokenRepository).deleteById("202699999");
   }
 
   @Test
@@ -106,6 +111,19 @@ class UserServiceTest {
 
     assertThat(user.getPassword()).isEqualTo("hashed");
     verify(userRepository).save(user);
+    verify(refreshTokenRepository).deleteById("202699999");
+  }
+
+  @Test
+  @DisplayName("updatePassword가 실패하면 refresh token을 지우지 않는다")
+  void updatePasswordDoesNotRevokeOnFailure() {
+    User user = user();
+    given(passwordEncoder.encode("87654321")).willThrow(new IllegalStateException("boom"));
+
+    assertThatThrownBy(() -> commandService.updatePassword(user, "87654321"))
+        .isInstanceOf(IllegalStateException.class);
+
+    verify(refreshTokenRepository, never()).deleteById(any(String.class));
   }
 
   @Test

@@ -1,5 +1,6 @@
 package kgu.developers.domain.user.application.command;
 
+import kgu.developers.domain.auth.infrastructure.JpaRefreshTokenRepository;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserCommandService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JpaRefreshTokenRepository refreshTokenRepository;
 
     public String createUser(String studentNumber, String email, String name, String password,
                              UserGlobalRole globalRole, String phone) {
@@ -36,16 +38,22 @@ public class UserCommandService {
         user.updateGlobalRole(globalRole);
         user.updatePhone(phone);
         userRepository.save(user);
+        revokeRefreshToken(user);
     }
 
     public void updatePassword(User user, String password) {
         user.updatePassword(passwordEncoder.encode(password));
         userRepository.save(user);
+        revokeRefreshToken(user);
     }
 
     public void deleteUser(User user) {
         user.delete();
         userRepository.save(user);
+    }
+
+    private void revokeRefreshToken(User user) {
+        refreshTokenRepository.deleteById(user.getStudentNumber());
     }
 
     private void checkEmailAvailable(String email, String studentNumber) {
