@@ -21,7 +21,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import kgu.developers.auth.api.application.AuthFacade;
-import kgu.developers.auth.api.presentation.AuthControllerlmpl;
+import kgu.developers.auth.api.presentation.AuthControllerImpl;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.globalutils.jwt.JwtUtil;
@@ -43,7 +43,7 @@ class AuthControllerTest {
 
   @BeforeEach
   void setUp() {
-    mockMvc = MockMvcBuilders.standaloneSetup(new AuthControllerlmpl(authFacade, jwtUtil, false)).build();
+    mockMvc = MockMvcBuilders.standaloneSetup(new AuthControllerImpl(authFacade, jwtUtil, false)).build();
   }
 
   private MvcResult login() throws Exception {
@@ -139,7 +139,7 @@ class AuthControllerTest {
   @Test
   @DisplayName("cookie-secure가 켜지면 Secure 속성이 붙는다")
   void secureFlagIsConfigurable() throws Exception {
-    mockMvc = MockMvcBuilders.standaloneSetup(new AuthControllerlmpl(authFacade, jwtUtil, true)).build();
+    mockMvc = MockMvcBuilders.standaloneSetup(new AuthControllerImpl(authFacade, jwtUtil, true)).build();
 
     MvcResult result = login();
 

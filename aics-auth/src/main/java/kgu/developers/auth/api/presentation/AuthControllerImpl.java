@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/oop/auth")
-public class AuthControllerlmpl implements AuthController {
+public class AuthControllerImpl implements AuthController {
 
     private static final String ACCESS_TOKEN = "accessToken";
     private static final String REFRESH_TOKEN = "refreshToken";
@@ -24,8 +24,8 @@ public class AuthControllerlmpl implements AuthController {
     private final JwtUtil jwtUtil;
     private final boolean cookieSecure;
 
-    public AuthControllerlmpl(AuthFacade userFacade, JwtUtil jwtUtil,
-            @Value("${jwt.cookie-secure:true}") boolean cookieSecure) {
+    public AuthControllerImpl(AuthFacade userFacade, JwtUtil jwtUtil,
+                              @Value("${jwt.cookie-secure:true}") boolean cookieSecure) {
         this.userFacade = userFacade;
         this.jwtUtil = jwtUtil;
         this.cookieSecure = cookieSecure;
