@@ -33,6 +33,17 @@ class MilestoneTest {
     }
 
     @Test
+    @DisplayName("제목은 영속성 제한인 100자를 초과할 수 없다")
+    void titleCannotExceedPersistenceLimit() {
+        Milestone milestone = Milestone.create(1L, "a".repeat(100), null, 1, schedule());
+
+        assertThat(milestone.getTitle()).hasSize(100);
+        assertThatThrownBy(() -> Milestone.create(1L, "a".repeat(101), null, 1, schedule()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("100자");
+    }
+
+    @Test
     @DisplayName("분반 식별자와 주차는 양수여야 한다")
     void sectionIdAndWeekNumberMustBePositive() {
         assertThatThrownBy(() -> Milestone.create(0L, "제안서", null, 1, schedule()))

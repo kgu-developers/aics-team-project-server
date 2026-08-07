@@ -69,6 +69,21 @@ class MilestoneScheduleTest {
     }
 
     @Test
+    @DisplayName("수정 종료 시각은 지각 제출 종료 시각보다 빠를 수 없다")
+    void revisionUntilCannotBeBeforeLateSubmissionUntil() {
+        assertThatThrownBy(() -> new MilestoneSchedule(
+                null,
+                DUE_AT,
+                DUE_AT.plusDays(2),
+                DUE_AT.plusDays(1),
+                null,
+                null
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("지각 제출 종료 시각");
+    }
+
+    @Test
     @DisplayName("평가 시작 시각과 종료 시각은 함께 설정해야 한다")
     void evaluationWindowMustBeComplete() {
         assertThatThrownBy(() -> new MilestoneSchedule(
@@ -81,6 +96,21 @@ class MilestoneScheduleTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("함께 설정");
+    }
+
+    @Test
+    @DisplayName("평가 시작 시각은 마감 시각보다 빠를 수 없다")
+    void evaluationStartCannotBeBeforeDueAt() {
+        assertThatThrownBy(() -> new MilestoneSchedule(
+                null,
+                DUE_AT,
+                null,
+                null,
+                DUE_AT.minusMinutes(1),
+                DUE_AT.plusDays(1)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("마감 시각");
     }
 
     @Test

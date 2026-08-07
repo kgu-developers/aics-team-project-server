@@ -24,10 +24,16 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "milestone",
-        indexes = @Index(
-                name = "idx_milestone_section_week",
-                columnList = "section_id, week_number"
-        )
+        indexes = {
+                @Index(
+                        name = "idx_milestone_section_week",
+                        columnList = "section_id, week_number"
+                ),
+                @Index(
+                        name = "idx_milestone_section_status_week",
+                        columnList = "section_id, status, week_number"
+                )
+        }
 )
 @Getter
 @Builder

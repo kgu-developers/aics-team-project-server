@@ -4,6 +4,8 @@ import lombok.Getter;
 
 @Getter
 public final class Milestone {
+    private static final int MAX_TITLE_LENGTH = 100;
+
     private final Long id;
     private final Long sectionId;
     private String title;
@@ -102,7 +104,12 @@ public final class Milestone {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("마일스톤 제목은 필수입니다.");
         }
-        return title.trim();
+
+        String normalizedTitle = title.trim();
+        if (normalizedTitle.length() > MAX_TITLE_LENGTH) {
+            throw new IllegalArgumentException("마일스톤 제목은 100자를 초과할 수 없습니다.");
+        }
+        return normalizedTitle;
     }
 
     private static String normalizeDescription(String description) {
