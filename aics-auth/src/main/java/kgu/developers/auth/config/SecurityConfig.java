@@ -1,14 +1,25 @@
 package kgu.developers.auth.config;
 
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+  private final JwtCookieAuthenticationFilter jwtCookieAuthenticationFilter;
+
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     return http
@@ -18,7 +29,8 @@ public class SecurityConfig {
             .requestMatchers("/api/v1/oop/auth/login", "/api/v1/oop/auth/refresh",
                 "/api/v1/oop/auth/logout", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
             .anyRequest().authenticated())
-        .httpBasic(Customizer.withDefaults())
+        .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))
+        .addFilterBefore(jwtCookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }
 }
