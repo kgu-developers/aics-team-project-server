@@ -47,7 +47,9 @@ public class AuthControllerImpl implements AuthController {
 
     @Override
     @PostMapping("/logout")
-    public ResponseEntity<String> logout() {
+    public ResponseEntity<String> logout(
+            @CookieValue(name = REFRESH_TOKEN, required = false) String refreshToken) {
+        userFacade.logout(refreshToken);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, expiredCookie(ACCESS_TOKEN).toString())
                 .header(HttpHeaders.SET_COOKIE, expiredCookie(REFRESH_TOKEN).toString())

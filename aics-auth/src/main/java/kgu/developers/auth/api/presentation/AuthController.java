@@ -46,10 +46,13 @@ public interface AuthController {
 
 	@Operation(summary = "로그아웃 API", description = """
 			- Description : 이 API는 accessToken, refreshToken 쿠키를 만료시켜 로그아웃합니다.
-			- 서버에 토큰을 저장하지 않으므로, 이미 발급된 토큰 자체는 만료 시각까지 유효합니다.
+			- 서버에 저장된 refreshToken도 함께 폐기되어 재발급에 쓸 수 없습니다.
+			- 이미 발급된 accessToken은 만료 시각까지 유효합니다.
 		""")
 	@ApiResponse(
 		responseCode = "200",
 		description = "본문은 \"Logout Successfully\", 두 토큰 쿠키를 Max-Age=0으로 만료")
-	ResponseEntity<String> logout();
+	ResponseEntity<String> logout(
+		@Parameter(description = "리프레시 토큰 쿠키입니다.", required = false)
+		String refreshToken);
 }

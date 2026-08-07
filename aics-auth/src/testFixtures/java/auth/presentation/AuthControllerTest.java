@@ -2,6 +2,7 @@ package auth.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -127,6 +128,15 @@ class AuthControllerTest {
         .allMatch(c -> c.contains("Path=/"))
         .anyMatch(c -> c.startsWith("accessToken="))
         .anyMatch(c -> c.startsWith("refreshToken="));
+  }
+
+  @Test
+  @DisplayName("logout은 refreshToken 쿠키를 파사드에 넘겨 서버측 폐기를 맡긴다")
+  void logoutRevokesStoredToken() throws Exception {
+    mockMvc.perform(post("/api/v1/oop/auth/logout").cookie(new Cookie("refreshToken", "refresh-token")))
+        .andExpect(status().isOk());
+
+    verify(authFacade).logout("refresh-token");
   }
 
   @Test

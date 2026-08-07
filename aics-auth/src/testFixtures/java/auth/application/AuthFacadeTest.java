@@ -2,7 +2,10 @@ package auth.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import kgu.developers.auth.api.application.AuthFacade;
+import kgu.developers.auth.api.application.RefreshTokenStore;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -37,6 +41,9 @@ class AuthFacadeTest {
   @Mock
   private PasswordEncoder passwordEncoder;
 
+  @Mock
+  private RefreshTokenStore refreshTokenStore;
+
   @InjectMocks
   private AuthFacade userFacade;
 
@@ -59,12 +66,14 @@ class AuthFacadeTest {
 
     assertThat(response.accessToken()).isEqualTo("access-token");
     assertThat(response.refreshToken()).isEqualTo("refresh-token");
+    verify(refreshTokenStore).save(STUDENT_NUMBER, "refresh-token");
   }
 
   @Test
   @DisplayName("refresh는 refreshToken이 유효하면 토큰을 새로 발급한다")
   void refresh() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(refreshTokenStore.consume(STUDENT_NUMBER)).willReturn("refresh-token");
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("new-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
@@ -73,6 +82,31 @@ class AuthFacadeTest {
 
     assertThat(response.accessToken()).isEqualTo("new-access-token");
     assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+    verify(refreshTokenStore).save(STUDENT_NUMBER, "new-refresh-token");
+  }
+
+  @Test
+  @DisplayName("refresh는 이미 사용한 refreshToken이면 재발급하지 않는다")
+  void refreshWithUsedToken() {
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(refreshTokenStore.consume(STUDENT_NUMBER)).willReturn(null);
+
+    assertThatThrownBy(() -> userFacade.refresh("refresh-token"))
+        .isInstanceOf(InvalidTokenException.class);
+
+    verify(refreshTokenStore, never()).save(any(), any());
+  }
+
+  @Test
+  @DisplayName("refresh는 서버에 저장된 토큰과 다르면 재발급하지 않는다")
+  void refreshWithRotatedToken() {
+    given(jwtUtil.parseRefreshTokenSubject("old-refresh-token")).willReturn(STUDENT_NUMBER);
+    given(refreshTokenStore.consume(STUDENT_NUMBER)).willReturn("current-refresh-token");
+
+    assertThatThrownBy(() -> userFacade.refresh("old-refresh-token"))
+        .isInstanceOf(InvalidTokenException.class);
+
+    verify(refreshTokenStore, never()).save(any(), any());
   }
 
   @Test
@@ -95,10 +129,32 @@ class AuthFacadeTest {
   @DisplayName("refresh는 토큰이 유효해도 삭제된 회원이면 재발급하지 않는다")
   void refreshForDeletedUser() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(refreshTokenStore.consume(STUDENT_NUMBER)).willReturn("refresh-token");
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willThrow(new UserNotFoundException());
 
     assertThatThrownBy(() -> userFacade.refresh("refresh-token"))
         .isInstanceOf(InvalidTokenException.class);
+  }
+
+  @Test
+  @DisplayName("logout은 서버에 저장된 refreshToken을 폐기한다")
+  void logout() {
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+
+    userFacade.logout("refresh-token");
+
+    verify(refreshTokenStore).delete(STUDENT_NUMBER);
+  }
+
+  @Test
+  @DisplayName("logout은 쿠키가 없거나 토큰이 깨졌으면 아무것도 폐기하지 않는다")
+  void logoutWithoutValidToken() {
+    given(jwtUtil.parseRefreshTokenSubject("broken")).willThrow(new JwtException("invalid"));
+
+    userFacade.logout(null);
+    userFacade.logout("broken");
+
+    verify(refreshTokenStore, never()).delete(any());
   }
 
   @Test
