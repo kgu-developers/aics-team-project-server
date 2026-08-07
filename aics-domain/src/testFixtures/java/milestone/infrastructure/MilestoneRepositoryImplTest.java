@@ -3,6 +3,8 @@ package milestone.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -114,6 +116,40 @@ class MilestoneRepositoryImplTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("id=1");
         verify(jpaMilestoneRepository).findByIdAndDeletedAtIsNull(1L);
+        verifyNoMoreInteractions(jpaMilestoneRepository);
+    }
+
+    @Test
+    @DisplayName("여러 마일스톤 저장 시 기존 엔티티를 한 번에 조회한다")
+    void batchLoadsExistingEntitiesWhenSavingAll() {
+        MilestoneJpaEntity firstEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 1));
+        MilestoneJpaEntity secondEntity = MilestoneJpaEntity.fromDomain(milestone(2L, 2));
+        List<Milestone> updates = List.of(milestone(1L, 3), milestone(2L, 4));
+        given(jpaMilestoneRepository.findAllByIdInAndDeletedAtIsNull(List.of(1L, 2L)))
+                .willReturn(List.of(firstEntity, secondEntity));
+        given(jpaMilestoneRepository.saveAll(List.of(firstEntity, secondEntity)))
+                .willReturn(List.of(firstEntity, secondEntity));
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        List<Milestone> result = repository.saveAll(updates);
+
+        assertThat(result).extracting(Milestone::getWeekNumber).containsExactly(3, 4);
+        verify(jpaMilestoneRepository).findAllByIdInAndDeletedAtIsNull(List.of(1L, 2L));
+        verify(jpaMilestoneRepository, never()).findByIdAndDeletedAtIsNull(anyLong());
+    }
+
+    @Test
+    @DisplayName("일괄 저장 중 존재하지 않는 마일스톤은 새 엔티티로 만들지 않는다")
+    void doesNotRecreateMissingMilestoneDuringBatchUpdate() {
+        MilestoneJpaEntity firstEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 1));
+        given(jpaMilestoneRepository.findAllByIdInAndDeletedAtIsNull(List.of(1L, 2L)))
+                .willReturn(List.of(firstEntity));
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        assertThatThrownBy(() -> repository.saveAll(List.of(milestone(1L, 3), milestone(2L, 4))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("id=2");
+        verify(jpaMilestoneRepository).findAllByIdInAndDeletedAtIsNull(List.of(1L, 2L));
         verifyNoMoreInteractions(jpaMilestoneRepository);
     }
 

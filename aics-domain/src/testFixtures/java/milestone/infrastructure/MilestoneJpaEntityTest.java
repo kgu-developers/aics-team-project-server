@@ -1,6 +1,7 @@
 package milestone.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
 import kgu.developers.domain.milestone.domain.Milestone;
@@ -35,6 +36,38 @@ class MilestoneJpaEntityTest {
         assertThat(restored.getWeekNumber()).isEqualTo(2);
         assertThat(restored.getStatus()).isEqualTo(MilestoneStatus.PUBLISHED);
         assertThat(restored.getSchedule()).isEqualTo(schedule);
+    }
+
+    @Test
+    @DisplayName("다른 마일스톤의 식별자로 엔티티를 갱신할 수 없다")
+    void rejectsDifferentMilestoneIdDuringUpdate() {
+        MilestoneJpaEntity entity = MilestoneJpaEntity.fromDomain(milestone(3L, 7L));
+
+        assertThatThrownBy(() -> entity.updateFromDomain(milestone(4L, 7L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다른 마일스톤");
+    }
+
+    @Test
+    @DisplayName("마일스톤의 분반은 엔티티 갱신으로 변경할 수 없다")
+    void rejectsDifferentSectionIdDuringUpdate() {
+        MilestoneJpaEntity entity = MilestoneJpaEntity.fromDomain(milestone(3L, 7L));
+
+        assertThatThrownBy(() -> entity.updateFromDomain(milestone(3L, 8L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("분반");
+    }
+
+    private Milestone milestone(Long id, Long sectionId) {
+        return Milestone.restore(
+                id,
+                sectionId,
+                "프로젝트 제안서",
+                "제안서를 제출합니다.",
+                2,
+                MilestoneStatus.PUBLISHED,
+                schedule()
+        );
     }
 
     private MilestoneSchedule schedule() {
