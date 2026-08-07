@@ -50,6 +50,7 @@ public class UserCommandService {
     public void deleteUser(User user) {
         user.delete();
         userRepository.save(user);
+        revokeRefreshToken(user);
     }
 
     private void revokeRefreshToken(User user) {

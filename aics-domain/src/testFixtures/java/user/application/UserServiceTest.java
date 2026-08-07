@@ -127,7 +127,7 @@ class UserServiceTest {
   }
 
   @Test
-  @DisplayName("deleteUser는 삭제 시각을 기록한 뒤 저장한다 (soft delete)")
+  @DisplayName("deleteUser는 삭제 시각을 기록한 뒤 저장하고 refresh token도 지운다 (soft delete)")
   void deleteUser() {
     User user = user();
 
@@ -135,5 +135,6 @@ class UserServiceTest {
 
     assertThat(user.getDeletedAt()).isNotNull();
     verify(userRepository).save(user);
+    verify(refreshTokenRepository).deleteById("202699999");
   }
 }
