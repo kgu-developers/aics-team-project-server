@@ -1,4 +1,4 @@
-package kgu.developers.admin.config;
+package kgu.developers.globalutils.jwt;
 
 import static kgu.developers.globalutils.jwt.JwtUtil.ROLE;
 
@@ -21,7 +21,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import kgu.developers.globalutils.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
 
 @Component

@@ -21,11 +21,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import jakarta.servlet.http.Cookie;
-import kgu.developers.admin.config.JwtCookieAuthenticationFilter;
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.user.application.UserAdminFacade;
 import kgu.developers.admin.user.presentation.UserAdminControllerImpl;
 import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
+import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtUtil;
 

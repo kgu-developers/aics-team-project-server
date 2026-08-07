@@ -1,0 +1,93 @@
+package user.presentation;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import jakarta.servlet.http.Cookie;
+import kgu.developers.api.config.SecurityConfig;
+import kgu.developers.api.user.application.UserFacade;
+import kgu.developers.api.user.presentation.UserControllerImpl;
+import kgu.developers.api.user.presentation.request.UserUpdateRequest;
+import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
+import kgu.developers.globalutils.jwt.JwtUtil;
+
+@WebMvcTest
+@Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class,
+    UserControllerImpl.class})
+@TestPropertySource(properties = {
+    "jwt.secret_key=local-dev-jwt-secret-key-0123456789",
+    "jwt.issuer=kgudevelopers@gmail.com"
+})
+class UserControllerTest {
+
+  private static final String STUDENT_NUMBER = "202699999";
+  private static final String OTHER_STUDENT_NUMBER = "202611111";
+  private static final String BODY = """
+      {"password":"87654321"}""";
+
+  @SpringBootConfiguration
+  static class TestApp {
+  }
+
+  @Autowired
+  private MockMvc mockMvc;
+
+  @Autowired
+  private JwtUtil jwtUtil;
+
+  @MockitoBean
+  private UserFacade userFacade;
+
+  private Cookie accessTokenCookie(String student_number) {
+    return new Cookie("accessToken", jwtUtil.createAccessToken(student_number, "STUDENT"));
+  }
+
+  @Test
+  @DisplayName("본인 학번이면 비밀번호를 변경한다")
+  void updateOwnPassword() throws Exception {
+    mockMvc.perform(put("/api/v1/oop/users/{student_number}/password", STUDENT_NUMBER)
+            .cookie(accessTokenCookie(STUDENT_NUMBER))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(BODY))
+        .andExpect(status().isOk());
+
+    verify(userFacade).updateUserPassword(STUDENT_NUMBER, new UserUpdateRequest("87654321"));
+  }
+
+  @Test
+  @DisplayName("다른 사람 학번이면 403을 응답하고 변경하지 않는다")
+  void updateOthersPassword() throws Exception {
+    mockMvc.perform(put("/api/v1/oop/users/{student_number}/password", OTHER_STUDENT_NUMBER)
+            .cookie(accessTokenCookie(STUDENT_NUMBER))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(BODY))
+        .andExpect(status().isForbidden());
+
+    verify(userFacade, never()).updateUserPassword(any(), any());
+  }
+
+  @Test
+  @DisplayName("토큰이 없으면 401을 응답한다")
+  void updateWithoutToken() throws Exception {
+    mockMvc.perform(put("/api/v1/oop/users/{student_number}/password", STUDENT_NUMBER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(BODY))
+        .andExpect(status().isUnauthorized());
+
+    verify(userFacade, never()).updateUserPassword(any(), any());
+  }
+}
