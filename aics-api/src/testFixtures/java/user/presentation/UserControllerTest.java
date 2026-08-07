@@ -3,6 +3,7 @@ package user.presentation;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,6 +61,7 @@ class UserControllerTest {
   @DisplayName("본인 학번이면 비밀번호를 변경한다")
   void updateOwnPassword() throws Exception {
     mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
+            .with(csrf())
             .cookie(accessTokenCookie(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
@@ -70,9 +72,22 @@ class UserControllerTest {
   }
 
   @Test
+  @DisplayName("CSRF 토큰이 없으면 403을 응답하고 변경하지 않는다")
+  void updateWithoutCsrfToken() throws Exception {
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
+            .cookie(accessTokenCookie(STUDENT_NUMBER))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(BODY))
+        .andExpect(status().isForbidden());
+
+    verify(userFacade, never()).updateUserPassword(any(), any());
+  }
+
+  @Test
   @DisplayName("현재 비밀번호가 빠지면 400을 응답하고 변경하지 않는다")
   void updateWithoutCurrentPassword() throws Exception {
     mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
+            .with(csrf())
             .cookie(accessTokenCookie(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
@@ -86,6 +101,7 @@ class UserControllerTest {
   @DisplayName("다른 사람 학번이면 403을 응답하고 변경하지 않는다")
   void updateOthersPassword() throws Exception {
     mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", OTHER_STUDENT_NUMBER)
+            .with(csrf())
             .cookie(accessTokenCookie(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
@@ -98,6 +114,7 @@ class UserControllerTest {
   @DisplayName("토큰이 없으면 401을 응답한다")
   void updateWithoutToken() throws Exception {
     mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
+            .with(csrf())
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
         .andExpect(status().isUnauthorized());

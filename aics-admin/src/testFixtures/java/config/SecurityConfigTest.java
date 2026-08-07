@@ -1,6 +1,8 @@
 package config;
 
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -108,6 +110,22 @@ class SecurityConfigTest {
   void forgedAccessTokenCookie() throws Exception {
     mockMvc.perform(get(ADMIN_URL).cookie(new Cookie("accessToken", "not-a-jwt")))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("CSRF 토큰이 없는 관리자 요청은 403을 응답한다")
+  @WithMockUser(roles = "PROFESSOR")
+  void adminWriteWithoutCsrfToken() throws Exception {
+    mockMvc.perform(delete(ADMIN_URL + "/" + STUDENT_NUMBER))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("CSRF 토큰을 담은 관리자 요청은 통과한다")
+  @WithMockUser(roles = "PROFESSOR")
+  void adminWriteWithCsrfToken() throws Exception {
+    mockMvc.perform(delete(ADMIN_URL + "/" + STUDENT_NUMBER).with(csrf()))
+        .andExpect(status().isNoContent());
   }
 
   @Test
