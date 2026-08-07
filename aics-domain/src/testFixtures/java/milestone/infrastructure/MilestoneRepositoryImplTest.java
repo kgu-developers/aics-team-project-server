@@ -1,0 +1,138 @@
+package milestone.infrastructure;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import kgu.developers.domain.milestone.domain.Milestone;
+import kgu.developers.domain.milestone.domain.MilestoneSchedule;
+import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.infrastructure.JpaMilestoneRepository;
+import kgu.developers.domain.milestone.infrastructure.MilestoneJpaEntity;
+import kgu.developers.domain.milestone.infrastructure.MilestoneRepositoryImpl;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class MilestoneRepositoryImplTest {
+
+    @Mock
+    private JpaMilestoneRepository jpaMilestoneRepository;
+
+    @Test
+    @DisplayName("분반의 마일스톤을 주차순으로 조회해 도메인으로 반환한다")
+    void findsMilestonesBySectionInWeekOrder() {
+        Milestone first = milestone(1L, 1);
+        Milestone second = milestone(2L, 2);
+        given(jpaMilestoneRepository
+                .findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(7L))
+                .willReturn(List.of(
+                        MilestoneJpaEntity.fromDomain(first),
+                        MilestoneJpaEntity.fromDomain(second)
+                ));
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        List<Milestone> result = repository.findAllBySectionIdOrderByWeekNumber(7L);
+
+        assertThat(result).extracting(Milestone::getId).containsExactly(1L, 2L);
+        verify(jpaMilestoneRepository)
+                .findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(7L);
+    }
+
+    @Test
+    @DisplayName("공개 상태를 지정하면 분반과 상태 조건을 함께 전달한다")
+    void findsMilestonesBySectionAndStatus() {
+        given(jpaMilestoneRepository
+                .findAllBySectionIdAndStatusAndDeletedAtIsNullOrderByWeekNumberAsc(
+                        7L,
+                        MilestoneStatus.PUBLISHED
+                ))
+                .willReturn(List.of(MilestoneJpaEntity.fromDomain(milestone(1L, 1))));
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        List<Milestone> result = repository
+                .findAllBySectionIdAndStatusOrderByWeekNumber(7L, MilestoneStatus.PUBLISHED);
+
+        assertThat(result).hasSize(1);
+        verify(jpaMilestoneRepository)
+                .findAllBySectionIdAndStatusAndDeletedAtIsNullOrderByWeekNumberAsc(
+                        7L,
+                        MilestoneStatus.PUBLISHED
+                );
+    }
+
+    @Test
+    @DisplayName("기존 마일스톤을 저장할 때 관리 중인 엔티티의 삭제 상태를 보존한다")
+    void preservesBaseEntityStateWhenUpdating() {
+        LocalDateTime deletedAt = LocalDateTime.of(2026, 8, 12, 10, 0);
+        MilestoneJpaEntity existingEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 1));
+        existingEntity.setDeletedAt(deletedAt);
+        Milestone updated = Milestone.restore(
+                1L,
+                7L,
+                "수정된 마일스톤",
+                "수정된 설명",
+                3,
+                MilestoneStatus.DRAFT,
+                new MilestoneSchedule(
+                        null,
+                        LocalDateTime.of(2026, 8, 20, 23, 59),
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+        given(jpaMilestoneRepository.findByIdAndDeletedAtIsNull(1L))
+                .willReturn(Optional.of(existingEntity));
+        given(jpaMilestoneRepository.save(existingEntity)).willReturn(existingEntity);
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        Milestone result = repository.save(updated);
+
+        assertThat(result.getTitle()).isEqualTo("수정된 마일스톤");
+        assertThat(existingEntity.getDeletedAt()).isEqualTo(deletedAt);
+        verify(jpaMilestoneRepository).save(existingEntity);
+    }
+
+    @Test
+    @DisplayName("삭제되었거나 존재하지 않는 마일스톤은 저장으로 되살리지 않는다")
+    void doesNotRecreateMissingMilestoneDuringUpdate() {
+        given(jpaMilestoneRepository.findByIdAndDeletedAtIsNull(1L))
+                .willReturn(Optional.empty());
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        assertThatThrownBy(() -> repository.save(milestone(1L, 1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("id=1");
+        verify(jpaMilestoneRepository).findByIdAndDeletedAtIsNull(1L);
+        verifyNoMoreInteractions(jpaMilestoneRepository);
+    }
+
+    private Milestone milestone(Long id, int weekNumber) {
+        return Milestone.restore(
+                id,
+                7L,
+                "마일스톤 " + weekNumber,
+                null,
+                weekNumber,
+                MilestoneStatus.PUBLISHED,
+                new MilestoneSchedule(
+                        null,
+                        LocalDateTime.of(2026, 8, 10 + weekNumber, 23, 59),
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+    }
+}
