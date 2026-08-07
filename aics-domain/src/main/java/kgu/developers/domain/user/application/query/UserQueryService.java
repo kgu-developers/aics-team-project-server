@@ -1,0 +1,26 @@
+package kgu.developers.domain.user.application.query;
+
+import java.util.List;
+
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.UserNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class UserQueryService {
+    private final UserRepository UserRepository;
+
+    public List<User> getAllUsers() {
+        return UserRepository.findAllOrderByStudentNumber();
+    }
+
+    public User getUserByStudentNumber(String student_number) {
+        return UserRepository.findByStudentNumber(student_number)
+                .orElseThrow(UserNotFoundException::new);
+    }
+}

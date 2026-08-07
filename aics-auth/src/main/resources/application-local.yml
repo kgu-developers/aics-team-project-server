@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  datasource:
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+
+  data:
+    redis:
+      password: ${REDIS_PASSWORD:}
+
+# 로컬 전용 값. dev/prod는 환경변수로 주입한다.
+file:
+  secret-key: ${FILE_SECRET_KEY:local-dev-key-16}
+
+jwt:
+  secret_key: ${JWT_SECRET_KEY:bG9jYWwtZGV2LWp3dC1rZXktbG9jYWwtZGV2LWp3dC1rZXk=}
+  # 로컬은 http라 Secure 쿠키가 전달되지 않는다. dev/prod는 기본값 true를 쓴다.
+  cookie-secure: false

@@ -1,0 +1,46 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: aics-auth
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:aics}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 1000
+        jdbc:
+          time_zone: Asia/Seoul
+    defer-datasource-initialization: true
+    show-sql: false
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+
+file:
+  secret-key: ${FILE_SECRET_KEY}
+
+springdoc:
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  swagger-ui:
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+jwt:
+  issuer: ${JWT_ISSUER:kgudevelopers@gmail.com}
+  secret_key: ${JWT_SECRET_KEY}
+  access-token-validity: PT30M
+  refresh-token-validity: P14D

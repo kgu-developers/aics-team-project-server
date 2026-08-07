@@ -38,3 +38,9 @@ out/
 
 ## file
 /cloud
+
+## macOS
+.DS_Store
+
+## Frontend Example ##
+frontend-example/
