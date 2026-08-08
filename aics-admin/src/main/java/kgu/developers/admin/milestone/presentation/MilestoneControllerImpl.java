@@ -2,6 +2,7 @@ package kgu.developers.admin.milestone.presentation;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +27,7 @@ import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import lombok.RequiredArgsConstructor;
 
 @RestController
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/admin/oop/sections/{sectionId}/milestones")
 public class MilestoneControllerImpl implements MilestoneController {

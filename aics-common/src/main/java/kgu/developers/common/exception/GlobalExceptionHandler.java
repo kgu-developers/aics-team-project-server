@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -43,6 +44,15 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleInvalidParameter(HandlerMethodValidationException e) {
 		String detail = e.getAllErrors().stream()
 			.map(MessageSourceResolvable::getDefaultMessage)
+			.collect(Collectors.joining(", "));
+
+		return badRequest(detail);
+	}
+
+	@ExceptionHandler(ConstraintViolationException.class)
+	public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException e) {
+		String detail = e.getConstraintViolations().stream()
+			.map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
 			.collect(Collectors.joining(", "));
 
 		return badRequest(detail);
