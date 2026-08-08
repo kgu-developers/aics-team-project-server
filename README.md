@@ -10,7 +10,11 @@ Multi-module Gradle project mirroring the layered/module structure of `aics-serv
 - `aics-domain` — domain layer (entity/repository/command/query), depends on `aics-common`, `aics-infra`, `aics-global-utils`
 - `aics-admin` / `aics-api` / `aics-auth` — application entry points (Spring Boot apps), each depends on `aics-domain`, `aics-common`, `aics-infra`, `aics-global-utils`
 
-Each module's `src` tree here is a skeleton: folder structure and `build.gradle` only, with a representative feature slice (e.g. `about`) showing the presentation/application/domain/infrastructure layering. Business logic source files are intentionally omitted.
+구현 현황은 모듈마다 다릅니다.
+
+- `aics-admin` + `aics-domain` — OOP 강좌(`course`) 기능이 presentation/application/domain/infrastructure 레이어링을 그대로 갖춘 채 실제로 구현되어 있습니다.
+- `aics-common`, `aics-global-utils`, `aics-infra` — 공통 예외 처리, JWT/AES/로깅 유틸, 인프라 설정이 구현되어 있습니다.
+- `aics-api`, `aics-auth` — 아직 Spring Boot 진입점 클래스뿐입니다.
 
 ## 로컬에서 실행하기
 

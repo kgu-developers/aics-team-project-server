@@ -14,9 +14,11 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 
+import kgu.developers.infra.AicsConfig;
+
 @Configuration
 @EnableRedisRepositories(basePackages = "kgu.developers")
-public class RedisConfig {
+public class RedisConfig implements AicsConfig {
 	@Value("${spring.data.redis.host}")
 	String redisHost;
 
