@@ -199,6 +199,24 @@ class MilestoneControllerTest {
 
     @Test
     @WithMockUser(roles = "PROFESSOR")
+    @DisplayName("0 이하의 분반 식별자는 400을 응답한다")
+    void invalidSectionId() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/oop/sections/0/milestones"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @WithMockUser(roles = "PROFESSOR")
+    @DisplayName("0 이하의 마일스톤 식별자는 400을 응답한다")
+    void invalidMilestoneId() throws Exception {
+        mockMvc.perform(get(MILESTONES_URL + "/0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @WithMockUser(roles = "PROFESSOR")
     @DisplayName("다른 분반의 마일스톤 상세 요청은 403을 응답한다")
     void anotherSectionForbidden() throws Exception {
         given(milestoneFacade.getMilestone(1L, 2L))
