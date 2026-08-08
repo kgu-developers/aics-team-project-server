@@ -16,9 +16,9 @@ public class Course {
     private SemesterType semester;
     private StatusType status;
 
-    protected LocalDateTime created_at;
-    protected LocalDateTime updated_at;
-    protected LocalDateTime deleted_at;
+    protected LocalDateTime createdAt;
+    protected LocalDateTime updatedAt;
+    protected LocalDateTime deletedAt;
 
     public static Course create(String name, int year, SemesterType semester, StatusType status) {
         return Course.builder()
@@ -46,6 +46,6 @@ public class Course {
     }
 
     public void delete() {
-        deleted_at = LocalDateTime.now();
+        deletedAt = LocalDateTime.now();
     }
 }

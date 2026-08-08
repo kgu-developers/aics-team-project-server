@@ -20,7 +20,7 @@ class CourseTest {
     assertThat(course.getYear()).isEqualTo(2026);
     assertThat(course.getSemester()).isEqualTo(SemesterType.FALL);
     assertThat(course.getStatus()).isEqualTo(StatusType.DRAFT);
-    assertThat(course.getDeleted_at()).isNull();
+    assertThat(course.getDeletedAt()).isNull();
   }
 
   @Test
@@ -46,7 +46,7 @@ class CourseTest {
 
     course.delete();
 
-    assertThat(course.getDeleted_at()).isNotNull();
+    assertThat(course.getDeletedAt()).isNotNull();
   }
 
   @Test

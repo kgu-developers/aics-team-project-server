@@ -25,8 +25,8 @@ class CourseJpaEntityTest {
         .year(2026)
         .semester(SemesterType.FALL)
         .status(StatusType.DRAFT)
-        .created_at(createdAt)
-        .deleted_at(deletedAt)
+        .createdAt(createdAt)
+        .deletedAt(deletedAt)
         .build();
 
     CourseJpaEntity entity = CourseJpaEntity.toEntity(course);

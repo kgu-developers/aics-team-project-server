@@ -40,8 +40,8 @@ public record CourseResponse(
 			.year(course.getYear())
 			.semester(course.getSemester())
 			.status(course.getStatus())
-			.created_at(course.getCreated_at())
-			.updated_at(course.getUpdated_at())
+			.created_at(course.getCreatedAt())
+			.updated_at(course.getUpdatedAt())
 			.build();
 	}
 }

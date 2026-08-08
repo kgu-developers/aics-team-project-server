@@ -83,7 +83,7 @@ class CourseServiceTest {
 
     commandService.deleteCourse(course);
 
-    assertThat(course.getDeleted_at()).isNotNull();
+    assertThat(course.getDeletedAt()).isNotNull();
     verify(courseRepository).save(course);
   }
 
