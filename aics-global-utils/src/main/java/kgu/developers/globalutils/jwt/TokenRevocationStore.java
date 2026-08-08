@@ -28,6 +28,10 @@ public class TokenRevocationStore {
 		if (revokedAt == null) {
 			return false;
 		}
-		return issuedAt == null || issuedAt.getTime() <= Long.parseLong(revokedAt);
+		if (issuedAt == null) {
+			return true;
+		}
+		long revokedSecond = Long.parseLong(revokedAt) / 1000 * 1000;
+		return issuedAt.getTime() < revokedSecond;
 	}
 }

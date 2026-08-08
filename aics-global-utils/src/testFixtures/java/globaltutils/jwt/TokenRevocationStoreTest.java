@@ -63,29 +63,40 @@ class TokenRevocationStoreTest {
     assertThat(store.isRevoked(STUDENT_NUMBER, new Date())).isFalse();
   }
 
-  @Test
-  @DisplayName("표식보다 먼저 발급된 토큰은 무효다")
-  void revokesTokenIssuedBeforeMarker() {
-    long revokedAt = System.currentTimeMillis();
-    given(valueOperations.get("revoked:" + STUDENT_NUMBER)).willReturn(String.valueOf(revokedAt));
+  private static final long REVOKED_AT = 1_786_201_858_698L;
 
-    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(revokedAt - 1_000))).isTrue();
+  private void markerAt(long millis) {
+    given(valueOperations.get("revoked:" + STUDENT_NUMBER)).willReturn(String.valueOf(millis));
   }
 
   @Test
-  @DisplayName("표식 이후에 발급된 토큰은 살아 있다 (강등 뒤 재로그인)")
-  void keepsTokenIssuedAfterMarker() {
-    long revokedAt = System.currentTimeMillis();
-    given(valueOperations.get("revoked:" + STUDENT_NUMBER)).willReturn(String.valueOf(revokedAt));
+  @DisplayName("앞선 초에 발급된 토큰은 무효다")
+  void revokesTokenIssuedBeforeMarker() {
+    markerAt(REVOKED_AT);
 
-    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(revokedAt + 1_000))).isFalse();
+    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(1_786_201_857_000L))).isTrue();
+  }
+
+  @Test
+  @DisplayName("무효화와 같은 초에 발급된 토큰은 살아 있다 (비밀번호 변경 직후 재로그인)")
+  void keepsTokenIssuedInSameSecond() {
+    markerAt(REVOKED_AT);
+
+    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(1_786_201_858_000L))).isFalse();
+  }
+
+  @Test
+  @DisplayName("다음 초에 발급된 토큰은 살아 있다 (강등 뒤 재로그인)")
+  void keepsTokenIssuedAfterMarker() {
+    markerAt(REVOKED_AT);
+
+    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(1_786_201_859_000L))).isFalse();
   }
 
   @Test
   @DisplayName("iat이 없는 토큰은 대조할 수 없으므로 무효로 본다")
   void revokesTokenWithoutIssuedAt() {
-    given(valueOperations.get("revoked:" + STUDENT_NUMBER))
-        .willReturn(String.valueOf(System.currentTimeMillis()));
+    markerAt(REVOKED_AT);
 
     assertThat(store.isRevoked(STUDENT_NUMBER, null)).isTrue();
   }
