@@ -1,5 +1,7 @@
 package kgu.developers.admin.config;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -23,6 +25,7 @@ public class SecurityConfig {
         .csrf(CsrfConfig.spa())
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(auth -> auth
+            .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/api/v1/admin/**").hasRole("PROFESSOR")
             .anyRequest().authenticated())
         .addFilterBefore(jwtCookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

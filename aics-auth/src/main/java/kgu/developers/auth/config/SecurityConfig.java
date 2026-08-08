@@ -2,6 +2,8 @@ package kgu.developers.auth.config;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -26,6 +28,7 @@ public class SecurityConfig {
         .csrf(CsrfConfig.spa("/api/v1/oop/auth/login"))
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(auth -> auth
+            .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/api/v1/oop/auth/login", "/api/v1/oop/auth/refresh",
                 "/api/v1/oop/auth/logout", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
             .anyRequest().authenticated())

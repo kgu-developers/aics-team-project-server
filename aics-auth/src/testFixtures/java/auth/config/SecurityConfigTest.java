@@ -1,10 +1,14 @@
 package auth.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import jakarta.servlet.DispatcherType;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,6 +66,16 @@ class SecurityConfigTest {
 
     mockMvc.perform(post(LOGIN_URL).contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("오류 페이지 디스패치는 인증을 요구하지 않는다")
+  void errorDispatchIsPermitted() throws Exception {
+    mockMvc.perform(get("/error").with(request -> {
+          request.setDispatcherType(DispatcherType.ERROR);
+          return request;
+        }))
+        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
   }
 
   @Test

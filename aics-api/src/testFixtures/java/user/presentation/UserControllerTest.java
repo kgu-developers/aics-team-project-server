@@ -18,6 +18,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.Cookie;
 import kgu.developers.api.config.SecurityConfig;
 import kgu.developers.api.user.application.UserFacade;

@@ -2,6 +2,8 @@ package kgu.developers.api.config;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
+import jakarta.servlet.DispatcherType;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -26,9 +28,9 @@ public class SecurityConfig {
         .csrf(CsrfConfig.spa())
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(auth -> auth
+            .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
             .anyRequest().authenticated())
-        // 기본값은 403이라, 토큰이 없거나 만료된 요청은 401로 응답한다.
         .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))
         .addFilterBefore(jwtCookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
