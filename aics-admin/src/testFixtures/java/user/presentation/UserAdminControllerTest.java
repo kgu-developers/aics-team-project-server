@@ -30,7 +30,7 @@ import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminPersistResponse;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
-import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
+import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
 import kgu.developers.domain.user.domain.User;
 
@@ -47,10 +47,10 @@ class UserAdminControllerTest {
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   private final UserAdminRequest request =
-      new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+      new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
 
   private final UserAdminUpdateRequest updateRequest =
-      new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", STUDENT, "010-9876-5432");
+      new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", USER, "010-9876-5432");
 
   @BeforeEach
   void setUp() {
@@ -58,7 +58,7 @@ class UserAdminControllerTest {
   }
 
   private User user() {
-    return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+    return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
   }
 
   @Test
@@ -77,7 +77,7 @@ class UserAdminControllerTest {
   @DisplayName("POST /users는 필수 값이 빠지면 400을 응답한다")
   void createUserWithMissingField() throws Exception {
     UserAdminRequest invalid =
-        new UserAdminRequest(null, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+        new UserAdminRequest(null, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
 
     mockMvc.perform(post(BASE_URL)
             .contentType(MediaType.APPLICATION_JSON)
@@ -89,7 +89,7 @@ class UserAdminControllerTest {
   @DisplayName("POST /users는 값이 빈 문자열이면 400을 응답한다")
   void createUserWithBlankField() throws Exception {
     UserAdminRequest blank =
-        new UserAdminRequest("", "", "", "", STUDENT, "");
+        new UserAdminRequest("", "", "", "", USER, "");
 
     mockMvc.perform(post(BASE_URL)
             .contentType(MediaType.APPLICATION_JSON)

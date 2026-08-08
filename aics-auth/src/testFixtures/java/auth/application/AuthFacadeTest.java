@@ -21,7 +21,7 @@ import kgu.developers.auth.api.application.RefreshTokenStore;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.domain.user.application.query.UserQueryService;
-import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
+import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.exception.InvalidCredentialsException;
@@ -52,7 +52,7 @@ class AuthFacadeTest {
   private static final String PASSWORD = "12345678";
 
   private User user() {
-    return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", PASSWORD, STUDENT, "010-1234-6789");
+    return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", PASSWORD, USER, "010-1234-6789");
   }
 
   @Test
@@ -60,7 +60,7 @@ class AuthFacadeTest {
   void login() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
-    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("access-token");
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "USER")).willReturn("access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 
     LoginResponse response = userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD));
@@ -75,7 +75,7 @@ class AuthFacadeTest {
   void refresh() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
-    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("new-access-token");
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "USER")).willReturn("new-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
         .willReturn(true);

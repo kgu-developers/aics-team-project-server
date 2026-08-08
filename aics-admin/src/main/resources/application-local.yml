@@ -21,7 +21,7 @@ spring:
       name: admin
       # bcrypt 해시 평문은 "admin".
       password: "$2a$10$nKxI21dQHbHpp4SRpVmIBOp1j6YjpAE0GW79cVz.6M01em.9TTXjm"
-      roles: PROFESSOR
+      roles: ADMIN
 
 springdoc:
   swagger-ui:

@@ -62,7 +62,7 @@ class SecurityConfigTest {
   private TokenRevocationStore tokenRevocationStore;
 
   private Cookie accessTokenCookie() {
-    return new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT"));
+    return new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER"));
   }
 
   @Test

@@ -18,8 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import kgu.developers.domain.auth.infrastructure.JpaRefreshTokenRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
-import static kgu.developers.domain.user.domain.UserGlobalRole.PROFESSOR;
-import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
+import static kgu.developers.domain.user.domain.UserGlobalRole.ADMIN;
+import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
@@ -47,7 +47,7 @@ class UserServiceTest {
   private UserCommandService commandService;
 
   private User user() {
-    return User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+    return User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
   }
 
   @Test
@@ -56,7 +56,7 @@ class UserServiceTest {
     given(passwordEncoder.encode("12345678")).willReturn("hashed");
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-    commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT,
+    commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
         "010-1234-6789");
 
     ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
@@ -70,7 +70,7 @@ class UserServiceTest {
     given(userRepository.existsByStudentNumber("202699999")).willReturn(true);
 
     assertThatThrownBy(() -> commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수",
-        "12345678", STUDENT, "010-1234-6789"))
+        "12345678", USER, "010-1234-6789"))
         .isInstanceOf(DuplicateStudentNumberException.class);
 
     verify(userRepository, never()).save(any(User.class));
@@ -82,12 +82,12 @@ class UserServiceTest {
     User user = user();
     given(passwordEncoder.encode("87654321")).willReturn("hashed");
 
-    commandService.updateUser(user, "new@kyonggi.ac.kr", "김영희", "87654321", PROFESSOR, "010-9876-5432");
+    commandService.updateUser(user, "new@kyonggi.ac.kr", "김영희", "87654321", ADMIN, "010-9876-5432");
 
     assertThat(user.getEmail()).isEqualTo("new@kyonggi.ac.kr");
     assertThat(user.getName()).isEqualTo("김영희");
     assertThat(user.getPassword()).isEqualTo("hashed");
-    assertThat(user.getGlobalRole()).isEqualTo(PROFESSOR);
+    assertThat(user.getGlobalRole()).isEqualTo(ADMIN);
     verify(userRepository).save(user);
     verify(refreshTokenRepository).deleteById("202699999");
   }
@@ -100,7 +100,7 @@ class UserServiceTest {
         .willReturn(true);
 
     assertThatThrownBy(() -> commandService.updateUser(user, "taken@kyonggi.ac.kr", "김영희", "87654321",
-        PROFESSOR, "010-9876-5432"))
+        ADMIN, "010-9876-5432"))
         .isInstanceOf(DuplicateEmailException.class);
 
     verify(userRepository, never()).save(any(User.class));

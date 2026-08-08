@@ -33,7 +33,7 @@ Each module's `src` tree here is a skeleton: folder structure and `build.gradle`
 | JWT 서명 키 | 고정된 개발용 키 | admin·auth가 같은 키를 써야 토큰이 통합니다 |
 | 파일 암호화 키 | `local-dev-key-16` | 정확히 16바이트 |
 | 쿠키 `Secure` 옵션 (auth) | `false` | 로컬은 https가 아니라서, 켜두면 브라우저가 쿠키를 버립니다 |
-| HTTP Basic 계정 (admin) | `admin` / `admin` (권한 `PROFESSOR`) | Postman으로 관리자 API를 찔러볼 때 사용 |
+| HTTP Basic 계정 (admin) | `admin` / `admin` (권한 `ADMIN`) | Postman으로 관리자 API를 찔러볼 때 사용 |
 
 `root` 롤과 `aics` 데이터베이스가 없다면 먼저 만들어 주세요.
 
@@ -51,7 +51,7 @@ createdb -U root aics
 curl -u admin http://localhost:8081/api/v1/admin/oop/users
 ```
 
-`{"contents":[...]}` 가 오면 정상입니다. 인증 없이 부르면 401, 권한이 `PROFESSOR`가 아니면 403입니다.
+`{"contents":[...]}` 가 오면 정상입니다. 인증 없이 부르면 401, 권한이 `ADMIN`이 아니면 403입니다.
 
 API 문서는 <http://localhost:8081/swagger-ui/index.html> (인증 필요, 위 Basic 계정으로 로그인).
 
@@ -67,7 +67,7 @@ API 문서는 <http://localhost:8081/swagger-ui/index.html> (인증 필요, 위 
 | `REDIS_PASSWORD` | admin, auth | 비밀번호가 없는 Redis라면 빈 값으로 두되, **변수 자체는 정의**해야 합니다 |
 | `JWT_SECRET_KEY` | admin, auth | 토큰 서명 키. **두 서버가 같은 값**이어야 admin이 auth가 발급한 토큰을 검증할 수 있습니다 |
 | `FILE_SECRET_KEY` | admin, auth | 파일 암호화 키. **UTF-8 기준 16 / 24 / 32바이트**여야 하며, 아니면 기동 시점에 거부됩니다 |
-| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | admin | HTTP Basic 관리자 계정(권한 `PROFESSOR`). JWT 없이도 통과하는 계정이라 값 관리에 주의하세요 |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | admin | HTTP Basic 관리자 계정(권한 `ADMIN`). JWT 없이도 통과하는 계정이라 값 관리에 주의하세요 |
 
 아래는 기본값이 있어서 **따로 설정하지 않아도 되는** 값들입니다. 환경이 다를 때만 덮어쓰세요.
 

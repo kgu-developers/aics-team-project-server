@@ -59,7 +59,7 @@ class UserControllerTest {
   private TokenRevocationStore tokenRevocationStore;
 
   private Cookie accessTokenCookie(String studentNumber) {
-    return new Cookie("accessToken", jwtUtil.createAccessToken(studentNumber, "STUDENT"));
+    return new Cookie("accessToken", jwtUtil.createAccessToken(studentNumber, "USER"));
   }
 
   @Test

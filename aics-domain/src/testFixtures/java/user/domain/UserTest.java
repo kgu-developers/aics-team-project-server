@@ -5,15 +5,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static kgu.developers.domain.user.domain.UserGlobalRole.PROFESSOR;
-import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
+import static kgu.developers.domain.user.domain.UserGlobalRole.ADMIN;
+import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
 import kgu.developers.domain.user.domain.User;
 
 class UserTest {
 
   private User user() {
-    return User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+    return User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
   }
 
   @Test
@@ -25,7 +25,7 @@ class UserTest {
     assertThat(user.getEmail()).isEqualTo("kgu@kyonggi.ac.kr");
     assertThat(user.getName()).isEqualTo("김철수");
     assertThat(user.getPassword()).isEqualTo("12345678");
-    assertThat(user.getGlobalRole()).isEqualTo(STUDENT);
+    assertThat(user.getGlobalRole()).isEqualTo(USER);
     assertThat(user.getPhone()).isEqualTo("010-1234-6789");
     assertThat(user.getDeletedAt()).isNull();
   }
@@ -37,12 +37,12 @@ class UserTest {
 
     user.updateName("김영희");
     user.updatePassword("87654321");
-    user.updateGlobalRole(PROFESSOR);
+    user.updateGlobalRole(ADMIN);
     user.updatePhone("010-9876-5432");
 
     assertThat(user.getName()).isEqualTo("김영희");
     assertThat(user.getPassword()).isEqualTo("87654321");
-    assertThat(user.getGlobalRole()).isEqualTo(PROFESSOR);
+    assertThat(user.getGlobalRole()).isEqualTo(ADMIN);
     assertThat(user.getPhone()).isEqualTo("010-9876-5432");
   }
 

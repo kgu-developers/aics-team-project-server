@@ -26,7 +26,7 @@ public class SecurityConfig {
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-            .requestMatchers("/api/v1/admin/**").hasRole("PROFESSOR")
+            .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())
         .addFilterBefore(jwtCookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .httpBasic(Customizer.withDefaults())

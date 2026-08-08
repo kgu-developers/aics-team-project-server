@@ -20,7 +20,7 @@ public record UserResponse(
         @Schema(description = "이름", example = "김철수", requiredMode = REQUIRED)
         String name,
 
-        @Schema(description = "권한", example = "STUDENT", requiredMode = REQUIRED)
+        @Schema(description = "권한", example = "USER", requiredMode = REQUIRED)
         UserGlobalRole globalRole,
 
         @Schema(description = "전화번호", example = "010-1234-6789", requiredMode = REQUIRED)

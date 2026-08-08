@@ -28,7 +28,7 @@ public record UserAdminUpdateRequest(
         @Size(min = 8, max = 64)
         String password,
 
-        @Schema(description = "권한", example = "STUDENT", requiredMode = REQUIRED)
+        @Schema(description = "권한", example = "USER", requiredMode = REQUIRED)
         @NotNull
         UserGlobalRole globalRole,
 

@@ -80,7 +80,7 @@ class SecurityConfigTest {
 
   @Test
   @DisplayName("일반 사용자 요청은 403을 응답한다")
-  @WithMockUser(roles = "STUDENT")
+  @WithMockUser(roles = "USER")
   void notAdmin() throws Exception {
     mockMvc.perform(get(ADMIN_URL))
         .andExpect(status().isForbidden());
@@ -88,7 +88,7 @@ class SecurityConfigTest {
 
   @Test
   @DisplayName("관리자 요청은 200을 응답한다")
-  @WithMockUser(roles = "PROFESSOR")
+  @WithMockUser(roles = "ADMIN")
   void admin() throws Exception {
     given(userAdminFacade.getAllUsers()).willReturn(UserAdminListResponse.from(List.of()));
 
@@ -97,18 +97,18 @@ class SecurityConfigTest {
   }
 
   @Test
-  @DisplayName("PROFESSOR 역할의 accessToken 쿠키를 담으면 200을 응답한다")
+  @DisplayName("ADMIN 역할의 accessToken 쿠키를 담으면 200을 응답한다")
   void adminAccessTokenCookie() throws Exception {
     given(userAdminFacade.getAllUsers()).willReturn(UserAdminListResponse.from(List.of()));
 
-    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("PROFESSOR")))
+    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("ADMIN")))
         .andExpect(status().isOk());
   }
 
   @Test
-  @DisplayName("STUDENT 역할의 accessToken 쿠키는 403을 응답한다")
+  @DisplayName("USER 역할의 accessToken 쿠키는 403을 응답한다")
   void studentAccessTokenCookie() throws Exception {
-    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("STUDENT")))
+    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("USER")))
         .andExpect(status().isForbidden());
   }
 
@@ -118,7 +118,7 @@ class SecurityConfigTest {
     given(tokenRevocationStore.isRevoked(org.mockito.ArgumentMatchers.eq(STUDENT_NUMBER),
         org.mockito.ArgumentMatchers.any())).willReturn(true);
 
-    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("PROFESSOR")))
+    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("ADMIN")))
         .andExpect(status().isUnauthorized());
   }
 
@@ -131,7 +131,7 @@ class SecurityConfigTest {
 
   @Test
   @DisplayName("CSRF 토큰이 없는 관리자 요청은 403을 응답한다")
-  @WithMockUser(roles = "PROFESSOR")
+  @WithMockUser(roles = "ADMIN")
   void adminWriteWithoutCsrfToken() throws Exception {
     mockMvc.perform(delete(ADMIN_URL + "/" + STUDENT_NUMBER))
         .andExpect(status().isForbidden());
@@ -139,7 +139,7 @@ class SecurityConfigTest {
 
   @Test
   @DisplayName("CSRF 토큰을 담은 관리자 요청은 통과한다")
-  @WithMockUser(roles = "PROFESSOR")
+  @WithMockUser(roles = "ADMIN")
   void adminWriteWithCsrfToken() throws Exception {
     mockMvc.perform(delete(ADMIN_URL + "/" + STUDENT_NUMBER).with(csrf()))
         .andExpect(status().isNoContent());

@@ -19,7 +19,7 @@ import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
-import static kgu.developers.domain.user.domain.UserGlobalRole.STUDENT;
+import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
 import kgu.developers.domain.user.domain.User;
 
@@ -38,24 +38,24 @@ class UserAdminFacadeTest {
   private static final String STUDENT_NUMBER = "202699999";
 
   private final UserAdminRequest request =
-      new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+      new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
 
   private final UserAdminUpdateRequest updateRequest =
-      new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", STUDENT, "010-9876-5432");
+      new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", USER, "010-9876-5432");
 
   private User user() {
-    return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT, "010-1234-6789");
+    return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
   }
 
   @Test
   @DisplayName("createUser는 요청 값을 순서대로 커맨드 서비스에 넘기고 학번을 응답한다")
   void createUser() {
-    given(userCommandService.createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT,
+    given(userCommandService.createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
         "010-1234-6789")).willReturn(STUDENT_NUMBER);
 
     assertThat(userAdminFacade.createUser(request).studentNumber()).isEqualTo(STUDENT_NUMBER);
 
-    verify(userCommandService).createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", STUDENT,
+    verify(userCommandService).createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
         "010-1234-6789");
   }
 
@@ -67,7 +67,7 @@ class UserAdminFacadeTest {
 
     userAdminFacade.updateUser(STUDENT_NUMBER, updateRequest);
 
-    verify(userCommandService).updateUser(user, "new@kyonggi.ac.kr", "김영희", "87654321", STUDENT,
+    verify(userCommandService).updateUser(user, "new@kyonggi.ac.kr", "김영희", "87654321", USER,
         "010-9876-5432");
   }
 
