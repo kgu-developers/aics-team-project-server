@@ -23,9 +23,7 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     return http
-        // 세 엔드포인트는 토큰을 받기 전에 호출되거나(login) 회전 외에 바꾸는 상태가 없다(refresh/logout).
-        .csrf(CsrfConfig.spa("/api/v1/oop/auth/login", "/api/v1/oop/auth/refresh",
-            "/api/v1/oop/auth/logout"))
+        .csrf(CsrfConfig.spa("/api/v1/oop/auth/login"))
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/v1/oop/auth/login", "/api/v1/oop/auth/refresh",
