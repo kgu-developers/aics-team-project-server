@@ -22,8 +22,6 @@ public class JwtUtil {
 	private static final String ACCESS = "access";
 	private static final String REFRESH = "refresh";
 
-	// HS256의 키는 해시 출력과 같은 256비트 이상이어야 한다 (RFC 7518 §3.2).
-	// jjwt 0.9.1은 이걸 강제하지 않아서, 짧은 키를 줘도 조용히 약한 서명을 만든다.
 	private static final int MIN_SECRET_KEY_BYTES = 32;
 
 	private final byte[] secretKey;
@@ -69,6 +67,10 @@ public class JwtUtil {
 	}
 
 	private Claims parseClaims(String token, String expectedType) {
+		if (token == null || token.isBlank()) {
+			throw new JwtException("토큰이 비어 있습니다.");
+		}
+
 		Claims claims = Jwts.parser()
 			.setSigningKey(secretKey)
 			.requireIssuer(issuer)

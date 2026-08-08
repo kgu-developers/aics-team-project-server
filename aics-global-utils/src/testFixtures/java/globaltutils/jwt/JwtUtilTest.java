@@ -156,6 +156,17 @@ class JwtUtilTest {
   }
 
   @Test
+  @DisplayName("비어 있는 토큰도 IllegalArgumentException이 아니라 JwtException으로 거부한다")
+  void rejectsBlankToken() {
+    for (String blank : new String[] {null, "", "   "}) {
+      assertThatThrownBy(() -> jwtUtil.parseAccessTokenClaims(blank))
+          .isInstanceOf(JwtException.class);
+      assertThatThrownBy(() -> jwtUtil.parseRefreshTokenSubject(blank))
+          .isInstanceOf(JwtException.class);
+    }
+  }
+
+  @Test
   @DisplayName("다른 키로 서명을 검증하면 실패한다")
   void rejectsTokenSignedWithAnotherKey() {
     String token = jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT");
