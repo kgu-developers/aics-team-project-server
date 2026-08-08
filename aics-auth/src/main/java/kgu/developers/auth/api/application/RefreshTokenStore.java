@@ -20,10 +20,7 @@ public class RefreshTokenStore {
     private final JpaRefreshTokenRepository refreshTokenRepository;
 
     public void save(String studentNumber, String refreshToken) {
-        String tokenHash = hash(refreshToken);
-        refreshTokenRepository.findById(studentNumber).ifPresentOrElse(
-                stored -> stored.updateTokenHash(tokenHash),
-                () -> refreshTokenRepository.save(new RefreshTokenJpaEntity(studentNumber, tokenHash)));
+        refreshTokenRepository.upsert(studentNumber, hash(refreshToken));
     }
 
     public boolean replace(String studentNumber, String expected, String replacement) {

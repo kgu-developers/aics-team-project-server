@@ -11,7 +11,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,28 +36,20 @@ class RefreshTokenStoreTest {
       "0eb17643d4e9261163783a420859c92c7d212fa9624106a12b510afbec266120";
 
   @Test
-  @DisplayName("save는 원문이 아니라 해시를 저장한다")
+  @DisplayName("save는 원문이 아니라 해시를 upsert한다")
   void saveStoresHashNotRawToken() {
-    given(refreshTokenRepository.findById(STUDENT_NUMBER)).willReturn(Optional.empty());
-
     refreshTokenStore.save(STUDENT_NUMBER, TOKEN);
 
-    ArgumentCaptor<RefreshTokenJpaEntity> captor =
-        ArgumentCaptor.forClass(RefreshTokenJpaEntity.class);
-    verify(refreshTokenRepository).save(captor.capture());
-    assertThat(captor.getValue().getTokenHash()).isNotEqualTo(TOKEN).hasSize(64);
+    verify(refreshTokenRepository).upsert(STUDENT_NUMBER, TOKEN_HASH);
+    assertThat(TOKEN_HASH).isNotEqualTo(TOKEN).hasSize(64);
   }
 
   @Test
-  @DisplayName("save는 기존 행이 있으면 새 엔티티를 만들지 않고 그 행을 갱신한다 (@Version 충돌 방지)")
-  void saveUpdatesStoredRow() {
-    RefreshTokenJpaEntity stored = new RefreshTokenJpaEntity(STUDENT_NUMBER, "old-hash");
-    given(refreshTokenRepository.findById(STUDENT_NUMBER)).willReturn(Optional.of(stored));
-
+  @DisplayName("save는 조회 후 insert로 나누지 않는다 (동시 로그인 PK 충돌 방지)")
+  void saveDoesNotReadThenInsert() {
     refreshTokenStore.save(STUDENT_NUMBER, TOKEN);
 
-    assertThat(stored.getTokenHash()).isNotEqualTo("old-hash").hasSize(64);
-    // version 0짜리 새 엔티티를 merge하면 회전을 거친 행과 충돌한다.
+    verify(refreshTokenRepository, never()).findById(any());
     verify(refreshTokenRepository, never()).save(any());
   }
 
