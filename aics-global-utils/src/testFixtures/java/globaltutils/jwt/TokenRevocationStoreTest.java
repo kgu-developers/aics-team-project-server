@@ -5,7 +5,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
-import java.util.Date;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,7 +59,7 @@ class TokenRevocationStoreTest {
   void notRevokedWithoutMarker() {
     given(valueOperations.get("revoked:" + STUDENT_NUMBER)).willReturn(null);
 
-    assertThat(store.isRevoked(STUDENT_NUMBER, new Date())).isFalse();
+    assertThat(store.isRevoked(STUDENT_NUMBER, System.currentTimeMillis())).isFalse();
   }
 
   private static final long REVOKED_AT = 1_786_201_858_698L;
@@ -74,15 +73,25 @@ class TokenRevocationStoreTest {
   void revokesTokenIssuedBeforeMarker() {
     markerAt(REVOKED_AT);
 
-    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(1_786_201_857_000L))).isTrue();
+    assertThat(store.isRevoked(STUDENT_NUMBER, 1_786_201_857_000L)).isTrue();
   }
 
   @Test
-  @DisplayName("무효화와 같은 초에 발급된 토큰은 살아 있다 (비밀번호 변경 직후 재로그인)")
+  @DisplayName("같은 초라도 무효화보다 먼저 발급된 토큰은 무효다")
   void keepsTokenIssuedInSameSecond() {
     markerAt(REVOKED_AT);
 
-    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(1_786_201_858_000L))).isFalse();
+    assertThat(store.isRevoked(STUDENT_NUMBER, 1_786_201_858_000L)).isTrue();
+    assertThat(store.isRevoked(STUDENT_NUMBER, REVOKED_AT - 1)).isTrue();
+  }
+
+  @Test
+  @DisplayName("같은 초라도 무효화 뒤에 발급된 토큰은 살아 있다 (비밀번호 변경 직후 재로그인)")
+  void keepsTokenIssuedAfterMarkerInSameSecond() {
+    markerAt(REVOKED_AT);
+
+    assertThat(store.isRevoked(STUDENT_NUMBER, REVOKED_AT)).isFalse();
+    assertThat(store.isRevoked(STUDENT_NUMBER, 1_786_201_858_799L)).isFalse();
   }
 
   @Test
@@ -90,11 +99,11 @@ class TokenRevocationStoreTest {
   void keepsTokenIssuedAfterMarker() {
     markerAt(REVOKED_AT);
 
-    assertThat(store.isRevoked(STUDENT_NUMBER, new Date(1_786_201_859_000L))).isFalse();
+    assertThat(store.isRevoked(STUDENT_NUMBER, 1_786_201_859_000L)).isFalse();
   }
 
   @Test
-  @DisplayName("iat이 없는 토큰은 대조할 수 없으므로 무효로 본다")
+  @DisplayName("발급 시각이 없는 토큰은 대조할 수 없으므로 무효로 본다")
   void revokesTokenWithoutIssuedAt() {
     markerAt(REVOKED_AT);
 

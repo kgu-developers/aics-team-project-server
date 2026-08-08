@@ -1,5 +1,6 @@
 package kgu.developers.globalutils.jwt;
 
+import static kgu.developers.globalutils.jwt.JwtUtil.ISSUED_AT_MILLIS;
 import static kgu.developers.globalutils.jwt.JwtUtil.ROLE;
 
 import java.io.IOException;
@@ -41,7 +42,7 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 		if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 			try {
 				Claims claims = jwtUtil.parseAccessTokenClaims(token);
-				if (revocationStore.isRevoked(claims.getSubject(), claims.getIssuedAt())) {
+				if (revocationStore.isRevoked(claims.getSubject(), claims.get(ISSUED_AT_MILLIS, Long.class))) {
 					SecurityContextHolder.clearContext();
 				} else {
 					SecurityContextHolder.getContext().setAuthentication(authentication(claims));

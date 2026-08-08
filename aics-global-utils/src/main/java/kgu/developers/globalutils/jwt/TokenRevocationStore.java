@@ -1,7 +1,5 @@
 package kgu.developers.globalutils.jwt;
 
-import java.util.Date;
-
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -23,15 +21,14 @@ public class TokenRevocationStore {
 			jwtUtil.getAccessTokenValidity());
 	}
 
-	public boolean isRevoked(String studentNumber, Date issuedAt) {
+	public boolean isRevoked(String studentNumber, Long issuedAtMillis) {
 		String revokedAt = redisTemplate.opsForValue().get(KEY_PREFIX + studentNumber);
 		if (revokedAt == null) {
 			return false;
 		}
-		if (issuedAt == null) {
+		if (issuedAtMillis == null) {
 			return true;
 		}
-		long revokedSecond = Long.parseLong(revokedAt) / 1000 * 1000;
-		return issuedAt.getTime() < revokedSecond;
+		return issuedAtMillis < Long.parseLong(revokedAt);
 	}
 }

@@ -18,6 +18,8 @@ public class JwtUtil {
 
 	public static final String ROLE = "role";
 
+	public static final String ISSUED_AT_MILLIS = "iat_ms";
+
 	private static final String TOKEN_TYPE = "type";
 	private static final String ACCESS = "access";
 	private static final String REFRESH = "refresh";
@@ -91,6 +93,7 @@ public class JwtUtil {
 			.claim(TOKEN_TYPE, type)
 			.claim(ROLE, role)
 			.setIssuedAt(now)
+			.claim(ISSUED_AT_MILLIS, now.getTime())
 			.setExpiration(new Date(now.getTime() + validity.toMillis()))
 			.signWith(SignatureAlgorithm.HS256, secretKey)
 			.compact();
