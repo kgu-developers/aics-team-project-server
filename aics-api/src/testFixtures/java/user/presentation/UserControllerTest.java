@@ -103,6 +103,39 @@ class UserControllerTest {
   }
 
   @Test
+  @DisplayName("새 비밀번호가 UTF-8 72바이트면 변경한다")
+  void updateWithMaxByteLengthPassword() throws Exception {
+    String password = "가".repeat(24); // 72 bytes
+
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
+            .with(csrf())
+            .cookie(accessTokenCookie(STUDENT_NUMBER))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"currentPassword":"12345678","password":"%s"}""".formatted(password)))
+        .andExpect(status().isOk());
+
+    verify(userFacade).updateUserPassword(STUDENT_NUMBER,
+        new UserUpdateRequest("12345678", password));
+  }
+
+  @Test
+  @DisplayName("새 비밀번호가 UTF-8 72바이트를 넘으면 400을 응답하고 변경하지 않는다")
+  void updateWithTooManyBytesPassword() throws Exception {
+    String password = "가".repeat(25); // 75 bytes, 25 chars so @Size(max = 64) is not triggered
+
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
+            .with(csrf())
+            .cookie(accessTokenCookie(STUDENT_NUMBER))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"currentPassword":"12345678","password":"%s"}""".formatted(password)))
+        .andExpect(status().isBadRequest());
+
+    verify(userFacade, never()).updateUserPassword(any(), any());
+  }
+
+  @Test
   @DisplayName("다른 사람 학번이면 403을 응답하고 변경하지 않는다")
   void updateOthersPassword() throws Exception {
     mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", OTHER_STUDENT_NUMBER)

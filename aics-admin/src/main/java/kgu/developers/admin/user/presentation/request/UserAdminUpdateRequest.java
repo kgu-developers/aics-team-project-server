@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import kgu.developers.common.validation.BcryptPassword;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import lombok.Builder;
 
@@ -26,6 +27,7 @@ public record UserAdminUpdateRequest(
         @Schema(description = "비밀번호", example = "12345678", requiredMode = REQUIRED)
         @NotBlank
         @Size(min = 8, max = 64)
+        @BcryptPassword
         String password,
 
         @Schema(description = "권한", example = "USER", requiredMode = REQUIRED)
