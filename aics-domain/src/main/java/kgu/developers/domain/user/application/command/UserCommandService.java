@@ -7,6 +7,7 @@ import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.DuplicateEmailException;
 import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
 import kgu.developers.domain.user.exception.InvalidCredentialsException;
+import kgu.developers.globalutils.jwt.TokenRevocationStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ public class UserCommandService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JpaRefreshTokenRepository refreshTokenRepository;
+    private final TokenRevocationStore tokenRevocationStore;
 
     public String createUser(String studentNumber, String email, String name, String password,
                              UserGlobalRole globalRole, String phone) {
@@ -39,7 +41,7 @@ public class UserCommandService {
         user.updateGlobalRole(globalRole);
         user.updatePhone(phone);
         userRepository.save(user);
-        revokeRefreshToken(user);
+        revokeTokens(user);
     }
 
     public void updatePassword(User user, String currentPassword, String newPassword) {
@@ -49,17 +51,18 @@ public class UserCommandService {
 
         user.updatePassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-        revokeRefreshToken(user);
+        revokeTokens(user);
     }
 
     public void deleteUser(User user) {
         user.delete();
         userRepository.save(user);
-        revokeRefreshToken(user);
+        revokeTokens(user);
     }
 
-    private void revokeRefreshToken(User user) {
+    private void revokeTokens(User user) {
         refreshTokenRepository.deleteById(user.getStudentNumber());
+        tokenRevocationStore.revokeTokensIssuedBefore(user.getStudentNumber());
     }
 
     private void checkEmailAvailable(String email, String studentNumber) {

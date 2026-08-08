@@ -25,6 +25,7 @@ import kgu.developers.api.user.presentation.UserControllerImpl;
 import kgu.developers.api.user.presentation.request.UserUpdateRequest;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
+import kgu.developers.globalutils.jwt.TokenRevocationStore;
 
 @WebMvcTest
 @Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class,
@@ -52,6 +53,9 @@ class UserControllerTest {
 
   @MockitoBean
   private UserFacade userFacade;
+
+  @MockitoBean
+  private TokenRevocationStore tokenRevocationStore;
 
   private Cookie accessTokenCookie(String studentNumber) {
     return new Cookie("accessToken", jwtUtil.createAccessToken(studentNumber, "STUDENT"));

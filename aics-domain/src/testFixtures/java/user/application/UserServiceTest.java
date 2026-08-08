@@ -26,6 +26,7 @@ import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.DuplicateEmailException;
 import kgu.developers.domain.user.exception.DuplicateStudentNumberException;
 import kgu.developers.domain.user.exception.InvalidCredentialsException;
+import kgu.developers.globalutils.jwt.TokenRevocationStore;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -38,6 +39,9 @@ class UserServiceTest {
 
   @Mock
   private JpaRefreshTokenRepository refreshTokenRepository;
+
+  @Mock
+  private TokenRevocationStore tokenRevocationStore;
 
   @InjectMocks
   private UserCommandService commandService;

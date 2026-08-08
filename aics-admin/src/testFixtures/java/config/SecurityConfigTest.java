@@ -30,6 +30,7 @@ import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtUtil;
+import kgu.developers.globalutils.jwt.TokenRevocationStore;
 
 @WebMvcTest
 @Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class, CorsConfig.class,
@@ -59,6 +60,10 @@ class SecurityConfigTest {
 
   @MockitoBean
   private UserAdminFacade userAdminFacade;
+
+  // Redis 없이 도는 슬라이스 테스트라 무효화 조회는 대역으로 둔다 (기본값 false = 무효화 안 됨).
+  @MockitoBean
+  private TokenRevocationStore tokenRevocationStore;
 
   private Cookie accessTokenCookie(String role) {
     return new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, role));
@@ -103,6 +108,16 @@ class SecurityConfigTest {
   void studentAccessTokenCookie() throws Exception {
     mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("STUDENT")))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("무효화된 accessToken 쿠키는 서명이 멀쩡해도 401을 응답한다 (탈퇴·강등 즉시 반영)")
+  void revokedAccessTokenCookie() throws Exception {
+    given(tokenRevocationStore.isRevoked(org.mockito.ArgumentMatchers.eq(STUDENT_NUMBER),
+        org.mockito.ArgumentMatchers.any())).willReturn(true);
+
+    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("PROFESSOR")))
+        .andExpect(status().isUnauthorized());
   }
 
   @Test
