@@ -23,7 +23,7 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public boolean existsByStudentNumber(String studentNumber) {
-        return jpaUserRepository.existsById(studentNumber);
+        return jpaUserRepository.existsByStudentNumberAndDeletedAtIsNull(studentNumber);
     }
 
     @Override
