@@ -56,6 +56,34 @@ class MilestoneTest {
     }
 
     @Test
+    @DisplayName("복원할 마일스톤 식별자는 필수이며 양수여야 한다")
+    void restoreRequiresPositiveId() {
+        assertThatThrownBy(() -> Milestone.restore(
+                null,
+                1L,
+                "제안서",
+                null,
+                1,
+                MilestoneStatus.DRAFT,
+                schedule()
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("마일스톤 식별자");
+
+        assertThatThrownBy(() -> Milestone.restore(
+                0L,
+                1L,
+                "제안서",
+                null,
+                1,
+                MilestoneStatus.DRAFT,
+                schedule()
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("양수");
+    }
+
+    @Test
     @DisplayName("상세 내용, 일정, 주차, 공개 상태를 변경할 수 있다")
     void updateMilestone() {
         Milestone milestone = Milestone.create(1L, "제안서", null, 1, schedule());

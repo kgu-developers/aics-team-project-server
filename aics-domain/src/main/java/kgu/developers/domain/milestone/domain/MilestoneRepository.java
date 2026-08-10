@@ -12,6 +12,8 @@ public interface MilestoneRepository {
 
     List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId);
 
+    List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId);
+
     List<Milestone> findAllBySectionIdAndStatusOrderByWeekNumber(
             Long sectionId,
             MilestoneStatus status

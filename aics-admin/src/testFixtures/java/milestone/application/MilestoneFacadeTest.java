@@ -3,6 +3,7 @@ package milestone.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
@@ -133,6 +134,28 @@ class MilestoneFacadeTest {
         MilestoneCreateRequest request = new MilestoneCreateRequest("제안서", null, 2, invalidSchedule);
 
         assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
+                .isInstanceOf(InvalidMilestoneRequestException.class);
+    }
+
+    @Test
+    @DisplayName("조회 서비스의 잘못된 입력은 잘못된 요청 예외로 변환한다")
+    void invalidQueryInput() {
+        given(milestoneQueryService.getMilestone(SECTION_ID, 0L))
+                .willThrow(new IllegalArgumentException("마일스톤 식별자는 양수여야 합니다."));
+
+        assertThatThrownBy(() -> milestoneFacade.getMilestone(SECTION_ID, 0L))
+                .isInstanceOf(InvalidMilestoneRequestException.class);
+    }
+
+    @Test
+    @DisplayName("명령 서비스의 잘못된 입력은 잘못된 요청 예외로 변환한다")
+    void invalidCommandInput() {
+        MilestoneStatusRequest request = new MilestoneStatusRequest(null);
+        willThrow(new IllegalArgumentException("공개 상태는 필수입니다."))
+                .given(milestoneCommandService)
+                .changeStatus(SECTION_ID, MILESTONE_ID, null);
+
+        assertThatThrownBy(() -> milestoneFacade.changeStatus(SECTION_ID, MILESTONE_ID, request))
                 .isInstanceOf(InvalidMilestoneRequestException.class);
     }
 

@@ -1,6 +1,7 @@
 package kgu.developers.admin.milestone.application;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.springframework.stereotype.Component;
 
@@ -27,50 +28,70 @@ public class MilestoneFacade {
     private final MilestoneQueryService milestoneQueryService;
 
     public MilestonePersistResponse createMilestone(Long sectionId, MilestoneCreateRequest request) {
-        Long milestoneId = milestoneCommandService.createMilestone(
-                sectionId,
-                request.title(),
-                request.description(),
-                request.weekNumber(),
-                toSchedule(request.schedule())
-        );
-        return MilestonePersistResponse.of(milestoneId);
+        return asInvalidRequest(() -> {
+            Long milestoneId = milestoneCommandService.createMilestone(
+                    sectionId,
+                    request.title(),
+                    request.description(),
+                    request.weekNumber(),
+                    toSchedule(request.schedule())
+            );
+            return MilestonePersistResponse.of(milestoneId);
+        });
     }
 
     public MilestoneListResponse getMilestones(Long sectionId, MilestoneStatus status) {
-        List<Milestone> milestones = milestoneQueryService.getMilestones(sectionId, status);
-        return MilestoneListResponse.from(milestones);
+        return asInvalidRequest(() -> {
+            List<Milestone> milestones = milestoneQueryService.getMilestones(sectionId, status);
+            return MilestoneListResponse.from(milestones);
+        });
     }
 
     public MilestoneResponse getMilestone(Long sectionId, Long milestoneId) {
-        return MilestoneResponse.from(milestoneQueryService.getMilestone(sectionId, milestoneId));
+        return asInvalidRequest(() -> MilestoneResponse.from(
+                milestoneQueryService.getMilestone(sectionId, milestoneId)
+        ));
     }
 
     public void updateMilestone(Long sectionId, Long milestoneId, MilestoneUpdateRequest request) {
-        milestoneCommandService.updateMilestone(
+        asInvalidRequest(() -> milestoneCommandService.updateMilestone(
                 sectionId,
                 milestoneId,
                 request.title(),
                 request.description(),
                 toSchedule(request.schedule())
-        );
+        ));
     }
 
     public void changeStatus(Long sectionId, Long milestoneId, MilestoneStatusRequest request) {
-        milestoneCommandService.changeStatus(sectionId, milestoneId, request.status());
+        asInvalidRequest(() -> milestoneCommandService.changeStatus(
+                sectionId,
+                milestoneId,
+                request.status()
+        ));
     }
 
     public void updateWeekNumbers(Long sectionId, MilestoneWeekNumbersRequest request) {
-        try {
-            milestoneCommandService.updateWeekNumbers(sectionId, request.toDomain());
-        } catch (IllegalArgumentException exception) {
-            throw new InvalidMilestoneRequestException(exception);
-        }
+        asInvalidRequest(() -> milestoneCommandService.updateWeekNumbers(
+                sectionId,
+                request.toDomain()
+        ));
     }
 
     private MilestoneSchedule toSchedule(MilestoneScheduleRequest request) {
+        return request.toDomain();
+    }
+
+    private void asInvalidRequest(Runnable operation) {
+        asInvalidRequest(() -> {
+            operation.run();
+            return null;
+        });
+    }
+
+    private <T> T asInvalidRequest(Supplier<T> operation) {
         try {
-            return request.toDomain();
+            return operation.get();
         } catch (IllegalArgumentException exception) {
             throw new InvalidMilestoneRequestException(exception);
         }

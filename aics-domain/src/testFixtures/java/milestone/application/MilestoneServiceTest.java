@@ -65,7 +65,7 @@ class MilestoneServiceTest {
 
         commandService.updateMilestone(1L, milestoneId, "제안서 수정", "수정된 설명", updatedSchedule);
 
-        Milestone updated = queryService.getMilestone(milestoneId);
+        Milestone updated = queryService.getMilestone(1L, milestoneId);
         assertThat(updated.getTitle()).isEqualTo("제안서 수정");
         assertThat(updated.getDescription()).isEqualTo("수정된 설명");
         assertThat(updated.getSchedule()).isEqualTo(updatedSchedule);
@@ -97,8 +97,8 @@ class MilestoneServiceTest {
                 new MilestoneWeekNumberChange(second, 6)
         ));
 
-        assertThat(queryService.getMilestone(first).getWeekNumber()).isEqualTo(3);
-        assertThat(queryService.getMilestone(second).getWeekNumber()).isEqualTo(6);
+        assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(3);
+        assertThat(queryService.getMilestone(1L, second).getWeekNumber()).isEqualTo(6);
     }
 
     @Test
@@ -113,7 +113,7 @@ class MilestoneServiceTest {
         )))
                 .isInstanceOf(MilestoneSectionMismatchException.class);
 
-        assertThat(queryService.getMilestone(first).getWeekNumber()).isEqualTo(2);
+        assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(2);
     }
 
     @Test
@@ -128,7 +128,55 @@ class MilestoneServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("두 번");
 
-        assertThat(queryService.getMilestone(milestoneId).getWeekNumber()).isEqualTo(2);
+        assertThat(queryService.getMilestone(1L, milestoneId).getWeekNumber()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("여러 마일스톤을 같은 주차로 변경할 수 없다")
+    void rejectDuplicateTargetWeekNumbers() {
+        Long first = createMilestone(1L, "제안서", 2);
+        Long second = createMilestone(1L, "중간보고서", 4);
+
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, List.of(
+                new MilestoneWeekNumberChange(first, 5),
+                new MilestoneWeekNumberChange(second, 5)
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("중복");
+
+        assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(2);
+        assertThat(queryService.getMilestone(1L, second).getWeekNumber()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("변경하지 않는 마일스톤이 사용 중인 주차로 변경할 수 없다")
+    void rejectWeekNumberUsedByUnchangedMilestone() {
+        Long first = createMilestone(1L, "제안서", 2);
+        Long unchanged = createMilestone(1L, "중간보고서", 4);
+
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, List.of(
+                new MilestoneWeekNumberChange(first, 4)
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("중복");
+
+        assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(2);
+        assertThat(queryService.getMilestone(1L, unchanged).getWeekNumber()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("같은 요청 안에서 두 마일스톤의 주차를 맞바꿀 수 있다")
+    void swapWeekNumbers() {
+        Long first = createMilestone(1L, "제안서", 2);
+        Long second = createMilestone(1L, "중간보고서", 4);
+
+        commandService.updateWeekNumbers(1L, List.of(
+                new MilestoneWeekNumberChange(first, 4),
+                new MilestoneWeekNumberChange(second, 2)
+        ));
+
+        assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(4);
+        assertThat(queryService.getMilestone(1L, second).getWeekNumber()).isEqualTo(2);
     }
 
     @Test
@@ -152,7 +200,7 @@ class MilestoneServiceTest {
     @Test
     @DisplayName("마일스톤 식별자는 양수여야 한다")
     void milestoneIdMustBePositive() {
-        assertThatThrownBy(() -> queryService.getMilestone(0L))
+        assertThatThrownBy(() -> queryService.getMilestone(1L, 0L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("식별자");
     }
@@ -166,7 +214,7 @@ class MilestoneServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("일정");
 
-        assertThat(queryService.getMilestone(milestoneId).getTitle()).isEqualTo("제안서");
+        assertThat(queryService.getMilestone(1L, milestoneId).getTitle()).isEqualTo("제안서");
     }
 
     private Long createMilestone(Long sectionId, String title, int weekNumber) {
@@ -214,6 +262,11 @@ class MilestoneServiceTest {
             return sortedMilestones().stream()
                     .filter(milestone -> milestone.belongsToSection(sectionId))
                     .toList();
+        }
+
+        @Override
+        public List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId) {
+            return findAllBySectionIdOrderByWeekNumber(sectionId);
         }
 
         @Override

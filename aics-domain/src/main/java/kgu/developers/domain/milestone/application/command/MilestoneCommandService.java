@@ -1,8 +1,10 @@
 package kgu.developers.domain.milestone.application.command;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -65,6 +67,15 @@ public class MilestoneCommandService {
             throw new IllegalArgumentException("변경할 마일스톤 주차가 필요합니다.");
         }
 
+        List<Milestone> sectionMilestones = milestoneRepository
+                .findAllBySectionIdForUpdateOrderByWeekNumber(sectionId);
+        Map<Long, Milestone> sectionMilestonesById = new HashMap<>();
+        Map<Long, Integer> finalWeekNumbersById = new HashMap<>();
+        for (Milestone milestone : sectionMilestones) {
+            sectionMilestonesById.put(milestone.getId(), milestone);
+            finalWeekNumbersById.put(milestone.getId(), milestone.getWeekNumber());
+        }
+
         Set<Long> requestedIds = new HashSet<>();
         List<Milestone> milestones = new ArrayList<>(changes.size());
         for (MilestoneWeekNumberChange change : changes) {
@@ -75,17 +86,47 @@ public class MilestoneCommandService {
                 throw new IllegalArgumentException("같은 마일스톤의 주차를 두 번 변경할 수 없습니다.");
             }
 
-            Milestone milestone = getRequiredMilestone(change.milestoneId());
-            if (!milestone.belongsToSection(sectionId)) {
-                throw new MilestoneSectionMismatchException(change.milestoneId(), sectionId);
-            }
+            Milestone milestone = getRequiredSectionMilestone(
+                    sectionId,
+                    change.milestoneId(),
+                    sectionMilestonesById
+            );
             milestones.add(milestone);
+            finalWeekNumbersById.put(change.milestoneId(), change.weekNumber());
         }
 
+        validateUniqueWeekNumbers(finalWeekNumbersById.values());
         for (int index = 0; index < milestones.size(); index++) {
             milestones.get(index).changeWeekNumber(changes.get(index).weekNumber());
         }
         milestoneRepository.saveAll(milestones);
+    }
+
+    private Milestone getRequiredSectionMilestone(
+            Long sectionId,
+            Long milestoneId,
+            Map<Long, Milestone> sectionMilestonesById
+    ) {
+        Milestone milestone = sectionMilestonesById.get(milestoneId);
+        if (milestone != null) {
+            return milestone;
+        }
+
+        milestone = getRequiredMilestone(milestoneId);
+        if (!milestone.belongsToSection(sectionId)) {
+            throw new MilestoneSectionMismatchException(milestoneId, sectionId);
+        }
+        sectionMilestonesById.put(milestoneId, milestone);
+        return milestone;
+    }
+
+    private void validateUniqueWeekNumbers(Iterable<Integer> weekNumbers) {
+        Set<Integer> uniqueWeekNumbers = new HashSet<>();
+        for (Integer weekNumber : weekNumbers) {
+            if (!uniqueWeekNumbers.add(weekNumber)) {
+                throw new IllegalArgumentException("같은 분반에서 주차를 중복할 수 없습니다.");
+            }
+        }
     }
 
     private Milestone getRequiredMilestone(Long milestoneId) {

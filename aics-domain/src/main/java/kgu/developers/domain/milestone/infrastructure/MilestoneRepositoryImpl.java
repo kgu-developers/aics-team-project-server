@@ -46,7 +46,7 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
             return Map.of();
         }
 
-        return jpaMilestoneRepository.findAllByIdInAndDeletedAtIsNull(existingIds).stream()
+        return jpaMilestoneRepository.findAllActiveByIdInForUpdate(existingIds).stream()
                 .collect(Collectors.toMap(MilestoneJpaEntity::getId, entity -> entity));
     }
 
@@ -56,7 +56,7 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
         }
 
         MilestoneJpaEntity entity = jpaMilestoneRepository
-                .findByIdAndDeletedAtIsNull(milestone.getId())
+                .findActiveByIdForUpdate(milestone.getId())
                 .orElse(null);
         return updateExistingEntity(milestone, entity);
     }
@@ -95,6 +95,14 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     public List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId) {
         return jpaMilestoneRepository
                 .findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(sectionId)
+                .stream()
+                .map(MilestoneJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId) {
+        return jpaMilestoneRepository.findAllActiveBySectionIdForUpdate(sectionId)
                 .stream()
                 .map(MilestoneJpaEntity::toDomain)
                 .toList();

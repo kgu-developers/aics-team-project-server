@@ -13,9 +13,8 @@ import kgu.developers.domain.milestone.application.command.MilestoneWeekNumberCh
 
 public record MilestoneWeekNumbersRequest(
         @Schema(description = "마일스톤별 변경 주차", requiredMode = REQUIRED)
-        @Valid
         @NotEmpty
-        List<MilestoneWeekNumberItem> changes
+        List<@NotNull @Valid MilestoneWeekNumberItem> changes
 ) {
     public List<MilestoneWeekNumberChange> toDomain() {
         return changes.stream()

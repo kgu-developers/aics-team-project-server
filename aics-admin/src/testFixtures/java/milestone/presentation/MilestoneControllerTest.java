@@ -1,5 +1,7 @@
 package milestone.presentation;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -95,7 +97,7 @@ class MilestoneControllerTest {
     @WithMockUser(roles = "PROFESSOR")
     @DisplayName("교수자는 올바른 요청으로 마일스톤을 생성할 수 있다")
     void createMilestone() throws Exception {
-        given(milestoneFacade.createMilestone(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any()))
+        given(milestoneFacade.createMilestone(eq(1L), any()))
                 .willReturn(MilestonePersistResponse.of(10L));
 
         mockMvc.perform(post(MILESTONES_URL)
@@ -134,9 +136,9 @@ class MilestoneControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(milestoneFacade).updateMilestone(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq(2L),
-                org.mockito.ArgumentMatchers.any()
+                eq(1L),
+                eq(2L),
+                any()
         );
     }
 
@@ -152,9 +154,9 @@ class MilestoneControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(milestoneFacade).changeStatus(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq(2L),
-                org.mockito.ArgumentMatchers.any()
+                eq(1L),
+                eq(2L),
+                any()
         );
     }
 
@@ -175,9 +177,22 @@ class MilestoneControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(milestoneFacade).updateWeekNumbers(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.any()
+                eq(1L),
+                any()
         );
+    }
+
+    @Test
+    @WithMockUser(roles = "PROFESSOR")
+    @DisplayName("주차 변경 항목에 null이 포함되면 400을 응답한다")
+    void rejectNullWeekNumberChange() throws Exception {
+        mockMvc.perform(put(MILESTONES_URL + "/week-numbers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"changes": [null]}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 
     @Test

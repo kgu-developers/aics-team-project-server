@@ -28,14 +28,14 @@ public class MilestoneQueryService {
 
     public Milestone getMilestone(Long sectionId, Long milestoneId) {
         validateSectionId(sectionId);
-        Milestone milestone = getMilestone(milestoneId);
+        Milestone milestone = getRequiredMilestone(milestoneId);
         if (!milestone.belongsToSection(sectionId)) {
             throw new MilestoneSectionMismatchException(milestoneId, sectionId);
         }
         return milestone;
     }
 
-    public Milestone getMilestone(Long milestoneId) {
+    private Milestone getRequiredMilestone(Long milestoneId) {
         validateMilestoneId(milestoneId);
         return milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));

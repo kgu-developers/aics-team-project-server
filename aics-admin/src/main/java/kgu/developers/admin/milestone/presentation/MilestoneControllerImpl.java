@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
@@ -36,8 +34,8 @@ public class MilestoneControllerImpl implements MilestoneController {
     @Override
     @PostMapping
     public ResponseEntity<MilestonePersistResponse> createMilestone(
-            @Positive @PathVariable Long sectionId,
-            @Valid @RequestBody MilestoneCreateRequest request
+            @PathVariable Long sectionId,
+            @RequestBody MilestoneCreateRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(milestoneFacade.createMilestone(sectionId, request));
@@ -46,7 +44,7 @@ public class MilestoneControllerImpl implements MilestoneController {
     @Override
     @GetMapping
     public ResponseEntity<MilestoneListResponse> getMilestones(
-            @Positive @PathVariable Long sectionId,
+            @PathVariable Long sectionId,
             @RequestParam(required = false) MilestoneStatus status
     ) {
         return ResponseEntity.ok(milestoneFacade.getMilestones(sectionId, status));
@@ -55,8 +53,8 @@ public class MilestoneControllerImpl implements MilestoneController {
     @Override
     @GetMapping("/{milestoneId}")
     public ResponseEntity<MilestoneResponse> getMilestone(
-            @Positive @PathVariable Long sectionId,
-            @Positive @PathVariable Long milestoneId
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId
     ) {
         return ResponseEntity.ok(milestoneFacade.getMilestone(sectionId, milestoneId));
     }
@@ -64,9 +62,9 @@ public class MilestoneControllerImpl implements MilestoneController {
     @Override
     @PutMapping("/{milestoneId}")
     public ResponseEntity<Void> updateMilestone(
-            @Positive @PathVariable Long sectionId,
-            @Positive @PathVariable Long milestoneId,
-            @Valid @RequestBody MilestoneUpdateRequest request
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            @RequestBody MilestoneUpdateRequest request
     ) {
         milestoneFacade.updateMilestone(sectionId, milestoneId, request);
         return ResponseEntity.noContent().build();
@@ -75,9 +73,9 @@ public class MilestoneControllerImpl implements MilestoneController {
     @Override
     @PatchMapping("/{milestoneId}/status")
     public ResponseEntity<Void> changeStatus(
-            @Positive @PathVariable Long sectionId,
-            @Positive @PathVariable Long milestoneId,
-            @Valid @RequestBody MilestoneStatusRequest request
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            @RequestBody MilestoneStatusRequest request
     ) {
         milestoneFacade.changeStatus(sectionId, milestoneId, request);
         return ResponseEntity.noContent().build();
@@ -86,8 +84,8 @@ public class MilestoneControllerImpl implements MilestoneController {
     @Override
     @PutMapping("/week-numbers")
     public ResponseEntity<Void> updateWeekNumbers(
-            @Positive @PathVariable Long sectionId,
-            @Valid @RequestBody MilestoneWeekNumbersRequest request
+            @PathVariable Long sectionId,
+            @RequestBody MilestoneWeekNumbersRequest request
     ) {
         milestoneFacade.updateWeekNumbers(sectionId, request);
         return ResponseEntity.noContent().build();
