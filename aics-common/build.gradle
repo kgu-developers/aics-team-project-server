@@ -8,5 +8,6 @@ jar {
 
 dependencies {
     implementation project(':aics-infra')
-    implementation project(':aics-global-utils')
 }
+
+apply from: "../gradle/jacoco.gradle"

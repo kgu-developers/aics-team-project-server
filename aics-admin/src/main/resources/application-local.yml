@@ -1,0 +1,25 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  datasource:
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+
+  data:
+    redis:
+      password: ${REDIS_PASSWORD:}
+
+  security:
+    user:
+      name: admin
+      password: admin
+      roles: PROFESSOR
+
+# 로컬 전용 값. dev/prod는 환경변수로 주입한다.
+file:
+  secret-key: ${FILE_SECRET_KEY:local-dev-key-16}
+
+jwt:
+  secret_key: ${JWT_SECRET_KEY:bG9jYWwtZGV2LWp3dC1rZXktbG9jYWwtZGV2LWp3dC1rZXk=}
