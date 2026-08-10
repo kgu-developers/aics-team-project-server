@@ -3,10 +3,9 @@ package kgu.developers.common.exception;
 import org.springframework.http.HttpStatus;
 
 public interface ExceptionCode {
+	HttpStatus getStatus();
 
-    HttpStatus getStatus();
+	String getCode();
 
-    String getMessage();
-
-    String getCode();
+	String getMessage();
 }

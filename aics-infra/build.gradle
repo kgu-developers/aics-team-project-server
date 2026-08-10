@@ -7,6 +7,5 @@ jar {
 }
 
 dependencies {
-    implementation project(':aics-global-utils')
     implementation 'org.apache.commons:commons-collections4:4.4'
 }

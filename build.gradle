@@ -59,12 +59,17 @@ subprojects {
 		implementation 'org.apache.poi:poi:5.5.0'
 		implementation 'org.apache.poi:poi-ooxml:5.5.0'
 
+		testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
 		testFixturesImplementation 'org.springframework.boot:spring-boot-starter-test'
 		testFixturesRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+		testFixturesImplementation 'org.springframework.boot:spring-boot-starter-web'
 		testFixturesImplementation 'org.springframework.boot:spring-boot-starter-security'
+		testFixturesImplementation 'org.springframework.security:spring-security-test'
 		testFixturesImplementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 		testFixturesImplementation 'org.projectlombok:lombok'
 		testFixturesImplementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
+		testFixturesImplementation 'io.jsonwebtoken:jjwt:0.9.1'
 		testFixturesImplementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	}
 
