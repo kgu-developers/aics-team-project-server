@@ -114,6 +114,36 @@ class MilestoneScheduleTest {
     }
 
     @Test
+    @DisplayName("평가 시작 시각은 지각 제출 종료 시각보다 빠를 수 없다")
+    void evaluationStartCannotBeBeforeLateSubmissionUntil() {
+        assertThatThrownBy(() -> new MilestoneSchedule(
+                null,
+                DUE_AT,
+                DUE_AT.plusDays(2),
+                null,
+                DUE_AT.plusDays(1),
+                DUE_AT.plusDays(3)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("제출·수정 종료 시각");
+    }
+
+    @Test
+    @DisplayName("평가 시작 시각은 수정 종료 시각보다 빠를 수 없다")
+    void evaluationStartCannotBeBeforeRevisionUntil() {
+        assertThatThrownBy(() -> new MilestoneSchedule(
+                null,
+                DUE_AT,
+                DUE_AT.plusDays(1),
+                DUE_AT.plusDays(3),
+                DUE_AT.plusDays(2),
+                DUE_AT.plusDays(4)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("제출·수정 종료 시각");
+    }
+
+    @Test
     @DisplayName("평가 시작 시각은 종료 시각보다 빨라야 한다")
     void evaluationStartMustBeBeforeEnd() {
         LocalDateTime evaluationAt = DUE_AT.plusDays(1);

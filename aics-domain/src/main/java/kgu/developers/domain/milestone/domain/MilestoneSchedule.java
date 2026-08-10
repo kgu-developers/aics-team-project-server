@@ -37,6 +37,13 @@ public record MilestoneSchedule(
         if (hasEvaluationStart && evaluationOpensAt.isBefore(dueAt)) {
             throw new IllegalArgumentException("평가 시작 시각은 마감 시각보다 빠를 수 없습니다.");
         }
+        LocalDateTime submissionOrRevisionUntil = revisionUntil != null
+                ? revisionUntil
+                : lateSubmissionUntil;
+        if (hasEvaluationStart && submissionOrRevisionUntil != null
+                && evaluationOpensAt.isBefore(submissionOrRevisionUntil)) {
+            throw new IllegalArgumentException("평가 시작 시각은 제출·수정 종료 시각보다 빠를 수 없습니다.");
+        }
         if (hasEvaluationStart && !evaluationOpensAt.isBefore(evaluationClosesAt)) {
             throw new IllegalArgumentException("평가 시작 시각은 종료 시각보다 빨라야 합니다.");
         }
