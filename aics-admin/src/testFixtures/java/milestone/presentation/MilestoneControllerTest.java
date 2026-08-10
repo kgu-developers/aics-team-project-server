@@ -88,7 +88,7 @@ class MilestoneControllerTest {
 
         mockMvc.perform(get(MILESTONES_URL))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.contents").isArray());
+                .andExpect(jsonPath("$.content").isArray());
     }
 
     @Test
