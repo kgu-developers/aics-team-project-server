@@ -1,0 +1,169 @@
+package section.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import kgu.developers.domain.course.domain.Course;
+import kgu.developers.domain.course.domain.CourseRepository;
+import kgu.developers.domain.course.domain.SemesterType;
+import kgu.developers.domain.course.domain.StatusType;
+import kgu.developers.domain.course.exception.CourseNotFoundException;
+import kgu.developers.domain.section.application.command.SectionCommandService;
+import kgu.developers.domain.section.application.query.SectionQueryService;
+import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.section.domain.SectionDetail;
+import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
+import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.UserNotFoundException;
+
+@ExtendWith(MockitoExtension.class)
+class SectionServiceTest {
+
+    @Mock
+    private SectionRepository sectionRepository;
+
+    @Mock
+    private CourseRepository courseRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
+    private SectionCommandService commandService;
+
+    @InjectMocks
+    private SectionQueryService queryService;
+
+    private final Course course = Course.builder()
+            .id(1L)
+            .name("객체지향프로그래밍")
+            .year(2026)
+            .semester(SemesterType.SPRING)
+            .status(StatusType.ACTIVE)
+            .build();
+
+    private final User professor = User.create("202012345", "prof@kgu.ac.kr", "김교수",
+            "encoded", UserGlobalRole.USER, "010-0000-0000");
+
+    private Section section() {
+        return Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null);
+    }
+
+    private SectionDetail sectionDetail() {
+        return new SectionDetail(section(), course, professor);
+    }
+
+    @Test
+    @DisplayName("존재하는 강좌와 교수면 분반이 생성된다")
+    void createsSectionUnderExistingCourse() {
+        given(courseRepository.findById(1L)).willReturn(Optional.of(course));
+        given(userRepository.findByStudentNumber("202012345")).willReturn(Optional.of(professor));
+        given(sectionRepository.save(any(Section.class))).willReturn(
+                Section.builder().id(10L).courseId(1L).build());
+
+        assertThat(commandService.createSection("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null))
+                .isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("없는 강좌에는 분반을 만들 수 없다")
+    void rejectsSectionForMissingCourse() {
+        given(courseRepository.findById(99L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                commandService.createSection("202012345", 99L, "CS101", "01분반", "월3,4", 40, null, null))
+                .isInstanceOf(CourseNotFoundException.class);
+
+        verify(sectionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("없는 교수에게는 분반을 만들 수 없다")
+    void rejectsSectionForMissingProfessor() {
+        given(courseRepository.findById(1L)).willReturn(Optional.of(course));
+        given(userRepository.findByStudentNumber("999999999")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                commandService.createSection("999999999", 1L, "CS101", "01분반", "월3,4", 40, null, null))
+                .isInstanceOf(UserNotFoundException.class);
+
+        verify(sectionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("분반 담당 교수를 없는 사용자로 바꿀 수 없다")
+    void rejectsMoveToMissingProfessor() {
+        Section section = section();
+        given(userRepository.findByStudentNumber("999999999")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commandService.changeProfessor(section, "999999999"))
+                .isInstanceOf(UserNotFoundException.class);
+
+        assertThat(section.getProfessorId()).isEqualTo("202012345");
+    }
+
+    @Test
+    @DisplayName("교수별 분반을 조회한다")
+    void findsSectionsByProfessor() {
+        given(userRepository.findByStudentNumber("202012345")).willReturn(Optional.of(professor));
+        given(sectionRepository.findAllByProfessorId("202012345")).willReturn(List.of(sectionDetail()));
+
+        assertThat(queryService.getSectionsByProfessorId("202012345"))
+                .singleElement()
+                .satisfies(detail -> {
+                    assertThat(detail.professor().getName()).isEqualTo("김교수");
+                    assertThat(detail.course().getName()).isEqualTo("객체지향프로그래밍");
+                });
+    }
+
+    @Test
+    @DisplayName("분반의 강좌를 없는 강좌로 옮길 수 없다")
+    void rejectsMoveToMissingCourse() {
+        Section section = section();
+        given(courseRepository.findById(99L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commandService.changeCourse(section, 99L))
+                .isInstanceOf(CourseNotFoundException.class);
+
+        assertThat(section.getCourseId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("강좌별 분반을 조회한다")
+    void findsSectionsByCourse() {
+        given(courseRepository.findById(1L)).willReturn(Optional.of(course));
+        given(sectionRepository.findAllByCourseId(1L)).willReturn(List.of(sectionDetail()));
+
+        assertThat(queryService.getSectionsByCourseId(1L))
+                .singleElement()
+                .satisfies(detail -> {
+                    assertThat(detail.professor().getName()).isEqualTo("김교수");
+                    assertThat(detail.course().getName()).isEqualTo("객체지향프로그래밍");
+                });
+    }
+
+    @Test
+    @DisplayName("없는 강좌의 분반 조회는 실패한다")
+    void rejectsQueryForMissingCourse() {
+        given(courseRepository.findById(99L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> queryService.getSectionsByCourseId(99L))
+                .isInstanceOf(CourseNotFoundException.class);
+    }
+}
