@@ -65,6 +65,9 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
 	private String accessToken(HttpServletRequest request) {
 		Cookie cookie = WebUtils.getCookie(request, ACCESS_TOKEN);
-		return cookie == null ? null : cookie.getValue();
+		if (cookie == null || cookie.getValue() == null || cookie.getValue().isBlank()) {
+			return null;
+		}
+		return cookie.getValue();
 	}
 }
