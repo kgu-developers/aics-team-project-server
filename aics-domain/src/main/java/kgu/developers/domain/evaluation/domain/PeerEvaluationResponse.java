@@ -44,6 +44,9 @@ public class PeerEvaluationResponse {
         if (selfContribution != null && (selfContribution.signum() < 0 || selfContribution.compareTo(new BigDecimal("100")) > 0)) {
             throw new IllegalArgumentException("본인 기여도는 0 이상 100 이하이어야 합니다.");
         }
+        if (selfContribution != null && selfContribution.scale() > 2) {
+            throw new IllegalArgumentException("본인 기여도는 소수 둘째 자리까지만 입력할 수 있습니다.");
+        }
 
         this.id = id;
         this.formId = formId;

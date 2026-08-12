@@ -106,6 +106,14 @@ class PeerEvaluationDomainTest {
     }
 
     @Test
+    @DisplayName("상호평가 응답의 본인 기여도는 소수 둘째 자리까지만 허용한다")
+    void rejectSelfContributionWithExcessScale() {
+        assertThatThrownBy(() -> PeerEvaluationResponse.create(1L, "20260001", "20260002", new BigDecimal("99.999"), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("본인 기여도는 소수 둘째 자리까지만 입력할 수 있습니다.");
+    }
+
+    @Test
     @DisplayName("상호평가 응답의 학번과 회고 의견은 최대 길이를 넘을 수 없다")
     void responseTextLengthIsLimited() {
         assertThatThrownBy(() -> PeerEvaluationResponse.create(1L, "1".repeat(17), "20260002", null, null))
@@ -224,6 +232,12 @@ class PeerEvaluationDomainTest {
         assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, " "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("성적 스냅샷은 필수입니다.");
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "not-json"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("성적 스냅샷은 유효한 JSON이어야 합니다.");
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "{} {}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("성적 스냅샷은 유효한 JSON이어야 합니다.");
     }
 
     @Test

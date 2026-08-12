@@ -5,6 +5,10 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -33,6 +37,9 @@ import org.hibernate.type.SqlTypes;
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class GradeJpaEntity extends BaseTimeEntity {
+    private static final ObjectMapper SNAPSHOT_MAPPER = new ObjectMapper()
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+
     @Id
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
@@ -60,10 +67,10 @@ public class GradeJpaEntity extends BaseTimeEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
-    private String snapshot;
+    private JsonNode snapshot;
 
     public Grade toDomain() {
-        return Grade.restore(id, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, snapshot, getCreatedAt(), getUpdatedAt(), getDeletedAt());
+        return Grade.restore(id, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, snapshot.toString(), getCreatedAt(), getUpdatedAt(), getDeletedAt());
     }
 
     public static GradeJpaEntity toEntity(Grade grade) {
@@ -76,10 +83,18 @@ public class GradeJpaEntity extends BaseTimeEntity {
                 .peerFactor(grade.getPeerFactor())
                 .finalScore(grade.getFinalScore())
                 .manualAdjustment(grade.getManualAdjustment())
-                .snapshot(grade.getSnapshot())
+                .snapshot(parseSnapshot(grade.getSnapshot()))
                 .build();
         entity.createdAt = grade.getCreatedAt();
         entity.setDeletedAt(grade.getDeletedAt());
         return entity;
+    }
+
+    private static JsonNode parseSnapshot(String snapshot) {
+        try {
+            return SNAPSHOT_MAPPER.readTree(snapshot);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("성적 스냅샷은 유효한 JSON이어야 합니다.", exception);
+        }
     }
 }

@@ -9,12 +9,18 @@ import static lombok.AccessLevel.PRIVATE;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor(access = PRIVATE)
 public class Grade {
+    private static final ObjectMapper SNAPSHOT_MAPPER = new ObjectMapper()
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+
     private Long id;
     private Long sectionId;
     private Long teamId;
@@ -102,6 +108,11 @@ public class Grade {
     private static void validateSnapshot(String snapshot) {
         if (snapshot == null || snapshot.isBlank()) {
             throw new IllegalArgumentException("성적 스냅샷은 필수입니다.");
+        }
+        try {
+            SNAPSHOT_MAPPER.readTree(snapshot);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("성적 스냅샷은 유효한 JSON이어야 합니다.", exception);
         }
     }
 }

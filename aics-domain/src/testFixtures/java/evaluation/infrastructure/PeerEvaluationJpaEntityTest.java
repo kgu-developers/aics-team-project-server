@@ -2,10 +2,11 @@ package evaluation.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.math.BigDecimal;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Table;
 import org.junit.jupiter.api.DisplayName;
@@ -99,12 +100,15 @@ class PeerEvaluationJpaEntityTest {
         String snapshot = "{\"finalScore\":94.5}";
         Grade domain = Grade.restore(1L, 2L, 3L, "20260001", new BigDecimal("90.00"), new BigDecimal("1.0500"), new BigDecimal("94.50"), BigDecimal.ZERO, snapshot, createdAt, updatedAt, deletedAt);
 
-        Grade mapped = GradeJpaEntity.toEntity(domain).toDomain();
+        GradeJpaEntity entity = GradeJpaEntity.toEntity(domain);
+        Grade mapped = entity.toDomain();
 
         assertThat(mapped.getId()).isEqualTo(1L);
         assertThat(mapped.getSectionId()).isEqualTo(2L);
         assertThat(mapped.getTeamId()).isEqualTo(3L);
         assertThat(mapped.getUserId()).isEqualTo("20260001");
+        assertThat(entity.getSnapshot().isObject()).isTrue();
+        assertThat(entity.getSnapshot().get("finalScore").decimalValue()).isEqualByComparingTo("94.5");
         assertThat(mapped.getSnapshot()).isEqualTo(snapshot);
     }
 
@@ -120,6 +124,7 @@ class PeerEvaluationJpaEntityTest {
         assertThat(snapshot.getAnnotation(Column.class).nullable()).isFalse();
         assertThat(snapshot.getAnnotation(Column.class).columnDefinition()).isEqualTo("jsonb");
         assertThat(snapshot.getAnnotation(JdbcTypeCode.class).value()).isEqualTo(SqlTypes.JSON);
+        assertThat(snapshot.getType()).isEqualTo(JsonNode.class);
     }
 
     @Test

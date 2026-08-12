@@ -66,7 +66,12 @@ CREATE TABLE IF NOT EXISTS peer_evaluation_response (
     CONSTRAINT fk_peer_evaluation_response_form
         FOREIGN KEY (form_id) REFERENCES peer_evaluation_form (id),
     CONSTRAINT chk_peer_evaluation_response_student_number
-        CHECK (length(trim(evaluator_id)) BETWEEN 1 AND 16 AND length(trim(target_id)) BETWEEN 1 AND 16),
+        CHECK (
+            evaluator_id = trim(evaluator_id)
+            AND target_id = trim(target_id)
+            AND length(evaluator_id) BETWEEN 1 AND 16
+            AND length(target_id) BETWEEN 1 AND 16
+        ),
     CONSTRAINT chk_peer_evaluation_response_self_contribution
         CHECK (self_contribution IS NULL OR (self_contribution >= 0 AND self_contribution <= 100)),
     CONSTRAINT chk_peer_evaluation_response_project_review_comment
@@ -103,6 +108,41 @@ CREATE TABLE IF NOT EXISTS peer_evaluation_answer (
         )
 );
 
+CREATE OR REPLACE FUNCTION validate_peer_evaluation_answer_form()
+RETURNS TRIGGER AS $$
+DECLARE
+    response_form_id BIGINT;
+    question_form_id BIGINT;
+BEGIN
+    SELECT form_id INTO response_form_id
+    FROM peer_evaluation_response
+    WHERE id = NEW.response_id;
+
+    SELECT form_id INTO question_form_id
+    FROM peer_evaluation_question
+    WHERE id = NEW.question_id;
+
+    IF response_form_id IS NOT NULL
+        AND question_form_id IS NOT NULL
+        AND response_form_id <> question_form_id THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '23514',
+            MESSAGE = '상호평가 응답과 질문은 같은 양식에 속해야 합니다.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_peer_evaluation_answer_form_consistency
+    ON peer_evaluation_answer;
+
+CREATE TRIGGER trg_peer_evaluation_answer_form_consistency
+    BEFORE INSERT OR UPDATE OF response_id, question_id
+    ON peer_evaluation_answer
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_peer_evaluation_answer_form();
+
 CREATE UNIQUE INDEX IF NOT EXISTS uk_peer_evaluation_answer_active_response_question
     ON peer_evaluation_answer (response_id, question_id)
     WHERE deleted_at IS NULL;
@@ -127,7 +167,7 @@ CREATE TABLE IF NOT EXISTS grade (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
     CONSTRAINT chk_grade_user
-        CHECK (length(trim(user_id)) BETWEEN 1 AND 16),
+        CHECK (user_id = trim(user_id) AND length(user_id) BETWEEN 1 AND 16),
     CONSTRAINT chk_grade_non_negative_scores
         CHECK (team_score >= 0 AND peer_factor >= 0 AND final_score >= 0)
 );
