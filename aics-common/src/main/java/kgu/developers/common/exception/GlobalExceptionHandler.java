@@ -5,6 +5,8 @@ import static kgu.developers.common.exception.GlobalExceptionCode.INVALID_INPUT;
 import static kgu.developers.common.exception.GlobalExceptionCode.SERVER_ERROR;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +55,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.internalServerError().body(ExceptionResponse.from(SERVER_ERROR));
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    protected ResponseEntity<ExceptionResponse> handleConstraintViolation(ConstraintViolationException exception) {
+        String message = exception.getConstraintViolations().stream()
+            .map(violation -> leafNode(violation.getPropertyPath()) + ": " + violation.getMessage())
+            .collect(Collectors.joining(", "));
+        ExceptionResponse response = ExceptionResponse.of(INVALID_INPUT.getStatus(), INVALID_INPUT.getCode(), message);
+
+        return ResponseEntity.status(response.status()).body(response);
+    }
+
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException exception,
                                                                               HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -90,5 +102,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ExceptionResponse response = ExceptionResponse.of(INVALID_INPUT.getStatus(), INVALID_INPUT.getCode(), message);
 
         return ResponseEntity.status(response.status()).body(response);
+    }
+
+    private static String leafNode(Path propertyPath) {
+        String path = propertyPath.toString();
+        return path.substring(path.lastIndexOf('.') + 1);
     }
 }
