@@ -1,6 +1,7 @@
 package kgu.developers.api.config;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
+import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
 import jakarta.servlet.DispatcherType;
 
@@ -27,6 +28,7 @@ public class SecurityConfig {
     return http
         .csrf(CsrfConfig.spa())
         .cors(Customizer.withDefaults())
+        .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()

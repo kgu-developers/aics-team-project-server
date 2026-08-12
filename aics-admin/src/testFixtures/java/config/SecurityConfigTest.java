@@ -1,5 +1,6 @@
 package config;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -40,9 +42,7 @@ import kgu.developers.globalutils.jwt.TokenRevocationStore;
 @TestPropertySource(properties = {
     "jwt.secret_key=local-dev-jwt-secret-key-0123456789",
     "jwt.issuer=kgudevelopers@gmail.com",
-    "cors.allowed-origins=http://localhost:5173",
-    "spring.security.user.name=admin",
-    "spring.security.user.password=admin"
+    "cors.allowed-origins=http://localhost:5173"
 })
 class SecurityConfigTest {
 
@@ -127,6 +127,22 @@ class SecurityConfigTest {
   void forgedAccessTokenCookie() throws Exception {
     mockMvc.perform(get(ADMIN_URL).cookie(new Cookie("accessToken", "not-a-jwt")))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("HTTP Basic 자격 증명으로는 통과하지 못한다 (인증은 JWT 쿠키 전용)")
+  void httpBasicIsRejected() throws Exception {
+    String credentials = Base64.getEncoder().encodeToString("admin:admin".getBytes(UTF_8));
+
+    mockMvc.perform(get(ADMIN_URL).header(HttpHeaders.AUTHORIZATION, "Basic " + credentials))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("API 문서 경로는 인증 없이 열려 있다")
+  void docsArePermitted() throws Exception {
+    mockMvc.perform(get("/v3/api-docs"))
+        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
   }
 
   @Test
