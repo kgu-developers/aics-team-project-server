@@ -13,12 +13,6 @@ import lombok.Builder;
 @Builder
 public record MeetingRecordCreateRequest(
 
-    // TODO: 인증 인프라(aics-auth) 구현 후에는 SecurityContext의 인증된 사용자로 대체한다.
-    //  현재는 인증 principal이 없어 요청 값으로 받는다.
-    @Schema(description = "작성자 학번", example = "202412345", requiredMode = REQUIRED)
-    @NotBlank
-    String authorId,
-
     @Schema(description = "회의 일시", example = "2026-08-03T14:00:00", requiredMode = REQUIRED)
     @NotNull
     LocalDateTime meetingAt,

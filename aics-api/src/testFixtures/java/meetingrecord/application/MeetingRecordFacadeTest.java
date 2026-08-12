@@ -41,7 +41,7 @@ public class MeetingRecordFacadeTest {
         MeetingRecordCreateRequest request = buildCreateRequest(MeetingPhase.MID_CHECK, List.of("202412345", "202412346"));
 
         // when
-        MeetingRecordPersistResponse result = meetingRecordFacade.createMeetingRecord(1L, request);
+        MeetingRecordPersistResponse result = meetingRecordFacade.createMeetingRecord(1L, "202412345", request);
 
         // then
         assertNotNull(result.id());
@@ -59,7 +59,7 @@ public class MeetingRecordFacadeTest {
         );
 
         // when
-        MeetingRecordPersistResponse persisted = meetingRecordFacade.createMeetingRecord(1L, request);
+        MeetingRecordPersistResponse persisted = meetingRecordFacade.createMeetingRecord(1L, "202412345", request);
         MeetingRecordDetailResponse detail = meetingRecordFacade.getMeetingRecord(persisted.id());
 
         // then
@@ -70,8 +70,8 @@ public class MeetingRecordFacadeTest {
     @DisplayName("getMeetingRecords는 phase로 필터링한 목록을 반환한다")
     public void getMeetingRecords_FilterByPhase() {
         // given
-        meetingRecordFacade.createMeetingRecord(1L, buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345")));
-        meetingRecordFacade.createMeetingRecord(1L, buildCreateRequest(MeetingPhase.FINAL, List.of("202412345")));
+        meetingRecordFacade.createMeetingRecord(1L, "202412345", buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345")));
+        meetingRecordFacade.createMeetingRecord(1L, "202412345", buildCreateRequest(MeetingPhase.FINAL, List.of("202412345")));
 
         // when
         MeetingRecordListResponse result = meetingRecordFacade.getMeetingRecords(1L, MeetingPhase.FINAL);
@@ -94,7 +94,7 @@ public class MeetingRecordFacadeTest {
     public void updateMeetingRecord_ReplacesParticipants() {
         // given
         MeetingRecordPersistResponse persisted = meetingRecordFacade.createMeetingRecord(
-            1L, buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345", "202412346"))
+            1L, "202412345", buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345", "202412346"))
         );
         MeetingRecordUpdateRequest updateRequest = MeetingRecordUpdateRequest.builder()
             .participantIds(List.of("202499999"))
@@ -109,11 +109,27 @@ public class MeetingRecordFacadeTest {
     }
 
     @Test
+    @DisplayName("updateMeetingRecord는 공백만 있는 content로 수정하면 예외를 던진다")
+    public void updateMeetingRecord_BlankContent_ThrowsException() {
+        // given
+        MeetingRecordPersistResponse persisted = meetingRecordFacade.createMeetingRecord(
+            1L, "202412345", buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345"))
+        );
+        MeetingRecordUpdateRequest updateRequest = MeetingRecordUpdateRequest.builder()
+            .content("   ")
+            .build();
+
+        // when & then
+        assertThatThrownBy(() -> meetingRecordFacade.updateMeetingRecord(persisted.id(), updateRequest))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
     @DisplayName("updateMeetingRecord는 participantIds가 주어지지 않으면 기존 참석자를 유지한다")
     public void updateMeetingRecord_KeepsParticipants_WhenNotProvided() {
         // given
         MeetingRecordPersistResponse persisted = meetingRecordFacade.createMeetingRecord(
-            1L, buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345", "202412346"))
+            1L, "202412345", buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345", "202412346"))
         );
         MeetingRecordUpdateRequest updateRequest = MeetingRecordUpdateRequest.builder()
             .content("수정된 내용")
@@ -133,7 +149,7 @@ public class MeetingRecordFacadeTest {
     public void deleteMeetingRecord_Success() {
         // given
         MeetingRecordPersistResponse persisted = meetingRecordFacade.createMeetingRecord(
-            1L, buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345"))
+            1L, "202412345", buildCreateRequest(MeetingPhase.PROPOSAL, List.of("202412345"))
         );
 
         // when
@@ -146,7 +162,6 @@ public class MeetingRecordFacadeTest {
 
     private MeetingRecordCreateRequest buildCreateRequest(MeetingPhase phase, List<String> participantIds) {
         return MeetingRecordCreateRequest.builder()
-            .authorId("202412345")
             .meetingAt(LocalDateTime.of(2026, 8, 3, 14, 0))
             .location("온라인(Zoom)")
             .phase(phase)

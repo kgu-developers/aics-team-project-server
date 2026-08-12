@@ -24,11 +24,11 @@ public class MeetingRecordFacade {
         return MeetingRecordListResponse.from(meetingRecordQueryService.getMeetingRecords(teamId, phase));
     }
 
-    public MeetingRecordPersistResponse createMeetingRecord(Long teamId, MeetingRecordCreateRequest request) {
+    public MeetingRecordPersistResponse createMeetingRecord(Long teamId, String authorId, MeetingRecordCreateRequest request) {
         Long id = meetingRecordCommandService.createMeetingRecord(
             teamId,
             request.phase(),
-            request.authorId(),
+            authorId,
             request.meetingAt(),
             request.location(),
             request.content(),

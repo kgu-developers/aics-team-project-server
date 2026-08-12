@@ -12,6 +12,7 @@ import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordPersi
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -40,9 +41,11 @@ public class MeetingRecordControllerImpl implements MeetingRecordController {
     @PostMapping("/teams/{teamId}/meeting-records")
     public ResponseEntity<MeetingRecordPersistResponse> createMeetingRecord(
         @PathVariable Long teamId,
-        @Valid @RequestBody MeetingRecordCreateRequest request
+        @Valid @RequestBody MeetingRecordCreateRequest request,
+        Authentication authentication
     ) {
-        return ResponseEntity.status(CREATED).body(meetingRecordFacade.createMeetingRecord(teamId, request));
+        String authorId = authentication.getName();
+        return ResponseEntity.status(CREATED).body(meetingRecordFacade.createMeetingRecord(teamId, authorId, request));
     }
 
     @Override

@@ -13,6 +13,7 @@ import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordListR
 import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordPersistResponse;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,14 +37,15 @@ public interface MeetingRecordController {
     @Operation(
         summary = "회의록 생성 API",
         description = """
-            Description : 팀 회의록을 생성하고 참석자 목록을 함께 등록한다.
+            Description : 팀 회의록을 생성하고 참석자 목록을 함께 등록한다. 작성자는 요청 값이 아니라 인증된 사용자로 기록된다.
             Assignee : 담당자명
             """
     )
     @ApiResponse(responseCode = "201", content = @Content(schema = @Schema(implementation = MeetingRecordPersistResponse.class)))
     ResponseEntity<MeetingRecordPersistResponse> createMeetingRecord(
         @PathVariable Long teamId,
-        @Valid @RequestBody MeetingRecordCreateRequest request
+        @Valid @RequestBody MeetingRecordCreateRequest request,
+        Authentication authentication
     );
 
     @Operation(
@@ -72,7 +74,7 @@ public interface MeetingRecordController {
     @Operation(
         summary = "회의록 삭제 API",
         description = """
-            Description : 회의록을 삭제한다. (삭제 정책 미확정 — 현재는 하드 삭제로 구현)
+            Description : 회의록을 삭제한다. 삭제 정책은 하드 삭제로 확정되어 있어 DB에서 즉시 완전히 제거되며 복구할 수 없다.
             Assignee : 담당자명
             """
     )
