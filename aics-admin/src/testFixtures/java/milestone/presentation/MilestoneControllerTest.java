@@ -162,6 +162,43 @@ class MilestoneControllerTest {
 
     @Test
     @WithMockUser(roles = "PROFESSOR")
+    @DisplayName("교수자는 마일스톤 평가 기간을 수정할 수 있다")
+    void updateEvaluationWindow() throws Exception {
+        mockMvc.perform(patch(MILESTONES_URL + "/2/evaluation-window")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "evaluationOpensAt": "2026-10-13T00:00:00",
+                                  "evaluationClosesAt": "2026-10-15T23:59:59"
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        verify(milestoneFacade).updateEvaluationWindow(
+                eq(1L),
+                eq(2L),
+                any()
+        );
+    }
+
+    @Test
+    @WithMockUser(roles = "PROFESSOR")
+    @DisplayName("평가 기간 수정 경로의 마일스톤 식별자는 양수여야 한다")
+    void rejectInvalidMilestoneIdForEvaluationWindow() throws Exception {
+        mockMvc.perform(patch(MILESTONES_URL + "/0/evaluation-window")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "evaluationOpensAt": null,
+                                  "evaluationClosesAt": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @WithMockUser(roles = "PROFESSOR")
     @DisplayName("교수자는 마일스톤 주차를 일괄 변경할 수 있다")
     void updateWeekNumbers() throws Exception {
         mockMvc.perform(put(MILESTONES_URL + "/week-numbers")

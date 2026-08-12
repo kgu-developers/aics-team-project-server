@@ -72,6 +72,41 @@ class MilestoneServiceTest {
     }
 
     @Test
+    @DisplayName("평가 기간만 수정하면 기존 제출 일정은 유지된다")
+    void updateEvaluationWindow() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        MilestoneSchedule originalSchedule = queryService.getMilestone(1L, milestoneId).getSchedule();
+        LocalDateTime evaluationOpensAt = originalSchedule.dueAt().plusDays(1);
+        LocalDateTime evaluationClosesAt = evaluationOpensAt.plusDays(2);
+
+        commandService.updateEvaluationWindow(
+                1L,
+                milestoneId,
+                evaluationOpensAt,
+                evaluationClosesAt
+        );
+
+        MilestoneSchedule updatedSchedule = queryService.getMilestone(1L, milestoneId).getSchedule();
+        assertThat(updatedSchedule.dueAt()).isEqualTo(originalSchedule.dueAt());
+        assertThat(updatedSchedule.evaluationOpensAt()).isEqualTo(evaluationOpensAt);
+        assertThat(updatedSchedule.evaluationClosesAt()).isEqualTo(evaluationClosesAt);
+    }
+
+    @Test
+    @DisplayName("다른 분반의 마일스톤 평가 기간은 수정할 수 없다")
+    void rejectEvaluationWindowUpdateFromAnotherSection() {
+        Long milestoneId = createMilestone(2L, "다른 분반 제안서", 2);
+
+        assertThatThrownBy(() -> commandService.updateEvaluationWindow(
+                1L,
+                milestoneId,
+                LocalDateTime.of(2026, 9, 11, 0, 0),
+                LocalDateTime.of(2026, 9, 12, 0, 0)
+        ))
+                .isInstanceOf(MilestoneSectionMismatchException.class);
+    }
+
+    @Test
     @DisplayName("분반별 목록을 주차 순으로 조회하고 공개 상태로 필터링할 수 있다")
     void getMilestonesBySectionAndVisibility() {
         Long second = createMilestone(1L, "중간보고서", 4);

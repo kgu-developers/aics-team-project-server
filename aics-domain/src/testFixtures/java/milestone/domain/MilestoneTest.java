@@ -109,6 +109,20 @@ class MilestoneTest {
     }
 
     @Test
+    @DisplayName("마일스톤의 평가 기간만 수정할 수 있다")
+    void updateEvaluationWindow() {
+        Milestone milestone = Milestone.create(1L, "제안서", null, 1, schedule());
+        LocalDateTime evaluationOpensAt = milestone.getSchedule().dueAt().plusDays(1);
+        LocalDateTime evaluationClosesAt = evaluationOpensAt.plusDays(2);
+
+        milestone.updateEvaluationWindow(evaluationOpensAt, evaluationClosesAt);
+
+        assertThat(milestone.getSchedule().dueAt()).isEqualTo(schedule().dueAt());
+        assertThat(milestone.getSchedule().evaluationOpensAt()).isEqualTo(evaluationOpensAt);
+        assertThat(milestone.getSchedule().evaluationClosesAt()).isEqualTo(evaluationClosesAt);
+    }
+
+    @Test
     @DisplayName("마일스톤이 특정 분반에 속하는지 확인할 수 있다")
     void belongsToSection() {
         Milestone milestone = Milestone.create(10L, "제안서", null, 1, schedule());

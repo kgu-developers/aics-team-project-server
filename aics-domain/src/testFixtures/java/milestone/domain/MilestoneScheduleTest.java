@@ -176,4 +176,47 @@ class MilestoneScheduleTest {
         assertThat(schedule.revisionUntil()).isEqualTo(DUE_AT.plusDays(2));
         assertThat(schedule.evaluationClosesAt()).isEqualTo(DUE_AT.plusDays(4));
     }
+
+    @Test
+    @DisplayName("평가 기간만 변경해도 기존 제출 일정은 유지된다")
+    void updateOnlyEvaluationWindow() {
+        MilestoneSchedule schedule = new MilestoneSchedule(
+                DUE_AT.minusDays(7),
+                DUE_AT,
+                DUE_AT.plusDays(1),
+                DUE_AT.plusDays(2),
+                null,
+                null
+        );
+
+        MilestoneSchedule updated = schedule.withEvaluationWindow(
+                DUE_AT.plusDays(3),
+                DUE_AT.plusDays(4)
+        );
+
+        assertThat(updated.opensAt()).isEqualTo(schedule.opensAt());
+        assertThat(updated.dueAt()).isEqualTo(schedule.dueAt());
+        assertThat(updated.lateSubmissionUntil()).isEqualTo(schedule.lateSubmissionUntil());
+        assertThat(updated.revisionUntil()).isEqualTo(schedule.revisionUntil());
+        assertThat(updated.evaluationOpensAt()).isEqualTo(DUE_AT.plusDays(3));
+        assertThat(updated.evaluationClosesAt()).isEqualTo(DUE_AT.plusDays(4));
+    }
+
+    @Test
+    @DisplayName("평가 시작과 종료를 모두 비우면 평가 기간이 해제된다")
+    void clearEvaluationWindow() {
+        MilestoneSchedule schedule = new MilestoneSchedule(
+                null,
+                DUE_AT,
+                null,
+                null,
+                DUE_AT.plusDays(1),
+                DUE_AT.plusDays(2)
+        );
+
+        MilestoneSchedule updated = schedule.withEvaluationWindow(null, null);
+
+        assertThat(updated.evaluationOpensAt()).isNull();
+        assertThat(updated.evaluationClosesAt()).isNull();
+    }
 }

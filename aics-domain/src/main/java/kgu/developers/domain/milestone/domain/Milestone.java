@@ -1,5 +1,7 @@
 package kgu.developers.domain.milestone.domain;
 
+import java.time.LocalDateTime;
+
 import lombok.Getter;
 
 @Getter
@@ -72,6 +74,13 @@ public final class Milestone {
 
     public void updateSchedule(MilestoneSchedule schedule) {
         this.schedule = validateSchedule(schedule);
+    }
+
+    public void updateEvaluationWindow(
+            LocalDateTime evaluationOpensAt,
+            LocalDateTime evaluationClosesAt
+    ) {
+        this.schedule = schedule.withEvaluationWindow(evaluationOpensAt, evaluationClosesAt);
     }
 
     public void changeWeekNumber(int weekNumber) {

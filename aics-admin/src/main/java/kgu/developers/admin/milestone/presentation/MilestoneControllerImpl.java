@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
+import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
@@ -78,6 +79,17 @@ public class MilestoneControllerImpl implements MilestoneController {
             @RequestBody MilestoneStatusRequest request
     ) {
         milestoneFacade.changeStatus(sectionId, milestoneId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PatchMapping("/{milestoneId}/evaluation-window")
+    public ResponseEntity<Void> updateEvaluationWindow(
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            @RequestBody MilestoneEvaluationWindowRequest request
+    ) {
+        milestoneFacade.updateEvaluationWindow(sectionId, milestoneId, request);
         return ResponseEntity.noContent().build();
     }
 

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
+import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
@@ -57,6 +58,13 @@ public interface MilestoneController {
             @Parameter(description = "분반 ID", required = true) @Positive Long sectionId,
             @Parameter(description = "마일스톤 ID", required = true) @Positive Long milestoneId,
             @Valid MilestoneStatusRequest request
+    );
+
+    @Operation(summary = "마일스톤 평가 기간 수정")
+    ResponseEntity<Void> updateEvaluationWindow(
+            @Parameter(description = "분반 ID", required = true) @Positive Long sectionId,
+            @Parameter(description = "마일스톤 ID", required = true) @Positive Long milestoneId,
+            @Valid MilestoneEvaluationWindowRequest request
     );
 
     @Operation(summary = "마일스톤 주차 일괄 변경")

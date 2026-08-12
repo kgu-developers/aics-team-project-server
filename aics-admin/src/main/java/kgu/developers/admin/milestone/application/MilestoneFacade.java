@@ -6,6 +6,7 @@ import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
+import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneScheduleRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
@@ -68,6 +69,19 @@ public class MilestoneFacade {
                 sectionId,
                 milestoneId,
                 request.status()
+        ));
+    }
+
+    public void updateEvaluationWindow(
+            Long sectionId,
+            Long milestoneId,
+            MilestoneEvaluationWindowRequest request
+    ) {
+        asInvalidRequest(() -> milestoneCommandService.updateEvaluationWindow(
+                sectionId,
+                milestoneId,
+                request.evaluationOpensAt(),
+                request.evaluationClosesAt()
         ));
     }
 

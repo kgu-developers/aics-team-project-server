@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
+import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneScheduleRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
@@ -103,6 +104,48 @@ class MilestoneFacadeTest {
 
         verify(milestoneCommandService)
                 .changeStatus(SECTION_ID, MILESTONE_ID, MilestoneStatus.PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("평가 기간 수정에 분반 경계와 요청 시각을 포함한다")
+    void updateEvaluationWindow() {
+        LocalDateTime evaluationOpensAt = DUE_AT.plusDays(1);
+        LocalDateTime evaluationClosesAt = DUE_AT.plusDays(3);
+        MilestoneEvaluationWindowRequest request = new MilestoneEvaluationWindowRequest(
+                evaluationOpensAt,
+                evaluationClosesAt
+        );
+
+        milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request);
+
+        verify(milestoneCommandService).updateEvaluationWindow(
+                SECTION_ID,
+                MILESTONE_ID,
+                evaluationOpensAt,
+                evaluationClosesAt
+        );
+    }
+
+    @Test
+    @DisplayName("잘못된 평가 기간은 잘못된 요청 예외로 변환한다")
+    void invalidEvaluationWindow() {
+        LocalDateTime evaluationOpensAt = DUE_AT.plusDays(3);
+        LocalDateTime evaluationClosesAt = DUE_AT.plusDays(1);
+        MilestoneEvaluationWindowRequest request = new MilestoneEvaluationWindowRequest(
+                evaluationOpensAt,
+                evaluationClosesAt
+        );
+        willThrow(new IllegalArgumentException("평가 시작 시각은 종료 시각보다 빨라야 합니다."))
+                .given(milestoneCommandService)
+                .updateEvaluationWindow(
+                        SECTION_ID,
+                        MILESTONE_ID,
+                        evaluationOpensAt,
+                        evaluationClosesAt
+                );
+
+        assertThatThrownBy(() -> milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request))
+                .isInstanceOf(InvalidMilestoneRequestException.class);
     }
 
     @Test

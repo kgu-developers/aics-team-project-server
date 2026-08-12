@@ -1,5 +1,6 @@
 package kgu.developers.domain.milestone.application.command;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,6 +59,17 @@ public class MilestoneCommandService {
         validateStatus(status);
         Milestone milestone = getRequiredMilestone(sectionId, milestoneId);
         milestone.changeStatus(status);
+        milestoneRepository.save(milestone);
+    }
+
+    public void updateEvaluationWindow(
+            Long sectionId,
+            Long milestoneId,
+            LocalDateTime evaluationOpensAt,
+            LocalDateTime evaluationClosesAt
+    ) {
+        Milestone milestone = getRequiredMilestone(sectionId, milestoneId);
+        milestone.updateEvaluationWindow(evaluationOpensAt, evaluationClosesAt);
         milestoneRepository.save(milestone);
     }
 

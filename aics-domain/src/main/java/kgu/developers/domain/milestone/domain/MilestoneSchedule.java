@@ -48,4 +48,18 @@ public record MilestoneSchedule(
             throw new IllegalArgumentException("평가 시작 시각은 종료 시각보다 빨라야 합니다.");
         }
     }
+
+    public MilestoneSchedule withEvaluationWindow(
+            LocalDateTime evaluationOpensAt,
+            LocalDateTime evaluationClosesAt
+    ) {
+        return new MilestoneSchedule(
+                opensAt,
+                dueAt,
+                lateSubmissionUntil,
+                revisionUntil,
+                evaluationOpensAt,
+                evaluationClosesAt
+        );
+    }
 }
