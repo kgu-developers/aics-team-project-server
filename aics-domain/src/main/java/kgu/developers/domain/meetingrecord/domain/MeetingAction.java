@@ -19,7 +19,6 @@ public class MeetingAction {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 담당자 지정을 강제하지 않는다는 설계 원칙에 따라 assigneeId는 nullable이다.
     public static MeetingAction create(
         Long meetingRecordId,
         String assigneeId,

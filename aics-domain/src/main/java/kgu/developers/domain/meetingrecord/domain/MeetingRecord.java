@@ -24,7 +24,6 @@ public class MeetingRecord {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 개인별 작업량을 감시/수치화하지 않는다는 설계 원칙에 따라, 참석자는 "누가 참석했는지"만 기록한다.
     public static MeetingRecord create(
         Long teamId,
         MeetingPhase phase,
