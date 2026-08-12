@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -46,6 +48,20 @@ public class GlobalExceptionHandler {
 			.collect(Collectors.joining(", "));
 
 		return badRequest(detail);
+	}
+
+	@ExceptionHandler(ConstraintViolationException.class)
+	public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException e) {
+		String detail = e.getConstraintViolations().stream()
+			.map(violation -> leafNode(violation.getPropertyPath()) + ": " + violation.getMessage())
+			.collect(Collectors.joining(", "));
+
+		return badRequest(detail);
+	}
+
+	private static String leafNode(Path propertyPath) {
+		String path = propertyPath.toString();
+		return path.substring(path.lastIndexOf('.') + 1);
 	}
 
 	private ResponseEntity<ErrorResponse> badRequest(String detail) {

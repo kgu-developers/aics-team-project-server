@@ -38,3 +38,12 @@ out/
 
 ## file
 /cloud
+
+## 환경변수
+.env
+
+## macOS
+.DS_Store
+
+## frontend example
+frontend-example
