@@ -3,6 +3,7 @@ package kgu.developers.domain.meetingrecord.infrastructure;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
@@ -17,13 +18,13 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
 
     private final JpaMeetingRecordRepository jpaMeetingRecordRepository;
     private final JpaMeetingParticipantRepository jpaMeetingParticipantRepository;
+    private final JpaMeetingActionRepository jpaMeetingActionRepository;
 
     @Override
     public MeetingRecord save(MeetingRecord meetingRecord) {
         MeetingRecordJpaEntity savedEntity = jpaMeetingRecordRepository.save(MeetingRecordJpaEntity.toEntity(meetingRecord));
 
-        jpaMeetingParticipantRepository.deleteAllByMeetingRecordId(savedEntity.getId());
-        List<MeetingParticipant> savedParticipants = saveParticipants(savedEntity.getId(), meetingRecord.getParticipants());
+        List<MeetingParticipant> savedParticipants = syncParticipants(savedEntity.getId(), meetingRecord.getParticipants());
 
         return savedEntity.toDomain(savedParticipants);
     }
@@ -54,22 +55,39 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
     @Override
     public void deleteById(Long id) {
         jpaMeetingParticipantRepository.deleteAllByMeetingRecordId(id);
+        jpaMeetingActionRepository.deleteAllByMeetingRecordId(id);
         jpaMeetingRecordRepository.deleteById(id);
     }
 
-    private List<MeetingParticipant> saveParticipants(Long meetingRecordId, List<MeetingParticipant> participants) {
-        if (participants == null || participants.isEmpty()) {
-            return List.of();
+    private List<MeetingParticipant> syncParticipants(Long meetingRecordId, List<MeetingParticipant> participants) {
+        List<MeetingParticipant> incoming = participants == null ? List.of() : participants;
+        List<MeetingParticipantJpaEntity> existingEntities = jpaMeetingParticipantRepository.findAllByMeetingRecordId(meetingRecordId);
+
+        Set<String> incomingUserIds = incoming.stream()
+            .map(MeetingParticipant::getUserId)
+            .collect(Collectors.toSet());
+        Set<String> existingUserIds = existingEntities.stream()
+            .map(MeetingParticipantJpaEntity::getUserId)
+            .collect(Collectors.toSet());
+
+        List<Long> idsToRemove = existingEntities.stream()
+            .filter(entity -> !incomingUserIds.contains(entity.getUserId()))
+            .map(MeetingParticipantJpaEntity::getId)
+            .toList();
+        if (!idsToRemove.isEmpty()) {
+            jpaMeetingParticipantRepository.deleteAllById(idsToRemove);
         }
 
-        List<MeetingParticipantJpaEntity> entities = participants.stream()
+        List<MeetingParticipantJpaEntity> entitiesToAdd = incoming.stream()
+            .filter(participant -> !existingUserIds.contains(participant.getUserId()))
             .map(participant -> MeetingParticipantJpaEntity.toEntity(
                 MeetingParticipant.create(meetingRecordId, participant.getUserId())))
             .toList();
+        if (!entitiesToAdd.isEmpty()) {
+            jpaMeetingParticipantRepository.saveAll(entitiesToAdd);
+        }
 
-        return jpaMeetingParticipantRepository.saveAll(entities).stream()
-            .map(MeetingParticipantJpaEntity::toDomain)
-            .toList();
+        return findParticipants(meetingRecordId);
     }
 
     private List<MeetingParticipant> findParticipants(Long meetingRecordId) {
