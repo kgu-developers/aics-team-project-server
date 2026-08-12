@@ -30,6 +30,42 @@ public class SectionCommandService {
         return sectionRepository.save(section).getId();
     }
 
+    public void updateSection(Section section, String professorId, Long courseId, String code, String name,
+                             String classTime, Integer capacity, LocalDateTime contactVisibleFrom,
+                             LocalDateTime contactVisibleUntil) {
+        if (courseId != null) {
+            requireCourse(courseId);
+        }
+        if (professorId != null) {
+            requireProfessor(professorId);
+        }
+        if (professorId != null) {
+            section.updateProfessorId(professorId);
+        }
+        if (courseId != null) {
+            section.updateCourseId(courseId);
+        }
+        if (code != null) {
+            section.updateCode(code);
+        }
+        if (name != null) {
+            section.updateName(name);
+        }
+        if (classTime != null) {
+            section.updateClassTime(classTime);
+        }
+        if (capacity != null) {
+            section.updateCapacity(capacity);
+        }
+        if (contactVisibleFrom != null) {
+            section.updateContactVisibleFrom(contactVisibleFrom);
+        }
+        if (contactVisibleUntil != null) {
+            section.updateContactVisibleUntil(contactVisibleUntil);
+        }
+        sectionRepository.save(section);
+    }
+
     public void changeCourse(Section section, Long courseId) {
         requireCourse(courseId);
         section.updateCourseId(courseId);

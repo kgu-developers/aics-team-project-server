@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -107,6 +108,73 @@ class SectionServiceTest {
     }
 
     @Test
+    @DisplayName("분반의 모든 수정 가능 필드가 갱신된다")
+    void updatesSection() {
+        Section section = section();
+        given(courseRepository.findById(2L)).willReturn(Optional.of(course));
+        given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(professor));
+
+        commandService.updateSection(section, "202099999", 2L, "CS102", "02분반", "화5,6", 30,
+                LocalDateTime.of(2026, 3, 2, 0, 0), LocalDateTime.of(2026, 6, 20, 18, 0));
+
+        assertThat(section.getProfessorId()).isEqualTo("202099999");
+        assertThat(section.getCourseId()).isEqualTo(2L);
+        assertThat(section.getCode()).isEqualTo("CS102");
+        assertThat(section.getName()).isEqualTo("02분반");
+        assertThat(section.getClassTime()).isEqualTo("화5,6");
+        assertThat(section.getCapacity()).isEqualTo(30);
+        assertThat(section.getContactVisibleFrom()).isEqualTo(LocalDateTime.of(2026, 3, 2, 0, 0));
+        assertThat(section.getContactVisibleUntil()).isEqualTo(LocalDateTime.of(2026, 6, 20, 18, 0));
+        verify(sectionRepository).save(section);
+    }
+
+    @Test
+    @DisplayName("null로 보낸 필드는 수정되지 않는다")
+    void updatesOnlyGivenFields() {
+        Section section = section();
+
+        commandService.updateSection(section, null, null, null, "02분반", null, null, null, null);
+
+        assertThat(section.getName()).isEqualTo("02분반");
+        assertThat(section.getProfessorId()).isEqualTo("202012345");
+        assertThat(section.getCourseId()).isEqualTo(1L);
+        assertThat(section.getCode()).isEqualTo("CS101");
+        assertThat(section.getClassTime()).isEqualTo("월3,4");
+        assertThat(section.getCapacity()).isEqualTo(40);
+        verify(sectionRepository).save(section);
+    }
+
+    @Test
+    @DisplayName("없는 교수로 수정하면 어떤 필드도 바뀌지 않는다")
+    void rejectsUpdateToMissingProfessor() {
+        Section section = section();
+        given(courseRepository.findById(1L)).willReturn(Optional.of(course));
+        given(userRepository.findByStudentNumber("999999999")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                commandService.updateSection(section, "999999999", 1L, "CS102", "02분반", "화5,6", 30, null, null))
+                .isInstanceOf(UserNotFoundException.class);
+
+        assertThat(section.getProfessorId()).isEqualTo("202012345");
+        assertThat(section.getCode()).isEqualTo("CS101");
+        verify(sectionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("없는 강좌로는 분반을 수정할 수 없다")
+    void rejectsUpdateToMissingCourse() {
+        Section section = section();
+        given(courseRepository.findById(99L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                commandService.updateSection(section, "202012345", 99L, "CS102", "02분반", "화5,6", 30, null, null))
+                .isInstanceOf(CourseNotFoundException.class);
+
+        assertThat(section.getCourseId()).isEqualTo(1L);
+        verify(sectionRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("분반 담당 교수를 없는 사용자로 바꿀 수 없다")
     void rejectsMoveToMissingProfessor() {
         Section section = section();
@@ -142,6 +210,31 @@ class SectionServiceTest {
                 .isInstanceOf(CourseNotFoundException.class);
 
         assertThat(section.getCourseId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("담당 분반을 강좌 조건으로 거른다")
+    void filtersSectionsByCourseCondition() {
+        Course archived = Course.builder()
+                .id(2L)
+                .name("자료구조")
+                .year(2025)
+                .semester(SemesterType.FALL)
+                .status(StatusType.ARCHIVED)
+                .build();
+        SectionDetail other = new SectionDetail(section(), archived, professor);
+        given(userRepository.findByStudentNumber("202012345")).willReturn(Optional.of(professor));
+        given(sectionRepository.findAllByProfessorId("202012345"))
+                .willReturn(List.of(sectionDetail(), other));
+
+        assertThat(queryService.getSectionsByProfessorId("202012345", StatusType.ACTIVE, null, null))
+                .singleElement()
+                .satisfies(detail -> assertThat(detail.course().getId()).isEqualTo(1L));
+        assertThat(queryService.getSectionsByProfessorId("202012345", null, 2025, SemesterType.FALL))
+                .singleElement()
+                .satisfies(detail -> assertThat(detail.course().getId()).isEqualTo(2L));
+        assertThat(queryService.getSectionsByProfessorId("202012345", null, null, null))
+                .hasSize(2);
     }
 
     @Test

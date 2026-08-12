@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Long> {
+    @EntityGraph(attributePaths = {"course", "professor"})
     Optional<SectionJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
     @EntityGraph(attributePaths = {"course", "professor"})

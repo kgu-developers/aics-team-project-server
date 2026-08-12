@@ -6,7 +6,7 @@ import java.util.Optional;
 public interface SectionRepository {
     Section save(Section section);
 
-    Optional<Section> findById(Long id);
+    Optional<SectionDetail> findById(Long id);
 
     List<SectionDetail> findAllByCourseId(Long courseId);
 
