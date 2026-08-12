@@ -118,4 +118,42 @@ class MeetingRecordRepositoryImplTest {
     verify(jpaMeetingActionRepository).deleteAllByMeetingRecordId(1L);
     verify(jpaMeetingRecordRepository).deleteById(1L);
   }
+
+  @Test
+  @DisplayName("save는 기존 회의록을 수정할 때 참가자 동기화 전에 행 잠금을 먼저 건다")
+  public void save_ExistingRecord_LocksRowBeforeSyncingParticipants() {
+    // given
+    given(jpaMeetingRecordRepository.save(any())).willReturn(savedEntity());
+    given(jpaMeetingParticipantRepository.findAllByMeetingRecordId(1L)).willReturn(List.of());
+
+    MeetingRecord meetingRecord = meetingRecordWithParticipants(List.of());
+
+    // when
+    meetingRecordRepositoryImpl.save(meetingRecord);
+
+    // then
+    verify(jpaMeetingRecordRepository).findByIdForUpdate(1L);
+  }
+
+  @Test
+  @DisplayName("save는 새 회의록을 생성할 때는 행 잠금을 걸지 않는다")
+  public void save_NewRecord_DoesNotLockRow() {
+    // given
+    given(jpaMeetingRecordRepository.save(any())).willReturn(savedEntity());
+    given(jpaMeetingParticipantRepository.findAllByMeetingRecordId(1L)).willReturn(List.of());
+
+    MeetingRecord meetingRecord = MeetingRecord.builder()
+        .teamId(10L)
+        .phase(MeetingPhase.PROPOSAL)
+        .authorId("202412345")
+        .content("내용")
+        .participants(List.of())
+        .build();
+
+    // when
+    meetingRecordRepositoryImpl.save(meetingRecord);
+
+    // then
+    verify(jpaMeetingRecordRepository, never()).findByIdForUpdate(any());
+  }
 }

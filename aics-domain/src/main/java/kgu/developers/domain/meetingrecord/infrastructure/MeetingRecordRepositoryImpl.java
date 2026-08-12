@@ -22,6 +22,10 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
 
     @Override
     public MeetingRecord save(MeetingRecord meetingRecord) {
+        if (meetingRecord.getId() != null) {
+            jpaMeetingRecordRepository.findByIdForUpdate(meetingRecord.getId());
+        }
+
         MeetingRecordJpaEntity savedEntity = jpaMeetingRecordRepository.save(MeetingRecordJpaEntity.toEntity(meetingRecord));
 
         List<MeetingParticipant> savedParticipants = syncParticipants(savedEntity.getId(), meetingRecord.getParticipants());
