@@ -34,9 +34,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_review_active_version
     ON review (version_id)
     WHERE deleted_at IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_review_version
-    ON review (version_id);
-
 CREATE INDEX IF NOT EXISTS idx_review_reviewer
     ON review (reviewer_id);
 

@@ -23,7 +23,6 @@ import static lombok.AccessLevel.PROTECTED;
 @Table(
         name = "review",
         indexes = {
-                @Index(name = "idx_review_version", columnList = "version_id"),
                 @Index(name = "idx_review_reviewer", columnList = "reviewer_id")
         }
 )
