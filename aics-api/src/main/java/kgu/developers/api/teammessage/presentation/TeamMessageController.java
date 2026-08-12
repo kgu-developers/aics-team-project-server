@@ -15,6 +15,7 @@ import kgu.developers.api.teammessage.presentation.response.UnreadMessageCountRe
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,6 +27,7 @@ public interface TeamMessageController {
         summary = "팀 메시지 목록 조회 API",
         description = """
             Description : 팀 스레드에 쌓인 메시지 히스토리를 관련 유형(relatedType)으로 필터링하여 페이지 단위로 조회한다.
+                각 메시지의 read 값은 요청한 사용자 기준이다.
             Assignee : 담당자명
             """
     )
@@ -33,29 +35,34 @@ public interface TeamMessageController {
     ResponseEntity<TeamMessagePageResponse> getMessages(
         @PathVariable Long teamId,
         @Parameter(description = "메시지 관련 유형 필터") @RequestParam(required = false) TeamMessageRelatedType relatedType,
-        Pageable pageable
+        Pageable pageable,
+        Authentication authentication
     );
 
     @Operation(
         summary = "팀 메시지 등록 API",
         description = """
             Description : 팀 스레드에 메시지(교수 피드백, 질문/답변, 학생의 QUESTION 호출 등)를 등록한다.
-                스레드가 아직 없는 팀이라면 새로 생성한 뒤 등록한다.
+                스레드가 아직 없는 팀이라면 새로 생성한 뒤 등록한다. 발신자는 요청 값이 아니라 인증된 사용자로 기록된다.
             Assignee : 담당자명
             """
     )
     @ApiResponse(responseCode = "201", content = @Content(schema = @Schema(implementation = TeamMessagePersistResponse.class)))
-    ResponseEntity<TeamMessagePersistResponse> postMessage(@PathVariable Long teamId, @Valid @RequestBody TeamMessageCreateRequest request);
+    ResponseEntity<TeamMessagePersistResponse> postMessage(
+        @PathVariable Long teamId,
+        @Valid @RequestBody TeamMessageCreateRequest request,
+        Authentication authentication
+    );
 
     @Operation(
         summary = "팀 읽지 않은 메시지 수 조회 API",
         description = """
-            Description : 팀 스레드에서 is_read = false 인 메시지 개수를 조회한다.
+            Description : 팀 스레드에서 요청한 사용자가 아직 읽지 않은 메시지 개수를 조회한다.
             Assignee : 담당자명
             """
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UnreadMessageCountResponse.class)))
-    ResponseEntity<UnreadMessageCountResponse> getUnreadCount(@PathVariable Long teamId);
+    ResponseEntity<UnreadMessageCountResponse> getUnreadCount(@PathVariable Long teamId, Authentication authentication);
 
     @Operation(
         summary = "메시지 중요 표시 변경 API",
@@ -70,10 +77,10 @@ public interface TeamMessageController {
     @Operation(
         summary = "메시지 읽음 처리 API",
         description = """
-            Description : 메시지의 is_read 값을 true로 갱신한다.
+            Description : 요청한 사용자 기준으로 메시지를 읽음 처리한다.
             Assignee : 담당자명
             """
     )
     @ApiResponse(responseCode = "204")
-    ResponseEntity<Void> markAsRead(@PathVariable Long id);
+    ResponseEntity<Void> markAsRead(@PathVariable Long id, Authentication authentication);
 }

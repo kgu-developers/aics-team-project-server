@@ -11,12 +11,6 @@ import lombok.Builder;
 @Builder
 public record TeamMessageCreateRequest(
 
-    // 인증 인프라(aics-auth)가 구현되기 전까지 발신자를 요청 바디로 직접 받는다.
-    // 추후 SecurityContext의 인증 principal(학번)로 대체되어야 한다.
-    @Schema(description = "발신자 학번", example = "202412345", requiredMode = REQUIRED)
-    @NotBlank
-    String senderId,
-
     @Schema(description = "메시지 관련 유형 (미지정 시 GENERAL)", example = "GENERAL", requiredMode = NOT_REQUIRED)
     TeamMessageRelatedType relatedType,
 

@@ -1,5 +1,7 @@
 package kgu.developers.api.teammessage.application;
 
+import java.util.List;
+import java.util.Set;
 import kgu.developers.api.teammessage.presentation.request.TeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePageResponse;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePersistResponse;
@@ -27,30 +29,32 @@ public class TeamMessageFacade {
     private final TeamMessageCommandService teamMessageCommandService;
     private final TeamMessageQueryService teamMessageQueryService;
 
-    public TeamMessagePersistResponse postMessage(Long teamId, TeamMessageCreateRequest request) {
+    public TeamMessagePersistResponse postMessage(Long teamId, String senderId, TeamMessageCreateRequest request) {
         TeamThread teamThread = teamThreadCommandService.getOrCreateThread(teamId);
         TeamMessage teamMessage = teamMessageCommandService.postMessage(
-            teamThread.getId(), request.senderId(), request.relatedType(), request.relatedId(), request.message());
+            teamThread.getId(), senderId, request.relatedType(), request.relatedId(), request.message());
         return TeamMessagePersistResponse.of(teamMessage);
     }
 
-    public TeamMessagePageResponse getMessages(Long teamId, TeamMessageRelatedType relatedType, Pageable pageable) {
+    public TeamMessagePageResponse getMessages(Long teamId, TeamMessageRelatedType relatedType, Pageable pageable, String userId) {
         TeamThread teamThread = teamThreadQueryService.getThread(teamId);
         Page<TeamMessage> messages = teamMessageQueryService.getMessages(teamThread.getId(), relatedType, pageable);
-        return TeamMessagePageResponse.from(messages);
+        List<Long> messageIds = messages.getContent().stream().map(TeamMessage::getId).toList();
+        Set<Long> readMessageIds = teamMessageQueryService.findReadMessageIds(userId, messageIds);
+        return TeamMessagePageResponse.from(messages, readMessageIds);
     }
 
     public void updateImportant(Long messageId, boolean important) {
         teamMessageCommandService.updateImportant(messageId, important);
     }
 
-    public void markAsRead(Long messageId) {
-        teamMessageCommandService.markAsRead(messageId);
+    public void markAsRead(Long messageId, String userId) {
+        teamMessageCommandService.markAsRead(messageId, userId);
     }
 
-    public UnreadMessageCountResponse getUnreadCount(Long teamId) {
+    public UnreadMessageCountResponse getUnreadCount(Long teamId, String userId) {
         TeamThread teamThread = teamThreadQueryService.getThread(teamId);
-        long count = teamMessageQueryService.countUnread(teamThread.getId());
+        long count = teamMessageQueryService.countUnread(teamThread.getId(), userId);
         return UnreadMessageCountResponse.of(count);
     }
 }
