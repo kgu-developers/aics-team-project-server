@@ -62,7 +62,6 @@ public class TeamEvaluationScoreJpaEntity extends BaseTimeEntity {
                 .score(score.getScore())
                 .build();
         entity.createdAt = score.getCreatedAt();
-        entity.updatedAt = score.getUpdatedAt();
         entity.setDeletedAt(score.getDeletedAt());
         return entity;
     }

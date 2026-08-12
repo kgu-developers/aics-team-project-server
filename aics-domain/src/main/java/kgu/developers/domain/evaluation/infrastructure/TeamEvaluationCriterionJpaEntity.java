@@ -66,7 +66,6 @@ public class TeamEvaluationCriterionJpaEntity extends BaseTimeEntity {
                 .displayOrder(criterion.getDisplayOrder())
                 .build();
         entity.createdAt = criterion.getCreatedAt();
-        entity.updatedAt = criterion.getUpdatedAt();
         entity.setDeletedAt(criterion.getDeletedAt());
         return entity;
     }

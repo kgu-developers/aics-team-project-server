@@ -78,7 +78,8 @@ class TeamEvaluationRepositoryImplTest {
                         TeamEvaluation.restore(1L, 2L, "20260001", 3L, null, null, null, null)
                 )));
 
-        Optional<TeamEvaluation> found = repository.findByMilestoneIdAndRaterIdAndRateeTeamId(2L, "20260001", 3L);
+        Optional<TeamEvaluation> found = repository.findByMilestoneIdAndRaterIdAndRateeTeamId(
+                2L, " 20260001 ", 3L);
 
         assertThat(found).isPresent();
         assertThat(found.get().isSubmitted()).isFalse();
@@ -93,7 +94,8 @@ class TeamEvaluationRepositoryImplTest {
                         TeamEvaluation.restore(1L, 2L, "20260001", 3L, null, null, null, null)
                 )));
 
-        List<TeamEvaluation> evaluations = repository.findAllByMilestoneIdAndRaterId(2L, "20260001");
+        List<TeamEvaluation> evaluations = repository.findAllByMilestoneIdAndRaterId(
+                2L, " 20260001 ");
 
         assertThat(evaluations).extracting(TeamEvaluation::getRateeTeamId).containsExactly(3L);
     }

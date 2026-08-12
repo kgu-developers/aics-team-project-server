@@ -19,7 +19,6 @@ class TeamEvaluationJpaEntityTest {
     @DisplayName("평가 항목 JPA entity는 domain과 왕복 매핑된다")
     void criterionRoundTrip() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 8, 12, 9, 0);
-        LocalDateTime updatedAt = LocalDateTime.of(2026, 8, 12, 9, 30);
         TeamEvaluationCriterion criterion = TeamEvaluationCriterion.restore(
                 1L,
                 2L,
@@ -27,7 +26,7 @@ class TeamEvaluationJpaEntityTest {
                 10,
                 3,
                 createdAt,
-                updatedAt,
+                null,
                 null
         );
 
@@ -39,7 +38,6 @@ class TeamEvaluationJpaEntityTest {
         assertThat(mapped.getMaxScore()).isEqualTo(10);
         assertThat(mapped.getDisplayOrder()).isEqualTo(3);
         assertThat(mapped.getCreatedAt()).isEqualTo(createdAt);
-        assertThat(mapped.getUpdatedAt()).isEqualTo(updatedAt);
     }
 
     @Test

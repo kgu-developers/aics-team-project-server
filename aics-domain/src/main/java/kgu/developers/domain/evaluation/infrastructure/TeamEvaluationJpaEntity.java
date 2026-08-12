@@ -69,7 +69,6 @@ public class TeamEvaluationJpaEntity extends BaseTimeEntity {
                 .submittedAt(evaluation.getSubmittedAt())
                 .build();
         entity.createdAt = evaluation.getCreatedAt();
-        entity.updatedAt = evaluation.getUpdatedAt();
         entity.setDeletedAt(evaluation.getDeletedAt());
         return entity;
     }
