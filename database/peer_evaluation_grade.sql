@@ -129,9 +129,7 @@ CREATE TABLE IF NOT EXISTS grade (
     CONSTRAINT chk_grade_user
         CHECK (length(trim(user_id)) BETWEEN 1 AND 16),
     CONSTRAINT chk_grade_non_negative_scores
-        CHECK (team_score >= 0 AND peer_factor >= 0 AND final_score >= 0),
-    CONSTRAINT chk_grade_snapshot
-        CHECK (length(trim(snapshot::text)) > 0)
+        CHECK (team_score >= 0 AND peer_factor >= 0 AND final_score >= 0)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_grade_active_user

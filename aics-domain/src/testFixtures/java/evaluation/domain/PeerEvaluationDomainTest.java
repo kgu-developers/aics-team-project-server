@@ -202,6 +202,20 @@ class PeerEvaluationDomainTest {
     }
 
     @Test
+    @DisplayName("성적의 점수 계열 값은 모두 필수이다")
+    void gradeScoresAreRequired() {
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", null, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "{}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("팀 점수는 필수입니다.");
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, null, BigDecimal.TEN, BigDecimal.ZERO, "{}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("동료평가 계수는 필수입니다.");
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, null, BigDecimal.ZERO, "{}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("최종 점수는 필수입니다.");
+    }
+
+    @Test
     @DisplayName("성적의 학번은 최대 16자이고 스냅샷은 비어 있을 수 없다")
     void gradeUserAndSnapshotAreValidated() {
         assertThatThrownBy(() -> Grade.create(1L, 10L, "1".repeat(17), BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "{}"))

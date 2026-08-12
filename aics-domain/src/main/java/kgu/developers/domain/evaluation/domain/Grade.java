@@ -45,6 +45,9 @@ public class Grade {
         requirePositiveId(sectionId, "분반 식별자는 양수여야 합니다.");
         requirePositiveId(teamId, "팀 식별자는 양수여야 합니다.");
         String normalizedUserId = requireTrimmedText(userId, 16, "학번은 필수입니다.", "학번은 16자를 넘을 수 없습니다.");
+        requireNumber(teamScore, "팀 점수는 필수입니다.");
+        requireNumber(peerFactor, "동료평가 계수는 필수입니다.");
+        requireNumber(finalScore, "최종 점수는 필수입니다.");
         requireNonNegative(teamScore, "팀 점수는 0 이상이어야 합니다.");
         requireNonNegative(peerFactor, "동료평가 계수는 0 이상이어야 합니다.");
         requireNonNegative(finalScore, "최종 점수는 0 이상이어야 합니다.");
