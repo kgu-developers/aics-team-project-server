@@ -5,6 +5,7 @@ import java.util.List;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
+import kgu.developers.domain.meetingrecord.exception.MeetingRecordInvalidContentException;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,9 @@ public class MeetingRecordCommandService {
             meetingRecord.updatePhase(phase);
         }
         if (content != null) {
+            if (content.isBlank()) {
+                throw new MeetingRecordInvalidContentException();
+            }
             meetingRecord.updateContent(content);
         }
         if (participantIds != null) {
@@ -57,8 +61,7 @@ public class MeetingRecordCommandService {
         meetingRecordRepository.save(meetingRecord);
     }
 
-    // 삭제 정책 미확정(PRD: "하드/소프트 확인 필요 - 하드 예상") — 현재는 하드 삭제로 구현.
-    // TODO: 정책이 소프트 삭제로 확정되면 BaseTimeEntity.delete() 기반으로 전환한다.
+    // TODO: 정책이 소프트 삭제로 바뀌면 BaseTimeEntity.delete() 기반으로 전환한다.
     public void deleteMeetingRecord(Long id) {
         findOrThrow(id);
         meetingRecordRepository.deleteById(id);
