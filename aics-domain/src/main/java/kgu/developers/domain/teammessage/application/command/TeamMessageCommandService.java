@@ -1,6 +1,8 @@
 package kgu.developers.domain.teammessage.application.command;
 
 import kgu.developers.domain.teammessage.domain.TeamMessage;
+import kgu.developers.domain.teammessage.domain.TeamMessageReadReceipt;
+import kgu.developers.domain.teammessage.domain.TeamMessageReadReceiptRepository;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
 import kgu.developers.domain.teammessage.exception.TeamMessageNotFoundException;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 public class TeamMessageCommandService {
 
     private final TeamMessageRepository teamMessageRepository;
+    private final TeamMessageReadReceiptRepository teamMessageReadReceiptRepository;
 
     public TeamMessage postMessage(Long threadId, String senderId, TeamMessageRelatedType relatedType,
                                     Long relatedId, String message) {
@@ -28,10 +31,11 @@ public class TeamMessageCommandService {
         return teamMessageRepository.save(teamMessage);
     }
 
-    public TeamMessage markAsRead(Long messageId) {
-        TeamMessage teamMessage = teamMessageRepository.findById(messageId)
+    public void markAsRead(Long messageId, String userId) {
+        teamMessageRepository.findById(messageId)
             .orElseThrow(TeamMessageNotFoundException::new);
-        teamMessage.markAsRead();
-        return teamMessageRepository.save(teamMessage);
+        if (!teamMessageReadReceiptRepository.existsByMessageIdAndUserId(messageId, userId)) {
+            teamMessageReadReceiptRepository.save(TeamMessageReadReceipt.create(messageId, userId));
+        }
     }
 }

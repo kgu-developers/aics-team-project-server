@@ -1,6 +1,9 @@
 package kgu.developers.domain.teammessage.application.query;
 
+import java.util.List;
+import java.util.Set;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
+import kgu.developers.domain.teammessage.domain.TeamMessageReadReceiptRepository;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TeamMessageQueryService {
 
     private final TeamMessageRepository teamMessageRepository;
+    private final TeamMessageReadReceiptRepository teamMessageReadReceiptRepository;
 
     public Page<TeamMessage> getMessages(Long threadId, TeamMessageRelatedType relatedType, Pageable pageable) {
         if (relatedType != null) {
@@ -23,7 +27,13 @@ public class TeamMessageQueryService {
         return teamMessageRepository.findByThreadId(threadId, pageable);
     }
 
-    public long countUnread(Long threadId) {
-        return teamMessageRepository.countByThreadIdAndIsReadFalse(threadId);
+    public Set<Long> findReadMessageIds(String userId, List<Long> messageIds) {
+        return teamMessageReadReceiptRepository.findReadMessageIds(userId, messageIds);
+    }
+
+    public long countUnread(Long threadId, String userId) {
+        List<Long> messageIds = teamMessageRepository.findIdsByThreadId(threadId);
+        Set<Long> readMessageIds = teamMessageReadReceiptRepository.findReadMessageIds(userId, messageIds);
+        return messageIds.size() - readMessageIds.size();
     }
 }

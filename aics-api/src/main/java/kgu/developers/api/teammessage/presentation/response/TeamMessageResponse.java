@@ -33,7 +33,7 @@ public record TeamMessageResponse(
     @Schema(description = "중요 표시 여부", example = "false", requiredMode = REQUIRED)
     boolean important,
 
-    @Schema(description = "읽음 여부", example = "false", requiredMode = REQUIRED)
+    @Schema(description = "요청한 사용자가 이 메시지를 읽었는지 여부", example = "false", requiredMode = REQUIRED)
     boolean read,
 
     @Schema(description = "생성일시", example = "2026-08-03 10:00", requiredMode = REQUIRED)
@@ -41,7 +41,7 @@ public record TeamMessageResponse(
 ) {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public static TeamMessageResponse from(TeamMessage teamMessage) {
+    public static TeamMessageResponse from(TeamMessage teamMessage, boolean read) {
         return TeamMessageResponse.builder()
             .id(teamMessage.getId())
             .threadId(teamMessage.getThreadId())
@@ -50,7 +50,7 @@ public record TeamMessageResponse(
             .relatedType(teamMessage.getRelatedType())
             .relatedId(teamMessage.getRelatedId())
             .important(teamMessage.isImportant())
-            .read(teamMessage.isRead())
+            .read(read)
             .createdAt(teamMessage.getCreatedAt() != null ? teamMessage.getCreatedAt().format(FORMATTER) : null)
             .build();
     }

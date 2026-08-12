@@ -4,6 +4,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import java.util.Set;
 import kgu.developers.common.response.PageableResponse;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import lombok.Builder;
@@ -18,9 +19,9 @@ public record TeamMessagePageResponse(
     @Schema(description = "페이지 정보", requiredMode = REQUIRED)
     PageableResponse<TeamMessageResponse> pageable
 ) {
-    public static TeamMessagePageResponse from(Page<TeamMessage> page) {
+    public static TeamMessagePageResponse from(Page<TeamMessage> page, Set<Long> readMessageIds) {
         List<TeamMessageResponse> contents = page.getContent().stream()
-            .map(TeamMessageResponse::from)
+            .map(message -> TeamMessageResponse.from(message, readMessageIds.contains(message.getId())))
             .toList();
 
         PageableResponse<TeamMessageResponse> pageable = PageableResponse.<TeamMessageResponse>builder()

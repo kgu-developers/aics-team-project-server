@@ -17,7 +17,6 @@ public class TeamMessage {
     private TeamMessageRelatedType relatedType;
     private Long relatedId;
     private boolean important;
-    private boolean read;
     private LocalDateTime createdAt;
 
     public static TeamMessage create(Long threadId, String senderId, TeamMessageRelatedType relatedType,
@@ -29,15 +28,10 @@ public class TeamMessage {
             .relatedId(relatedId)
             .message(message)
             .important(false)
-            .read(false)
             .build();
     }
 
     public void updateImportant(boolean important) {
         this.important = important;
-    }
-
-    public void markAsRead() {
-        this.read = true;
     }
 }

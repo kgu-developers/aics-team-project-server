@@ -1,5 +1,6 @@
 package kgu.developers.domain.teammessage.infrastructure;
 
+import java.util.List;
 import java.util.Optional;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
@@ -37,7 +38,9 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository {
     }
 
     @Override
-    public long countByThreadIdAndIsReadFalse(Long threadId) {
-        return jpaTeamMessageRepository.countByThreadIdAndIsReadFalse(threadId);
+    public List<Long> findIdsByThreadId(Long threadId) {
+        return jpaTeamMessageRepository.findAllByThreadId(threadId).stream()
+            .map(TeamMessageJpaEntity::getId)
+            .toList();
     }
 }

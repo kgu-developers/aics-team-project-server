@@ -1,5 +1,6 @@
 package kgu.developers.domain.teammessage.infrastructure;
 
+import java.util.List;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,5 +12,5 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
 
     Page<TeamMessageJpaEntity> findByThreadIdAndRelatedType(Long threadId, TeamMessageRelatedType relatedType, Pageable pageable);
 
-    long countByThreadIdAndIsReadFalse(Long threadId);
+    List<TeamMessageJpaEntity> findAllByThreadId(Long threadId);
 }

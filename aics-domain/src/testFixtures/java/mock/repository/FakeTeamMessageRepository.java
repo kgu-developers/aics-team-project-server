@@ -30,7 +30,6 @@ public class FakeTeamMessageRepository implements TeamMessageRepository {
             .relatedType(teamMessage.getRelatedType())
             .relatedId(teamMessage.getRelatedId())
             .important(teamMessage.isImportant())
-            .read(teamMessage.isRead())
             .createdAt(teamMessage.getCreatedAt() != null ? teamMessage.getCreatedAt() : LocalDateTime.now())
             .build();
         store.put(id, saved);
@@ -61,10 +60,11 @@ public class FakeTeamMessageRepository implements TeamMessageRepository {
     }
 
     @Override
-    public long countByThreadIdAndIsReadFalse(Long threadId) {
+    public List<Long> findIdsByThreadId(Long threadId) {
         return store.values().stream()
-            .filter(message -> message.getThreadId().equals(threadId) && !message.isRead())
-            .count();
+            .filter(message -> message.getThreadId().equals(threadId))
+            .map(TeamMessage::getId)
+            .toList();
     }
 
     private Page<TeamMessage> toPage(List<TeamMessage> filtered, Pageable pageable) {

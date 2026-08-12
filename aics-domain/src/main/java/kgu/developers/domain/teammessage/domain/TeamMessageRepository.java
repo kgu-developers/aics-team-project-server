@@ -1,5 +1,6 @@
 package kgu.developers.domain.teammessage.domain;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,5 +15,5 @@ public interface TeamMessageRepository {
 
     Page<TeamMessage> findByThreadIdAndRelatedType(Long threadId, TeamMessageRelatedType relatedType, Pageable pageable);
 
-    long countByThreadIdAndIsReadFalse(Long threadId);
+    List<Long> findIdsByThreadId(Long threadId);
 }
