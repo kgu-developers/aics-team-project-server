@@ -80,6 +80,31 @@ class SectionMappingTest {
     }
 
     @Test
+    @DisplayName("updateCapacity로 음수 정원을 설정할 수 없다")
+    void rejectsNegativeCapacityOnUpdate() {
+        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null);
+
+        assertThatThrownBy(() -> section.updateCapacity(-1))
+                .isInstanceOf(InvalidCapacityException.class);
+        assertThat(section.getCapacity()).isEqualTo(40);
+    }
+
+    @Test
+    @DisplayName("updateContactVisibleFrom/Until로 연락처 공개 기간을 역전시킬 수 없다")
+    void rejectsReversedContactVisiblePeriodOnUpdate() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 2, 9, 0);
+        LocalDateTime until = LocalDateTime.of(2026, 6, 20, 18, 0);
+        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, until);
+
+        assertThatThrownBy(() -> section.updateContactVisibleFrom(until.plusDays(1)))
+                .isInstanceOf(InvalidContactVisiblePeriodException.class);
+        assertThatThrownBy(() -> section.updateContactVisibleUntil(from.minusDays(1)))
+                .isInstanceOf(InvalidContactVisiblePeriodException.class);
+        assertThat(section.getContactVisibleFrom()).isEqualTo(from);
+        assertThat(section.getContactVisibleUntil()).isEqualTo(until);
+    }
+
+    @Test
     @DisplayName("JpaSectionRepository의 파생 쿼리 프로퍼티가 연관 엔티티 식별자로 해석된다")
     void resolvesDerivedQueryProperties() {
         assertThat(PropertyPath.from("courseId", SectionJpaEntity.class).toDotPath())

@@ -32,22 +32,17 @@ public class Section {
 
   public static Section create(String professorId, Long courseId, String code, String name, String classTime,
       Integer capacity, LocalDateTime contactVisibleFrom, LocalDateTime contactVisibleUntil) {
-    if (capacity != null && capacity < 0) {
-      throw new InvalidCapacityException();
-    }
-    if (contactVisibleFrom != null && contactVisibleUntil != null && contactVisibleUntil.isBefore(contactVisibleFrom)) {
-      throw new InvalidContactVisiblePeriodException();
-    }
-    return Section.builder()
+    Section section = Section.builder()
         .professorId(professorId)
         .courseId(courseId)
         .code(code)
         .name(name)
         .classTime(classTime)
-        .capacity(capacity)
-        .contactVisibleFrom(contactVisibleFrom)
-        .contactVisibleUntil(contactVisibleUntil)
         .build();
+    section.updateCapacity(capacity);
+    section.updateContactVisibleFrom(contactVisibleFrom);
+    section.updateContactVisibleUntil(contactVisibleUntil);
+    return section;
   }
 
   public void updateProfessorId(String professorId) {
@@ -71,14 +66,25 @@ public class Section {
   }
 
   public void updateCapacity(Integer capacity) {
+    if (capacity != null && capacity < 0) {
+      throw new InvalidCapacityException();
+    }
     this.capacity = capacity;
   }
 
   public void updateContactVisibleFrom(LocalDateTime contactVisibleFrom) {
+    if (contactVisibleFrom != null && this.contactVisibleUntil != null
+        && this.contactVisibleUntil.isBefore(contactVisibleFrom)) {
+      throw new InvalidContactVisiblePeriodException();
+    }
     this.contactVisibleFrom = contactVisibleFrom;
   }
 
   public void updateContactVisibleUntil(LocalDateTime contactVisibleUntil) {
+    if (contactVisibleUntil != null && this.contactVisibleFrom != null
+        && contactVisibleUntil.isBefore(this.contactVisibleFrom)) {
+      throw new InvalidContactVisiblePeriodException();
+    }
     this.contactVisibleUntil = contactVisibleUntil;
   }
 
