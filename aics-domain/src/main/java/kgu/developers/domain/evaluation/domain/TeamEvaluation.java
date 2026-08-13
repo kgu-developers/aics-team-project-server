@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Getter
 public class TeamEvaluation {
-    private static final int RATER_ID_MAX_LENGTH = 16;
+    private static final int RATER_ID_MAX_LENGTH = 20;
 
     private final Long id;
     private final Long milestoneId;
@@ -77,7 +77,7 @@ public class TeamEvaluation {
         }
         String normalizedRaterId = raterId.trim();
         if (normalizedRaterId.length() > RATER_ID_MAX_LENGTH) {
-            throw new IllegalArgumentException("평가자 학번은 16자를 초과할 수 없습니다.");
+            throw new IllegalArgumentException("평가자 학번은 20자를 초과할 수 없습니다.");
         }
         return normalizedRaterId;
     }

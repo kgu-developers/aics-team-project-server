@@ -48,11 +48,12 @@ class TeamEvaluationDomainTest {
     @Test
     @DisplayName("팀간 발표평가 생성은 평가자 학번 앞뒤 공백을 제거하고 제출되지 않은 초안을 생성한다")
     void createEvaluation() {
-        TeamEvaluation evaluation = TeamEvaluation.create(2L, " 20260001 ", 3L);
+        String maximumLengthRaterId = "1".repeat(20);
+        TeamEvaluation evaluation = TeamEvaluation.create(2L, " " + maximumLengthRaterId + " ", 3L);
 
         assertThat(evaluation.getId()).isNull();
         assertThat(evaluation.getMilestoneId()).isEqualTo(2L);
-        assertThat(evaluation.getRaterId()).isEqualTo("20260001");
+        assertThat(evaluation.getRaterId()).isEqualTo(maximumLengthRaterId);
         assertThat(evaluation.getRateeTeamId()).isEqualTo(3L);
         assertThat(evaluation.getSubmittedAt()).isNull();
         assertThat(evaluation.isSubmitted()).isFalse();
@@ -85,9 +86,9 @@ class TeamEvaluationDomainTest {
         assertThatThrownBy(() -> TeamEvaluation.create(2L, "20260001", 3L).submit(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("제출 시각은 비어 있을 수 없습니다.");
-        assertThatThrownBy(() -> TeamEvaluation.create(2L, "1".repeat(17), 3L))
+        assertThatThrownBy(() -> TeamEvaluation.create(2L, "1".repeat(21), 3L))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("평가자 학번은 16자를 초과할 수 없습니다.");
+                .hasMessage("평가자 학번은 20자를 초과할 수 없습니다.");
     }
 
     @Test

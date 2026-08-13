@@ -1,5 +1,6 @@
 package evaluation.infrastructure;
 
+import jakarta.persistence.Column;
 import kgu.developers.domain.evaluation.domain.TeamEvaluation;
 import kgu.developers.domain.evaluation.domain.TeamEvaluationCriterion;
 import kgu.developers.domain.evaluation.domain.TeamEvaluationScore;
@@ -14,6 +15,16 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TeamEvaluationJpaEntityTest {
+
+    @Test
+    @DisplayName("평가자 학번 JPA 컬럼은 사용자 학번과 동일하게 20자를 허용한다")
+    void raterIdColumnLength() throws NoSuchFieldException {
+        Column column = TeamEvaluationJpaEntity.class
+                .getDeclaredField("raterId")
+                .getAnnotation(Column.class);
+
+        assertThat(column.length()).isEqualTo(20);
+    }
 
     @Test
     @DisplayName("평가 항목 JPA entity는 domain과 왕복 매핑된다")

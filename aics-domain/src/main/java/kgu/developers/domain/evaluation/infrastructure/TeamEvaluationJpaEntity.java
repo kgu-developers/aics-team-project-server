@@ -38,7 +38,7 @@ public class TeamEvaluationJpaEntity extends BaseTimeEntity {
     @Column(name = "milestone_id", nullable = false)
     private Long milestoneId;
 
-    @Column(name = "rater_id", nullable = false, length = 16)
+    @Column(name = "rater_id", nullable = false, length = 20)
     private String raterId;
 
     @Column(name = "ratee_team_id", nullable = false)
