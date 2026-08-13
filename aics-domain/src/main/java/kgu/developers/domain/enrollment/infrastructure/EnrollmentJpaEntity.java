@@ -28,8 +28,8 @@ public class EnrollmentJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private Long sectionId;
 
-    @Column(nullable = false, length = 32)
-    private String studentNumber;
+    @Column(nullable = false, length = 20)
+    private String userId;
 
     @Column(nullable = false, length = 16)
     @Enumerated(STRING)
@@ -43,7 +43,7 @@ public class EnrollmentJpaEntity extends BaseTimeEntity {
         return Enrollment.builder()
                 .id(id)
                 .sectionId(sectionId)
-                .studentNumber(studentNumber)
+                .userId(userId)
                 .role(role)
                 .status(status)
                 .createdAt(getCreatedAt())
@@ -56,7 +56,7 @@ public class EnrollmentJpaEntity extends BaseTimeEntity {
         EnrollmentJpaEntity entity = EnrollmentJpaEntity.builder()
                 .id(enrollment.getId())
                 .sectionId(enrollment.getSectionId())
-                .studentNumber(enrollment.getStudentNumber())
+                .userId(enrollment.getUserId())
                 .role(enrollment.getRole())
                 .status(enrollment.getStatus())
                 .build();
