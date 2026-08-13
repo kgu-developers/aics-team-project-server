@@ -6,6 +6,7 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,6 +48,7 @@ public class TeamRepositoryImpl implements TeamRepository {
     }
 
     @Override
+    @Transactional
     public void deleteById(Long id) {
         jpaTeamRepository.findByIdAndDeletedAtIsNull(id)
                 .ifPresent(TeamJpaEntity::delete);
