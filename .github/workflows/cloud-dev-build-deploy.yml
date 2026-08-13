@@ -87,7 +87,7 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          source: "docker/development/docker-compose.yml, caddy/development/Caddyfile"
+          source: "docker/development/docker-compose.yml, docker/development/pgadmin-servers.json, caddy/development/Caddyfile"
           target: ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
           strip_components: 2
 
@@ -102,5 +102,5 @@ jobs:
             set -euo pipefail
             cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
 
-            docker compose pull aics-api aics-admin aics-auth
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d aics-api aics-admin aics-auth
+            docker compose pull
+            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d
