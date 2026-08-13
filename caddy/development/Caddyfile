@@ -1,20 +1,17 @@
-:80 {
-	# 임시로 IP/포트 기반 HTTP만 사용. 도메인 생기면 아래를 "yourdomain.com {" 으로 바꾸면
-	# Caddy가 자동으로 HTTPS 인증서(Let's Encrypt)를 발급받음.
+team-project-api.kgudevelopers.monster {
+	reverse_proxy aics-api:8080
+}
 
+team-project-admin.kgudevelopers.monster {
 	handle /pgadmin* {
 		reverse_proxy pgadmin:80
 	}
 
-	handle /api/v1/admin/* {
+	handle {
 		reverse_proxy aics-admin:8081
 	}
+}
 
-	handle /api/v1/auth/* {
-		reverse_proxy aics-auth:8082
-	}
-
-	handle {
-		reverse_proxy aics-api:8080
-	}
+team-project-auth.kgudevelopers.monster {
+	reverse_proxy aics-auth:8082
 }
