@@ -26,6 +26,7 @@ class TokenRevocationStoreTest {
 
   private static final String STUDENT_NUMBER = "202699999";
   private static final Duration ACCESS_TOKEN_VALIDITY = Duration.ofMinutes(30);
+  private static final Duration REFRESH_TOKEN_VALIDITY = Duration.ofDays(14);
 
   @Mock
   private RedisTemplate<String, String> redisTemplate;
@@ -39,19 +40,19 @@ class TokenRevocationStoreTest {
   void setUp() {
     given(redisTemplate.opsForValue()).willReturn(valueOperations);
     JwtUtil jwtUtil = new JwtUtil("local-dev-jwt-secret-key-0123456789", "issuer",
-        ACCESS_TOKEN_VALIDITY, Duration.ofDays(14));
+        ACCESS_TOKEN_VALIDITY, REFRESH_TOKEN_VALIDITY);
     store = new TokenRevocationStore(redisTemplate, jwtUtil);
   }
 
   @Test
-  @DisplayName("무효화 표식은 accessToken 수명만큼만 남는다")
-  void revokeExpiresWithAccessToken() {
+  @DisplayName("무효화 표식은 refreshToken 수명만큼 남는다 (그동안은 재발급도 막아야 하므로)")
+  void revokeExpiresWithRefreshToken() {
     store.revokeTokensIssuedBefore(STUDENT_NUMBER);
 
     verify(valueOperations).set(
         org.mockito.ArgumentMatchers.eq("revoked:" + STUDENT_NUMBER),
         org.mockito.ArgumentMatchers.anyString(),
-        org.mockito.ArgumentMatchers.eq(ACCESS_TOKEN_VALIDITY));
+        org.mockito.ArgumentMatchers.eq(REFRESH_TOKEN_VALIDITY));
   }
 
   @Test
@@ -108,5 +109,13 @@ class TokenRevocationStoreTest {
     markerAt(REVOKED_AT);
 
     assertThat(store.isRevoked(STUDENT_NUMBER, null)).isTrue();
+  }
+
+  @Test
+  @DisplayName("Redis에 저장된 값이 손상되면 예외를 던지지 않고 무효로 본다")
+  void revokesOnCorruptedMarker() {
+    given(valueOperations.get("revoked:" + STUDENT_NUMBER)).willReturn("not-a-number");
+
+    assertThat(store.isRevoked(STUDENT_NUMBER, REVOKED_AT)).isTrue();
   }
 }
