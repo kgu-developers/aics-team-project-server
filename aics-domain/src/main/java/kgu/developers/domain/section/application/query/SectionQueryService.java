@@ -49,15 +49,11 @@ public class SectionQueryService {
         return sectionRepository.findAllByProfessorId(professorId);
     }
 
-    /**
-     * 강좌 조건으로 걸러낸 담당 분반 목록. null인 조건은 무시한다.
-     * 한 교수의 분반은 많아야 수십 건이라 조회 후 메모리에서 거른다.
-     */
     public List<SectionDetail> getSectionsByProfessorId(String professorId, StatusType status, Integer year,
                                                         SemesterType semester) {
         return getSectionsByProfessorId(professorId).stream()
                 .filter(detail -> status == null || detail.course().getStatus() == status)
-                .filter(detail -> year == null || detail.course().getYear() == year)
+                .filter(detail -> year == null || year.equals(detail.course().getYear()))
                 .filter(detail -> semester == null || detail.course().getSemester() == semester)
                 .toList();
     }
