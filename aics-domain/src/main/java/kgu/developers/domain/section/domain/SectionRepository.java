@@ -11,4 +11,6 @@ public interface SectionRepository {
     List<SectionDetail> findAllByCourseId(Long courseId);
 
     List<SectionDetail> findAllByProfessorId(String professorId);
+
+    boolean existsActiveByIdAndProfessorId(Long id, String professorId);
 }

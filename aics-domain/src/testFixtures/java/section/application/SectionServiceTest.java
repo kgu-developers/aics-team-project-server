@@ -259,4 +259,20 @@ class SectionServiceTest {
         assertThatThrownBy(() -> queryService.getSectionsByCourseId(99L))
                 .isInstanceOf(CourseNotFoundException.class);
     }
+
+    @Test
+    @DisplayName("담당 교수가 소유한 활성 분반이면 true를 반환한다")
+    void confirmsActiveSectionOwnership() {
+        given(sectionRepository.existsActiveByIdAndProfessorId(10L, "202012345")).willReturn(true);
+
+        assertThat(queryService.isActiveSectionOwnedByProfessor(10L, "202012345")).isTrue();
+    }
+
+    @Test
+    @DisplayName("다른 교수 소유이거나 삭제된 분반이면 false를 반환한다")
+    void deniesOwnershipForOtherProfessorOrDeletedSection() {
+        given(sectionRepository.existsActiveByIdAndProfessorId(10L, "999999999")).willReturn(false);
+
+        assertThat(queryService.isActiveSectionOwnedByProfessor(10L, "999999999")).isFalse();
+    }
 }

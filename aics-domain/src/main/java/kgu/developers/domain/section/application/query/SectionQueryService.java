@@ -30,6 +30,11 @@ public class SectionQueryService {
                 .orElseThrow(SectionNotFoundException::new);
     }
 
+    /** 마일스톤 등 외부 연동에서 sectionId를 다루기 전에 소유 교수인지 확인하는 용도 */
+    public boolean isActiveSectionOwnedByProfessor(Long sectionId, String professorId) {
+        return sectionRepository.existsActiveByIdAndProfessorId(sectionId, professorId);
+    }
+
     public List<SectionDetail> getSectionsByCourseId(Long courseId) {
         if (courseRepository.findById(courseId).isEmpty()) {
             throw new CourseNotFoundException();

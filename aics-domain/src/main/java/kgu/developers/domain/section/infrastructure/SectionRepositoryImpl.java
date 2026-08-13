@@ -50,4 +50,9 @@ public class SectionRepositoryImpl implements SectionRepository {
                 .map(SectionJpaEntity::toDetail)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public boolean existsActiveByIdAndProfessorId(Long id, String professorId) {
+        return jpaSectionRepository.existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(id, professorId);
+    }
 }
