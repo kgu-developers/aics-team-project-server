@@ -33,6 +33,26 @@ class SectionMappingTest {
     }
 
     @Test
+    @DisplayName("toEntity는 기존 분반의 생성일을 그대로 옮긴다")
+    void toEntityKeepsCreatedAt() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 9, 0);
+        Section section = Section.builder()
+                .id(1L)
+                .professorId("202012345")
+                .courseId(1L)
+                .code("CS101")
+                .name("01분반")
+                .classTime("월3,4")
+                .capacity(40)
+                .createdAt(createdAt)
+                .build();
+
+        SectionJpaEntity entity = SectionJpaEntity.toEntity(section, course, professor);
+
+        assertThat(entity.getCreatedAt()).isEqualTo(createdAt);
+    }
+
+    @Test
     @DisplayName("삭제된 Section은 deletedAt이 엔티티로 전달된다")
     void carriesDeletedAt() {
         Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null);
