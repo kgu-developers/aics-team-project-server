@@ -91,6 +91,7 @@ public class SectionJpaEntity extends BaseTimeEntity {
         .contactVisibleFrom(section.getContactVisibleFrom())
         .contactVisibleUntil(section.getContactVisibleUntil())
         .build();
+    entity.createdAt = section.getCreatedAt();
     entity.setDeletedAt(section.getDeletedAt());
     return entity;
   }
