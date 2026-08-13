@@ -1,0 +1,73 @@
+package kgu.developers.domain.teamMember.infrastructure;
+
+import jakarta.persistence.EntityManager;
+import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
+import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.infrastructure.UserJpaEntity;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+@RequiredArgsConstructor
+public class TeamMemberRepositoryImpl implements TeamMemberRepository {
+    private final JpaTeamMemberRepository jpaTeamMemberRepository;
+    private final EntityManager entityManager;
+
+    @Override
+    public TeamMember save(TeamMember teamMember) {
+        TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, teamMember.getTeamId());
+        UserJpaEntity user = entityManager.getReference(UserJpaEntity.class, teamMember.getUserId());
+        TeamMemberJpaEntity entity = TeamMemberJpaEntity.toEntity(teamMember, team, user);
+        TeamMemberJpaEntity savedEntity = jpaTeamMemberRepository.save(entity);
+        return savedEntity.toDomain();
+    }
+
+    @Override
+    public Optional<TeamMember> findById(Long id) {
+        return jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
+                .map(TeamMemberJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<TeamMember> findAllByTeamId(Long teamId) {
+        return jpaTeamMemberRepository.findAllByTeamIdAndDeletedAtIsNull(teamId)
+                .stream()
+                .map(TeamMemberJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<TeamMember> findAllByUserId(String userId) {
+        return jpaTeamMemberRepository.findAllByUserStudentNumberAndDeletedAtIsNull(userId)
+                .stream()
+                .map(TeamMemberJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public Optional<TeamMember> findByTeamIdAndUserId(Long teamId, String userId) {
+        return jpaTeamMemberRepository.findByTeamIdAndUserStudentNumberAndDeletedAtIsNull(teamId, userId)
+                .map(TeamMemberJpaEntity::toDomain);
+    }
+
+    @Override
+    public Optional<TeamMember> findLeaderByTeamId(Long teamId) {
+        return jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId)
+                .map(TeamMemberJpaEntity::toDomain);
+    }
+
+    @Override
+    public boolean existsByTeamIdAndIsLeaderTrue(Long teamId) {
+        return jpaTeamMemberRepository.existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
+                .ifPresent(TeamMemberJpaEntity::delete);
+    }
+}
