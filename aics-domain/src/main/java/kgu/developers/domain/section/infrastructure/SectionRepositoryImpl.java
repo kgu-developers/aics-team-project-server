@@ -30,9 +30,9 @@ public class SectionRepositoryImpl implements SectionRepository {
     }
 
     @Override
-    public Optional<Section> findById(Long id) {
+    public Optional<SectionDetail> findById(Long id) {
         Optional<SectionJpaEntity> optionalEntity = jpaSectionRepository.findByIdAndDeletedAtIsNull(id);
-        return optionalEntity.map(SectionJpaEntity::toDomain);
+        return optionalEntity.map(SectionJpaEntity::toDetail);
     }
 
     @Override
