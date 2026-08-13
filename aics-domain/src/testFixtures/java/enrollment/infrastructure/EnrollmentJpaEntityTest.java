@@ -8,8 +8,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import kgu.developers.domain.enrollment.domain.Enrollment;
-import kgu.developers.domain.enrollment.domain.RoleType;
-import kgu.developers.domain.enrollment.domain.StatusType;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.enrollment.infrastructure.EnrollmentJpaEntity;
 
 class EnrollmentJpaEntityTest {
@@ -19,8 +19,8 @@ class EnrollmentJpaEntityTest {
         .id(1L)
         .sectionId(10L)
         .studentNumber("202012345")
-        .role(RoleType.STUDENT)
-        .status(StatusType.ACTIVE)
+        .role(Role.STUDENT)
+        .status(Status.ACTIVE)
         .createdAt(createdAt)
         .deletedAt(deletedAt)
         .build();

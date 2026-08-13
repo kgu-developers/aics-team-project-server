@@ -16,14 +16,14 @@ public class Enrollment {
     private Long sectionId;  // 분반 식별자
     private String studentNumber;  // 학번
 
-    private RoleType role;  // 역할
-    private StatusType status;  // 상태
+    private Role role;  // 역할
+    private Status status;  // 상태
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
-    public static Enrollment create(Long sectionId, String studentNumber, RoleType role, StatusType status) {
+    public static Enrollment create(Long sectionId, String studentNumber, Role role, Status status) {
         return Enrollment.builder()
                 .sectionId(sectionId)
                 .studentNumber(studentNumber)
@@ -40,11 +40,11 @@ public class Enrollment {
         this.studentNumber = studentNumber;
     }
 
-    public void updateRole(RoleType role) {
+    public void updateRole(Role role) {
         this.role = role;
     }
 
-    public void updateStatus(StatusType status) {
+    public void updateStatus(Status status) {
         this.status = status;
     }
 

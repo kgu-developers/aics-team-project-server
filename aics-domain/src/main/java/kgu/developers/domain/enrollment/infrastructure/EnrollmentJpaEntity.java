@@ -3,8 +3,8 @@ package kgu.developers.domain.enrollment.infrastructure;
 import jakarta.persistence.*;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.enrollment.domain.Enrollment;
-import kgu.developers.domain.enrollment.domain.RoleType;
-import kgu.developers.domain.enrollment.domain.StatusType;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,11 +33,11 @@ public class EnrollmentJpaEntity extends BaseTimeEntity {
 
     @Column(nullable = false, length = 16)
     @Enumerated(STRING)
-    private RoleType role;
+    private Role role;
 
     @Column(nullable = false, length = 16)
     @Enumerated(STRING)
-    private StatusType status;
+    private Status status;
 
     public Enrollment toDomain() {
         return Enrollment.builder()

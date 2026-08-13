@@ -5,9 +5,10 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum RoleType {
-    STUDENT("학생"),
-    ASSISTANT("조교");
+public enum Status {
+    ACTIVE("활성"),
+    WITHDRAWN("탈퇴");
+
 
     private final String description;
 }
