@@ -18,7 +18,7 @@ class EnrollmentJpaEntityTest {
     return Enrollment.builder()
         .id(1L)
         .sectionId(10L)
-        .studentNumber("202012345")
+        .userId("202012345")
         .role(Role.STUDENT)
         .status(Status.ACTIVE)
         .createdAt(createdAt)
@@ -48,7 +48,7 @@ class EnrollmentJpaEntityTest {
 
     assertThat(restored.getId()).isEqualTo(origin.getId());
     assertThat(restored.getSectionId()).isEqualTo(origin.getSectionId());
-    assertThat(restored.getStudentNumber()).isEqualTo(origin.getStudentNumber());
+    assertThat(restored.getUserId()).isEqualTo(origin.getUserId());
     assertThat(restored.getRole()).isEqualTo(origin.getRole());
     assertThat(restored.getStatus()).isEqualTo(origin.getStatus());
     assertThat(restored.getCreatedAt()).isEqualTo(createdAt);

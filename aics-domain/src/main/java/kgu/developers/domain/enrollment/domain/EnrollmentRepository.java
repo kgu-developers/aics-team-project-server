@@ -10,7 +10,7 @@ public interface EnrollmentRepository {
 
   List<Enrollment> findAllBySectionId(Long sectionId);
 
-  List<Enrollment> findAllByStudentNumber(String studentNumber);
+  List<Enrollment> findAllByUserId(String userId);
 
   void deleteById(Long id);
 }

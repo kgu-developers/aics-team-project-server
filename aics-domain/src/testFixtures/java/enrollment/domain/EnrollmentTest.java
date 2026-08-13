@@ -17,7 +17,7 @@ class EnrollmentTest {
     Enrollment enrollment = Enrollment.create(1L, "202012345", Role.STUDENT, Status.ACTIVE);
 
     assertThat(enrollment.getSectionId()).isEqualTo(1L);
-    assertThat(enrollment.getStudentNumber()).isEqualTo("202012345");
+    assertThat(enrollment.getUserId()).isEqualTo("202012345");
     assertThat(enrollment.getRole()).isEqualTo(Role.STUDENT);
     assertThat(enrollment.getStatus()).isEqualTo(Status.ACTIVE);
     assertThat(enrollment.getDeletedAt()).isNull();
@@ -29,12 +29,12 @@ class EnrollmentTest {
     Enrollment enrollment = Enrollment.create(1L, "202012345", Role.STUDENT, Status.ACTIVE);
 
     enrollment.updateSectionId(2L);
-    enrollment.updateStudentNumber("202154321");
+    enrollment.updateUserId("202154321");
     enrollment.updateRole(Role.ASSISTANT);
     enrollment.updateStatus(Status.WITHDRAWN);
 
     assertThat(enrollment.getSectionId()).isEqualTo(2L);
-    assertThat(enrollment.getStudentNumber()).isEqualTo("202154321");
+    assertThat(enrollment.getUserId()).isEqualTo("202154321");
     assertThat(enrollment.getRole()).isEqualTo(Role.ASSISTANT);
     assertThat(enrollment.getStatus()).isEqualTo(Status.WITHDRAWN);
   }

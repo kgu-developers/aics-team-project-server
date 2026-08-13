@@ -28,15 +28,15 @@ public class EnrollmentRepositoryImpl implements EnrollmentRepository {
 
   @Override
   public List<Enrollment> findAllBySectionId(Long sectionId) {
-    return jpaEnrollmentRepository.findAllBySectionIdAndDeletedAtIsNullOrderByStudentNumberAsc(sectionId)
+    return jpaEnrollmentRepository.findAllBySectionIdAndDeletedAtIsNullOrderByUserIdAsc(sectionId)
         .stream()
         .map(EnrollmentJpaEntity::toDomain)
         .toList();
   }
 
   @Override
-  public List<Enrollment> findAllByStudentNumber(String studentNumber) {
-    return jpaEnrollmentRepository.findAllByStudentNumberAndDeletedAtIsNullOrderBySectionIdAsc(studentNumber)
+  public List<Enrollment> findAllByUserId(String userId) {
+    return jpaEnrollmentRepository.findAllByUserIdAndDeletedAtIsNullOrderBySectionIdAsc(userId)
         .stream()
         .map(EnrollmentJpaEntity::toDomain)
         .toList();
