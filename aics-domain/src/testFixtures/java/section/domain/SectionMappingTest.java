@@ -2,6 +2,8 @@ package section.domain;
 
 import kgu.developers.domain.course.infrastructure.CourseJpaEntity;
 import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.section.exception.InvalidCapacityException;
+import kgu.developers.domain.section.exception.InvalidContactVisiblePeriodException;
 import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +13,7 @@ import org.springframework.data.mapping.PropertyPath;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SectionMappingTest {
 
@@ -37,6 +40,23 @@ class SectionMappingTest {
 
         assertThat(SectionJpaEntity.toEntity(section, course, professor).getDeletedAt())
                 .isEqualTo(section.getDeletedAt());
+    }
+
+    @Test
+    @DisplayName("정원이 음수이면 Section 생성에 실패한다")
+    void rejectsNegativeCapacity() {
+        assertThatThrownBy(() -> Section.create("202012345", 1L, "CS101", "01분반", "월3,4", -1, null, null))
+                .isInstanceOf(InvalidCapacityException.class);
+    }
+
+    @Test
+    @DisplayName("연락처 공개 종료가 시작보다 빠르면 Section 생성에 실패한다")
+    void rejectsReversedContactVisiblePeriod() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 2, 9, 0);
+        LocalDateTime until = from.minusDays(1);
+
+        assertThatThrownBy(() -> Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, until))
+                .isInstanceOf(InvalidContactVisiblePeriodException.class);
     }
 
     @Test
