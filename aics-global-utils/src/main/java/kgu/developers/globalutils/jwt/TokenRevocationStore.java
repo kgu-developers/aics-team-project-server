@@ -39,6 +39,9 @@ public class TokenRevocationStore {
 				studentNumber, revokedAt);
 			return true;
 		}
+		if (revokedMillis <= 0) {
+			return true;
+		}
 		return issuedAtMillis < revokedMillis;
 	}
 }
