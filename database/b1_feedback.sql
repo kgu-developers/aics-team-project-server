@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS review (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
-    CONSTRAINT ck_review_result_status CHECK (result_status IN ('APPROVED', 'REVISION_REQUESTED'))
+    CONSTRAINT ck_review_result_status CHECK (result_status IN ('APPROVED', 'FEEDBACK_PROVIDED', 'REVISION_REQUESTED'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_review_active_version

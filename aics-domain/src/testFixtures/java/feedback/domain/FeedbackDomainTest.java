@@ -79,6 +79,7 @@ class FeedbackDomainTest {
     @DisplayName("리뷰 생성은 PRD 밖 점수 없이 최소 결과 상태만 사용한다")
     void reviewResultStatusDescriptions() {
         assertThat(ReviewResultStatus.APPROVED.getDescription()).isEqualTo("승인");
+        assertThat(ReviewResultStatus.FEEDBACK_PROVIDED.getDescription()).isEqualTo("피드백 제공");
         assertThat(ReviewResultStatus.REVISION_REQUESTED.getDescription()).isEqualTo("수정 요청");
     }
 
