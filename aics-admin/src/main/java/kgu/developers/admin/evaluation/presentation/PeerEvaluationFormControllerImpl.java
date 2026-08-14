@@ -1,7 +1,5 @@
 package kgu.developers.admin.evaluation.presentation;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.evaluation.application.PeerEvaluationFormFacade;
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
@@ -26,8 +24,8 @@ public class PeerEvaluationFormControllerImpl implements PeerEvaluationFormContr
     @Override
     @PostMapping
     public ResponseEntity<PeerEvaluationFormPersistResponse> createForm(
-            @Positive @PathVariable Long sectionId,
-            @Valid @RequestBody PeerEvaluationFormCreateRequest request) {
+            @PathVariable Long sectionId,
+            @RequestBody PeerEvaluationFormCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(facade.createForm(sectionId, request));
     }
 }
