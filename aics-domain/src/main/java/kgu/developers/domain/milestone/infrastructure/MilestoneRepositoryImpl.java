@@ -22,7 +22,10 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     @Override
     @Transactional
     public Milestone save(Milestone milestone) {
-        MilestoneJpaEntity savedEntity = jpaMilestoneRepository.save(entityForSave(milestone));
+        MilestoneJpaEntity entity = entityForSave(milestone);
+        MilestoneJpaEntity savedEntity = milestone.getId() == null
+                ? jpaMilestoneRepository.saveAndFlush(entity)
+                : jpaMilestoneRepository.save(entity);
         return savedEntity.toDomain();
     }
 

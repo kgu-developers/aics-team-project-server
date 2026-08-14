@@ -183,6 +183,35 @@ class MilestoneControllerTest {
 
     @Test
     @WithMockUser(roles = "PROFESSOR")
+    @DisplayName("평가 기간과 해제 의도가 모두 없는 요청은 거부한다")
+    void rejectEmptyEvaluationWindowRequest() throws Exception {
+        mockMvc.perform(patch(MILESTONES_URL + "/2/evaluation-window")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @WithMockUser(roles = "PROFESSOR")
+    @DisplayName("평가 기간 해제를 명시하면 요청을 처리한다")
+    void clearEvaluationWindow() throws Exception {
+        mockMvc.perform(patch(MILESTONES_URL + "/2/evaluation-window")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clearEvaluationWindow": true}
+                                """))
+                .andExpect(status().isNoContent());
+
+        verify(milestoneFacade).updateEvaluationWindow(
+                eq(1L),
+                eq(2L),
+                any()
+        );
+    }
+
+    @Test
+    @WithMockUser(roles = "PROFESSOR")
     @DisplayName("평가 기간 수정 경로의 마일스톤 식별자는 양수여야 한다")
     void rejectInvalidMilestoneIdForEvaluationWindow() throws Exception {
         mockMvc.perform(patch(MILESTONES_URL + "/0/evaluation-window")
@@ -190,7 +219,8 @@ class MilestoneControllerTest {
                         .content("""
                                 {
                                   "evaluationOpensAt": null,
-                                  "evaluationClosesAt": null
+                                  "evaluationClosesAt": null,
+                                  "clearEvaluationWindow": true
                                 }
                                 """))
                 .andExpect(status().isBadRequest())

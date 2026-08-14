@@ -3,6 +3,7 @@ package milestone.infrastructure;
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
@@ -32,6 +33,42 @@ class MilestoneRepositoryImplTest {
 
     @Mock
     private JpaMilestoneRepository jpaMilestoneRepository;
+
+    @Test
+    @DisplayName("새 마일스톤은 DB 제약 위반을 호출 경계에서 확인하도록 즉시 반영한다")
+    void flushesNewMilestoneImmediately() {
+        Milestone newMilestone = Milestone.create(
+                7L,
+                "마일스톤 1",
+                null,
+                1,
+                new MilestoneSchedule(
+                        null,
+                        LocalDateTime.of(2026, 8, 11, 23, 59),
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+        MilestoneJpaEntity savedEntity = MilestoneJpaEntity.builder()
+                .id(1L)
+                .sectionId(7L)
+                .title("마일스톤 1")
+                .weekNumber(1)
+                .status(MilestoneStatus.DRAFT)
+                .dueAt(LocalDateTime.of(2026, 8, 11, 23, 59))
+                .build();
+        given(jpaMilestoneRepository.saveAndFlush(any()))
+                .willReturn(savedEntity);
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        Milestone result = repository.save(newMilestone);
+
+        assertThat(result.getId()).isEqualTo(1L);
+        verify(jpaMilestoneRepository).saveAndFlush(any());
+        verify(jpaMilestoneRepository, never()).save(any());
+    }
 
     @Test
     @DisplayName("분반의 마일스톤을 주차순으로 조회해 도메인으로 반환한다")

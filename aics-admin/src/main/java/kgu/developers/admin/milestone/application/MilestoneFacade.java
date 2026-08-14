@@ -3,6 +3,7 @@ package kgu.developers.admin.milestone.application;
 import java.util.List;
 import java.util.function.Supplier;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
@@ -77,12 +78,15 @@ public class MilestoneFacade {
             Long milestoneId,
             MilestoneEvaluationWindowRequest request
     ) {
-        asInvalidRequest(() -> milestoneCommandService.updateEvaluationWindow(
-                sectionId,
-                milestoneId,
-                request.evaluationOpensAt(),
-                request.evaluationClosesAt()
-        ));
+        asInvalidRequest(() -> {
+            request.validateIntent();
+            milestoneCommandService.updateEvaluationWindow(
+                    sectionId,
+                    milestoneId,
+                    request.evaluationOpensAt(),
+                    request.evaluationClosesAt()
+            );
+        });
     }
 
     public void updateWeekNumbers(Long sectionId, MilestoneWeekNumbersRequest request) {
@@ -106,7 +110,7 @@ public class MilestoneFacade {
     private <T> T asInvalidRequest(Supplier<T> operation) {
         try {
             return operation.get();
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException | DataIntegrityViolationException exception) {
             throw new InvalidMilestoneRequestException(exception);
         }
     }

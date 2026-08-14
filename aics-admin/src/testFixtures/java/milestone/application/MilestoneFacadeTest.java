@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
@@ -113,7 +114,8 @@ class MilestoneFacadeTest {
         LocalDateTime evaluationClosesAt = DUE_AT.plusDays(3);
         MilestoneEvaluationWindowRequest request = new MilestoneEvaluationWindowRequest(
                 evaluationOpensAt,
-                evaluationClosesAt
+                evaluationClosesAt,
+                false
         );
 
         milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request);
@@ -133,7 +135,8 @@ class MilestoneFacadeTest {
         LocalDateTime evaluationClosesAt = DUE_AT.plusDays(1);
         MilestoneEvaluationWindowRequest request = new MilestoneEvaluationWindowRequest(
                 evaluationOpensAt,
-                evaluationClosesAt
+                evaluationClosesAt,
+                false
         );
         willThrow(new IllegalArgumentException("평가 시작 시각은 종료 시각보다 빨라야 합니다."))
                 .given(milestoneCommandService)
@@ -145,6 +148,55 @@ class MilestoneFacadeTest {
                 );
 
         assertThatThrownBy(() -> milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request))
+                .isInstanceOf(InvalidMilestoneRequestException.class);
+    }
+
+    @Test
+    @DisplayName("명시적인 해제 요청은 평가 기간을 null로 변경한다")
+    void clearEvaluationWindow() {
+        MilestoneEvaluationWindowRequest request = new MilestoneEvaluationWindowRequest(
+                null,
+                null,
+                true
+        );
+
+        milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request);
+
+        verify(milestoneCommandService).updateEvaluationWindow(
+                SECTION_ID,
+                MILESTONE_ID,
+                null,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("평가 기간과 해제 의도가 모두 없는 요청은 거부한다")
+    void rejectEmptyEvaluationWindowRequest() {
+        MilestoneEvaluationWindowRequest request = new MilestoneEvaluationWindowRequest(
+                null,
+                null,
+                false
+        );
+
+        assertThatThrownBy(() -> milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request))
+                .isInstanceOf(InvalidMilestoneRequestException.class);
+    }
+
+    @Test
+    @DisplayName("동시에 중복된 주차를 생성하면 제어된 잘못된 요청 예외로 변환한다")
+    void duplicateWeekNumberAtDatabaseBoundary() {
+        MilestoneCreateRequest request = new MilestoneCreateRequest(
+                "제안서",
+                "제안서 제출",
+                2,
+                scheduleRequest()
+        );
+        willThrow(new DataIntegrityViolationException("uq_milestone_active_section_week"))
+                .given(milestoneCommandService)
+                .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
+
+        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
                 .isInstanceOf(InvalidMilestoneRequestException.class);
     }
 
