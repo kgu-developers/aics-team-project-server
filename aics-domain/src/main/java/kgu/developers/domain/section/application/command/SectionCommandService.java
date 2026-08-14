@@ -57,11 +57,10 @@ public class SectionCommandService {
         if (capacity != null) {
             section.updateCapacity(capacity);
         }
-        if (contactVisibleFrom != null) {
-            section.updateContactVisibleFrom(contactVisibleFrom);
-        }
-        if (contactVisibleUntil != null) {
-            section.updateContactVisibleUntil(contactVisibleUntil);
+        if (contactVisibleFrom != null || contactVisibleUntil != null) {
+            section.updateContactVisiblePeriod(
+                    contactVisibleFrom != null ? contactVisibleFrom : section.getContactVisibleFrom(),
+                    contactVisibleUntil != null ? contactVisibleUntil : section.getContactVisibleUntil());
         }
         sectionRepository.save(section);
     }
