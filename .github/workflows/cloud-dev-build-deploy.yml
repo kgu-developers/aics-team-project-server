@@ -101,6 +101,7 @@ jobs:
           script: |
             set -euo pipefail
             cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
+            export IMAGE_TAG=${{ github.sha }}
 
-            docker compose pull
+            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d

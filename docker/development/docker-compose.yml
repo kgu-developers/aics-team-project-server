@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16.15
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -12,13 +12,13 @@ services:
       - cshome
 
   redis:
-    image: redis:7
+    image: redis:7.4.10
     restart: unless-stopped
     networks:
       - cshome
 
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.17
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
@@ -34,7 +34,7 @@ services:
       - cshome
 
   aics-api:
-    image: ${DOCKERHUB_USERNAME}/aics-api:latest
+    image: ${DOCKERHUB_USERNAME}/aics-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
@@ -50,7 +50,7 @@ services:
       - cshome
 
   aics-admin:
-    image: ${DOCKERHUB_USERNAME}/aics-admin:latest
+    image: ${DOCKERHUB_USERNAME}/aics-admin:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
@@ -66,7 +66,7 @@ services:
       - cshome
 
   aics-auth:
-    image: ${DOCKERHUB_USERNAME}/aics-auth:latest
+    image: ${DOCKERHUB_USERNAME}/aics-auth:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
@@ -82,7 +82,7 @@ services:
       - cshome
 
   caddy:
-    image: caddy:2
+    image: caddy:2.11.4
     restart: unless-stopped
     ports:
       - "80:80"
