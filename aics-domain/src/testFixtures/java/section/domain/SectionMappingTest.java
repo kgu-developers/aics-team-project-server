@@ -90,18 +90,30 @@ class SectionMappingTest {
     }
 
     @Test
-    @DisplayName("updateContactVisibleFrom/Until로 연락처 공개 기간을 역전시킬 수 없다")
+    @DisplayName("updateContactVisiblePeriod로 연락처 공개 기간을 역전시킬 수 없다")
     void rejectsReversedContactVisiblePeriodOnUpdate() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 2, 9, 0);
         LocalDateTime until = LocalDateTime.of(2026, 6, 20, 18, 0);
         Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, until);
 
-        assertThatThrownBy(() -> section.updateContactVisibleFrom(until.plusDays(1)))
+        assertThatThrownBy(() -> section.updateContactVisiblePeriod(until.plusDays(1), until))
                 .isInstanceOf(InvalidContactVisiblePeriodException.class);
-        assertThatThrownBy(() -> section.updateContactVisibleUntil(from.minusDays(1)))
+        assertThatThrownBy(() -> section.updateContactVisiblePeriod(from, from.minusDays(1)))
                 .isInstanceOf(InvalidContactVisiblePeriodException.class);
         assertThat(section.getContactVisibleFrom()).isEqualTo(from);
         assertThat(section.getContactVisibleUntil()).isEqualTo(until);
+    }
+
+    @Test
+    @DisplayName("기존 기간보다 뒤로 통째로 옮기는 수정은 허용된다")
+    void allowsShiftingContactVisiblePeriodForward() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
+        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+
+        section.updateContactVisiblePeriod(from.plusDays(2), from.plusDays(3));
+
+        assertThat(section.getContactVisibleFrom()).isEqualTo(from.plusDays(2));
+        assertThat(section.getContactVisibleUntil()).isEqualTo(from.plusDays(3));
     }
 
     @Test

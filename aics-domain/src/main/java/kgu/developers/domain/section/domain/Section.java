@@ -40,8 +40,7 @@ public class Section {
         .classTime(classTime)
         .build();
     section.updateCapacity(capacity);
-    section.updateContactVisibleFrom(contactVisibleFrom);
-    section.updateContactVisibleUntil(contactVisibleUntil);
+    section.updateContactVisiblePeriod(contactVisibleFrom, contactVisibleUntil);
     return section;
   }
 
@@ -72,19 +71,12 @@ public class Section {
     this.capacity = capacity;
   }
 
-  public void updateContactVisibleFrom(LocalDateTime contactVisibleFrom) {
-    if (contactVisibleFrom != null && this.contactVisibleUntil != null
-        && this.contactVisibleUntil.isBefore(contactVisibleFrom)) {
+  public void updateContactVisiblePeriod(LocalDateTime contactVisibleFrom, LocalDateTime contactVisibleUntil) {
+    if (contactVisibleFrom != null && contactVisibleUntil != null
+        && contactVisibleUntil.isBefore(contactVisibleFrom)) {
       throw new InvalidContactVisiblePeriodException();
     }
     this.contactVisibleFrom = contactVisibleFrom;
-  }
-
-  public void updateContactVisibleUntil(LocalDateTime contactVisibleUntil) {
-    if (contactVisibleUntil != null && this.contactVisibleFrom != null
-        && contactVisibleUntil.isBefore(this.contactVisibleFrom)) {
-      throw new InvalidContactVisiblePeriodException();
-    }
     this.contactVisibleUntil = contactVisibleUntil;
   }
 

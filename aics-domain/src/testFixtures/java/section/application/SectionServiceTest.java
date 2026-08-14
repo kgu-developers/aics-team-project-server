@@ -28,6 +28,7 @@ import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.section.exception.InvalidContactVisiblePeriodException;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
@@ -142,6 +143,33 @@ class SectionServiceTest {
         assertThat(section.getClassTime()).isEqualTo("월3,4");
         assertThat(section.getCapacity()).isEqualTo(40);
         verify(sectionRepository).save(section);
+    }
+
+    @Test
+    @DisplayName("연락처 공개 기간을 통째로 뒤로 옮기는 수정이 허용된다")
+    void shiftsContactVisiblePeriodForward() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
+        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+
+        commandService.updateSection(section, null, null, null, null, null, null,
+                from.plusDays(2), from.plusDays(3));
+
+        assertThat(section.getContactVisibleFrom()).isEqualTo(from.plusDays(2));
+        assertThat(section.getContactVisibleUntil()).isEqualTo(from.plusDays(3));
+    }
+
+    @Test
+    @DisplayName("한쪽만 수정해도 기존 값과의 역전은 거부된다")
+    void rejectsReversedContactVisiblePeriodOnPartialUpdate() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
+        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+
+        assertThatThrownBy(() -> commandService.updateSection(section, null, null, null, null, null, null,
+                from.plusDays(5), null))
+                .isInstanceOf(InvalidContactVisiblePeriodException.class);
+
+        assertThat(section.getContactVisibleFrom()).isEqualTo(from);
+        assertThat(section.getContactVisibleUntil()).isEqualTo(from.plusDays(1));
     }
 
     @Test
