@@ -116,12 +116,12 @@ class PeerEvaluationDomainTest {
     @Test
     @DisplayName("상호평가 응답의 학번과 회고 의견은 최대 길이를 넘을 수 없다")
     void responseTextLengthIsLimited() {
-        assertThatThrownBy(() -> PeerEvaluationResponse.create(1L, "1".repeat(17), "20260002", null, null))
+        assertThatThrownBy(() -> PeerEvaluationResponse.create(1L, "1".repeat(21), "20260002", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("평가자 학번은 16자를 넘을 수 없습니다.");
-        assertThatThrownBy(() -> PeerEvaluationResponse.create(1L, "20260001", "2".repeat(17), null, null))
+                .hasMessage("평가자 학번은 20자를 넘을 수 없습니다.");
+        assertThatThrownBy(() -> PeerEvaluationResponse.create(1L, "20260001", "2".repeat(21), null, null))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("평가 대상자 학번은 16자를 넘을 수 없습니다.");
+                .hasMessage("평가 대상자 학번은 20자를 넘을 수 없습니다.");
         assertThatThrownBy(() -> PeerEvaluationResponse.create(1L, "20260001", "20260002", null, "가".repeat(2001)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("프로젝트 회고 의견은 2000자를 넘을 수 없습니다.");
@@ -168,9 +168,10 @@ class PeerEvaluationDomainTest {
     }
 
     @Test
-    @DisplayName("성적은 계산식 없이 전달된 점수와 JSON 스냅샷 원문을 보존한다")
+    @DisplayName("확정된 성적은 점수와 조정 사유, JSON 스냅샷, 확정 시각을 보존한다")
     void createGrade() {
         String snapshot = "{\"teamScore\":90,\"peerFactor\":1.05}";
+        LocalDateTime finalizedAt = LocalDateTime.of(2026, 8, 14, 10, 0);
 
         Grade grade = Grade.create(
                 1L,
@@ -180,7 +181,9 @@ class PeerEvaluationDomainTest {
                 new BigDecimal("1.0500"),
                 new BigDecimal("94.50"),
                 new BigDecimal("-1.00"),
-                snapshot
+                " 발표 점수 조정 ",
+                snapshot,
+                finalizedAt
         );
 
         assertThat(grade.getUserId()).isEqualTo("20260001");
@@ -188,7 +191,9 @@ class PeerEvaluationDomainTest {
         assertThat(grade.getPeerFactor()).isEqualByComparingTo("1.0500");
         assertThat(grade.getFinalScore()).isEqualByComparingTo("94.50");
         assertThat(grade.getManualAdjustment()).isEqualByComparingTo("-1.00");
+        assertThat(grade.getAdjustmentReason()).isEqualTo("발표 점수 조정");
         assertThat(grade.getSnapshot()).isEqualTo(snapshot);
+        assertThat(grade.getFinalizedAt()).isEqualTo(finalizedAt);
     }
 
     @Test
@@ -210,25 +215,28 @@ class PeerEvaluationDomainTest {
     }
 
     @Test
-    @DisplayName("성적의 점수 계열 값은 모두 필수이다")
-    void gradeScoresAreRequired() {
-        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", null, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "{}"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("팀 점수는 필수입니다.");
-        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, null, BigDecimal.TEN, BigDecimal.ZERO, "{}"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("동료평가 계수는 필수입니다.");
-        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, null, BigDecimal.ZERO, "{}"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("최종 점수는 필수입니다.");
+    @DisplayName("성적은 확정 전 점수와 스냅샷이 없는 상태로 생성할 수 있다")
+    void createGradeBeforeFinalization() {
+        Grade grade = Grade.create(1L, 10L, "20260001", null, null, null, null, null);
+
+        assertThat(grade.getTeamScore()).isNull();
+        assertThat(grade.getPeerFactor()).isNull();
+        assertThat(grade.getFinalScore()).isNull();
+        assertThat(grade.getManualAdjustment()).isNull();
+        assertThat(grade.getAdjustmentReason()).isNull();
+        assertThat(grade.getSnapshot()).isNull();
+        assertThat(grade.getFinalizedAt()).isNull();
     }
 
     @Test
-    @DisplayName("성적의 학번은 최대 16자이고 스냅샷은 비어 있을 수 없다")
+    @DisplayName("성적의 학번과 조정 사유는 길이를 제한하고 입력된 스냅샷은 유효한 JSON이어야 한다")
     void gradeUserAndSnapshotAreValidated() {
-        assertThatThrownBy(() -> Grade.create(1L, 10L, "1".repeat(17), BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "{}"))
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "1".repeat(21), BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "{}"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("학번은 16자를 넘을 수 없습니다.");
+                .hasMessage("학번은 20자를 넘을 수 없습니다.");
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "가".repeat(2001), "{}", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("수동 조정 사유는 2000자를 넘을 수 없습니다.");
         assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, " "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("성적 스냅샷은 필수입니다.");

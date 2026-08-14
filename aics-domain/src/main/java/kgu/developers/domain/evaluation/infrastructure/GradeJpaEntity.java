@@ -4,6 +4,7 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -50,27 +51,33 @@ public class GradeJpaEntity extends BaseTimeEntity {
     @Column(name = "team_id", nullable = false)
     private Long teamId;
 
-    @Column(name = "user_id", nullable = false, length = 16)
+    @Column(name = "user_id", nullable = false, length = 20)
     private String userId;
 
-    @Column(name = "team_score", nullable = false, precision = 10, scale = 2)
+    @Column(name = "team_score", precision = 10, scale = 2)
     private BigDecimal teamScore;
 
-    @Column(name = "peer_factor", nullable = false, precision = 10, scale = 4)
+    @Column(name = "peer_factor", precision = 10, scale = 4)
     private BigDecimal peerFactor;
 
-    @Column(name = "final_score", nullable = false, precision = 10, scale = 2)
+    @Column(name = "final_score", precision = 10, scale = 2)
     private BigDecimal finalScore;
 
-    @Column(name = "manual_adjustment", nullable = false, precision = 10, scale = 2)
+    @Column(name = "manual_adjustment", precision = 10, scale = 2)
     private BigDecimal manualAdjustment;
 
+    @Column(name = "adjustment_reason", length = 2000)
+    private String adjustmentReason;
+
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false, columnDefinition = "jsonb")
+    @Column(columnDefinition = "jsonb")
     private JsonNode snapshot;
 
+    @Column(name = "finalized_at")
+    private LocalDateTime finalizedAt;
+
     public Grade toDomain() {
-        return Grade.restore(id, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, snapshot.toString(), getCreatedAt(), getUpdatedAt(), getDeletedAt());
+        return Grade.restore(id, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, adjustmentReason, snapshot == null ? null : snapshot.toString(), finalizedAt, getCreatedAt(), getUpdatedAt(), getDeletedAt());
     }
 
     public static GradeJpaEntity toEntity(Grade grade) {
@@ -83,7 +90,9 @@ public class GradeJpaEntity extends BaseTimeEntity {
                 .peerFactor(grade.getPeerFactor())
                 .finalScore(grade.getFinalScore())
                 .manualAdjustment(grade.getManualAdjustment())
+                .adjustmentReason(grade.getAdjustmentReason())
                 .snapshot(parseSnapshot(grade.getSnapshot()))
+                .finalizedAt(grade.getFinalizedAt())
                 .build();
         entity.createdAt = grade.getCreatedAt();
         entity.setDeletedAt(grade.getDeletedAt());
@@ -91,6 +100,9 @@ public class GradeJpaEntity extends BaseTimeEntity {
     }
 
     private static JsonNode parseSnapshot(String snapshot) {
+        if (snapshot == null) {
+            return null;
+        }
         try {
             return SNAPSHOT_MAPPER.readTree(snapshot);
         } catch (JsonProcessingException exception) {

@@ -38,8 +38,8 @@ public class PeerEvaluationResponse {
             LocalDateTime deletedAt
     ) {
         requirePositiveId(formId, "상호평가 양식 식별자는 양수여야 합니다.");
-        String normalizedEvaluatorId = requireTrimmedText(evaluatorId, 16, "평가자 학번은 필수입니다.", "평가자 학번은 16자를 넘을 수 없습니다.");
-        String normalizedTargetId = requireTrimmedText(targetId, 16, "평가 대상자 학번은 필수입니다.", "평가 대상자 학번은 16자를 넘을 수 없습니다.");
+        String normalizedEvaluatorId = requireTrimmedText(evaluatorId, 20, "평가자 학번은 필수입니다.", "평가자 학번은 20자를 넘을 수 없습니다.");
+        String normalizedTargetId = requireTrimmedText(targetId, 20, "평가 대상자 학번은 필수입니다.", "평가 대상자 학번은 20자를 넘을 수 없습니다.");
         String normalizedComment = trimNullableText(projectReviewComment, 2000, "프로젝트 회고 의견은 2000자를 넘을 수 없습니다.");
         if (selfContribution != null && (selfContribution.signum() < 0 || selfContribution.compareTo(new BigDecimal("100")) > 0)) {
             throw new IllegalArgumentException("본인 기여도는 0 이상 100 이하이어야 합니다.");

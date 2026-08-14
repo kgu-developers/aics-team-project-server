@@ -39,10 +39,10 @@ public class PeerEvaluationResponseJpaEntity extends BaseTimeEntity {
     @Column(name = "form_id", nullable = false)
     private Long formId;
 
-    @Column(name = "evaluator_id", nullable = false, length = 16)
+    @Column(name = "evaluator_id", nullable = false, length = 20)
     private String evaluatorId;
 
-    @Column(name = "target_id", nullable = false, length = 16)
+    @Column(name = "target_id", nullable = false, length = 20)
     private String targetId;
 
     @Column(name = "submitted_at")

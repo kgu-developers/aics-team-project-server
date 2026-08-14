@@ -98,7 +98,8 @@ class PeerEvaluationJpaEntityTest {
     @DisplayName("성적 JPA 엔티티는 JSON 스냅샷 문자열을 그대로 보존한다")
     void gradeRoundTrip() {
         String snapshot = "{\"finalScore\":94.5}";
-        Grade domain = Grade.restore(1L, 2L, 3L, "20260001", new BigDecimal("90.00"), new BigDecimal("1.0500"), new BigDecimal("94.50"), BigDecimal.ZERO, snapshot, createdAt, updatedAt, deletedAt);
+        LocalDateTime finalizedAt = LocalDateTime.of(2026, 8, 14, 10, 0);
+        Grade domain = Grade.restore(1L, 2L, 3L, "20260001", new BigDecimal("90.00"), new BigDecimal("1.0500"), new BigDecimal("94.50"), BigDecimal.ZERO, "점수 확정", snapshot, finalizedAt, createdAt, updatedAt, deletedAt);
 
         GradeJpaEntity entity = GradeJpaEntity.toEntity(domain);
         Grade mapped = entity.toDomain();
@@ -109,7 +110,21 @@ class PeerEvaluationJpaEntityTest {
         assertThat(mapped.getUserId()).isEqualTo("20260001");
         assertThat(entity.getSnapshot().isObject()).isTrue();
         assertThat(entity.getSnapshot().get("finalScore").decimalValue()).isEqualByComparingTo("94.5");
+        assertThat(mapped.getAdjustmentReason()).isEqualTo("점수 확정");
         assertThat(mapped.getSnapshot()).isEqualTo(snapshot);
+        assertThat(mapped.getFinalizedAt()).isEqualTo(finalizedAt);
+    }
+
+    @Test
+    @DisplayName("성적 JPA 엔티티는 확정 전 nullable 값을 보존한다")
+    void gradeDraftRoundTrip() {
+        Grade domain = Grade.restore(1L, 2L, 3L, "20260001", null, null, null, null, null, null, null, createdAt, updatedAt, deletedAt);
+
+        Grade mapped = GradeJpaEntity.toEntity(domain).toDomain();
+
+        assertThat(mapped.getTeamScore()).isNull();
+        assertThat(mapped.getSnapshot()).isNull();
+        assertThat(mapped.getFinalizedAt()).isNull();
     }
 
     @Test
@@ -120,20 +135,20 @@ class PeerEvaluationJpaEntityTest {
         Field snapshot = GradeJpaEntity.class.getDeclaredField("snapshot");
 
         assertThat(table.name()).isEqualTo("grade");
-        assertThat(userId.getAnnotation(Column.class).length()).isEqualTo(16);
-        assertThat(snapshot.getAnnotation(Column.class).nullable()).isFalse();
+        assertThat(userId.getAnnotation(Column.class).length()).isEqualTo(20);
+        assertThat(snapshot.getAnnotation(Column.class).nullable()).isTrue();
         assertThat(snapshot.getAnnotation(Column.class).columnDefinition()).isEqualTo("jsonb");
         assertThat(snapshot.getAnnotation(JdbcTypeCode.class).value()).isEqualTo(SqlTypes.JSON);
         assertThat(snapshot.getType()).isEqualTo(JsonNode.class);
     }
 
     @Test
-    @DisplayName("상호평가 응답 JPA 엔티티는 학번 길이를 16자로 제한한다")
+    @DisplayName("상호평가 응답 JPA 엔티티는 사용자 엔티티와 같은 학번 길이를 사용한다")
     void responseJpaMetadata() throws NoSuchFieldException {
         Field evaluatorId = PeerEvaluationResponseJpaEntity.class.getDeclaredField("evaluatorId");
         Field targetId = PeerEvaluationResponseJpaEntity.class.getDeclaredField("targetId");
 
-        assertThat(evaluatorId.getAnnotation(Column.class).length()).isEqualTo(16);
-        assertThat(targetId.getAnnotation(Column.class).length()).isEqualTo(16);
+        assertThat(evaluatorId.getAnnotation(Column.class).length()).isEqualTo(20);
+        assertThat(targetId.getAnnotation(Column.class).length()).isEqualTo(20);
     }
 }

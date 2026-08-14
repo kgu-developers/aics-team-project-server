@@ -1,9 +1,9 @@
 package kgu.developers.domain.evaluation.domain;
 
 import static kgu.developers.domain.evaluation.domain.EvaluationDomainValidator.requireNonNegative;
-import static kgu.developers.domain.evaluation.domain.EvaluationDomainValidator.requireNumber;
 import static kgu.developers.domain.evaluation.domain.EvaluationDomainValidator.requirePositiveId;
 import static kgu.developers.domain.evaluation.domain.EvaluationDomainValidator.requireTrimmedText;
+import static kgu.developers.domain.evaluation.domain.EvaluationDomainValidator.trimNullableText;
 import static lombok.AccessLevel.PRIVATE;
 
 import java.math.BigDecimal;
@@ -29,7 +29,9 @@ public class Grade {
     private BigDecimal peerFactor;
     private BigDecimal finalScore;
     private BigDecimal manualAdjustment;
+    private String adjustmentReason;
     private String snapshot;
+    private LocalDateTime finalizedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
@@ -43,21 +45,20 @@ public class Grade {
             BigDecimal peerFactor,
             BigDecimal finalScore,
             BigDecimal manualAdjustment,
+            String adjustmentReason,
             String snapshot,
+            LocalDateTime finalizedAt,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             LocalDateTime deletedAt
     ) {
         requirePositiveId(sectionId, "분반 식별자는 양수여야 합니다.");
         requirePositiveId(teamId, "팀 식별자는 양수여야 합니다.");
-        String normalizedUserId = requireTrimmedText(userId, 16, "학번은 필수입니다.", "학번은 16자를 넘을 수 없습니다.");
-        requireNumber(teamScore, "팀 점수는 필수입니다.");
-        requireNumber(peerFactor, "동료평가 계수는 필수입니다.");
-        requireNumber(finalScore, "최종 점수는 필수입니다.");
-        requireNonNegative(teamScore, "팀 점수는 0 이상이어야 합니다.");
-        requireNonNegative(peerFactor, "동료평가 계수는 0 이상이어야 합니다.");
-        requireNonNegative(finalScore, "최종 점수는 0 이상이어야 합니다.");
-        requireNumber(manualAdjustment, "수동 조정 점수는 필수입니다.");
+        String normalizedUserId = requireTrimmedText(userId, 20, "학번은 필수입니다.", "학번은 20자를 넘을 수 없습니다.");
+        validateNonNegativeIfPresent(teamScore, "팀 점수는 0 이상이어야 합니다.");
+        validateNonNegativeIfPresent(peerFactor, "동료평가 계수는 0 이상이어야 합니다.");
+        validateNonNegativeIfPresent(finalScore, "최종 점수는 0 이상이어야 합니다.");
+        String normalizedAdjustmentReason = trimNullableText(adjustmentReason, 2000, "수동 조정 사유는 2000자를 넘을 수 없습니다.");
         validateSnapshot(snapshot);
 
         this.id = id;
@@ -68,7 +69,9 @@ public class Grade {
         this.peerFactor = peerFactor;
         this.finalScore = finalScore;
         this.manualAdjustment = manualAdjustment;
+        this.adjustmentReason = normalizedAdjustmentReason;
         this.snapshot = snapshot;
+        this.finalizedAt = finalizedAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.deletedAt = deletedAt;
@@ -84,7 +87,22 @@ public class Grade {
             BigDecimal manualAdjustment,
             String snapshot
     ) {
-        return new Grade(null, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, snapshot, null, null, null);
+        return create(sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, null, snapshot, null);
+    }
+
+    public static Grade create(
+            Long sectionId,
+            Long teamId,
+            String userId,
+            BigDecimal teamScore,
+            BigDecimal peerFactor,
+            BigDecimal finalScore,
+            BigDecimal manualAdjustment,
+            String adjustmentReason,
+            String snapshot,
+            LocalDateTime finalizedAt
+    ) {
+        return new Grade(null, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, adjustmentReason, snapshot, finalizedAt, null, null, null);
     }
 
     public static Grade restore(
@@ -101,12 +119,40 @@ public class Grade {
             LocalDateTime updatedAt,
             LocalDateTime deletedAt
     ) {
+        return restore(id, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, null, snapshot, null, createdAt, updatedAt, deletedAt);
+    }
+
+    public static Grade restore(
+            Long id,
+            Long sectionId,
+            Long teamId,
+            String userId,
+            BigDecimal teamScore,
+            BigDecimal peerFactor,
+            BigDecimal finalScore,
+            BigDecimal manualAdjustment,
+            String adjustmentReason,
+            String snapshot,
+            LocalDateTime finalizedAt,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            LocalDateTime deletedAt
+    ) {
         requirePositiveId(id, "성적 식별자는 양수여야 합니다.");
-        return new Grade(id, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, snapshot, createdAt, updatedAt, deletedAt);
+        return new Grade(id, sectionId, teamId, userId, teamScore, peerFactor, finalScore, manualAdjustment, adjustmentReason, snapshot, finalizedAt, createdAt, updatedAt, deletedAt);
+    }
+
+    private static void validateNonNegativeIfPresent(BigDecimal value, String message) {
+        if (value != null) {
+            requireNonNegative(value, message);
+        }
     }
 
     private static void validateSnapshot(String snapshot) {
-        if (snapshot == null || snapshot.isBlank()) {
+        if (snapshot == null) {
+            return;
+        }
+        if (snapshot.isBlank()) {
             throw new IllegalArgumentException("성적 스냅샷은 필수입니다.");
         }
         try {
