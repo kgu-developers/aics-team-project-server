@@ -8,7 +8,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +46,7 @@ class SecurityConfigTest {
   private static final String LOGIN_URL = "/api/v1/oop/auth/login";
   private static final String REFRESH_URL = "/api/v1/oop/auth/refresh";
   private static final String LOGOUT_URL = "/api/v1/oop/auth/logout";
+  private static final String CSRF_COOKIE = "XSRF-TOKEN";
   private static final String LOGIN_BODY = """
       {"studentNumber":"202699999","password":"12345678"}""";
 
@@ -83,6 +87,35 @@ class SecurityConfigTest {
   void refreshWithoutCsrfToken() throws Exception {
     mockMvc.perform(post(REFRESH_URL))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("XSRF-TOKEN 쿠키는 세션 쿠키가 아니라 refresh 유효기간보다 오래 산다")
+  void csrfCookieOutlivesBrowserSession() throws Exception {
+    given(authFacade.login(any())).willReturn(LoginResponse.of("access-token", "refresh-token"));
+
+    Cookie csrfCookie = mockMvc
+        .perform(post(LOGIN_URL).contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
+        .andReturn().getResponse().getCookie(CSRF_COOKIE);
+
+    // 브라우저를 껐다 켜도 남아야 refreshToken(P14D)만 남고 CSRF 토큰이 없어 /refresh가 403 나는 일이 없다
+    assertThat(csrfCookie).isNotNull();
+    assertThat(csrfCookie.getMaxAge()).isGreaterThan((int) Duration.ofDays(14).toSeconds());
+  }
+
+  @Test
+  @DisplayName("이미 XSRF-TOKEN을 가진 요청도 같은 토큰을 다시 내려받아 수명이 갱신된다")
+  void csrfCookieSlidesOnEveryResponse() throws Exception {
+    Cookie issued = mockMvc.perform(get("/api/v1/oop/auth/none"))
+        .andReturn().getResponse().getCookie(CSRF_COOKIE);
+
+    // 쿠키가 있을 때 재발급을 멈추면 만료 시각이 고정돼, 결국 refreshToken보다 먼저 죽는다
+    Cookie renewed = mockMvc.perform(get("/api/v1/oop/auth/none").cookie(issued))
+        .andReturn().getResponse().getCookie(CSRF_COOKIE);
+
+    assertThat(renewed).isNotNull();
+    assertThat(renewed.getValue()).isEqualTo(issued.getValue());
+    assertThat(renewed.getMaxAge()).isEqualTo(issued.getMaxAge());
   }
 
   @Test
