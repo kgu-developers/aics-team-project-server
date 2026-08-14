@@ -60,6 +60,7 @@ public class Grade {
         validateNonNegativeIfPresent(finalScore, "최종 점수는 0 이상이어야 합니다.");
         String normalizedAdjustmentReason = trimNullableText(adjustmentReason, 2000, "수동 조정 사유는 2000자를 넘을 수 없습니다.");
         validateSnapshot(snapshot);
+        validateFinalizedState(finalizedAt, teamScore, peerFactor, finalScore, snapshot);
 
         this.id = id;
         this.sectionId = sectionId;
@@ -159,6 +160,19 @@ public class Grade {
             SNAPSHOT_MAPPER.readTree(snapshot);
         } catch (JsonProcessingException exception) {
             throw new IllegalArgumentException("성적 스냅샷은 유효한 JSON이어야 합니다.", exception);
+        }
+    }
+
+    private static void validateFinalizedState(
+            LocalDateTime finalizedAt,
+            BigDecimal teamScore,
+            BigDecimal peerFactor,
+            BigDecimal finalScore,
+            String snapshot
+    ) {
+        if (finalizedAt != null
+                && (teamScore == null || peerFactor == null || finalScore == null || snapshot == null)) {
+            throw new IllegalArgumentException("확정된 성적은 팀 점수, 동료평가 계수, 최종 점수와 스냅샷이 모두 필요합니다.");
         }
     }
 }

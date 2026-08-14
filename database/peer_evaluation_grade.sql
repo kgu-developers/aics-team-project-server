@@ -143,6 +143,37 @@ CREATE TRIGGER trg_peer_evaluation_answer_form_consistency
     FOR EACH ROW
     EXECUTE FUNCTION validate_peer_evaluation_answer_form();
 
+CREATE OR REPLACE FUNCTION prevent_peer_evaluation_parent_form_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.form_id IS DISTINCT FROM NEW.form_id THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '23514',
+            MESSAGE = '답변이 참조할 수 있으므로 상호평가 응답과 질문의 양식은 변경할 수 없습니다.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_peer_evaluation_response_form_immutable
+    ON peer_evaluation_response;
+
+CREATE TRIGGER trg_peer_evaluation_response_form_immutable
+    BEFORE UPDATE OF form_id
+    ON peer_evaluation_response
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_peer_evaluation_parent_form_change();
+
+DROP TRIGGER IF EXISTS trg_peer_evaluation_question_form_immutable
+    ON peer_evaluation_question;
+
+CREATE TRIGGER trg_peer_evaluation_question_form_immutable
+    BEFORE UPDATE OF form_id
+    ON peer_evaluation_question
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_peer_evaluation_parent_form_change();
+
 CREATE UNIQUE INDEX IF NOT EXISTS uk_peer_evaluation_answer_active_response_question
     ON peer_evaluation_answer (response_id, question_id)
     WHERE deleted_at IS NULL;
@@ -175,6 +206,16 @@ CREATE TABLE IF NOT EXISTS grade (
             (team_score IS NULL OR team_score >= 0)
             AND (peer_factor IS NULL OR peer_factor >= 0)
             AND (final_score IS NULL OR final_score >= 0)
+        ),
+    CONSTRAINT chk_grade_finalized_values
+        CHECK (
+            finalized_at IS NULL
+            OR (
+                team_score IS NOT NULL
+                AND peer_factor IS NOT NULL
+                AND final_score IS NOT NULL
+                AND snapshot IS NOT NULL
+            )
         ),
     CONSTRAINT chk_grade_adjustment_reason
         CHECK (adjustment_reason IS NULL OR length(trim(adjustment_reason)) <= 2000)

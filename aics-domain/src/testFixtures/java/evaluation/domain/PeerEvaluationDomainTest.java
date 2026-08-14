@@ -229,6 +229,26 @@ class PeerEvaluationDomainTest {
     }
 
     @Test
+    @DisplayName("성적을 확정하려면 계산 결과와 스냅샷이 모두 필요하다")
+    void finalizedGradeRequiresCompleteValues() {
+        LocalDateTime finalizedAt = LocalDateTime.of(2026, 8, 14, 10, 0);
+        String message = "확정된 성적은 팀 점수, 동료평가 계수, 최종 점수와 스냅샷이 모두 필요합니다.";
+
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", null, BigDecimal.ONE, BigDecimal.TEN, null, null, "{}", finalizedAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(message);
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, null, BigDecimal.TEN, null, null, "{}", finalizedAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(message);
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, null, null, null, "{}", finalizedAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(message);
+        assertThatThrownBy(() -> Grade.create(1L, 10L, "20260001", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, null, null, null, finalizedAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(message);
+    }
+
+    @Test
     @DisplayName("성적의 학번과 조정 사유는 길이를 제한하고 입력된 스냅샷은 유효한 JSON이어야 한다")
     void gradeUserAndSnapshotAreValidated() {
         assertThatThrownBy(() -> Grade.create(1L, 10L, "1".repeat(21), BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ZERO, "{}"))
