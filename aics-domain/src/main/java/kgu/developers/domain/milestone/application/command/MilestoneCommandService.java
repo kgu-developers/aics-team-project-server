@@ -33,6 +33,14 @@ public class MilestoneCommandService {
             MilestoneSchedule schedule
     ) {
         Milestone milestone = Milestone.create(sectionId, title, description, weekNumber, schedule);
+        boolean duplicateWeekNumber = milestoneRepository
+                .findAllBySectionIdForUpdateOrderByWeekNumber(sectionId)
+                .stream()
+                .anyMatch(existingMilestone -> existingMilestone.getWeekNumber() == weekNumber);
+        if (duplicateWeekNumber) {
+            throw new IllegalArgumentException("같은 분반에서 주차를 중복할 수 없습니다.");
+        }
+
         Milestone savedMilestone = milestoneRepository.save(milestone);
 
         if (savedMilestone.getId() == null) {

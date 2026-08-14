@@ -51,6 +51,18 @@ class MilestoneServiceTest {
     }
 
     @Test
+    @DisplayName("같은 분반에 동일한 주차의 마일스톤을 생성할 수 없다")
+    void rejectDuplicateWeekNumberOnCreate() {
+        createMilestone(1L, "제안서", 2);
+
+        assertThatThrownBy(() -> createMilestone(1L, "중간보고서", 2))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("중복");
+
+        assertThat(queryService.getMilestones(1L, null)).hasSize(1);
+    }
+
+    @Test
     @DisplayName("마일스톤 상세 내용과 일정을 수정할 수 있다")
     void updateMilestone() {
         Long milestoneId = createMilestone(1L, "제안서", 2);

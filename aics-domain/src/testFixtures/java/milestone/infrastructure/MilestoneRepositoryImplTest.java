@@ -16,6 +16,7 @@ import java.util.Optional;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.infrastructure.JpaMilestoneRepository;
 import kgu.developers.domain.milestone.infrastructure.MilestoneJpaEntity;
 import kgu.developers.domain.milestone.infrastructure.MilestoneRepositoryImpl;
@@ -135,8 +136,9 @@ class MilestoneRepositoryImplTest {
         MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
 
         assertThatThrownBy(() -> repository.save(milestone(1L, 1)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("id=1");
+                .isInstanceOf(MilestoneNotFoundException.class)
+                .extracting("milestoneId")
+                .isEqualTo(1L);
         verify(jpaMilestoneRepository).findActiveByIdForUpdate(1L);
         verifyNoMoreInteractions(jpaMilestoneRepository);
     }
@@ -169,8 +171,9 @@ class MilestoneRepositoryImplTest {
         MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
 
         assertThatThrownBy(() -> repository.saveAll(List.of(milestone(1L, 3), milestone(2L, 4))))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("id=2");
+                .isInstanceOf(MilestoneNotFoundException.class)
+                .extracting("milestoneId")
+                .isEqualTo(2L);
         verify(jpaMilestoneRepository).findAllActiveByIdInForUpdate(List.of(1L, 2L));
         verifyNoMoreInteractions(jpaMilestoneRepository);
     }

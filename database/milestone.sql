@@ -16,8 +16,9 @@ CREATE TABLE IF NOT EXISTS milestone (
     deleted_at TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_milestone_section_week
-    ON milestone (section_id, week_number);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_milestone_active_section_week
+    ON milestone (section_id, week_number)
+    WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_milestone_section_status_week
     ON milestone (section_id, status, week_number);

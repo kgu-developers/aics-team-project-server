@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,9 +78,7 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
             MilestoneJpaEntity entity
     ) {
         if (entity == null) {
-            throw new IllegalStateException(
-                    "갱신할 마일스톤을 찾을 수 없습니다. id=" + milestone.getId()
-            );
+            throw new MilestoneNotFoundException(milestone.getId());
         }
         entity.updateFromDomain(milestone);
         return entity;
