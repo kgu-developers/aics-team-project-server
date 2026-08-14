@@ -35,13 +35,20 @@ public class UserCommandService {
     public void updateUser(User user, String email, String name, String password, UserGlobalRole globalRole,
                            String phone) {
         checkEmailAvailable(email, user.getStudentNumber());
+        boolean credentialsChanged = password != null || globalRole != user.getGlobalRole();
+
         user.updateEmail(email);
         user.updateName(name);
-        user.updatePassword(passwordEncoder.encode(password));
+        if (password != null) {
+            user.updatePassword(passwordEncoder.encode(password));
+        }
         user.updateGlobalRole(globalRole);
         user.updatePhone(phone);
         userRepository.save(user);
-        revokeTokens(user);
+
+        if (credentialsChanged) {
+            revokeTokens(user);
+        }
     }
 
     public void updatePassword(User user, String currentPassword, String newPassword) {

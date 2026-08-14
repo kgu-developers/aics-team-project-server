@@ -9,6 +9,7 @@ import kgu.developers.common.validation.BcryptPassword;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import lombok.Builder;
 
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.NOT_REQUIRED;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 @Builder
@@ -24,9 +25,8 @@ public record UserAdminUpdateRequest(
         @Size(max = 32)
         String name,
 
-        @Schema(description = "비밀번호", example = "12345678", requiredMode = REQUIRED)
-        @NotBlank
-        @Size(min = 8, max = 64)
+        @Schema(description = "비밀번호", example = "12345678", requiredMode = NOT_REQUIRED)
+        @Size(min = 4, max = 64)
         @BcryptPassword
         String password,
 

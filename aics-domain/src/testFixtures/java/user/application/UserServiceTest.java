@@ -93,6 +93,31 @@ class UserServiceTest {
   }
 
   @Test
+  @DisplayName("updateUser는 password가 null이면 비밀번호를 그대로 두고 로그아웃시키지도 않는다")
+  void updateUserWithoutPassword() {
+    User user = user();
+
+    commandService.updateUser(user, "kgu@kyonggi.ac.kr", "김철수", null, USER, "010-9876-5432");
+
+    assertThat(user.getPassword()).isEqualTo("12345678");
+    assertThat(user.getPhone()).isEqualTo("010-9876-5432");
+    verify(userRepository).save(user);
+    verify(refreshTokenRepository, never()).deleteById(any());
+    verify(tokenRevocationStore, never()).revokeTokensIssuedBefore(any());
+  }
+
+  @Test
+  @DisplayName("updateUser는 비밀번호를 안 바꿔도 권한이 바뀌면 토큰을 폐기한다")
+  void updateUserWithRoleChangeRevokesTokens() {
+    User user = user();
+
+    commandService.updateUser(user, "kgu@kyonggi.ac.kr", "김철수", null, ADMIN, "010-1234-6789");
+
+    verify(refreshTokenRepository).deleteById("202699999");
+    verify(tokenRevocationStore).revokeTokensIssuedBefore("202699999");
+  }
+
+  @Test
   @DisplayName("updateUser는 다른 회원이 쓰는 이메일이면 DuplicateEmailException을 던진다")
   void updateUserWithDuplicateEmail() {
     User user = user();
