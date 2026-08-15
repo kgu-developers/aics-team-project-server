@@ -1,17 +1,21 @@
 team-project-api.kgudevelopers.monster {
-	reverse_proxy aics-api:8080
-}
-
-team-project-admin.kgudevelopers.monster {
+	# 쿠키 기반 인증이 서브도메인을 못 넘어가는 문제 때문에 단일 도메인 + 경로 기반으로 통일.
+	# aics-api/aics-admin/aics-auth가 전부 이 호스트 하나로 노출되므로,
+	# 로그인 시 발급되는 accessToken/refreshToken 쿠키가 Domain 속성 없이도
+	# 이후 모든 API 요청에 그대로 붙는다.
 	handle /pgadmin* {
 		reverse_proxy pgadmin:80
 	}
 
-	handle {
+	handle /api/v1/admin/* {
 		reverse_proxy aics-admin:8081
 	}
-}
 
-team-project-auth.kgudevelopers.monster {
-	reverse_proxy aics-auth:8082
+	handle /api/v1/oop/auth/* {
+		reverse_proxy aics-auth:8082
+	}
+
+	handle {
+		reverse_proxy aics-api:8080
+	}
 }
