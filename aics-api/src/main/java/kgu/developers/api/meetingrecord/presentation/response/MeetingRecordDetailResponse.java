@@ -58,8 +58,8 @@ public record MeetingRecordDetailResponse(
             .participantIds(meetingRecord.getParticipants().stream()
                 .map(MeetingParticipant::getUserId)
                 .toList())
-            .createdAt(meetingRecord.getCreatedAt() != null ? meetingRecord.getCreatedAt().format(FORMATTER) : null)
-            .updatedAt(meetingRecord.getUpdatedAt() != null ? meetingRecord.getUpdatedAt().format(FORMATTER) : null)
+            .createdAt(meetingRecord.getCreatedAt().format(FORMATTER))
+            .updatedAt(meetingRecord.getUpdatedAt().format(FORMATTER))
             .build();
     }
 }
