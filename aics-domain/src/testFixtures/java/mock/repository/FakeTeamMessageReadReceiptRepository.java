@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import kgu.developers.domain.teammessage.domain.TeamMessageReadReceipt;
 import kgu.developers.domain.teammessage.domain.TeamMessageReadReceiptRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 
 public class FakeTeamMessageReadReceiptRepository implements TeamMessageReadReceiptRepository {
 
@@ -16,6 +17,9 @@ public class FakeTeamMessageReadReceiptRepository implements TeamMessageReadRece
 
     @Override
     public TeamMessageReadReceipt save(TeamMessageReadReceipt readReceipt) {
+        if (readReceipt.getId() == null && existsByMessageIdAndUserId(readReceipt.getMessageId(), readReceipt.getUserId())) {
+            throw new DataIntegrityViolationException("uq_team_message_read_receipt 위반: (message_id, user_id) 중복");
+        }
         Long id = readReceipt.getId() != null ? readReceipt.getId() : sequence.incrementAndGet();
         TeamMessageReadReceipt saved = TeamMessageReadReceipt.builder()
             .id(id)
@@ -26,8 +30,7 @@ public class FakeTeamMessageReadReceiptRepository implements TeamMessageReadRece
         return saved;
     }
 
-    @Override
-    public boolean existsByMessageIdAndUserId(Long messageId, String userId) {
+    private boolean existsByMessageIdAndUserId(Long messageId, String userId) {
         return store.values().stream()
             .anyMatch(receipt -> receipt.getMessageId().equals(messageId) && receipt.getUserId().equals(userId));
     }

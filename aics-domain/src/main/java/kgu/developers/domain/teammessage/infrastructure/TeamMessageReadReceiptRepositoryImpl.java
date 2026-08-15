@@ -20,11 +20,6 @@ public class TeamMessageReadReceiptRepositoryImpl implements TeamMessageReadRece
     }
 
     @Override
-    public boolean existsByMessageIdAndUserId(Long messageId, String userId) {
-        return jpaTeamMessageReadReceiptRepository.existsByMessageIdAndUserId(messageId, userId);
-    }
-
-    @Override
     public Set<Long> findReadMessageIds(String userId, List<Long> messageIds) {
         if (messageIds.isEmpty()) {
             return Set.of();

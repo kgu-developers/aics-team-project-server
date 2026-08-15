@@ -7,7 +7,5 @@ public interface TeamMessageReadReceiptRepository {
 
     TeamMessageReadReceipt save(TeamMessageReadReceipt readReceipt);
 
-    boolean existsByMessageIdAndUserId(Long messageId, String userId);
-
     Set<Long> findReadMessageIds(String userId, List<Long> messageIds);
 }

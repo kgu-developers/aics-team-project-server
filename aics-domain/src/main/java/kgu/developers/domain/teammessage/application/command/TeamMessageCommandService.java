@@ -7,6 +7,7 @@ import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
 import kgu.developers.domain.teammessage.exception.TeamMessageNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,8 +35,10 @@ public class TeamMessageCommandService {
     public void markAsRead(Long messageId, String userId) {
         teamMessageRepository.findById(messageId)
             .orElseThrow(TeamMessageNotFoundException::new);
-        if (!teamMessageReadReceiptRepository.existsByMessageIdAndUserId(messageId, userId)) {
+        try {
             teamMessageReadReceiptRepository.save(TeamMessageReadReceipt.create(messageId, userId));
+        } catch (DataIntegrityViolationException e) {
+            // (message_id, user_id) 유니크 제약 위반 = 이미 읽음 처리됨. 멱등하게 성공 처리한다.
         }
     }
 }
