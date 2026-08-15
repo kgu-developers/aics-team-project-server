@@ -9,7 +9,7 @@ public record PageableResponse<T>(
     int page,
     int size,
     int totalPages,
-    int totalElements,
+    long totalElements,
     boolean isEnd
 ) {
     public static <T> PageableResponse<T> of(Pageable pageable, List<T> totalElements) {

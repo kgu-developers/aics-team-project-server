@@ -28,7 +28,7 @@ public record TeamMessagePageResponse(
             .page(page.getNumber())
             .size(page.getSize())
             .totalPages(page.getTotalPages())
-            .totalElements((int) page.getTotalElements())
+            .totalElements(page.getTotalElements())
             .isEnd(page.isLast())
             .build();
 
