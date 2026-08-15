@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.teamthread.domain.TeamThreadRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 
 public class FakeTeamThreadRepository implements TeamThreadRepository {
 
@@ -15,6 +16,9 @@ public class FakeTeamThreadRepository implements TeamThreadRepository {
 
     @Override
     public TeamThread save(TeamThread teamThread) {
+        if (teamThread.getId() == null && findByTeamId(teamThread.getTeamId()).isPresent()) {
+            throw new DataIntegrityViolationException("team_id 유니크 제약 위반: 이미 해당 팀의 스레드가 존재함");
+        }
         Long id = teamThread.getId() != null ? teamThread.getId() : sequence.incrementAndGet();
         TeamThread saved = TeamThread.builder()
             .id(id)
