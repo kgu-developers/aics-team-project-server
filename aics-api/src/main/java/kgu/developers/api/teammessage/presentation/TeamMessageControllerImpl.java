@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -34,7 +36,7 @@ public class TeamMessageControllerImpl implements TeamMessageController {
     public ResponseEntity<TeamMessagePageResponse> getMessages(
         @PathVariable Long teamId,
         @RequestParam(required = false) TeamMessageRelatedType relatedType,
-        Pageable pageable,
+        @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
         Authentication authentication
     ) {
         return ResponseEntity.ok(teamMessageFacade.getMessages(teamId, relatedType, pageable, authentication.getName()));
