@@ -45,7 +45,7 @@ public class RefreshTokenStore {
 
     private RefreshTokenJpaEntity findMatching(String studentNumber, String refreshToken) {
         RefreshTokenJpaEntity stored = refreshTokenRepository.findById(studentNumber).orElse(null);
-        if (stored == null || !stored.getTokenHash().equals(hash(refreshToken))) {
+        if (stored == null || !MessageDigest.isEqual(stored.getTokenHash().getBytes(StandardCharsets.UTF_8), hash(refreshToken).getBytes(StandardCharsets.UTF_8))) {
             return null;
         }
 
