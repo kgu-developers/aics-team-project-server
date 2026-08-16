@@ -4,13 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -57,7 +61,7 @@ class UserServiceTest {
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
-        "010-1234-6789");
+        "010-1234-6789", false);
 
     ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
     verify(userRepository).save(captor.capture());
@@ -68,11 +72,45 @@ class UserServiceTest {
   @DisplayName("createUser는 이미 있는 학번이면 DuplicateStudentNumberException을 던진다")
   void createUserWithDuplicateStudentNumber() {
     given(userRepository.existsByStudentNumber("202699999")).willReturn(true);
+    given(userRepository.findIncludingDeleted("202699999")).willReturn(Optional.of(user()));
 
     assertThatThrownBy(() -> commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수",
-        "12345678", USER, "010-1234-6789"))
+        "12345678", USER, "010-1234-6789", false))
         .isInstanceOf(DuplicateStudentNumberException.class);
 
+    verify(userRepository, never()).save(any(User.class));
+  }
+
+  @Test
+  @DisplayName("createUser는 reactivate면 탈퇴 회원을 이력으로 남긴 뒤 새 계정을 만든다")
+  void createUserReactivatesWithdrawnStudentNumber() {
+    User withdrawn = user();
+    withdrawn.delete();
+    given(userRepository.existsByStudentNumber("202699999")).willReturn(true);
+    given(userRepository.findIncludingDeleted("202699999")).willReturn(Optional.of(withdrawn));
+    given(passwordEncoder.encode("12345678")).willReturn("hashed");
+    given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+    commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
+        "010-1234-6789", true);
+
+    // 아카이브가 저장보다 먼저 일어나야 옛 계정이 이력으로 남는다
+    InOrder inOrder = inOrder(userRepository);
+    inOrder.verify(userRepository).archiveAndHardDelete(withdrawn);
+    inOrder.verify(userRepository).save(any(User.class));
+  }
+
+  @Test
+  @DisplayName("createUser는 reactivate여도 탈퇴하지 않은 회원은 덮어쓰지 않는다")
+  void createUserRejectsActiveStudentNumberEvenWhenReactivate() {
+    given(userRepository.existsByStudentNumber("202699999")).willReturn(true);
+    given(userRepository.findIncludingDeleted("202699999")).willReturn(Optional.of(user()));
+
+    assertThatThrownBy(() -> commandService.createUser("202699999", "kgu@kyonggi.ac.kr", "김철수",
+        "12345678", USER, "010-1234-6789", true))
+        .isInstanceOf(DuplicateStudentNumberException.class);
+
+    verify(userRepository, never()).archiveAndHardDelete(any(User.class));
     verify(userRepository, never()).save(any(User.class));
   }
 

@@ -38,7 +38,7 @@ class UserAdminFacadeTest {
   private static final String STUDENT_NUMBER = "202699999";
 
   private final UserAdminRequest request =
-      new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
+      new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789", false);
 
   private final UserAdminUpdateRequest updateRequest =
       new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", USER, "010-9876-5432");
@@ -51,12 +51,12 @@ class UserAdminFacadeTest {
   @DisplayName("createUser는 요청 값을 순서대로 커맨드 서비스에 넘기고 학번을 응답한다")
   void createUser() {
     given(userCommandService.createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
-        "010-1234-6789")).willReturn(STUDENT_NUMBER);
+        "010-1234-6789", false)).willReturn(STUDENT_NUMBER);
 
     assertThat(userAdminFacade.createUser(request).studentNumber()).isEqualTo(STUDENT_NUMBER);
 
     verify(userCommandService).createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
-        "010-1234-6789");
+        "010-1234-6789", false);
   }
 
   @Test

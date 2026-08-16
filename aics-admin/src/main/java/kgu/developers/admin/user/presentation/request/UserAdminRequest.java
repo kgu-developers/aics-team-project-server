@@ -42,7 +42,11 @@ public record UserAdminRequest(
         @Schema(description = "전화번호", example = "010-1234-6789", requiredMode = REQUIRED)
         @NotBlank
         @Size(max = 20)
-        String phone
+        String phone,
+
+        @Schema(description = "탈퇴한 학번을 재사용해 새 계정을 만들지 여부. 기존 계정은 이력으로 보관된 뒤 삭제된다.",
+                example = "false")
+        boolean reactivate
 ) {
 
 }

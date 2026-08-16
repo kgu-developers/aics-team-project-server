@@ -18,7 +18,7 @@ public class UserAdminFacade {
     private final UserQueryService userQueryService;
 
     public UserAdminPersistResponse createUser(UserAdminRequest request) {
-        String studentNumber = userCommandService.createUser(request.studentNumber(), request.email(), request.name(), request.password(), request.globalRole(), request.phone());
+        String studentNumber = userCommandService.createUser(request.studentNumber(), request.email(), request.name(), request.password(), request.globalRole(), request.phone(), request.reactivate());
         return UserAdminPersistResponse.of(studentNumber);
     }
 

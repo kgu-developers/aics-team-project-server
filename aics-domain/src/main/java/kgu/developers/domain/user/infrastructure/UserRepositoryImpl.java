@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserRepositoryImpl implements UserRepository {
     private final JpaUserRepository jpaUserRepository;
+    private final JpaUserArchiveRepository jpaUserArchiveRepository;
 
     @Override
     public User save(User user) {
@@ -23,7 +24,7 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public boolean existsByStudentNumber(String studentNumber) {
-        return jpaUserRepository.existsByStudentNumberAndDeletedAtIsNull(studentNumber);
+        return jpaUserRepository.existsById(studentNumber);
     }
 
     @Override
@@ -35,6 +36,18 @@ public class UserRepositoryImpl implements UserRepository {
     public Optional<User> findByStudentNumber(String studentNumber) {
         Optional<UserJpaEntity> optionalEntity = jpaUserRepository.findByStudentNumberAndDeletedAtIsNull(studentNumber);
         return optionalEntity.map(UserJpaEntity::toDomain);
+    }
+
+    @Override
+    public Optional<User> findIncludingDeleted(String studentNumber) {
+        return jpaUserRepository.findById(studentNumber).map(UserJpaEntity::toDomain);
+    }
+
+    @Override
+    public void archiveAndHardDelete(User user) {
+        jpaUserArchiveRepository.save(UserArchiveJpaEntity.from(user));
+        jpaUserRepository.deleteById(user.getStudentNumber());
+        jpaUserRepository.flush();
     }
 
     @Override

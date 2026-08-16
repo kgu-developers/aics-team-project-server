@@ -23,9 +23,14 @@ public class UserCommandService {
     private final TokenRevocationStore tokenRevocationStore;
 
     public String createUser(String studentNumber, String email, String name, String password,
-                             UserGlobalRole globalRole, String phone) {
+                             UserGlobalRole globalRole, String phone, boolean reactivate) {
         if (userRepository.existsByStudentNumber(studentNumber)) {
-            throw new DuplicateStudentNumberException();
+            User existing = userRepository.findIncludingDeleted(studentNumber)
+                    .orElseThrow(DuplicateStudentNumberException::new);
+            if (!reactivate || existing.getDeletedAt() == null) {
+                throw new DuplicateStudentNumberException();
+            }
+            userRepository.archiveAndHardDelete(existing);
         }
         checkEmailAvailable(email, studentNumber);
         User user = User.create(studentNumber, email, name, passwordEncoder.encode(password), globalRole, phone);

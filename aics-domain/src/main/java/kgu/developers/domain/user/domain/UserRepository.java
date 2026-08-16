@@ -12,5 +12,9 @@ public interface UserRepository {
 
     Optional<User> findByStudentNumber(String studentNumber);
 
+    Optional<User> findIncludingDeleted(String studentNumber);
+
+    void archiveAndHardDelete(User user);
+
     List<User> findAllOrderByStudentNumber();
 }
