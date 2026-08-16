@@ -78,7 +78,7 @@ public class UserCommandService {
     }
 
     private void checkEmailAvailable(String email, String studentNumber) {
-        if (userRepository.existsByEmailAndStudentNumberNot(email, studentNumber)) {
+        if (userRepository.existsByEmailAndStudentNumberNotAndDeletedAtIsNull(email, studentNumber)) {
             throw new DuplicateEmailException();
         }
     }

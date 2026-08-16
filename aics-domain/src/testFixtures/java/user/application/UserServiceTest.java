@@ -159,7 +159,7 @@ class UserServiceTest {
   @DisplayName("updateUser는 다른 회원이 쓰는 이메일이면 DuplicateEmailException을 던진다")
   void updateUserWithDuplicateEmail() {
     User user = user();
-    given(userRepository.existsByEmailAndStudentNumberNot("taken@kyonggi.ac.kr", "202699999"))
+    given(userRepository.existsByEmailAndStudentNumberNotAndDeletedAtIsNull("taken@kyonggi.ac.kr", "202699999"))
         .willReturn(true);
 
     assertThatThrownBy(() -> commandService.updateUser(user, "taken@kyonggi.ac.kr", "김영희", "87654321",

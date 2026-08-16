@@ -28,8 +28,8 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public boolean existsByEmailAndStudentNumberNot(String email, String studentNumber) {
-        return jpaUserRepository.existsByEmailAndStudentNumberNot(email, studentNumber);
+    public boolean existsByEmailAndStudentNumberNotAndDeletedAtIsNull(String email, String studentNumber) {
+        return jpaUserRepository.existsByEmailAndStudentNumberNotAndDeletedAtIsNull(email, studentNumber);
     }
 
     @Override

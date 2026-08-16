@@ -8,7 +8,7 @@ public interface UserRepository {
 
     boolean existsByStudentNumber(String studentNumber);
 
-    boolean existsByEmailAndStudentNumberNot(String email, String studentNumber);
+    boolean existsByEmailAndStudentNumberNotAndDeletedAtIsNull(String email, String studentNumber);
 
     Optional<User> findByStudentNumber(String studentNumber);
 
