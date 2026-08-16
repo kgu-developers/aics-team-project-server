@@ -2,7 +2,10 @@ package kgu.developers.common.exception;
 
 import java.util.stream.Collectors;
 
+import static org.springframework.http.HttpStatus.CONFLICT;
+
 import org.springframework.context.MessageSourceResolvable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 public class GlobalExceptionHandler {
 
 	private static final String INVALID_REQUEST = "INVALID_REQUEST";
+	private static final String DATA_CONFLICT = "DATA_CONFLICT";
 
 	@ExceptionHandler(CustomException.class)
 	public ResponseEntity<ErrorResponse> handleCustomException(CustomException e) {
@@ -57,6 +61,13 @@ public class GlobalExceptionHandler {
 			.collect(Collectors.joining(", "));
 
 		return badRequest(detail);
+	}
+
+	@ExceptionHandler(DataIntegrityViolationException.class)
+	public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+		log.warn("[{}] {}", DATA_CONFLICT, e.getMostSpecificCause().getMessage());
+		return ResponseEntity.status(CONFLICT)
+			.body(new ErrorResponse(DATA_CONFLICT, "요청이 기존 데이터와 충돌합니다."));
 	}
 
 	private static String leafNode(Path propertyPath) {

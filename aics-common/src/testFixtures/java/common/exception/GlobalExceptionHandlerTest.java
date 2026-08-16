@@ -1,5 +1,7 @@
 package common.exception;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -78,6 +81,12 @@ class GlobalExceptionHandlerTest {
     @GetMapping("/param/{id}")
     void param(@Positive @PathVariable Long id) {
     }
+
+    @GetMapping("/conflict")
+    void conflict() {
+      throw new DataIntegrityViolationException(
+          "ERROR: duplicate key value violates unique constraint \"user_pkey\"");
+    }
   }
 
   record TestRequest(@NotBlank String name) {
@@ -127,5 +136,15 @@ class GlobalExceptionHandlerTest {
     mockMvc.perform(get("/param/-5"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+  }
+
+  @Test
+  @DisplayName("DB 제약 위반은 500이 아니라 409로 응답하고 제약 이름을 노출하지 않는다")
+  void handlesDataIntegrityViolation() throws Exception {
+    mockMvc.perform(get("/conflict"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
+        .andExpect(jsonPath("$.message").value("요청이 기존 데이터와 충돌합니다."))
+        .andExpect(jsonPath("$.message").value(not(containsString("user_pkey"))));
   }
 }
