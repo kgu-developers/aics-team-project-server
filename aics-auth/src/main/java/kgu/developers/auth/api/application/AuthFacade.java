@@ -64,8 +64,8 @@ public class AuthFacade {
             if (refreshTokenStore.deleteIfMatches(studentNumber, refreshToken)) {
                 tokenRevocationStore.revokeTokensIssuedBefore(studentNumber);
             }
-        } catch (JwtException e) {
-            // 무시
+        } catch (JwtException | OptimisticLockingFailureException e) {
+            // 무시. 동시 logout/refresh로 버전이 어긋나도 어차피 이 토큰은 폐기된 상태다.
         }
     }
 

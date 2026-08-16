@@ -202,6 +202,18 @@ class AuthFacadeTest {
   }
 
   @Test
+  @DisplayName("logout은 동시 요청으로 낙관적 락이 깨져도 성공한다")
+  void logoutLosingOptimisticLock() {
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(refreshTokenStore.deleteIfMatches(STUDENT_NUMBER, "refresh-token"))
+        .willThrow(new OptimisticLockingFailureException("conflict"));
+
+    assertThatCode(() -> userFacade.logout("refresh-token")).doesNotThrowAnyException();
+
+    verify(tokenRevocationStore, never()).revokeTokensIssuedBefore(any());
+  }
+
+  @Test
   @DisplayName("login은 비밀번호가 틀리면 InvalidCredentialsException을 던진다")
   void loginWithWrongPassword() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
