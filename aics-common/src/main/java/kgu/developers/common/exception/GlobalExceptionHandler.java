@@ -3,9 +3,11 @@ package kgu.developers.common.exception;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -22,6 +24,7 @@ public class GlobalExceptionHandler {
 
 	private static final String INVALID_REQUEST = "INVALID_REQUEST";
 	private static final String DATA_CONFLICT = "DATA_CONFLICT";
+	private static final String ACCESS_DENIED = "ACCESS_DENIED";
 
 	@ExceptionHandler(CustomException.class)
 	public ResponseEntity<ErrorResponse> handleCustomException(CustomException e) {
@@ -68,6 +71,15 @@ public class GlobalExceptionHandler {
 		log.warn("[{}] {}", DATA_CONFLICT, e.getMostSpecificCause().getMessage());
 		return ResponseEntity.status(CONFLICT)
 			.body(new ErrorResponse(DATA_CONFLICT, "요청이 기존 데이터와 충돌합니다."));
+	}
+
+	// 컨트롤러에서 던진 AccessDeniedException은 여기서 잡지 않으면 스프링 시큐리티의 기본
+	// 처리로 넘어가 /error의 기본 바디로 나간다. 공통 {code, message} 형식을 유지한다.
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
+		log.warn("[{}] {}", ACCESS_DENIED, e.getMessage());
+		return ResponseEntity.status(FORBIDDEN)
+			.body(new ErrorResponse(ACCESS_DENIED, e.getMessage()));
 	}
 
 	private static String leafNode(Path propertyPath) {

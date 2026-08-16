@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -87,6 +88,11 @@ class GlobalExceptionHandlerTest {
       throw new DataIntegrityViolationException(
           "ERROR: duplicate key value violates unique constraint \"user_pkey\"");
     }
+
+    @GetMapping("/denied")
+    void denied() {
+      throw new AccessDeniedException("본인의 비밀번호만 변경할 수 있습니다.");
+    }
   }
 
   record TestRequest(@NotBlank String name) {
@@ -146,5 +152,15 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
         .andExpect(jsonPath("$.message").value("요청이 기존 데이터와 충돌합니다."))
         .andExpect(jsonPath("$.message").value(not(containsString("user_pkey"))));
+  }
+
+  @Test
+  @DisplayName("AccessDeniedException도 공통 {code, message} 형식으로 403을 응답한다")
+  void handlesAccessDenied() throws Exception {
+    // 잡지 않으면 스프링 시큐리티 기본 처리로 넘어가 /error의 기본 바디가 나간다
+    mockMvc.perform(get("/denied"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("본인의 비밀번호만 변경할 수 있습니다."));
   }
 }
