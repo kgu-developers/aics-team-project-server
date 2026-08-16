@@ -1,6 +1,7 @@
 package auth.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -29,6 +30,7 @@ import kgu.developers.domain.user.exception.InvalidTokenException;
 import kgu.developers.domain.user.exception.UserNotFoundException;
 import io.jsonwebtoken.JwtException;
 import kgu.developers.globalutils.jwt.JwtUtil;
+import kgu.developers.globalutils.jwt.TokenRevocationStore;
 
 @ExtendWith(MockitoExtension.class)
 class AuthFacadeTest {
@@ -44,6 +46,9 @@ class AuthFacadeTest {
 
   @Mock
   private RefreshTokenStore refreshTokenStore;
+
+  @Mock
+  private TokenRevocationStore tokenRevocationStore;
 
   @InjectMocks
   private AuthFacade userFacade;
@@ -113,7 +118,7 @@ class AuthFacadeTest {
 
     // 탈취본/재사용 요청이 정상 세션의 토큰을 지우면 안 된다.
     verify(refreshTokenStore, never()).save(any(), any());
-    verify(refreshTokenStore, never()).delete(any());
+    verify(refreshTokenStore, never()).deleteIfMatches(any(), any());
   }
 
   @Test
@@ -160,13 +165,16 @@ class AuthFacadeTest {
   }
 
   @Test
-  @DisplayName("logout은 서버에 저장된 refreshToken을 폐기한다")
+  @DisplayName("logout은 제시된 refreshToken을 대조한 뒤 accessToken까지 무효화한다")
   void logout() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(refreshTokenStore.deleteIfMatches(STUDENT_NUMBER, "refresh-token")).willReturn(true);
 
     userFacade.logout("refresh-token");
 
-    verify(refreshTokenStore).delete(STUDENT_NUMBER);
+    // 학번만으로 지우면 회전된 옛 토큰으로도 남의 활성 세션을 끊을 수 있다
+    verify(refreshTokenStore).deleteIfMatches(STUDENT_NUMBER, "refresh-token");
+    verify(tokenRevocationStore).revokeTokensIssuedBefore(STUDENT_NUMBER);
   }
 
   @Test
@@ -177,7 +185,20 @@ class AuthFacadeTest {
     userFacade.logout(null);
     userFacade.logout("broken");
 
-    verify(refreshTokenStore, never()).delete(any());
+    verify(refreshTokenStore, never()).deleteIfMatches(any(), any());
+    verify(tokenRevocationStore, never()).revokeTokensIssuedBefore(any());
+  }
+
+  @Test
+  @DisplayName("logout은 토큰이 현재 것이 아니면 accessToken도 무효화하지 않고, 그래도 성공한다")
+  void logoutWithRotatedTokenStillSucceeds() {
+    given(jwtUtil.parseRefreshTokenSubject("rotated-out-token")).willReturn(STUDENT_NUMBER);
+    given(refreshTokenStore.deleteIfMatches(STUDENT_NUMBER, "rotated-out-token")).willReturn(false);
+
+    assertThatCode(() -> userFacade.logout("rotated-out-token")).doesNotThrowAnyException();
+
+    // 대조 없이 무효화하면 옛 토큰만으로 남의 accessToken을 죽일 수 있다
+    verify(tokenRevocationStore, never()).revokeTokensIssuedBefore(any());
   }
 
   @Test

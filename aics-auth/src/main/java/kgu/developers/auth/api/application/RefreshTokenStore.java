@@ -24,8 +24,8 @@ public class RefreshTokenStore {
     }
 
     public boolean replace(String studentNumber, String expected, String replacement) {
-        RefreshTokenJpaEntity stored = refreshTokenRepository.findById(studentNumber).orElse(null);
-        if (stored == null || !stored.getTokenHash().equals(hash(expected))) {
+        RefreshTokenJpaEntity stored = findMatching(studentNumber, expected);
+        if (stored == null) {
             return false;
         }
 
@@ -33,8 +33,23 @@ public class RefreshTokenStore {
         return true;
     }
 
-    public void delete(String studentNumber) {
-        refreshTokenRepository.deleteById(studentNumber);
+    public boolean deleteIfMatches(String studentNumber, String refreshToken) {
+        RefreshTokenJpaEntity stored = findMatching(studentNumber, refreshToken);
+        if (stored == null) {
+            return false;
+        }
+
+        refreshTokenRepository.delete(stored);
+        return true;
+    }
+
+    private RefreshTokenJpaEntity findMatching(String studentNumber, String refreshToken) {
+        RefreshTokenJpaEntity stored = refreshTokenRepository.findById(studentNumber).orElse(null);
+        if (stored == null || !stored.getTokenHash().equals(hash(refreshToken))) {
+            return null;
+        }
+
+        return stored;
     }
 
     private static String hash(String refreshToken) {

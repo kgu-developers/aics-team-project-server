@@ -9,6 +9,7 @@ import kgu.developers.domain.user.exception.UserNotFoundException;
 import io.jsonwebtoken.JwtException;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.globalutils.jwt.JwtUtil;
+import kgu.developers.globalutils.jwt.TokenRevocationStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +22,7 @@ public class AuthFacade {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenStore refreshTokenStore;
+    private final TokenRevocationStore tokenRevocationStore;
 
     public LoginResponse login(LoginRequest request) {
         User user = findForLogin(request.studentNumber());
@@ -58,7 +60,10 @@ public class AuthFacade {
             return;
         }
         try {
-            refreshTokenStore.delete(jwtUtil.parseRefreshTokenSubject(refreshToken));
+            String studentNumber = jwtUtil.parseRefreshTokenSubject(refreshToken);
+            if (refreshTokenStore.deleteIfMatches(studentNumber, refreshToken)) {
+                tokenRevocationStore.revokeTokensIssuedBefore(studentNumber);
+            }
         } catch (JwtException e) {
             // 무시
         }

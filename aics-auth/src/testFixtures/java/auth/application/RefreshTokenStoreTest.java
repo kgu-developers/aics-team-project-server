@@ -73,4 +73,37 @@ class RefreshTokenStoreTest {
         .isFalse();
     assertThat(stored.getTokenHash()).isEqualTo(TOKEN_HASH);
   }
+
+  @Test
+  @DisplayName("deleteIfMatches는 제시된 토큰이 보관 값과 같을 때만 지운다")
+  void deleteIfMatchesDeletesCurrentToken() {
+    RefreshTokenJpaEntity stored = new RefreshTokenJpaEntity(STUDENT_NUMBER, TOKEN_HASH);
+    given(refreshTokenRepository.findById(STUDENT_NUMBER)).willReturn(Optional.of(stored));
+
+    assertThat(refreshTokenStore.deleteIfMatches(STUDENT_NUMBER, TOKEN)).isTrue();
+
+    verify(refreshTokenRepository).delete(stored);
+  }
+
+  @Test
+  @DisplayName("deleteIfMatches는 회전된 옛 토큰으로는 활성 세션을 끊지 못한다")
+  void deleteIfMatchesRejectsRotatedToken() {
+    RefreshTokenJpaEntity stored = new RefreshTokenJpaEntity(STUDENT_NUMBER, TOKEN_HASH);
+    given(refreshTokenRepository.findById(STUDENT_NUMBER)).willReturn(Optional.of(stored));
+
+    assertThat(refreshTokenStore.deleteIfMatches(STUDENT_NUMBER, "rotated-out-token")).isFalse();
+
+    verify(refreshTokenRepository, never()).delete(any(RefreshTokenJpaEntity.class));
+    verify(refreshTokenRepository, never()).deleteById(any());
+  }
+
+  @Test
+  @DisplayName("deleteIfMatches는 보관된 토큰이 없으면 false를 돌려준다")
+  void deleteIfMatchesWithoutStoredToken() {
+    given(refreshTokenRepository.findById(STUDENT_NUMBER)).willReturn(Optional.empty());
+
+    assertThat(refreshTokenStore.deleteIfMatches(STUDENT_NUMBER, TOKEN)).isFalse();
+
+    verify(refreshTokenRepository, never()).delete(any(RefreshTokenJpaEntity.class));
+  }
 }
