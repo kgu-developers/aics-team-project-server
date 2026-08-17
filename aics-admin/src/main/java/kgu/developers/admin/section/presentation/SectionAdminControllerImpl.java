@@ -13,6 +13,7 @@ import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminList
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
+import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
 import kgu.developers.domain.course.domain.SemesterType;
@@ -81,6 +82,14 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     public ResponseEntity<EnrollmentAdminListResponse> getEnrollmentsBySectionId(
         @Positive @PathVariable Long sectionId) {
         EnrollmentAdminListResponse response = sectionAdminFacade.getEnrollmentsBySectionId(sectionId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    @GetMapping("/{sectionId}/teams")
+    public ResponseEntity<TeamAdminListResponse> getTeamsBySectionId(
+        @Positive @PathVariable Long sectionId) {
+        TeamAdminListResponse response = sectionAdminFacade.getTeamsBySectionId(sectionId);
         return ResponseEntity.ok(response);
     }
 

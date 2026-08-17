@@ -30,6 +30,8 @@ import kgu.developers.domain.enrollment.domain.EnrollmentDetail;
 import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.application.command.SectionCommandService;
+import kgu.developers.domain.team.application.query.TeamQueryService;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -54,6 +56,9 @@ class SectionAdminFacadeTest {
 
     @Mock
     private EnrollmentCommandService enrollmentCommandService;
+
+    @Mock
+    private TeamQueryService teamQueryService;
 
     @InjectMocks
     private SectionAdminFacade sectionAdminFacade;
@@ -167,6 +172,22 @@ class SectionAdminFacadeTest {
                     assertThat(response.studentNumber()).isEqualTo("202699999");
                     assertThat(response.name()).isEqualTo("김철수");
                     assertThat(response.status()).isEqualTo(Status.ACTIVE);
+                });
+    }
+
+    @Test
+    @DisplayName("getTeamsBySectionId는 팀 목록을 응답으로 변환한다")
+    void getTeamsBySectionId() {
+        Team team = Team.builder()
+                .id(1L).sectionId(1L).name("1팀").kickoffRule("규칙").meetingSchedule("매주 목 19:00")
+                .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build();
+        given(teamQueryService.getTeamsBySectionId(1L)).willReturn(List.of(team));
+
+        assertThat(sectionAdminFacade.getTeamsBySectionId(1L).contents())
+                .singleElement()
+                .satisfies(response -> {
+                    assertThat(response.name()).isEqualTo("1팀");
+                    assertThat(response.meetingSchedule()).isEqualTo("매주 목 19:00");
                 });
     }
 

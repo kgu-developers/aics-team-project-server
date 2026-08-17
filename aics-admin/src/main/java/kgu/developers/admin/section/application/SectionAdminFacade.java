@@ -9,6 +9,7 @@ import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminList
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
+import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
 import kgu.developers.domain.course.domain.SemesterType;
@@ -16,6 +17,7 @@ import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
 import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
 import kgu.developers.domain.section.application.command.SectionCommandService;
+import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -29,6 +31,7 @@ public class SectionAdminFacade {
     private final SectionQueryService sectionQueryService;
     private final EnrollmentQueryService enrollmentQueryService;
     private final EnrollmentCommandService enrollmentCommandService;
+    private final TeamQueryService teamQueryService;
 
     public SectionAdminPersistResponse createSection(SectionAdminRequest request) {
         Long id = sectionCommandService.createSection(
@@ -56,6 +59,10 @@ public class SectionAdminFacade {
                                                              SemesterType semester) {
         return SectionAdminListResponse.from(
             sectionQueryService.getSectionsByProfessorId(professorId, status, year, semester));
+    }
+
+    public TeamAdminListResponse getTeamsBySectionId(Long sectionId) {
+        return TeamAdminListResponse.from(teamQueryService.getTeamsBySectionId(sectionId));
     }
 
     public SectionAdminResponse updateSection(Long id, SectionAdminUpdateRequest request) {

@@ -18,6 +18,7 @@ import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminList
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
+import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
 import kgu.developers.domain.course.domain.SemesterType;
@@ -157,6 +158,20 @@ public interface SectionAdminController {
             description = "수강생 역할/상태 수정 request 객체 입니다. 수정할 필드만 담습니다.",
             required = true
         ) @Valid @RequestBody EnrollmentAdminUpdateRequest request
+    );
+
+    @Operation(summary = "분반 팀 목록 조회 API", description = """
+            - Description : 이 API는 지정된 분반의 팀 목록을 팀명 오름차순으로 조회합니다.
+        """)
+    @ApiResponse(
+        responseCode = "200",
+        content = @Content(schema = @Schema(implementation = TeamAdminListResponse.class)))
+    ResponseEntity<TeamAdminListResponse> getTeamsBySectionId(
+        @Parameter(
+            description = "분반 ID는 URL 경로 변수 입니다.",
+            example = "1",
+            required = true
+        ) @Positive @PathVariable Long sectionId
     );
 
     @Operation(summary = "분반 수정 API", description = """

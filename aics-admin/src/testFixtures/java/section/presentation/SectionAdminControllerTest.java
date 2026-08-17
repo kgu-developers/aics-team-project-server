@@ -34,6 +34,8 @@ import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
+import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
@@ -200,6 +202,21 @@ class SectionAdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("WITHDRAWN"))
                 .andExpect(jsonPath("$.role").value("STUDENT"));
+    }
+
+    @Test
+    @DisplayName("GET /sections/{sectionId}/teams는 200과 팀 목록을 응답한다")
+    void getTeamsBySectionId() throws Exception {
+        Team team = Team.builder()
+                .id(1L).sectionId(1L).name("1팀").kickoffRule("규칙").meetingSchedule("매주 목 19:00")
+                .status(kgu.developers.domain.team.domain.Status.FORMING).build();
+        given(sectionAdminFacade.getTeamsBySectionId(1L))
+                .willReturn(TeamAdminListResponse.from(List.of(team)));
+
+        mockMvc.perform(get(BASE_URL + "/1/teams"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contents[0].name").value("1팀"))
+                .andExpect(jsonPath("$.contents[0].status").value("FORMING"));
     }
 
     @Test
