@@ -9,9 +9,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
@@ -93,6 +96,40 @@ public interface SectionAdminController {
             description = "학기 입니다.",
             example = "SPRING"
         ) @RequestParam(required = false) SemesterType semester
+    );
+
+    @Operation(summary = "분반 수강생/조교 등록 API", description = """
+            - Description : 이 API는 지정된 분반에 수강생 또는 조교를 한 명 등록합니다.
+            - 이미 등록된 사용자면 409를 응답합니다. 탈퇴(소프트삭제)한 이력은 중복으로 보지 않습니다.
+        """)
+    @ApiResponse(
+        responseCode = "201",
+        content = @Content(schema = @Schema(implementation = EnrollmentAdminPersistResponse.class)))
+    ResponseEntity<EnrollmentAdminPersistResponse> createEnrollment(
+        @Parameter(
+            description = "분반 ID는 URL 경로 변수 입니다.",
+            example = "1",
+            required = true
+        ) @Positive @PathVariable Long sectionId,
+        @Parameter(
+            description = "수강생 등록 request 객체 입니다.",
+            required = true
+        ) @Valid @RequestBody EnrollmentAdminRequest request
+    );
+
+    @Operation(summary = "분반 수강생 명단 조회 API", description = """
+            - Description : 이 API는 지정된 분반의 수강생 명단을 학번 오름차순으로 조회합니다.
+            - 탈퇴한 수강생도 status로 구분되어 함께 반환됩니다.
+        """)
+    @ApiResponse(
+        responseCode = "200",
+        content = @Content(schema = @Schema(implementation = EnrollmentAdminListResponse.class)))
+    ResponseEntity<EnrollmentAdminListResponse> getEnrollmentsBySectionId(
+        @Parameter(
+            description = "분반 ID는 URL 경로 변수 입니다.",
+            example = "1",
+            required = true
+        ) @Positive @PathVariable Long sectionId
     );
 
     @Operation(summary = "분반 수정 API", description = """

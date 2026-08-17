@@ -28,13 +28,20 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import kgu.developers.admin.section.application.SectionAdminFacade;
 import kgu.developers.admin.section.presentation.SectionAdminControllerImpl;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
 import kgu.developers.domain.course.domain.Course;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentDetail;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.section.domain.Section;
@@ -135,6 +142,43 @@ class SectionAdminControllerTest {
                         .param("semester", "SPRING"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.contents[0].id").value(1L));
+    }
+
+    @Test
+    @DisplayName("POST /sections/{sectionId}/enrollments는 201과 생성된 수강 ID를 응답한다")
+    void createEnrollment() throws Exception {
+        EnrollmentAdminRequest request = new EnrollmentAdminRequest("202699999", Role.STUDENT);
+        given(sectionAdminFacade.createEnrollment(1L, request))
+                .willReturn(EnrollmentAdminPersistResponse.of(1L));
+
+        mockMvc.perform(post(BASE_URL + "/1/enrollments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1L));
+    }
+
+    @Test
+    @DisplayName("GET /sections/{sectionId}/enrollments는 200과 수강생 명단을 응답한다")
+    void getEnrollmentsBySectionId() throws Exception {
+        Enrollment enrollment = Enrollment.builder()
+                .id(1L)
+                .sectionId(1L)
+                .userId("202699999")
+                .role(Role.STUDENT)
+                .status(Status.ACTIVE)
+                .build();
+        User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
+                UserGlobalRole.USER, "010-1234-6789");
+        given(sectionAdminFacade.getEnrollmentsBySectionId(1L)).willReturn(
+                EnrollmentAdminListResponse.from(List.of(new EnrollmentDetail(enrollment, student))));
+
+        mockMvc.perform(get(BASE_URL + "/1/enrollments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contents[0].studentNumber").value("202699999"))
+                .andExpect(jsonPath("$.contents[0].name").value("김철수"))
+                .andExpect(jsonPath("$.contents[0].role").value("STUDENT"))
+                .andExpect(jsonPath("$.contents[0].status").value("ACTIVE"));
     }
 
     @Test

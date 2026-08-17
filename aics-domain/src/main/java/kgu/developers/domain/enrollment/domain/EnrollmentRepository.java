@@ -8,6 +8,8 @@ public interface EnrollmentRepository {
 
   Optional<Enrollment> findById(Long id);
 
+  boolean existsBySectionIdAndUserId(Long sectionId, String userId);
+
   List<Enrollment> findAllBySectionId(Long sectionId);
 
   List<Enrollment> findAllByUserId(String userId);

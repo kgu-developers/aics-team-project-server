@@ -15,12 +15,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.admin.section.application.SectionAdminFacade;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
 import kgu.developers.domain.course.domain.Course;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
+import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
+import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentDetail;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.application.command.SectionCommandService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
@@ -40,6 +47,12 @@ class SectionAdminFacadeTest {
 
     @Mock
     private SectionQueryService sectionQueryService;
+
+    @Mock
+    private EnrollmentQueryService enrollmentQueryService;
+
+    @Mock
+    private EnrollmentCommandService enrollmentCommandService;
 
     @InjectMocks
     private SectionAdminFacade sectionAdminFacade;
@@ -101,6 +114,40 @@ class SectionAdminFacadeTest {
         assertThat(sectionAdminFacade
                 .getSectionsByProfessorId(PROFESSOR_ID, StatusType.ACTIVE, 2026, SemesterType.SPRING)
                 .contents()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("createEnrollment는 학번과 역할을 커맨드 서비스에 넘기고 id를 응답한다")
+    void createEnrollment() {
+        given(enrollmentCommandService.createEnrollment(1L, "202699999", Role.ASSISTANT)).willReturn(10L);
+
+        assertThat(sectionAdminFacade
+                .createEnrollment(1L, new EnrollmentAdminRequest("202699999", Role.ASSISTANT)).id())
+                .isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("getEnrollmentsBySectionId는 수강생 명단을 응답으로 변환한다")
+    void getEnrollmentsBySectionId() {
+        Enrollment enrollment = Enrollment.builder()
+                .id(1L)
+                .sectionId(1L)
+                .userId("202699999")
+                .role(Role.STUDENT)
+                .status(Status.ACTIVE)
+                .build();
+        User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
+                UserGlobalRole.USER, "010-1234-6789");
+        given(enrollmentQueryService.getEnrollmentsBySectionId(1L))
+                .willReturn(List.of(new EnrollmentDetail(enrollment, student)));
+
+        assertThat(sectionAdminFacade.getEnrollmentsBySectionId(1L).contents())
+                .singleElement()
+                .satisfies(response -> {
+                    assertThat(response.studentNumber()).isEqualTo("202699999");
+                    assertThat(response.name()).isEqualTo("김철수");
+                    assertThat(response.status()).isEqualTo(Status.ACTIVE);
+                });
     }
 
     @Test

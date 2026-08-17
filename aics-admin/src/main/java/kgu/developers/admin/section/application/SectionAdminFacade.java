@@ -1,13 +1,18 @@
 package kgu.developers.admin.section.application;
 
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
+import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
+import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
 import kgu.developers.domain.section.application.command.SectionCommandService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
@@ -20,6 +25,8 @@ import org.springframework.stereotype.Component;
 public class SectionAdminFacade {
     private final SectionCommandService sectionCommandService;
     private final SectionQueryService sectionQueryService;
+    private final EnrollmentQueryService enrollmentQueryService;
+    private final EnrollmentCommandService enrollmentCommandService;
 
     public SectionAdminPersistResponse createSection(SectionAdminRequest request) {
         Long id = sectionCommandService.createSection(
@@ -78,5 +85,14 @@ public class SectionAdminFacade {
     public void deleteSection(Long id) {
         Section section = sectionQueryService.getSectionById(id).section();
         sectionCommandService.deleteSection(section);
+    }
+
+    public EnrollmentAdminPersistResponse createEnrollment(Long sectionId, EnrollmentAdminRequest request) {
+        Long id = enrollmentCommandService.createEnrollment(sectionId, request.studentNumber(), request.role());
+        return EnrollmentAdminPersistResponse.of(id);
+    }
+
+    public EnrollmentAdminListResponse getEnrollmentsBySectionId(Long sectionId) {
+        return EnrollmentAdminListResponse.from(enrollmentQueryService.getEnrollmentsBySectionId(sectionId));
     }
 }

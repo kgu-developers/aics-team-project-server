@@ -4,9 +4,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.section.application.SectionAdminFacade;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
@@ -59,6 +62,23 @@ public class SectionAdminControllerImpl implements SectionAdminController {
         @RequestParam(required = false) SemesterType semester) {
         SectionAdminListResponse response =
             sectionAdminFacade.getSectionsByProfessorId(professorId, status, year, semester);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    @PostMapping("/{sectionId}/enrollments")
+    public ResponseEntity<EnrollmentAdminPersistResponse> createEnrollment(
+        @Positive @PathVariable Long sectionId,
+        @Valid @RequestBody EnrollmentAdminRequest request) {
+        EnrollmentAdminPersistResponse response = sectionAdminFacade.createEnrollment(sectionId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Override
+    @GetMapping("/{sectionId}/enrollments")
+    public ResponseEntity<EnrollmentAdminListResponse> getEnrollmentsBySectionId(
+        @Positive @PathVariable Long sectionId) {
+        EnrollmentAdminListResponse response = sectionAdminFacade.getEnrollmentsBySectionId(sectionId);
         return ResponseEntity.ok(response);
     }
 
