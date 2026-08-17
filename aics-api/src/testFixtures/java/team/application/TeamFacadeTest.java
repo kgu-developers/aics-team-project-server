@@ -1,0 +1,114 @@
+package team.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import kgu.developers.api.team.application.TeamFacade;
+import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest;
+import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
+import kgu.developers.api.team.presentation.response.TeamKickoffResponse;
+import kgu.developers.domain.team.application.command.TeamCommandService;
+import kgu.developers.domain.team.application.query.TeamQueryService;
+import kgu.developers.domain.team.domain.Status;
+import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
+import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+
+@ExtendWith(MockitoExtension.class)
+class TeamFacadeTest {
+
+	@Mock
+	private TeamQueryService teamQueryService;
+
+	@Mock
+	private TeamCommandService teamCommandService;
+
+	@Mock
+	private TeamMemberQueryService teamMemberQueryService;
+
+	@Mock
+	private TeamMemberCommandService teamMemberCommandService;
+
+	@Mock
+	private UserQueryService userQueryService;
+
+	@InjectMocks
+	private TeamFacade teamFacade;
+
+	private TeamMember member(Long id, String userId, boolean isLeader) {
+		return TeamMember.builder().id(id).teamId(1L).userId(userId).isLeader(isLeader).build();
+	}
+
+	@Test
+	@DisplayName("getKickoffByTeamId는 팀 운영규칙과 회의일정을 응답한다")
+	void getKickoffByTeamId() {
+		given(teamQueryService.getTeamById(1L)).willReturn(Team.builder()
+			.id(1L).sectionId(10L).name("1팀").topic("AI 학습 도우미").kickoffRule("매주 화요일 회고")
+			.meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
+
+		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+			.willReturn(List.of(member(1L, "202699999", true)));
+		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
+			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
+
+		TeamKickoffResponse response = teamFacade.getKickoffByTeamId(1L);
+
+		assertThat(response.name()).isEqualTo("1팀");
+		assertThat(response.members()).singleElement()
+			.satisfies(m -> assertThat(m.isLeader()).isTrue());
+		assertThat(response.topic()).isEqualTo("AI 학습 도우미");
+		assertThat(response.kickoffRule()).isEqualTo("매주 화요일 회고");
+		assertThat(response.meetingSchedule()).isEqualTo("매주 목 19:00");
+	}
+
+	@Test
+	@DisplayName("updateKickoff는 팀 정보와 역할분담을 저장하고 저장 결과를 응답한다")
+	void updateKickoff() {
+		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+			"1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00", "202699999",
+			List.of(new MemberRole("202699999", "백엔드")));
+		given(teamCommandService.updateKickoff(1L, "1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00"))
+			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").topic("AI 학습 도우미")
+				.kickoffRule("매주 화요일 회고").meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
+		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+			.willReturn(List.of(member(1L, "202699999", true)));
+		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
+			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
+
+		TeamKickoffResponse response = teamFacade.updateKickoff(1L, request);
+
+		verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of("202699999", "백엔드"));
+		assertThat(response.topic()).isEqualTo("AI 학습 도우미");
+		assertThat(response.members()).singleElement()
+			.satisfies(m -> assertThat(m.name()).isEqualTo("김철수"));
+	}
+
+	@Test
+	@DisplayName("updateKickoff는 역할분담이 비어도 팀장만 반영한다")
+	void updateKickoffWithoutRoles() {
+		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+			"1팀", null, null, null, "202699999", null);
+		given(teamCommandService.updateKickoff(1L, "1팀", null, null, null))
+			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build());
+		given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of());
+		given(userQueryService.getUsersByStudentNumbers(List.of())).willReturn(List.of());
+
+		teamFacade.updateKickoff(1L, request);
+
+		verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of());
+	}
+}

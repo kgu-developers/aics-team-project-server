@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.teamMember.presentation.request.TeamMemberUpdateRequest;
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
-import kgu.developers.admin.teamMember.presentation.response.TeamMemberContactAdminListResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,21 +40,5 @@ public interface TeamMemberAdminController {
 			description = "팀원 수정 request 객체 입니다.",
 			required = true
 		) @Valid @RequestBody TeamMemberUpdateRequest request
-	);
-
-	@Operation(summary = "팀원 연락처 조회 API", description = """
-			- Description : 이 API는 팀원의 이메일과 연락처를 조회합니다.
-			- 분반이 정한 연락처 공개기간 안에서만 200을 응답하며, 기간 밖이면 403을 응답합니다.
-			- 공개시작이 설정되지 않은 분반은 아직 공개되지 않은 것으로 봅니다.
-		""")
-	@ApiResponse(
-		responseCode = "200",
-		content = @Content(schema = @Schema(implementation = TeamMemberContactAdminListResponse.class)))
-	ResponseEntity<TeamMemberContactAdminListResponse> getContacts(
-		@Parameter(
-			description = "팀 ID는 URL 경로 변수 입니다.",
-			example = "1",
-			required = true
-		) @Positive @PathVariable Long teamId
 	);
 }

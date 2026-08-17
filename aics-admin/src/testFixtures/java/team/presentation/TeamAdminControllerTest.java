@@ -1,12 +1,9 @@
 package team.presentation;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,17 +17,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import kgu.developers.admin.team.application.TeamAdminFacade;
 import kgu.developers.admin.team.presentation.TeamAdminControllerImpl;
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
-import kgu.developers.admin.team.presentation.request.TeamKickoffUpdateRequest;
-import kgu.developers.admin.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
-import kgu.developers.admin.team.presentation.response.TeamAdminKickoffResponse;
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.team.presentation.response.TeamAdminResponse;
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
@@ -45,7 +37,6 @@ class TeamAdminControllerTest {
 	private TeamAdminFacade teamAdminFacade;
 
 	private MockMvc mockMvc;
-	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
 	void setUp() {
@@ -95,54 +86,5 @@ class TeamAdminControllerTest {
 			.andExpect(jsonPath("$.contents[1].status").value("CONFIRMED"));
 
 		verify(teamAdminFacade).finalizeTeams(10L);
-	}
-
-	@Test
-	@DisplayName("킥오프 정보를 조회하면 200과 운영규칙, 회의일정을 응답한다")
-	void getKickoffByTeamId() throws Exception {
-		given(teamAdminFacade.getKickoffByTeamId(1L)).willReturn(
-			new TeamAdminKickoffResponse(1L, "1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00",
-				List.of(new TeamMemberAdminResponse(1L, "202699999", "김철수", true, "백엔드"))));
-
-		mockMvc.perform(get(BASE_URL + "/teams/{teamId}/kickoff", 1L))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.id").value(1))
-			.andExpect(jsonPath("$.name").value("1팀"))
-			.andExpect(jsonPath("$.kickoffRule").value("매주 화요일 회고"))
-			.andExpect(jsonPath("$.topic").value("AI 학습 도우미"))
-			.andExpect(jsonPath("$.meetingSchedule").value("매주 목 19:00"))
-			.andExpect(jsonPath("$.members[0].projectRole").value("백엔드"));
-
-		verify(teamAdminFacade).getKickoffByTeamId(1L);
-	}
-
-	@Test
-	@DisplayName("킥오프 정보를 저장하면 200과 저장된 정보를 응답한다")
-	void updateKickoff() throws Exception {
-		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
-			"1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00", "202699999",
-			List.of(new MemberRole("202699999", "백엔드")));
-		given(teamAdminFacade.updateKickoff(eq(1L), any())).willReturn(
-			new TeamAdminKickoffResponse(1L, "1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00",
-				List.of(new TeamMemberAdminResponse(1L, "202699999", "김철수", true, "백엔드"))));
-
-		mockMvc.perform(put(BASE_URL + "/teams/{teamId}/kickoff", 1L)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(request)))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.topic").value("AI 학습 도우미"))
-			.andExpect(jsonPath("$.members[0].isLeader").value(true))
-			.andExpect(jsonPath("$.members[0].projectRole").value("백엔드"));
-
-		verify(teamAdminFacade).updateKickoff(eq(1L), any());
-	}
-
-	@Test
-	@DisplayName("팀명이나 팀장 학번이 비면 400을 응답한다")
-	void rejectsBlankRequiredFields() throws Exception {
-		mockMvc.perform(put(BASE_URL + "/teams/{teamId}/kickoff", 1L)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"name\":\"\",\"leaderStudentNumber\":\"\"}"))
-			.andExpect(status().isBadRequest());
 	}
 }

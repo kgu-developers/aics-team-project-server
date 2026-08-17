@@ -5,11 +5,9 @@ import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.teamMember.application.TeamMemberAdminFacade;
 import kgu.developers.admin.teamMember.presentation.request.TeamMemberUpdateRequest;
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
-import kgu.developers.admin.teamMember.presentation.response.TeamMemberContactAdminListResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,12 +29,5 @@ public class TeamMemberAdminControllerImpl implements TeamMemberAdminController 
 			@PathVariable String studentNumber,
 			@Valid @RequestBody TeamMemberUpdateRequest request) {
 		return ResponseEntity.ok(teamMemberAdminFacade.updateTeamMember(teamId, studentNumber, request));
-	}
-
-	@Override
-	@GetMapping("/contacts")
-	public ResponseEntity<TeamMemberContactAdminListResponse> getContacts(
-			@Positive @PathVariable Long teamId) {
-		return ResponseEntity.ok(teamMemberAdminFacade.getContacts(teamId));
 	}
 }

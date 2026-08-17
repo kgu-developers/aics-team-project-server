@@ -1,4 +1,4 @@
-package kgu.developers.admin.teamMember.presentation.response;
+package kgu.developers.api.teamMember.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.user.domain.User;
 
-public record TeamMemberContactAdminResponse(
+public record TeamMemberContactResponse(
 	@Schema(description = "학번", example = "202699999", requiredMode = REQUIRED)
 	String studentNumber,
 
@@ -23,8 +23,8 @@ public record TeamMemberContactAdminResponse(
 	boolean isLeader
 ) {
 
-	public static TeamMemberContactAdminResponse of(TeamMember teamMember, User user) {
-		return new TeamMemberContactAdminResponse(
+	public static TeamMemberContactResponse of(TeamMember teamMember, User user) {
+		return new TeamMemberContactResponse(
 			teamMember.getUserId(),
 			user == null ? null : user.getName(),
 			user == null ? null : user.getEmail(),

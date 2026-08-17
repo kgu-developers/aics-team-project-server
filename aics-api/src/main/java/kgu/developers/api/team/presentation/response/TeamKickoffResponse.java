@@ -1,14 +1,14 @@
-package kgu.developers.admin.team.presentation.response;
+package kgu.developers.api.team.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
 import kgu.developers.domain.team.domain.Team;
 
-public record TeamAdminKickoffResponse(
+public record TeamKickoffResponse(
 	@Schema(description = "팀 ID", example = "1", requiredMode = REQUIRED)
 	Long id,
 
@@ -25,11 +25,11 @@ public record TeamAdminKickoffResponse(
 	String meetingSchedule,
 
 	@Schema(description = "팀원 목록. 팀장 여부와 역할분담이 담깁니다.", requiredMode = REQUIRED)
-	List<TeamMemberAdminResponse> members
+	List<TeamMemberResponse> members
 ) {
 
-	public static TeamAdminKickoffResponse of(Team team, List<TeamMemberAdminResponse> members) {
-		return new TeamAdminKickoffResponse(
+	public static TeamKickoffResponse of(Team team, List<TeamMemberResponse> members) {
+		return new TeamKickoffResponse(
 			team.getId(),
 			team.getName(),
 			team.getTopic(),

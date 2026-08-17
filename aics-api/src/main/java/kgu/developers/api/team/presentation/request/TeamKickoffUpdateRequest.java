@@ -1,4 +1,4 @@
-package kgu.developers.admin.team.presentation.request;
+package kgu.developers.api.team.presentation.request;
 
 import java.util.List;
 
