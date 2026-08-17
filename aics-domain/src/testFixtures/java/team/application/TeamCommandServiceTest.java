@@ -24,6 +24,7 @@ import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.DuplicateTeamNameException;
 import kgu.developers.domain.team.exception.TeamAlreadyConfirmedException;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,6 +85,7 @@ class TeamCommandServiceTest {
     void updateKickoff() {
         Team team = team(1L, Status.FORMING);
         given(teamQueryService.getTeamById(1L)).willReturn(team);
+        given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(team));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         Team updated = teamCommandService.updateKickoff(
@@ -104,5 +106,33 @@ class TeamCommandServiceTest {
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
 
         verify(teamRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("같은 분반에 이미 있는 팀명으로는 바꿀 수 없다")
+    void rejectsDuplicateName() {
+        Team team = team(1L, Status.FORMING);
+        given(teamQueryService.getTeamById(1L)).willReturn(team);
+        given(teamRepository.findAllBySectionId(10L))
+                .willReturn(List.of(team, team(2L, Status.FORMING)));
+
+        assertThatThrownBy(() -> teamCommandService.updateKickoff(1L, "2팀", null, "k", "m"))
+                .isInstanceOf(DuplicateTeamNameException.class);
+
+        assertThat(team.getName()).isEqualTo("1팀");
+        verify(teamRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("자기 팀명을 그대로 두는 것은 중복이 아니다")
+    void keepingOwnNameIsNotDuplicate() {
+        Team team = team(1L, Status.FORMING);
+        given(teamQueryService.getTeamById(1L)).willReturn(team);
+        given(teamRepository.findAllBySectionId(10L))
+                .willReturn(List.of(team, team(2L, Status.FORMING)));
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
+
+        assertThat(teamCommandService.updateKickoff(1L, "1팀", "주제", "k", "m").getName())
+                .isEqualTo("1팀");
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.DuplicateTeamNameException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -22,6 +23,7 @@ public class TeamCommandService {
     public Team updateKickoff(Long teamId, String name, String topic, String kickoffRule, String meetingSchedule) {
         Team team = teamQueryService.getTeamById(teamId);
         team.validateNotConfirmed();
+        validateNameNotTaken(team, name);
 
         team.updateName(name);
         team.updateTopic(topic);
@@ -29,6 +31,14 @@ public class TeamCommandService {
         team.updateMeetingSchedule(meetingSchedule);
 
         return teamRepository.save(team);
+    }
+
+    private void validateNameNotTaken(Team team, String name) {
+        boolean taken = teamRepository.findAllBySectionId(team.getSectionId()).stream()
+                .anyMatch(other -> !other.getId().equals(team.getId()) && other.getName().equals(name));
+        if (taken) {
+            throw new DuplicateTeamNameException();
+        }
     }
 
     public List<Team> finalizeTeams(Long sectionId) {
