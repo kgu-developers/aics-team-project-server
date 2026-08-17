@@ -19,4 +19,6 @@ public interface TeamMemberRepository {
     boolean existsByTeamIdAndIsLeaderTrue(Long teamId);
 
     void deleteById(Long id);
+
+    void deleteAllByTeamId(Long teamId);
 }

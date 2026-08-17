@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -87,5 +88,11 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     public void deleteById(Long id) {
         jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
                 .ifPresent(TeamMemberJpaEntity::delete);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAllByTeamId(Long teamId) {
+        jpaTeamMemberRepository.softDeleteAllByTeamId(teamId, LocalDateTime.now());
     }
 }
