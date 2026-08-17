@@ -1,5 +1,6 @@
 package kgu.developers.domain.team.application.query;
 
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -9,6 +10,7 @@ import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -18,10 +20,18 @@ public class TeamQueryService {
     private final TeamRepository teamRepository;
     private final SectionRepository sectionRepository;
 
+    public Team getTeamById(Long id) {
+        return teamRepository.findById(id)
+                .orElseThrow(TeamNotFoundException::new);
+    }
+
     public List<Team> getTeamsBySectionId(Long sectionId) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
-        return teamRepository.findAllBySectionId(sectionId);
+
+        return teamRepository.findAllBySectionId(sectionId).stream()
+                .sorted(Comparator.comparing(Team::getName))
+                .toList();
     }
 }
