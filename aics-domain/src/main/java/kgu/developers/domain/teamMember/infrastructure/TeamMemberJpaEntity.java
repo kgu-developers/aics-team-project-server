@@ -31,7 +31,7 @@ public class TeamMemberJpaEntity extends BaseTimeEntity {
   private TeamJpaEntity team;
 
   @ManyToOne(fetch = LAZY, optional = false)
-  @JoinColumn(name = "user_id", referencedColumnName = "student_number", nullable = false, foreignKey = @ForeignKey(name = "fk_team_member_user"))
+  @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_team_member_user"))
   private UserJpaEntity user;
 
   @Column(nullable = false)
