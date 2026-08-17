@@ -10,6 +10,8 @@ public interface EnrollmentRepository {
 
   boolean existsBySectionIdAndUserId(Long sectionId, String userId);
 
+  Optional<Enrollment> findBySectionIdAndUserId(Long sectionId, String userId);
+
   List<Enrollment> findAllBySectionId(Long sectionId);
 
   List<Enrollment> findAllByUserId(String userId);

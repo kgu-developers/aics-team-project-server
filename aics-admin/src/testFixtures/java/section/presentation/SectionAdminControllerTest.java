@@ -29,10 +29,12 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import kgu.developers.admin.section.application.SectionAdminFacade;
 import kgu.developers.admin.section.presentation.SectionAdminControllerImpl;
 import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
@@ -179,6 +181,25 @@ class SectionAdminControllerTest {
                 .andExpect(jsonPath("$.contents[0].name").value("김철수"))
                 .andExpect(jsonPath("$.contents[0].role").value("STUDENT"))
                 .andExpect(jsonPath("$.contents[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    @DisplayName("PATCH /sections/{sectionId}/enrollments/{studentNumber}는 200과 변경된 수강 정보를 응답한다")
+    void updateEnrollment() throws Exception {
+        EnrollmentAdminUpdateRequest request = new EnrollmentAdminUpdateRequest(null, Status.WITHDRAWN);
+        Enrollment enrollment = Enrollment.builder()
+                .id(1L).sectionId(1L).userId("202699999").role(Role.STUDENT).status(Status.WITHDRAWN).build();
+        User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
+                UserGlobalRole.USER, "010-1234-6789");
+        given(sectionAdminFacade.updateEnrollment(1L, "202699999", request))
+                .willReturn(EnrollmentAdminResponse.from(new EnrollmentDetail(enrollment, student)));
+
+        mockMvc.perform(patch(BASE_URL + "/1/enrollments/202699999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("WITHDRAWN"))
+                .andExpect(jsonPath("$.role").value("STUDENT"));
     }
 
     @Test

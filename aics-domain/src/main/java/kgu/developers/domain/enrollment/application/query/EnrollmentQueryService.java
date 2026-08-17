@@ -11,10 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentDetail;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.enrollment.exception.EnrollmentNotFoundException;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -24,6 +26,14 @@ public class EnrollmentQueryService {
     private final EnrollmentRepository enrollmentRepository;
     private final SectionRepository sectionRepository;
     private final UserRepository userRepository;
+
+    public EnrollmentDetail getEnrollment(Long sectionId, String studentNumber) {
+        Enrollment enrollment = enrollmentRepository.findBySectionIdAndUserId(sectionId, studentNumber)
+                .orElseThrow(EnrollmentNotFoundException::new);
+        User user = userRepository.findByStudentNumber(studentNumber)
+                .orElseThrow(UserNotFoundException::new);
+        return new EnrollmentDetail(enrollment, user);
+    }
 
     public List<EnrollmentDetail> getEnrollmentsBySectionId(Long sectionId) {
         if (sectionRepository.findById(sectionId).isEmpty()) {

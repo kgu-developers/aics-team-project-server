@@ -10,11 +10,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
@@ -130,6 +132,31 @@ public interface SectionAdminController {
             example = "1",
             required = true
         ) @Positive @PathVariable Long sectionId
+    );
+
+    @Operation(summary = "분반 수강생 역할/상태 변경 API", description = """
+            - Description : 이 API는 분반에 등록된 사용자의 역할 또는 상태를 부분 수정합니다.
+            - 보낸 필드만 반영되고 생략한 필드는 그대로 유지됩니다.
+            - 상태는 ACTIVE(수강중)와 WITHDRAWN(탈퇴)를 오갈 수 있습니다. 명단에서 완전히 빼려면 별도 삭제가 필요합니다.
+        """)
+    @ApiResponse(
+        responseCode = "200",
+        content = @Content(schema = @Schema(implementation = EnrollmentAdminResponse.class)))
+    ResponseEntity<EnrollmentAdminResponse> updateEnrollment(
+        @Parameter(
+            description = "분반 ID는 URL 경로 변수 입니다.",
+            example = "1",
+            required = true
+        ) @Positive @PathVariable Long sectionId,
+        @Parameter(
+            description = "학번은 URL 경로 변수 입니다.",
+            example = "202699999",
+            required = true
+        ) @NotBlank @PathVariable String studentNumber,
+        @Parameter(
+            description = "수강생 역할/상태 수정 request 객체 입니다. 수정할 필드만 담습니다.",
+            required = true
+        ) @Valid @RequestBody EnrollmentAdminUpdateRequest request
     );
 
     @Operation(summary = "분반 수정 API", description = """

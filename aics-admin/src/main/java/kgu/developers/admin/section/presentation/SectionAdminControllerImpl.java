@@ -5,11 +5,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.section.application.SectionAdminFacade;
 import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
@@ -79,6 +81,16 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     public ResponseEntity<EnrollmentAdminListResponse> getEnrollmentsBySectionId(
         @Positive @PathVariable Long sectionId) {
         EnrollmentAdminListResponse response = sectionAdminFacade.getEnrollmentsBySectionId(sectionId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    @PatchMapping("/{sectionId}/enrollments/{studentNumber}")
+    public ResponseEntity<EnrollmentAdminResponse> updateEnrollment(
+        @Positive @PathVariable Long sectionId,
+        @NotBlank @PathVariable String studentNumber,
+        @Valid @RequestBody EnrollmentAdminUpdateRequest request) {
+        EnrollmentAdminResponse response = sectionAdminFacade.updateEnrollment(sectionId, studentNumber, request);
         return ResponseEntity.ok(response);
     }
 

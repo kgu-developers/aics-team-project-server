@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.admin.section.application.SectionAdminFacade;
 import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
@@ -124,6 +125,25 @@ class SectionAdminFacadeTest {
         assertThat(sectionAdminFacade
                 .createEnrollment(1L, new EnrollmentAdminRequest("202699999", Role.ASSISTANT)).id())
                 .isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("updateEnrollment는 변경 후 다시 조회한 값으로 응답한다")
+    void updateEnrollment() {
+        EnrollmentAdminUpdateRequest request = new EnrollmentAdminUpdateRequest(Role.ASSISTANT, Status.WITHDRAWN);
+        Enrollment updated = Enrollment.builder()
+                .id(1L).sectionId(1L).userId("202699999").role(Role.ASSISTANT).status(Status.WITHDRAWN).build();
+        User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
+                UserGlobalRole.USER, "010-1234-6789");
+        given(enrollmentQueryService.getEnrollment(1L, "202699999"))
+                .willReturn(new EnrollmentDetail(updated, student));
+
+        assertThat(sectionAdminFacade.updateEnrollment(1L, "202699999", request))
+                .satisfies(response -> {
+                    assertThat(response.role()).isEqualTo(Role.ASSISTANT);
+                    assertThat(response.status()).isEqualTo(Status.WITHDRAWN);
+                });
+        verify(enrollmentCommandService).updateEnrollment(1L, "202699999", Role.ASSISTANT, Status.WITHDRAWN);
     }
 
     @Test

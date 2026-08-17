@@ -1,11 +1,13 @@
 package kgu.developers.admin.section.application;
 
 import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
+import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionContactVisibilityUpdateRequest;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminListResponse;
 import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPersistResponse;
+import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
@@ -90,6 +92,12 @@ public class SectionAdminFacade {
     public EnrollmentAdminPersistResponse createEnrollment(Long sectionId, EnrollmentAdminRequest request) {
         Long id = enrollmentCommandService.createEnrollment(sectionId, request.studentNumber(), request.role());
         return EnrollmentAdminPersistResponse.of(id);
+    }
+
+    public EnrollmentAdminResponse updateEnrollment(Long sectionId, String studentNumber,
+                                                    EnrollmentAdminUpdateRequest request) {
+        enrollmentCommandService.updateEnrollment(sectionId, studentNumber, request.role(), request.status());
+        return EnrollmentAdminResponse.from(enrollmentQueryService.getEnrollment(sectionId, studentNumber));
     }
 
     public EnrollmentAdminListResponse getEnrollmentsBySectionId(Long sectionId) {
