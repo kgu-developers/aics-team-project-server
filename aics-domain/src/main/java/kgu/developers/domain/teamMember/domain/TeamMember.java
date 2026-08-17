@@ -30,6 +30,10 @@ public class TeamMember {
                 .build();
     }
 
+    public void updateTeamId(Long teamId) {
+        this.teamId = teamId;
+    }
+
     public void updateIsLeader(boolean isLeader) {
         this.isLeader = isLeader;
     }
