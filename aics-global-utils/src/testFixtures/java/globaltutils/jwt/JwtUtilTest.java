@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import kgu.developers.globalutils.jwt.JwtUtil;
 
@@ -27,6 +28,27 @@ class JwtUtilTest {
 
   private Claims claimsOf(String token) {
     return Jwts.parser().setSigningKey(SECRET.getBytes(UTF_8)).parseClaimsJws(token).getBody();
+  }
+
+  @Test
+  @DisplayName("32바이트 미만 키는 기동 시점에 거부한다 (HS256 최소 키 길이)")
+  void rejectsShortSecretKey() {
+    String shortKey = "0123456789abcdef0123456789abcde";  // 31바이트
+
+    assertThatThrownBy(
+        () -> new JwtUtil(shortKey, ISSUER, Duration.ofMinutes(30), Duration.ofDays(14)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("31바이트")
+        .hasMessageNotContaining(shortKey);
+  }
+
+  @Test
+  @DisplayName("정확히 32바이트인 키는 받아들인다")
+  void acceptsMinimumLengthSecretKey() {
+    String key = "0123456789abcdef0123456789abcdef";  // 32바이트
+
+    assertThat(new JwtUtil(key, ISSUER, Duration.ofMinutes(30), Duration.ofDays(14))
+        .createRefreshToken(STUDENT_NUMBER)).isNotBlank();
   }
 
   @Test
@@ -99,6 +121,31 @@ class JwtUtilTest {
   }
 
   @Test
+  @DisplayName("같은 키로 서명됐어도 발급자가 다르면 거부한다")
+  void rejectsTokenFromAnotherIssuer() {
+    JwtUtil other = new JwtUtil(SECRET, "evil@example.com", Duration.ofMinutes(30), Duration.ofDays(14));
+
+    assertThatThrownBy(() -> jwtUtil.parseAccessTokenClaims(other.createAccessToken(STUDENT_NUMBER, "ADMIN")))
+        .isInstanceOf(JwtException.class);
+    assertThatThrownBy(() -> jwtUtil.parseRefreshTokenSubject(other.createRefreshToken(STUDENT_NUMBER)))
+        .isInstanceOf(JwtException.class);
+  }
+
+  @Test
+  @DisplayName("발급자 클레임이 아예 없는 토큰도 거부한다")
+  void rejectsTokenWithoutIssuer() {
+    String noIssuer = Jwts.builder()
+        .setSubject(STUDENT_NUMBER)
+        .claim("type", "access")
+        .setExpiration(new Date(System.currentTimeMillis() + 60_000))
+        .signWith(SignatureAlgorithm.HS256, SECRET.getBytes(UTF_8))
+        .compact();
+
+    assertThatThrownBy(() -> jwtUtil.parseAccessTokenClaims(noIssuer))
+        .isInstanceOf(JwtException.class);
+  }
+
+  @Test
   @DisplayName("parseRefreshTokenSubject는 만료된 토큰을 거부한다")
   void parseRefreshTokenSubjectRejectsExpiredToken() {
     JwtUtil expired = new JwtUtil(SECRET, ISSUER, Duration.ofMinutes(30), Duration.ofSeconds(-1));
@@ -106,6 +153,17 @@ class JwtUtilTest {
 
     assertThatThrownBy(() -> jwtUtil.parseRefreshTokenSubject(token))
         .isInstanceOf(JwtException.class);
+  }
+
+  @Test
+  @DisplayName("비어 있는 토큰도 IllegalArgumentException이 아니라 JwtException으로 거부한다")
+  void rejectsBlankToken() {
+    for (String blank : new String[] {null, "", "   "}) {
+      assertThatThrownBy(() -> jwtUtil.parseAccessTokenClaims(blank))
+          .isInstanceOf(JwtException.class);
+      assertThatThrownBy(() -> jwtUtil.parseRefreshTokenSubject(blank))
+          .isInstanceOf(JwtException.class);
+    }
   }
 
   @Test

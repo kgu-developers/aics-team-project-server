@@ -1,0 +1,30 @@
+spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  datasource:
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+
+  data:
+    redis:
+      password: ${REDIS_PASSWORD:}
+
+springdoc:
+  swagger-ui:
+    enabled: true
+  api-docs:
+    enabled: true
+
+file:
+  secret-key: ${FILE_SECRET_KEY}
+
+jwt:
+  secret_key: ${JWT_SECRET_KEY}
+  cookie-secure: false
