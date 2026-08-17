@@ -5,6 +5,7 @@ import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teamMember.exception.LeaderAlreadyExistsException;
+import kgu.developers.domain.teamMember.exception.TeamMemberNotFoundException;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -87,7 +88,8 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     @Transactional
     public void deleteById(Long id) {
         jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
-                .ifPresent(TeamMemberJpaEntity::delete);
+                .orElseThrow(TeamMemberNotFoundException::new)
+                .delete();
     }
 
     @Override

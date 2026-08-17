@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -52,10 +53,9 @@ public class TeamRepositoryImpl implements TeamRepository {
     @Override
     @Transactional
     public void deleteById(Long id) {
-        jpaTeamRepository.findByIdAndDeletedAtIsNull(id)
-                .ifPresent(team -> {
-                    team.delete();
-                    teamMemberRepository.deleteAllByTeamId(id);
-                });
+        TeamJpaEntity team = jpaTeamRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(TeamNotFoundException::new);
+        team.delete();
+        teamMemberRepository.deleteAllByTeamId(id);
     }
 }
