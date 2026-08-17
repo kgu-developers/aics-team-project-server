@@ -2,8 +2,10 @@ package team.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,11 +16,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.admin.team.application.TeamAdminFacade;
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
+import kgu.developers.admin.team.presentation.request.TeamKickoffUpdateRequest;
+import kgu.developers.admin.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
+import kgu.developers.admin.team.presentation.response.TeamAdminKickoffResponse;
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -35,6 +41,9 @@ class TeamAdminFacadeTest {
 
 	@Mock
 	private TeamMemberQueryService teamMemberQueryService;
+
+	@Mock
+	private TeamMemberCommandService teamMemberCommandService;
 
 	@Mock
 	private UserQueryService userQueryService;
@@ -100,5 +109,49 @@ class TeamAdminFacadeTest {
 			.containsExactly(
 				org.assertj.core.groups.Tuple.tuple("1팀", Status.CONFIRMED),
 				org.assertj.core.groups.Tuple.tuple("2팀", Status.CONFIRMED));
+	}
+
+	@Test
+	@DisplayName("getKickoffByTeamId는 팀 운영규칙과 회의일정을 응답한다")
+	void getKickoffByTeamId() {
+		given(teamQueryService.getTeamById(1L)).willReturn(Team.builder()
+			.id(1L).sectionId(10L).name("1팀").topic("AI 학습 도우미").kickoffRule("매주 화요일 회고")
+			.meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
+
+		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+			.willReturn(List.of(member(1L, "202699999", true)));
+		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
+			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
+
+		TeamAdminKickoffResponse response = teamAdminFacade.getKickoffByTeamId(1L);
+
+		assertThat(response.name()).isEqualTo("1팀");
+		assertThat(response.members()).singleElement()
+			.satisfies(m -> assertThat(m.isLeader()).isTrue());
+		assertThat(response.topic()).isEqualTo("AI 학습 도우미");
+		assertThat(response.kickoffRule()).isEqualTo("매주 화요일 회고");
+		assertThat(response.meetingSchedule()).isEqualTo("매주 목 19:00");
+	}
+
+	@Test
+	@DisplayName("updateKickoff는 팀 정보와 역할분담을 저장하고 저장 결과를 응답한다")
+	void updateKickoff() {
+		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+			"1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00", "202699999",
+			List.of(new MemberRole("202699999", "백엔드")));
+		given(teamCommandService.updateKickoff(1L, "1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00"))
+			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").topic("AI 학습 도우미")
+				.kickoffRule("매주 화요일 회고").meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
+		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+			.willReturn(List.of(member(1L, "202699999", true)));
+		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
+			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
+
+		TeamAdminKickoffResponse response = teamAdminFacade.updateKickoff(1L, request);
+
+		verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of("202699999", "백엔드"));
+		assertThat(response.topic()).isEqualTo("AI 학습 도우미");
+		assertThat(response.members()).singleElement()
+			.satisfies(m -> assertThat(m.name()).isEqualTo("김철수"));
 	}
 }

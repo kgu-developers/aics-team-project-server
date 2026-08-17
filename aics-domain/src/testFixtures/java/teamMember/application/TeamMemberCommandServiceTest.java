@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +27,7 @@ import kgu.developers.domain.teamMember.application.command.TeamMemberCommandSer
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teamMember.exception.TeamMemberAlreadyExistsException;
+import kgu.developers.domain.teamMember.exception.TeamMemberNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
 class TeamMemberCommandServiceTest {
@@ -129,6 +133,82 @@ class TeamMemberCommandServiceTest {
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
 
         assertThat(teamMember.getTeamId()).isEqualTo(1L);
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    private TeamMember member(String userId, boolean isLeader, String projectRole) {
+        return TeamMember.builder()
+                .teamId(1L).userId(userId).isLeader(isLeader).projectRole(projectRole).build();
+    }
+
+    @Test
+    @DisplayName("킥오프 저장 시 기존 팀장을 내리고 새 팀장과 역할분담을 반영한다")
+    void updateKickoffRoles() {
+        TeamMember oldLeader = member("202611111", true, "백엔드");
+        TeamMember newLeader = member("202622222", false, "프론트엔드");
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(oldLeader, newLeader));
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
+
+        teamMemberCommandService.updateKickoffRoles(1L, "202622222",
+                Map.of("202611111", "기획", "202622222", "백엔드"));
+
+        assertThat(oldLeader.isLeader()).isFalse();
+        assertThat(oldLeader.getProjectRole()).isEqualTo("기획");
+        assertThat(newLeader.isLeader()).isTrue();
+        assertThat(newLeader.getProjectRole()).isEqualTo("백엔드");
+    }
+
+    @Test
+    @DisplayName("요청에 없는 팀원의 역할은 유지한다")
+    void keepsRolesOfUnlistedMembers() {
+        TeamMember leader = member("202611111", true, "백엔드");
+        TeamMember other = member("202622222", false, "프론트엔드");
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(leader, other));
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
+
+        teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of());
+
+        assertThat(other.getProjectRole()).isEqualTo("프론트엔드");
+        assertThat(other.isLeader()).isFalse();
+    }
+
+    @Test
+    @DisplayName("팀원이 아닌 학번을 팀장으로 지정하면 예외를 던진다")
+    void rejectsLeaderOutsideTeam() {
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findAllByTeamId(1L))
+                .willReturn(List.of(member("202611111", true, "백엔드")));
+
+        assertThatThrownBy(() -> teamMemberCommandService.updateKickoffRoles(1L, "202600000", Map.of()))
+                .isInstanceOf(TeamMemberNotFoundException.class);
+
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("팀원이 아닌 학번에 역할을 주면 예외를 던진다")
+    void rejectsRoleForOutsider() {
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findAllByTeamId(1L))
+                .willReturn(List.of(member("202611111", true, "백엔드")));
+
+        assertThatThrownBy(() -> teamMemberCommandService.updateKickoffRoles(
+                1L, "202611111", Map.of("202600000", "기획")))
+                .isInstanceOf(TeamMemberNotFoundException.class);
+
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("확정된 팀은 킥오프 역할분담을 저장할 수 없다")
+    void rejectsKickoffRolesOnConfirmedTeam() {
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.CONFIRMED));
+
+        assertThatThrownBy(() -> teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of()))
+                .isInstanceOf(TeamAlreadyConfirmedException.class);
+
         verify(teamMemberRepository, never()).save(any());
     }
 }
