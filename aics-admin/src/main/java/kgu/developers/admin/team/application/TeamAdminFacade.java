@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.Map;
 
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
+import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
+import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class TeamAdminFacade {
 	private final TeamQueryService teamQueryService;
+	private final TeamCommandService teamCommandService;
 	private final TeamMemberQueryService teamMemberQueryService;
 	private final UserQueryService userQueryService;
 
@@ -36,5 +39,9 @@ public class TeamAdminFacade {
 		return TeamAdminDetailResponse.of(team, teamMembers.stream()
 			.map(member -> TeamMemberAdminResponse.of(member, users.get(member.getUserId())))
 			.toList());
+	}
+
+	public TeamAdminListResponse finalizeTeams(Long sectionId) {
+		return TeamAdminListResponse.from(teamCommandService.finalizeTeams(sectionId));
 	}
 }

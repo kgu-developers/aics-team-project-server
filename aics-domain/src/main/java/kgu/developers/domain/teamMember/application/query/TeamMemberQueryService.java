@@ -22,7 +22,6 @@ public class TeamMemberQueryService {
                 .orElseThrow(TeamMemberNotFoundException::new);
     }
 
-    /** 팀원 목록. 리포지토리가 정렬을 보장하지 않아 팀장 우선, 학번 순으로 맞춘다. */
     public List<TeamMember> getTeamMembersByTeamId(Long teamId) {
         return teamMemberRepository.findAllByTeamId(teamId).stream()
                 .sorted(Comparator.comparing(TeamMember::isLeader).reversed()

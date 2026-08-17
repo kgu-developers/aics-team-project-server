@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
+import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -26,5 +27,21 @@ public interface TeamAdminController {
 			example = "1",
 			required = true
 		) @Positive @PathVariable Long teamId
+	);
+
+	@Operation(summary = "팀 배정 확정 API", description = """
+			- Description : 이 API는 분반의 팀 배정을 최종 확정합니다.
+			- 확정된 팀의 팀원은 이동/역할 변경이 불가하며 409를 응답합니다.
+			- 이미 확정된 팀이 있어도 그대로 두므로 여러 번 호출해도 결과는 같습니다.
+		""")
+	@ApiResponse(
+		responseCode = "200",
+		content = @Content(schema = @Schema(implementation = TeamAdminListResponse.class)))
+	ResponseEntity<TeamAdminListResponse> finalizeTeams(
+		@Parameter(
+			description = "분반 ID는 URL 경로 변수 입니다.",
+			example = "1",
+			required = true
+		) @Positive @PathVariable Long sectionId
 	);
 }

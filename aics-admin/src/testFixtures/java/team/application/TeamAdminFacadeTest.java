@@ -14,6 +14,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.admin.team.application.TeamAdminFacade;
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
+import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
+import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
@@ -27,6 +29,9 @@ class TeamAdminFacadeTest {
 
 	@Mock
 	private TeamQueryService teamQueryService;
+
+	@Mock
+	private TeamCommandService teamCommandService;
 
 	@Mock
 	private TeamMemberQueryService teamMemberQueryService;
@@ -80,5 +85,20 @@ class TeamAdminFacadeTest {
 				assertThat(m.studentNumber()).isEqualTo("202699999");
 				assertThat(m.name()).isNull();
 			});
+	}
+
+	@Test
+	@DisplayName("finalizeTeams는 확정된 팀 목록을 응답한다")
+	void finalizeTeams() {
+		given(teamCommandService.finalizeTeams(10L)).willReturn(List.of(
+			Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.CONFIRMED).build(),
+			Team.builder().id(2L).sectionId(10L).name("2팀").status(Status.CONFIRMED).build()));
+
+		TeamAdminListResponse response = teamAdminFacade.finalizeTeams(10L);
+
+		assertThat(response.contents()).extracting("name", "status")
+			.containsExactly(
+				org.assertj.core.groups.Tuple.tuple("1팀", Status.CONFIRMED),
+				org.assertj.core.groups.Tuple.tuple("2팀", Status.CONFIRMED));
 	}
 }
