@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
@@ -160,18 +161,53 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
-    @DisplayName("요청에 없는 팀원의 역할은 유지한다")
+    @DisplayName("요청에 없는 팀원의 역할은 유지하고 저장하지도 않는다")
     void keepsRolesOfUnlistedMembers() {
         TeamMember leader = member("202611111", true, "백엔드");
         TeamMember other = member("202622222", false, "프론트엔드");
         given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
         given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(leader, other));
-        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
 
         teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of());
 
         assertThat(other.getProjectRole()).isEqualTo("프론트엔드");
         assertThat(other.isLeader()).isFalse();
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("값이 바뀐 팀원만 저장한다")
+    void savesOnlyChangedMembers() {
+        TeamMember leader = member("202611111", true, "백엔드");
+        TeamMember unchanged = member("202622222", false, "프론트엔드");
+        TeamMember changed = member("202633333", false, "기획");
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findAllByTeamId(1L))
+                .willReturn(List.of(leader, unchanged, changed));
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
+
+        teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of(
+                "202611111", "백엔드",        // 그대로
+                "202622222", "프론트엔드",    // 그대로
+                "202633333", "디자인"));      // 변경
+
+        verify(teamMemberRepository, times(1)).save(any());
+        verify(teamMemberRepository).save(changed);
+    }
+
+    @Test
+    @DisplayName("팀장이 교체돼도 팀원당 저장은 한 번뿐이다")
+    void savesEachMemberOnce() {
+        TeamMember oldLeader = member("202611111", true, "백엔드");
+        TeamMember newLeader = member("202622222", false, "프론트엔드");
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(oldLeader, newLeader));
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
+
+        teamMemberCommandService.updateKickoffRoles(1L, "202622222", Map.of("202611111", "기획"));
+
+        verify(teamMemberRepository, times(1)).save(oldLeader);
+        verify(teamMemberRepository, times(1)).save(newLeader);
     }
 
     @Test
