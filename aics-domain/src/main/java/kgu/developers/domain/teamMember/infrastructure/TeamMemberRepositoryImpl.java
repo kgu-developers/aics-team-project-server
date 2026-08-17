@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.teamMember.exception.LeaderAlreadyExistsException;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -12,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
+
 @Repository
 @RequiredArgsConstructor
 public class TeamMemberRepositoryImpl implements TeamMemberRepository {
@@ -19,7 +22,11 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     private final EntityManager entityManager;
 
     @Override
+    @Transactional
     public TeamMember save(TeamMember teamMember) {
+        if (teamMember.isLeader() && teamMember.getDeletedAt() == null) {
+            validateNoOtherLeader(teamMember);
+        }
         TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, teamMember.getTeamId());
         UserJpaEntity user = entityManager.getReference(UserJpaEntity.class, teamMember.getUserId());
         TeamMemberJpaEntity entity = TeamMemberJpaEntity.toEntity(teamMember, team, user);
@@ -64,6 +71,15 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     @Override
     public boolean existsByTeamIdAndIsLeaderTrue(Long teamId) {
         return jpaTeamMemberRepository.existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId);
+    }
+
+    private void validateNoOtherLeader(TeamMember teamMember) {
+        entityManager.find(TeamJpaEntity.class, teamMember.getTeamId(), PESSIMISTIC_WRITE);
+        jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamMember.getTeamId())
+                .filter(leader -> !leader.getId().equals(teamMember.getId()))
+                .ifPresent(leader -> {
+                    throw new LeaderAlreadyExistsException();
+                });
     }
 
     @Override
