@@ -51,7 +51,6 @@ public class RedisConfig implements AicsConfig {
 		template.setConnectionFactory(connectionFactory);
 		template.setKeySerializer(new StringRedisSerializer());
 		template.setValueSerializer(new StringRedisSerializer());
-		template.setEnableTransactionSupport(true);
 		template.afterPropertiesSet();
 
 		return template;

@@ -4,7 +4,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class TokenRevocationStore {
@@ -18,7 +20,7 @@ public class TokenRevocationStore {
 		redisTemplate.opsForValue().set(
 			KEY_PREFIX + studentNumber,
 			String.valueOf(System.currentTimeMillis()),
-			jwtUtil.getAccessTokenValidity());
+			jwtUtil.getRefreshTokenValidity());
 	}
 
 	public boolean isRevoked(String studentNumber, Long issuedAtMillis) {
@@ -29,6 +31,16 @@ public class TokenRevocationStore {
 		if (issuedAtMillis == null) {
 			return true;
 		}
-		return issuedAtMillis < Long.parseLong(revokedAt);
+		long revokedMillis;
+		try {
+			revokedMillis = Long.parseLong(revokedAt);
+		} catch (NumberFormatException e) {
+			log.warn("Redis에 저장된 revokedAt 값이 손상되어 파싱할 수 없습니다.");
+			return true;
+		}
+		if (revokedMillis <= 0) {
+			return true;
+		}
+		return issuedAtMillis < revokedMillis;
 	}
 }
