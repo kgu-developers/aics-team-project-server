@@ -15,7 +15,8 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "\"enrollment\"")
+@Table(name = "\"enrollment\"", uniqueConstraints =
+        @UniqueConstraint(name = "uk_enrollment_section_user", columnNames = {"section_id", "user_id"}))
 @Builder
 @Getter
 @AllArgsConstructor
