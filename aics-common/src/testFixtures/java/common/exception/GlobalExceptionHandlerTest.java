@@ -1,5 +1,7 @@
 package common.exception;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,7 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -78,6 +82,17 @@ class GlobalExceptionHandlerTest {
     @GetMapping("/param/{id}")
     void param(@Positive @PathVariable Long id) {
     }
+
+    @GetMapping("/conflict")
+    void conflict() {
+      throw new DataIntegrityViolationException(
+          "ERROR: duplicate key value violates unique constraint \"user_pkey\"");
+    }
+
+    @GetMapping("/denied")
+    void denied() {
+      throw new AccessDeniedException("본인의 비밀번호만 변경할 수 있습니다.");
+    }
   }
 
   record TestRequest(@NotBlank String name) {
@@ -124,5 +139,25 @@ class GlobalExceptionHandlerTest {
     mockMvc.perform(get("/param/-5"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+  }
+
+  @Test
+  @DisplayName("DB 제약 위반은 500이 아니라 409로 응답하고 제약 이름을 노출하지 않는다")
+  void handlesDataIntegrityViolation() throws Exception {
+    mockMvc.perform(get("/conflict"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
+        .andExpect(jsonPath("$.message").value("요청이 기존 데이터와 충돌합니다."))
+        .andExpect(jsonPath("$.message").value(not(containsString("user_pkey"))));
+  }
+
+  @Test
+  @DisplayName("AccessDeniedException도 공통 {code, message} 형식으로 403을 응답한다")
+  void handlesAccessDenied() throws Exception {
+    // 잡지 않으면 스프링 시큐리티 기본 처리로 넘어가 /error의 기본 바디가 나간다
+    mockMvc.perform(get("/denied"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("본인의 비밀번호만 변경할 수 있습니다."));
   }
 }

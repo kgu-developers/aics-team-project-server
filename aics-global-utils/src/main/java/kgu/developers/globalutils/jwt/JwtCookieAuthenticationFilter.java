@@ -1,10 +1,12 @@
-package kgu.developers.admin.config;
+package kgu.developers.globalutils.jwt;
 
+import static kgu.developers.globalutils.jwt.JwtUtil.ISSUED_AT_MILLIS;
 import static kgu.developers.globalutils.jwt.JwtUtil.ROLE;
 
 import java.io.IOException;
 import java.util.List;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -21,7 +23,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import kgu.developers.globalutils.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -31,6 +32,7 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 	private static final String ACCESS_TOKEN = "accessToken";
 
 	private final JwtUtil jwtUtil;
+	private final TokenRevocationStore revocationStore;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -39,19 +41,21 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
 		if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 			try {
-				SecurityContextHolder.getContext()
-					.setAuthentication(authentication(jwtUtil.parseAccessTokenClaims(token)));
+				Claims claims = jwtUtil.parseAccessTokenClaims(token);
+				if (revocationStore.isRevoked(claims.getSubject(), claims.get(ISSUED_AT_MILLIS, Long.class))) {
+					SecurityContextHolder.clearContext();
+				} else {
+					SecurityContextHolder.getContext().setAuthentication(authentication(claims));
+				}
 			} catch (JwtException e) {
+				SecurityContextHolder.clearContext();
+			} catch (DataAccessException e) {
+				logger.warn("무효화 목록을 조회할 수 없어 인증을 거절합니다.", e);
 				SecurityContextHolder.clearContext();
 			}
 		}
 
 		filterChain.doFilter(request, response);
-	}
-
-	@Override
-	protected boolean shouldNotFilterErrorDispatch() {
-		return false;
 	}
 
 	private Authentication authentication(Claims claims) {

@@ -104,7 +104,7 @@ public class LoggingUtils {
           httpStatus, duration);
     } else {
       log.error("[DURATION] ENDPOINT : {} {} || STATUS : {} || DURATION : {}ms || EXCEPTION : {}",
-          httpMethod, requestUrl, httpStatus, duration, ex.getMessage());
+              httpMethod, requestUrl, httpStatus, duration, escapeLineBreaks(String.valueOf(ex.getMessage())));
     }
   }
 }

@@ -41,7 +41,7 @@ class LoggingUtilsTest {
   @Test
   @DisplayName("startTime 속성이 없으면 예외 없이 -1ms로 기록한다")
   void logDurationWithoutStartTime() {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/courses");
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/users");
 
     LoggingUtils.logDuration(request, new MockHttpServletResponse(), null);
 
@@ -52,7 +52,7 @@ class LoggingUtilsTest {
   @Test
   @DisplayName("startTime 속성이 없어도 예외 로깅 경로가 동작한다")
   void logDurationWithoutStartTimeOnExceptionPath() {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/courses");
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/users");
 
     LoggingUtils.logDuration(request, new MockHttpServletResponse(), new IllegalStateException("boom"));
 
@@ -87,7 +87,7 @@ class LoggingUtilsTest {
   @Test
   @DisplayName("startTime 속성이 있으면 경과 시간을 계산한다")
   void logDurationWithStartTime() {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/courses");
+    MockHttpServletRequest request = new MockHttpServletRequest("GET", "/users");
     request.setAttribute("startTime", System.currentTimeMillis() - 50);
 
     LoggingUtils.logDuration(request, new MockHttpServletResponse(), null);
