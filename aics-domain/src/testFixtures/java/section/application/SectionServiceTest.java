@@ -236,6 +236,33 @@ class SectionServiceTest {
     }
 
     @Test
+    @DisplayName("연락처 공개 기간을 역전시키는 변경은 거부되고 저장되지 않는다")
+    void rejectsReversedContactVisiblePeriodOnChange() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
+        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+
+        assertThatThrownBy(() -> commandService.changeContactVisiblePeriod(section, from.plusDays(5), from))
+                .isInstanceOf(InvalidContactVisiblePeriodException.class);
+
+        assertThat(section.getContactVisibleFrom()).isEqualTo(from);
+        assertThat(section.getContactVisibleUntil()).isEqualTo(from.plusDays(1));
+        verify(sectionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("연락처 공개 기간을 양쪽 null로 지우면 저장된다")
+    void clearsContactVisiblePeriod() {
+        LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
+        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+
+        commandService.changeContactVisiblePeriod(section, null, null);
+
+        assertThat(section.getContactVisibleFrom()).isNull();
+        assertThat(section.getContactVisibleUntil()).isNull();
+        verify(sectionRepository).save(section);
+    }
+
+    @Test
     @DisplayName("학생별 분반은 교수 소유가 아니라 수강 정보로 조회한다")
     void findsSectionsByStudentNumber() {
         given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(professor));

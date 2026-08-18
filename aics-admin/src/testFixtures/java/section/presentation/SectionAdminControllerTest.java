@@ -41,7 +41,9 @@ import kgu.developers.admin.enrollment.presentation.response.EnrollmentAdminPers
 import kgu.developers.admin.section.presentation.response.SectionAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
+import kgu.developers.common.exception.GlobalExceptionHandler;
 import kgu.developers.domain.course.domain.Course;
+import kgu.developers.domain.section.exception.InvalidContactVisiblePeriodException;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentDetail;
 import kgu.developers.domain.enrollment.domain.Role;
@@ -69,7 +71,9 @@ class SectionAdminControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new SectionAdminControllerImpl(sectionAdminFacade)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new SectionAdminControllerImpl(sectionAdminFacade))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     private SectionAdminResponse response() {
@@ -246,6 +250,20 @@ class SectionAdminControllerTest {
                 .andExpect(jsonPath("$.id").value(1L));
 
         verify(sectionAdminFacade).updateSectionContactVisibility(1L, request);
+    }
+
+    @Test
+    @DisplayName("PATCH /sections/{sectionId}/contact-visibility는 역전된 기간에 400을 응답한다")
+    void updateSectionContactVisibilityRejectsReversedPeriod() throws Exception {
+        SectionContactVisibilityUpdateRequest request = new SectionContactVisibilityUpdateRequest(UNTIL, FROM);
+        given(sectionAdminFacade.updateSectionContactVisibility(1L, request))
+                .willThrow(new InvalidContactVisiblePeriodException());
+
+        mockMvc.perform(patch(BASE_URL + "/1/contact-visibility")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_CONTACT_VISIBLE_PERIOD"));
     }
 
     @Test
