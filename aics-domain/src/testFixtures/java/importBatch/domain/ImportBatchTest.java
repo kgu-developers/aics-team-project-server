@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.domain.importBatch.domain.ImportBatch;
-import kgu.developers.domain.importBatch.domain.ImportJson;
+import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.importBatch.domain.Status;
 import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.exception.ImportBatchAlreadyAppliedException;
@@ -21,10 +21,10 @@ import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsExce
 class ImportBatchTest {
 
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 18, 12, 0);
-	private static final JsonNode PAYLOAD = ImportJson.parse("""
+	private static final JsonNode PAYLOAD = JsonConverter.parse("""
 			{"headers":["학번","이름"],"rows":[{"rowNumber":2,"cells":["202012345","홍길동"]}]}""");
-	private static final JsonNode CLEAN_SUMMARY = ImportJson.parse("{\"total\":1,\"invalid\":0}");
-	private static final JsonNode DIRTY_SUMMARY = ImportJson.parse("{\"total\":2,\"invalid\":1}");
+	private static final JsonNode CLEAN_SUMMARY = JsonConverter.parse("{\"total\":1,\"invalid\":0}");
+	private static final JsonNode DIRTY_SUMMARY = JsonConverter.parse("{\"total\":2,\"invalid\":1}");
 
 	static ImportBatch batch(JsonNode summary, LocalDateTime expiredAt) {
 		return ImportBatch.create("202012345", 1L, Type.ENROLLMENT, PAYLOAD, summary, expiredAt);
@@ -46,12 +46,12 @@ class ImportBatchTest {
 	@Test
 	@DisplayName("payload는 형식 제약이 없고 값의 타입도 보존된다")
 	void anyShapeIsAccepted() {
-		JsonNode alien = ImportJson.parse("""
+		JsonNode alien = JsonConverter.parse("""
 				{"metadata":{"sheetName":"Employee_Directory_2026"},
 				 "data":[{"empId":"EMP-001","salary":75000000,"isActive":true}]}""");
 
 		ImportBatch batch = ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
-				alien, ImportJson.parse("{\"totalRows\":1}"), NOW.plusDays(1));
+				alien, JsonConverter.parse("{\"totalRows\":1}"), NOW.plusDays(1));
 
 		assertThat(batch.getPayload().at("/data/0/empId").asText()).isEqualTo("EMP-001");
 		assertThat(batch.getPayload().at("/data/0/salary").asLong()).isEqualTo(75000000L);
@@ -65,7 +65,7 @@ class ImportBatchTest {
 	void hasErrors() {
 		assertThat(batch(DIRTY_SUMMARY, NOW.plusDays(1)).hasErrors()).isTrue();
 		assertThat(batch(CLEAN_SUMMARY, NOW.plusDays(1)).hasErrors()).isFalse();
-		assertThat(batch(ImportJson.parse("{}"), NOW.plusDays(1)).hasErrors()).isFalse();
+		assertThat(batch(JsonConverter.parse("{}"), NOW.plusDays(1)).hasErrors()).isFalse();
 	}
 
 	@Test

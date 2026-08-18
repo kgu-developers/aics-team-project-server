@@ -3,7 +3,8 @@ package kgu.developers.domain.importBatch.infrastructure;
 import jakarta.persistence.*;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.importBatch.domain.ImportBatch;
-import kgu.developers.domain.importBatch.domain.ImportJson;
+import kgu.developers.common.json.JsonConverter;
+import kgu.developers.domain.importBatch.exception.ImportBatchPayloadInvalidException;
 import kgu.developers.domain.importBatch.domain.Status;
 import kgu.developers.domain.importBatch.domain.Type;
 import lombok.AllArgsConstructor;
@@ -69,8 +70,8 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.sectionId(sectionId)
 				.type(type)
 				.status(status)
-				.payload(ImportJson.parse(payload))
-				.summary(ImportJson.parse(summary))
+				.payload(JsonConverter.parse(payload, ImportBatchPayloadInvalidException::new))
+				.summary(JsonConverter.parse(summary, ImportBatchPayloadInvalidException::new))
 				.expiredAt(expiredAt)
 				.createdAt(getCreatedAt())
 				.updatedAt(getUpdatedAt())

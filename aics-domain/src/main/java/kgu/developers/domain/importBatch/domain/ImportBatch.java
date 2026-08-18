@@ -34,10 +34,6 @@ public class ImportBatch {
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
-    /**
-     * payload/summary의 모양은 도메인이 따지지 않는다. 해석은 업로드/적용 서비스의 몫이다.
-     * 전부 NOT NULL 컬럼이라, null이면 저장 시점의 제약 위반(500) 대신 여기서 막는다.
-     */
     public static ImportBatch create(String uploadedBy, Long sectionId, Type type,
                                      JsonNode payload, JsonNode summary, LocalDateTime expiredAt) {
         return ImportBatch.builder()
@@ -51,10 +47,6 @@ public class ImportBatch {
                 .build();
     }
 
-    /**
-     * summary에 invalid 카운트가 있으면 그걸로 오류 행 유무를 판단한다.
-     * 형식을 강제하지 않으므로, 없으면 오류가 없는 것으로 본다 (apply가 그냥 통과한다).
-     */
     public boolean hasErrors() {
         return summary.path("invalid").asInt(0) > 0;
     }
@@ -80,7 +72,6 @@ public class ImportBatch {
         return status == Status.EXPIRED || expiredAt.isBefore(now);
     }
 
-    /** 소프트 삭제. 반영은 save를 통해서만 이뤄진다 (하드 삭제 경로는 없다). */
     public void delete(LocalDateTime now) {
         this.deletedAt = now;
     }
