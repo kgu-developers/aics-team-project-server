@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.common.domain.BaseTimeEntity;
@@ -52,6 +53,9 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "text")
     private String content;
 
+    @Version
+    private long version;
+
     public MeetingRecord toDomain(List<MeetingParticipant> participants) {
         return MeetingRecord.builder()
             .id(this.id)
@@ -62,6 +66,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
             .location(this.location)
             .content(this.content)
             .participants(participants)
+            .version(this.version)
             .createdAt(this.getCreatedAt())
             .updatedAt(this.getUpdatedAt())
             .build();
@@ -76,6 +81,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
             .meetingAt(domain.getMeetingAt())
             .location(domain.getLocation())
             .content(domain.getContent())
+            .version(domain.getVersion())
             .build();
     }
 }

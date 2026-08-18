@@ -21,6 +21,7 @@ public class MeetingRecord {
     private String location;
     private String content;
     private List<MeetingParticipant> participants;
+    private long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
