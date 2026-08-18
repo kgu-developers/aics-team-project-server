@@ -1,5 +1,7 @@
 package kgu.developers.domain.importBatch.domain;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import kgu.developers.domain.importBatch.exception.ImportBatchAlreadyAppliedException;
 import kgu.developers.domain.importBatch.exception.ImportBatchExpiredException;
 import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsException;
@@ -9,7 +11,6 @@ import static java.util.Objects.requireNonNull;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Getter
 @Builder
@@ -25,37 +26,37 @@ public class ImportBatch {
     private Type type;  // 유형
     private Status status;  // 상태
 
-    private ImportPayload payload;  // 원본데이터
-    private ImportSummary summary;  // 요약
+    private JsonNode payload;  // 원본데이터 (형식 제약 없음)
+    private JsonNode summary;  // 요약 (형식 제약 없음)
 
     private LocalDateTime expiredAt;  // 만료시각
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
+    /**
+     * payload/summary의 모양은 도메인이 따지지 않는다. 해석은 업로드/적용 서비스의 몫이다.
+     * 전부 NOT NULL 컬럼이라, null이면 저장 시점의 제약 위반(500) 대신 여기서 막는다.
+     */
     public static ImportBatch create(String uploadedBy, Long sectionId, Type type,
-                                     ImportPayload payload, LocalDateTime expiredAt) {
+                                     JsonNode payload, JsonNode summary, LocalDateTime expiredAt) {
         return ImportBatch.builder()
                 .uploadedBy(requireNonNull(uploadedBy, "uploadedBy"))
                 .sectionId(requireNonNull(sectionId, "sectionId"))
                 .type(requireNonNull(type, "type"))
                 .status(Status.PREVIEW)
                 .payload(requireNonNull(payload, "payload"))
-                .summary(ImportSummary.of(payload))
+                .summary(requireNonNull(summary, "summary"))
                 .expiredAt(requireNonNull(expiredAt, "expiredAt"))
                 .build();
     }
 
-    public List<ImportRow> getApplicableRows() {
-        return payload.applicableRows();
-    }
-
-    public String cell(ImportRow row, String column) {
-        return payload.cell(row, column);
-    }
-
+    /**
+     * summary에 invalid 카운트가 있으면 그걸로 오류 행 유무를 판단한다.
+     * 형식을 강제하지 않으므로, 없으면 오류가 없는 것으로 본다 (apply가 그냥 통과한다).
+     */
     public boolean hasErrors() {
-        return summary.invalid() > 0;
+        return summary.path("invalid").asInt(0) > 0;
     }
 
     public void apply(LocalDateTime now) {
@@ -79,6 +80,7 @@ public class ImportBatch {
         return status == Status.EXPIRED || expiredAt.isBefore(now);
     }
 
+    /** 소프트 삭제. 반영은 save를 통해서만 이뤄진다 (하드 삭제 경로는 없다). */
     public void delete(LocalDateTime now) {
         this.deletedAt = now;
     }

@@ -1,16 +1,11 @@
 package kgu.developers.domain.importBatch.infrastructure;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.importBatch.domain.ImportBatch;
-import kgu.developers.domain.importBatch.domain.ImportPayload;
-import kgu.developers.domain.importBatch.domain.ImportSummary;
+import kgu.developers.domain.importBatch.domain.ImportJson;
 import kgu.developers.domain.importBatch.domain.Status;
 import kgu.developers.domain.importBatch.domain.Type;
-import kgu.developers.domain.importBatch.exception.ImportBatchPayloadInvalidException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,12 +29,6 @@ import static lombok.AccessLevel.PROTECTED;
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class ImportBatchJpaEntity extends BaseTimeEntity {
-	private static final ObjectMapper MAPPER = new ObjectMapper();
-	private static final TypeReference<ImportPayload> PAYLOAD = new TypeReference<>() {
-	};
-	private static final TypeReference<ImportSummary> SUMMARY = new TypeReference<>() {
-	};
-
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	private Long id;
@@ -80,8 +69,8 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.sectionId(sectionId)
 				.type(type)
 				.status(status)
-				.payload(read(payload, PAYLOAD))
-				.summary(read(summary, SUMMARY))
+				.payload(ImportJson.parse(payload))
+				.summary(ImportJson.parse(summary))
 				.expiredAt(expiredAt)
 				.createdAt(getCreatedAt())
 				.updatedAt(getUpdatedAt())
@@ -97,28 +86,12 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.sectionId(importBatch.getSectionId())
 				.type(importBatch.getType())
 				.status(importBatch.getStatus())
-				.payload(write(importBatch.getPayload()))
-				.summary(write(importBatch.getSummary()))
+				.payload(importBatch.getPayload().toString())
+				.summary(importBatch.getSummary().toString())
 				.expiredAt(importBatch.getExpiredAt())
 				.build();
 		entity.createdAt = importBatch.getCreatedAt();
 		entity.setDeletedAt(importBatch.getDeletedAt());
 		return entity;
-	}
-
-	private static String write(Object value) {
-		try {
-			return MAPPER.writeValueAsString(value);
-		} catch (JsonProcessingException e) {
-			throw new ImportBatchPayloadInvalidException(e);
-		}
-	}
-
-	private static <T> T read(String json, TypeReference<T> type) {
-		try {
-			return MAPPER.readValue(json, type);
-		} catch (JsonProcessingException e) {
-			throw new ImportBatchPayloadInvalidException(e);
-		}
 	}
 }
