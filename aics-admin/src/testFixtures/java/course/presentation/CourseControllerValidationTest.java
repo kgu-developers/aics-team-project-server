@@ -69,7 +69,7 @@ class CourseControllerValidationTest {
   void getCourseByNonPositiveId(long id) throws Exception {
     mockMvc.perform(get(COURSE_URL, id))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
     then(courseFacade).should(never()).getCourseById(id);
   }
@@ -82,7 +82,7 @@ class CourseControllerValidationTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(VALID_BODY))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
     then(courseFacade).shouldHaveNoInteractions();
   }
@@ -93,7 +93,7 @@ class CourseControllerValidationTest {
   void deleteCourseByNonPositiveId(long id) throws Exception {
     mockMvc.perform(delete(COURSE_URL, id).with(csrf()))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
     then(courseFacade).should(never()).deleteCourse(id);
   }

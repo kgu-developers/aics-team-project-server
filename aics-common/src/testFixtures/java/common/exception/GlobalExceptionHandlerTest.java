@@ -103,17 +103,16 @@ class GlobalExceptionHandlerTest {
   @BeforeEach
   void setUp() {
     mockMvc = MockMvcBuilders.standaloneSetup(new TestController())
-        .setControllerAdvice(new GlobalExceptionHandler())
+        .setControllerAdvice(new GlobalExceptionHandler(event -> { }))
         .build();
   }
 
   @Test
-  @DisplayName("CustomException은 ExceptionCode의 상태와 code/message로 응답한다")
+  @DisplayName("CustomException은 ExceptionCode의 상태와 code로 응답한다")
   void handlesClientFault() throws Exception {
     mockMvc.perform(get("/client-fault"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("CLIENT_FAULT"))
-        .andExpect(jsonPath("$.message").value("잘못된 요청입니다."));
+        .andExpect(jsonPath("$.code").value("CLIENT_FAULT"));
   }
 
   @Test
@@ -121,19 +120,17 @@ class GlobalExceptionHandlerTest {
   void handlesServerFault() throws Exception {
     mockMvc.perform(get("/server-fault"))
         .andExpect(status().isInternalServerError())
-        .andExpect(jsonPath("$.code").value("SERVER_FAULT"))
-        .andExpect(jsonPath("$.message").value("서버 오류입니다."));
+        .andExpect(jsonPath("$.code").value("SERVER_FAULT"));
   }
 
   @Test
-  @DisplayName("본문 검증 실패는 400과 어긋난 필드를 알려준다")
+  @DisplayName("본문 검증 실패는 400과 INVALID_INPUT 코드로 응답한다")
   void handlesInvalidBody() throws Exception {
     mockMvc.perform(post("/body")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"name\": \" \"}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
-        .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("name")));
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
   }
 
   @Test
@@ -141,7 +138,7 @@ class GlobalExceptionHandlerTest {
   void handlesInvalidPathVariable() throws Exception {
     mockMvc.perform(get("/param/-5"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
   }
 
   @Test
