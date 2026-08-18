@@ -72,7 +72,7 @@ class SectionAdminControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new SectionAdminControllerImpl(sectionAdminFacade))
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(event -> { }))
                 .build();
     }
 
