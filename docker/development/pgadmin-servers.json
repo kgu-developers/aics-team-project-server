@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "CSHOME Dev DB",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "cshome",
+      "SSLMode": "prefer"
+    }
+  }
+}
