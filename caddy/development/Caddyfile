@@ -15,6 +15,23 @@ team-project-api.kgudevelopers.monster {
 		reverse_proxy aics-auth:8082
 	}
 
+	# aics-admin/aics-auth Swagger 문서 노출용 (springdoc 경로를 각각 커스텀 지정해 catch-all과 충돌 방지)
+	handle /admin-docs* {
+		reverse_proxy aics-admin:8081
+	}
+
+	handle /admin-api-docs* {
+		reverse_proxy aics-admin:8081
+	}
+
+	handle /auth-docs* {
+		reverse_proxy aics-auth:8082
+	}
+
+	handle /auth-api-docs* {
+		reverse_proxy aics-auth:8082
+	}
+
 	handle {
 		reverse_proxy aics-api:8080
 	}
