@@ -32,7 +32,8 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/api/v1/oop/auth/login", "/api/v1/oop/auth/refresh",
-                "/api/v1/oop/auth/logout", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                "/api/v1/oop/auth/logout", "/swagger-ui/**", "/v3/api-docs/**",
+                "/auth-docs/**", "/auth-api-docs/**").permitAll()
             .anyRequest().authenticated())
         .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))
         .addFilterBefore(jwtCookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
