@@ -35,8 +35,7 @@ public class TokenRevocationStore {
 		try {
 			revokedMillis = Long.parseLong(revokedAt);
 		} catch (NumberFormatException e) {
-			log.warn("Redis에 저장된 revokedAt 값이 손상되어 파싱할 수 없습니다. studentNumber={}, value={}",
-				studentNumber, revokedAt);
+			log.warn("Redis에 저장된 revokedAt 값이 손상되어 파싱할 수 없습니다.");
 			return true;
 		}
 		if (revokedMillis <= 0) {
