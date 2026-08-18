@@ -6,6 +6,7 @@ import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageReadReceiptRepository;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
+import kgu.developers.domain.teammessage.exception.TeamMessageNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +20,11 @@ public class TeamMessageQueryService {
 
     private final TeamMessageRepository teamMessageRepository;
     private final TeamMessageReadReceiptRepository teamMessageReadReceiptRepository;
+
+    public TeamMessage getMessage(Long id) {
+        return teamMessageRepository.findById(id)
+            .orElseThrow(TeamMessageNotFoundException::new);
+    }
 
     public Page<TeamMessage> getMessages(Long threadId, TeamMessageRelatedType relatedType, Pageable pageable) {
         if (relatedType != null) {

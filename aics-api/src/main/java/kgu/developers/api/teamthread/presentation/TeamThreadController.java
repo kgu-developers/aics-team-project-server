@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kgu.developers.api.teamthread.presentation.response.TeamThreadResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 
 @Tag(name = "TeamThread", description = "팀 커뮤니케이션 스레드 API")
@@ -21,5 +22,5 @@ public interface TeamThreadController {
             """
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TeamThreadResponse.class)))
-    ResponseEntity<TeamThreadResponse> getThread(@PathVariable Long teamId);
+    ResponseEntity<TeamThreadResponse> getThread(@PathVariable Long teamId, Authentication authentication);
 }

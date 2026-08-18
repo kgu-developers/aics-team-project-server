@@ -63,9 +63,10 @@ public class TeamMessageControllerImpl implements TeamMessageController {
     @PatchMapping("/messages/{id}/important")
     public ResponseEntity<Void> updateImportant(
         @PathVariable Long id,
-        @Valid @RequestBody TeamMessageImportantUpdateRequest request
+        @Valid @RequestBody TeamMessageImportantUpdateRequest request,
+        Authentication authentication
     ) {
-        teamMessageFacade.updateImportant(id, request.important());
+        teamMessageFacade.updateImportant(id, request.important(), authentication.getName());
         return ResponseEntity.noContent().build();
     }
 

@@ -72,7 +72,11 @@ public interface TeamMessageController {
             """
     )
     @ApiResponse(responseCode = "204")
-    ResponseEntity<Void> updateImportant(@PathVariable Long id, @Valid @RequestBody TeamMessageImportantUpdateRequest request);
+    ResponseEntity<Void> updateImportant(
+        @PathVariable Long id,
+        @Valid @RequestBody TeamMessageImportantUpdateRequest request,
+        Authentication authentication
+    );
 
     @Operation(
         summary = "메시지 읽음 처리 API",

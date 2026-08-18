@@ -18,4 +18,9 @@ public class TeamThreadQueryService {
         return teamThreadRepository.findByTeamId(teamId)
             .orElseThrow(TeamThreadNotFoundException::new);
     }
+
+    public TeamThread getThreadById(Long id) {
+        return teamThreadRepository.findById(id)
+            .orElseThrow(TeamThreadNotFoundException::new);
+    }
 }
