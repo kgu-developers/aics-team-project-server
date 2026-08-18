@@ -7,6 +7,8 @@ import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.importBatch.exception.ImportBatchPayloadInvalidException;
 import kgu.developers.domain.importBatch.domain.Status;
 import kgu.developers.domain.importBatch.domain.Type;
+import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
+import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,6 +19,7 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
 import static jakarta.persistence.EnumType.STRING;
+import static jakarta.persistence.FetchType.LAZY;
 import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
@@ -37,11 +40,15 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 	@Version
 	private Long version;
 
-	@Column(nullable = false, length = 20)
-	private String uploadedBy;
+	@ManyToOne(fetch = LAZY, optional = false)
+	@JoinColumn(name = "uploaded_by", nullable = false, columnDefinition = "VARCHAR(20)",
+			foreignKey = @ForeignKey(name = "fk_import_batch_uploader"))
+	private UserJpaEntity uploadedBy;
 
-	@Column(nullable = false)
-	private Long sectionId;
+	@ManyToOne(fetch = LAZY, optional = false)
+	@JoinColumn(name = "section_id", nullable = false,
+			foreignKey = @ForeignKey(name = "fk_import_batch_section"))
+	private SectionJpaEntity section;
 
 	@Column(nullable = false, length = 16)
 	@Enumerated(STRING)
@@ -66,8 +73,8 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 		return ImportBatch.builder()
 				.id(id)
 				.version(version)
-				.uploadedBy(uploadedBy)
-				.sectionId(sectionId)
+				.uploadedBy(uploadedBy.getStudentNumber())
+				.sectionId(section.getId())
 				.type(type)
 				.status(status)
 				.payload(JsonConverter.parse(payload, ImportBatchPayloadInvalidException::new))
@@ -79,12 +86,13 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.build();
 	}
 
-	public static ImportBatchJpaEntity toEntity(ImportBatch importBatch) {
+	public static ImportBatchJpaEntity toEntity(ImportBatch importBatch, SectionJpaEntity section,
+			UserJpaEntity uploadedBy) {
 		ImportBatchJpaEntity entity = ImportBatchJpaEntity.builder()
 				.id(importBatch.getId())
 				.version(importBatch.getVersion())
-				.uploadedBy(importBatch.getUploadedBy())
-				.sectionId(importBatch.getSectionId())
+				.uploadedBy(uploadedBy)
+				.section(section)
 				.type(importBatch.getType())
 				.status(importBatch.getStatus())
 				.payload(importBatch.getPayload().toString())

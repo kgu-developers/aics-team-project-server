@@ -14,10 +14,14 @@ import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.importBatch.domain.Status;
 import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.infrastructure.ImportBatchJpaEntity;
+import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
+import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 
 class ImportBatchJpaEntityTest {
 
 	private static final LocalDateTime EXPIRED_AT = LocalDateTime.of(2026, 8, 19, 12, 0);
+	private static final SectionJpaEntity SECTION = SectionJpaEntity.builder().id(1L).build();
+	private static final UserJpaEntity UPLOADER = UserJpaEntity.builder().studentNumber("202012345").build();
 
 	@Test
 	@DisplayName("어떤 형식의 JSON이든 저장되고 그대로 복원된다 (한글·숫자·boolean 포함)")
@@ -28,7 +32,7 @@ class ImportBatchJpaEntityTest {
 		ImportBatch origin = ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
 				payload, JsonConverter.parse("{\"total\":2,\"invalid\":0}"), EXPIRED_AT);
 
-		ImportBatchJpaEntity entity = ImportBatchJpaEntity.toEntity(origin);
+		ImportBatchJpaEntity entity = ImportBatchJpaEntity.toEntity(origin, SECTION, UPLOADER);
 		assertThat(entity.getPayload()).contains("\"학번\":\"202012345\"", "\"salary\":75000000");
 
 		ImportBatch restored = entity.toDomain();
@@ -55,7 +59,7 @@ class ImportBatchJpaEntityTest {
 				.expiredAt(EXPIRED_AT)
 				.build();
 
-		assertThat(ImportBatchJpaEntity.toEntity(stored).getVersion()).isEqualTo(3L);
-		assertThat(ImportBatchJpaEntity.toEntity(stored).toDomain().getVersion()).isEqualTo(3L);
+		assertThat(ImportBatchJpaEntity.toEntity(stored, SECTION, UPLOADER).getVersion()).isEqualTo(3L);
+		assertThat(ImportBatchJpaEntity.toEntity(stored, SECTION, UPLOADER).toDomain().getVersion()).isEqualTo(3L);
 	}
 }
