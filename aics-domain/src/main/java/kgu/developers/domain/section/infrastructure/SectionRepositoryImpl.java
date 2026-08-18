@@ -52,6 +52,17 @@ public class SectionRepositoryImpl implements SectionRepository {
     }
 
     @Override
+    public List<SectionDetail> findAllByIdIn(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<SectionJpaEntity> entities = jpaSectionRepository.findAllByIdInAndDeletedAtIsNullOrderByCodeAsc(ids);
+        return entities.stream()
+                .map(SectionJpaEntity::toDetail)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public boolean existsActiveByIdAndProfessorId(Long id, String professorId) {
         return jpaSectionRepository.existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(id, professorId);
     }

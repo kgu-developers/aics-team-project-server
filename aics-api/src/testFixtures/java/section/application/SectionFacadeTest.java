@@ -63,7 +63,7 @@ class SectionFacadeTest {
     @Test
     @DisplayName("getMySections는 토큰의 학번과 조건을 그대로 쿼리 서비스에 넘긴다")
     void getMySections() {
-        given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER, StatusType.ACTIVE, 2026,
+        given(sectionQueryService.getSectionsByStudentNumber(STUDENT_NUMBER, StatusType.ACTIVE, 2026,
                 SemesterType.SPRING)).willReturn(List.of(detail()));
 
         assertThat(sectionFacade.getMySections(STUDENT_NUMBER, StatusType.ACTIVE, 2026, SemesterType.SPRING)

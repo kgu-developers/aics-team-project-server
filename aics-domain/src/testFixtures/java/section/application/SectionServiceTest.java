@@ -23,6 +23,10 @@ import kgu.developers.domain.course.domain.CourseRepository;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.course.exception.CourseNotFoundException;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.application.command.SectionCommandService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
@@ -45,6 +49,9 @@ class SectionServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private EnrollmentRepository enrollmentRepository;
 
     @InjectMocks
     private SectionCommandService commandService;
@@ -226,6 +233,32 @@ class SectionServiceTest {
                     assertThat(detail.professor().getName()).isEqualTo("김교수");
                     assertThat(detail.course().getName()).isEqualTo("객체지향프로그래밍");
                 });
+    }
+
+    @Test
+    @DisplayName("학생별 분반은 교수 소유가 아니라 수강 정보로 조회한다")
+    void findsSectionsByStudentNumber() {
+        given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(professor));
+        given(enrollmentRepository.findAllByUserId("202099999")).willReturn(List.of(
+                Enrollment.create(1L, "202099999", Role.STUDENT, Status.ACTIVE),
+                Enrollment.create(2L, "202099999", Role.STUDENT, Status.WITHDRAWN)));
+        // 탈퇴한 수강 정보(2L)는 제외하고 활성 분반만 넘긴다
+        given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail()));
+
+        assertThat(queryService.getSectionsByStudentNumber("202099999"))
+                .singleElement()
+                .satisfies(detail -> assertThat(detail.course().getName()).isEqualTo("객체지향프로그래밍"));
+
+        verify(sectionRepository, never()).findAllByProfessorId("202099999");
+    }
+
+    @Test
+    @DisplayName("없는 학생의 분반은 조회할 수 없다")
+    void rejectsSectionsForMissingStudent() {
+        given(userRepository.findByStudentNumber("999999999")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> queryService.getSectionsByStudentNumber("999999999"))
+                .isInstanceOf(UserNotFoundException.class);
     }
 
     @Test

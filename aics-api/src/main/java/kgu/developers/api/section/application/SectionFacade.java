@@ -21,6 +21,6 @@ public class SectionFacade {
     public SectionListResponse getMySections(String studentNumber, StatusType status, Integer year,
                                                SemesterType semester) {
         return SectionListResponse.from(
-            sectionQueryService.getSectionsByProfessorId(studentNumber, status, year, semester));
+            sectionQueryService.getSectionsByStudentNumber(studentNumber, status, year, semester));
     }
 }

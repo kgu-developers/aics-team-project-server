@@ -17,5 +17,8 @@ public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Lo
     @EntityGraph(attributePaths = {"course", "professor"})
     List<SectionJpaEntity> findAllByProfessorStudentNumberAndDeletedAtIsNullOrderByCodeAsc(String studentNumber);
 
+    @EntityGraph(attributePaths = {"course", "professor"})
+    List<SectionJpaEntity> findAllByIdInAndDeletedAtIsNullOrderByCodeAsc(List<Long> ids);
+
     boolean existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(Long id, String studentNumber);
 }
