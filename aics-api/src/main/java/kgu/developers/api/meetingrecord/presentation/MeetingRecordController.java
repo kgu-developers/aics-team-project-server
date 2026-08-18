@@ -31,7 +31,8 @@ public interface MeetingRecordController {
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = MeetingRecordListResponse.class)))
     ResponseEntity<MeetingRecordListResponse> getMeetingRecords(
         @PathVariable Long teamId,
-        @RequestParam(required = false) MeetingPhase phase
+        @RequestParam(required = false) MeetingPhase phase,
+        Authentication authentication
     );
 
     @Operation(
@@ -56,7 +57,7 @@ public interface MeetingRecordController {
             """
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = MeetingRecordDetailResponse.class)))
-    ResponseEntity<MeetingRecordDetailResponse> getMeetingRecord(@PathVariable Long id);
+    ResponseEntity<MeetingRecordDetailResponse> getMeetingRecord(@PathVariable Long id, Authentication authentication);
 
     @Operation(
         summary = "회의록 수정 API",
@@ -68,7 +69,8 @@ public interface MeetingRecordController {
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = MeetingRecordPersistResponse.class)))
     ResponseEntity<MeetingRecordPersistResponse> updateMeetingRecord(
         @PathVariable Long id,
-        @Valid @RequestBody MeetingRecordUpdateRequest request
+        @Valid @RequestBody MeetingRecordUpdateRequest request,
+        Authentication authentication
     );
 
     @Operation(
@@ -79,5 +81,5 @@ public interface MeetingRecordController {
             """
     )
     @ApiResponse(responseCode = "204")
-    ResponseEntity<Void> deleteMeetingRecord(@PathVariable Long id);
+    ResponseEntity<Void> deleteMeetingRecord(@PathVariable Long id, Authentication authentication);
 }

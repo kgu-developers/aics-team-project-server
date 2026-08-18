@@ -32,9 +32,10 @@ public class MeetingRecordControllerImpl implements MeetingRecordController {
     @GetMapping("/teams/{teamId}/meeting-records")
     public ResponseEntity<MeetingRecordListResponse> getMeetingRecords(
         @PathVariable Long teamId,
-        @RequestParam(required = false) MeetingPhase phase
+        @RequestParam(required = false) MeetingPhase phase,
+        Authentication authentication
     ) {
-        return ResponseEntity.ok(meetingRecordFacade.getMeetingRecords(teamId, phase));
+        return ResponseEntity.ok(meetingRecordFacade.getMeetingRecords(teamId, phase, authentication.getName()));
     }
 
     @Override
@@ -50,23 +51,24 @@ public class MeetingRecordControllerImpl implements MeetingRecordController {
 
     @Override
     @GetMapping("/meeting-records/{id}")
-    public ResponseEntity<MeetingRecordDetailResponse> getMeetingRecord(@PathVariable Long id) {
-        return ResponseEntity.ok(meetingRecordFacade.getMeetingRecord(id));
+    public ResponseEntity<MeetingRecordDetailResponse> getMeetingRecord(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(meetingRecordFacade.getMeetingRecord(id, authentication.getName()));
     }
 
     @Override
     @PatchMapping("/meeting-records/{id}")
     public ResponseEntity<MeetingRecordPersistResponse> updateMeetingRecord(
         @PathVariable Long id,
-        @Valid @RequestBody MeetingRecordUpdateRequest request
+        @Valid @RequestBody MeetingRecordUpdateRequest request,
+        Authentication authentication
     ) {
-        return ResponseEntity.ok(meetingRecordFacade.updateMeetingRecord(id, request));
+        return ResponseEntity.ok(meetingRecordFacade.updateMeetingRecord(id, request, authentication.getName()));
     }
 
     @Override
     @DeleteMapping("/meeting-records/{id}")
-    public ResponseEntity<Void> deleteMeetingRecord(@PathVariable Long id) {
-        meetingRecordFacade.deleteMeetingRecord(id);
+    public ResponseEntity<Void> deleteMeetingRecord(@PathVariable Long id, Authentication authentication) {
+        meetingRecordFacade.deleteMeetingRecord(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 }

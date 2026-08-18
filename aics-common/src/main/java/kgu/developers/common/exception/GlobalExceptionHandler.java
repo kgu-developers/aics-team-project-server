@@ -1,6 +1,7 @@
 package kgu.developers.common.exception;
 
 import static kgu.developers.common.exception.GlobalExceptionCode.ACCESS_DENIED;
+import static kgu.developers.common.exception.GlobalExceptionCode.DATA_CONFLICT;
 import static kgu.developers.common.exception.GlobalExceptionCode.INVALID_INPUT;
 import static kgu.developers.common.exception.GlobalExceptionCode.SERVER_ERROR;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSourceResolvable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -35,9 +37,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private final ApplicationEventPublisher eventPublisher;
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ExceptionResponse> handleAccessDeniedException() {
-        ExceptionResponse response = ExceptionResponse.from(ACCESS_DENIED);
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException exception) {
+        log.warn("[{}] {}", ACCESS_DENIED.getCode(), exception.getMessage());
+        ErrorResponse response = new ErrorResponse(ACCESS_DENIED.getCode(), exception.getMessage());
         return ResponseEntity.status(FORBIDDEN).body(response);
+    }
+
+    // 원본 제약 이름(테이블/컬럼명)이 클라이언트에 노출되지 않도록 고정 메시지만 응답하고,
+    // 실제 원인은 서버 로그에만 남긴다.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        log.warn("[{}] {}", DATA_CONFLICT.getCode(), exception.getMostSpecificCause().getMessage());
+        ErrorResponse response = new ErrorResponse(DATA_CONFLICT.getCode(), DATA_CONFLICT.getMessage());
+        return ResponseEntity.status(DATA_CONFLICT.getStatus()).body(response);
     }
 
     @ExceptionHandler(CustomException.class)
