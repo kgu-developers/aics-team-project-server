@@ -49,7 +49,7 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     }
 
     @Override
-    @GetMapping(params = "courseId")
+    @GetMapping(params = {"courseId", "!professorId"})
     public ResponseEntity<SectionAdminListResponse> getSectionsByCourseId(
         @Positive @RequestParam Long courseId) {
         SectionAdminListResponse response = sectionAdminFacade.getSectionsByCourseId(courseId);
@@ -57,7 +57,7 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     }
 
     @Override
-    @GetMapping(params = "professorId")
+    @GetMapping(params = {"professorId", "!courseId"})
     public ResponseEntity<SectionAdminListResponse> getSectionsByProfessorId(
         @NotBlank @RequestParam String professorId,
         @RequestParam(required = false) StatusType status,
