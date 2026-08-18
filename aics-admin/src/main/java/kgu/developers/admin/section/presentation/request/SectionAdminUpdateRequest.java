@@ -3,12 +3,12 @@ package kgu.developers.admin.section.presentation.request;
 import java.time.LocalDateTime;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 
 public record SectionAdminUpdateRequest(
     @Schema(description = "교수 학번", example = "202699999")
-    @NotBlank
+    @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String professorId,
 
     @Schema(description = "강좌 ID", example = "1")
@@ -16,15 +16,15 @@ public record SectionAdminUpdateRequest(
     Long courseId,
 
     @Schema(description = "과목 코드", example = "CS101")
-    @NotBlank
+    @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String code,
 
     @Schema(description = "분반명", example = "01")
-    @NotBlank
+    @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String name,
 
     @Schema(description = "수업시간", example = "월123")
-    @NotBlank
+    @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String classTime,
 
     @Schema(description = "정원", example = "40")
