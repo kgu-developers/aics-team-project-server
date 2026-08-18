@@ -19,36 +19,41 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class EnrollmentCommandService {
-    private final EnrollmentRepository enrollmentRepository;
-    private final SectionRepository sectionRepository;
-    private final UserRepository userRepository;
+  private final EnrollmentRepository enrollmentRepository;
+  private final SectionRepository sectionRepository;
+  private final UserRepository userRepository;
 
-    public Long createEnrollment(Long sectionId, String studentNumber, Role role) {
-        if (sectionRepository.findById(sectionId).isEmpty()) {
-            throw new SectionNotFoundException();
-        }
-        if (userRepository.findByStudentNumber(studentNumber).isEmpty()) {
-            throw new UserNotFoundException();
-        }
-
-        if (enrollmentRepository.existsBySectionIdAndUserId(sectionId, studentNumber)) {
-            throw new DuplicateEnrollmentException();
-        }
-
-        Enrollment enrollment = Enrollment.create(sectionId, studentNumber, role, Status.ACTIVE);
-        return enrollmentRepository.save(enrollment).getId();
+  public Long createEnrollment(Long sectionId, String studentNumber, Role role) {
+    if (sectionRepository.findById(sectionId).isEmpty()) {
+      throw new SectionNotFoundException();
+    }
+    if (userRepository.findByStudentNumber(studentNumber).isEmpty()) {
+      throw new UserNotFoundException();
     }
 
-    public void updateEnrollment(Long sectionId, String studentNumber, Role role, Status status) {
-        Enrollment enrollment = enrollmentRepository.findBySectionIdAndUserId(sectionId, studentNumber)
-                .orElseThrow(EnrollmentNotFoundException::new);
-
-        if (role != null) {
-            enrollment.updateRole(role);
-        }
-        if (status != null) {
-            enrollment.updateStatus(status);
-        }
-        enrollmentRepository.save(enrollment);
+    Enrollment existing = enrollmentRepository.findIncludingDeleted(sectionId, studentNumber).orElse(null);
+    if (existing != null) {
+      if (existing.getDeletedAt() == null) {
+        throw new DuplicateEnrollmentException();
+      }
+      existing.reactivate(role);
+      return enrollmentRepository.save(existing).getId();
     }
+
+    Enrollment enrollment = Enrollment.create(sectionId, studentNumber, role, Status.ACTIVE);
+    return enrollmentRepository.save(enrollment).getId();
+  }
+
+  public void updateEnrollment(Long sectionId, String studentNumber, Role role, Status status) {
+    Enrollment enrollment = enrollmentRepository.findBySectionIdAndUserId(sectionId, studentNumber)
+        .orElseThrow(EnrollmentNotFoundException::new);
+
+    if (role != null) {
+      enrollment.updateRole(role);
+    }
+    if (status != null) {
+      enrollment.updateStatus(status);
+    }
+    enrollmentRepository.save(enrollment);
+  }
 }

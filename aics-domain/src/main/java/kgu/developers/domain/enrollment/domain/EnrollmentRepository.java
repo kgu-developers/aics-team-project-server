@@ -12,6 +12,8 @@ public interface EnrollmentRepository {
 
   Optional<Enrollment> findBySectionIdAndUserId(Long sectionId, String userId);
 
+  Optional<Enrollment> findIncludingDeleted(Long sectionId, String userId);
+
   List<Enrollment> findAllBySectionId(Long sectionId);
 
   List<Enrollment> findAllByUserId(String userId);

@@ -38,6 +38,12 @@ public class EnrollmentRepositoryImpl implements EnrollmentRepository {
   }
 
   @Override
+  public Optional<Enrollment> findIncludingDeleted(Long sectionId, String userId) {
+    return jpaEnrollmentRepository.findBySectionIdAndUserId(sectionId, userId)
+        .map(EnrollmentJpaEntity::toDomain);
+  }
+
+  @Override
   public List<Enrollment> findAllBySectionId(Long sectionId) {
     return jpaEnrollmentRepository.findAllBySectionIdAndDeletedAtIsNullOrderByUserIdAsc(sectionId)
         .stream()

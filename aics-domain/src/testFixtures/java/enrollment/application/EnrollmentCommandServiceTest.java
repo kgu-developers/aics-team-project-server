@@ -70,7 +70,7 @@ class EnrollmentCommandServiceTest {
     void createEnrollment() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(sectionDetail()));
         given(userRepository.findByStudentNumber(STUDENT_NUMBER)).willReturn(Optional.of(student));
-        given(enrollmentRepository.existsBySectionIdAndUserId(1L, STUDENT_NUMBER)).willReturn(false);
+        given(enrollmentRepository.findIncludingDeleted(1L, STUDENT_NUMBER)).willReturn(Optional.empty());
         given(enrollmentRepository.save(any(Enrollment.class)))
                 .willReturn(Enrollment.builder().id(10L).build());
 
@@ -112,12 +112,34 @@ class EnrollmentCommandServiceTest {
     void rejectsDuplicateEnrollment() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(sectionDetail()));
         given(userRepository.findByStudentNumber(STUDENT_NUMBER)).willReturn(Optional.of(student));
-        given(enrollmentRepository.existsBySectionIdAndUserId(1L, STUDENT_NUMBER)).willReturn(true);
+        given(enrollmentRepository.findIncludingDeleted(1L, STUDENT_NUMBER))
+                .willReturn(Optional.of(Enrollment.create(1L, STUDENT_NUMBER, Role.STUDENT, Status.ACTIVE)));
 
         assertThatThrownBy(() -> enrollmentCommandService.createEnrollment(1L, STUDENT_NUMBER, Role.ASSISTANT))
                 .isInstanceOf(DuplicateEnrollmentException.class);
 
         verify(enrollmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("소프트 삭제된 수강 이력이 있으면 새로 만들지 않고 되살린다")
+    void reactivatesSoftDeletedEnrollment() {
+        Enrollment deleted = Enrollment.create(1L, STUDENT_NUMBER, Role.STUDENT, Status.WITHDRAWN);
+        deleted.delete();
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(sectionDetail()));
+        given(userRepository.findByStudentNumber(STUDENT_NUMBER)).willReturn(Optional.of(student));
+        given(enrollmentRepository.findIncludingDeleted(1L, STUDENT_NUMBER)).willReturn(Optional.of(deleted));
+        given(enrollmentRepository.save(deleted)).willReturn(deleted);
+
+        enrollmentCommandService.createEnrollment(1L, STUDENT_NUMBER, Role.ASSISTANT);
+
+        // 새 행을 넣으면 유니크 제약에 걸린다. 기존 행이 그대로 살아나야 한다.
+        ArgumentCaptor<Enrollment> captor = ArgumentCaptor.forClass(Enrollment.class);
+        verify(enrollmentRepository).save(captor.capture());
+        assertThat(captor.getValue()).isSameAs(deleted);
+        assertThat(deleted.getDeletedAt()).isNull();
+        assertThat(deleted.getStatus()).isEqualTo(Status.ACTIVE);
+        assertThat(deleted.getRole()).isEqualTo(Role.ASSISTANT);
     }
 
     @Test
