@@ -23,6 +23,7 @@ import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -65,6 +66,7 @@ public class SectionAdminFacade {
         return TeamAdminListResponse.from(teamQueryService.getTeamsBySectionId(sectionId));
     }
 
+    @Transactional
     public SectionAdminResponse updateSection(Long id, SectionAdminUpdateRequest request) {
         SectionDetail detail = sectionQueryService.getSectionById(id);
         sectionCommandService.updateSection(
@@ -81,6 +83,7 @@ public class SectionAdminFacade {
         return SectionAdminResponse.from(sectionQueryService.getSectionById(id));
     }
 
+    @Transactional
     public SectionAdminResponse updateSectionContactVisibility(Long id, SectionContactVisibilityUpdateRequest request) {
         SectionDetail detail = sectionQueryService.getSectionById(id);
         sectionCommandService.changeContactVisiblePeriod(
@@ -91,6 +94,7 @@ public class SectionAdminFacade {
         return SectionAdminResponse.from(detail);
     }
 
+    @Transactional
     public void deleteSection(Long id) {
         Section section = sectionQueryService.getSectionById(id).section();
         sectionCommandService.deleteSection(section);
@@ -101,6 +105,7 @@ public class SectionAdminFacade {
         return EnrollmentAdminPersistResponse.of(id);
     }
 
+    @Transactional
     public EnrollmentAdminResponse updateEnrollment(Long sectionId, String studentNumber,
                                                     EnrollmentAdminUpdateRequest request) {
         enrollmentCommandService.updateEnrollment(sectionId, studentNumber, request.role(), request.status());
