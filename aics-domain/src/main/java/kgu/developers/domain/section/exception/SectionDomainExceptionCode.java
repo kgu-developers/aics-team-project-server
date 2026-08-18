@@ -1,6 +1,7 @@
 package kgu.developers.domain.section.exception;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ public enum SectionDomainExceptionCode implements ExceptionCode {
     SECTION_NOT_FOUND(NOT_FOUND, "해당 분반을 찾을 수 없습니다."),
     INVALID_CAPACITY(BAD_REQUEST, "정원은 0 이상이어야 합니다."),
     INVALID_CONTACT_VISIBLE_PERIOD(BAD_REQUEST, "연락처 공개 종료 시각은 시작 시각보다 빠를 수 없습니다."),
+    CONTACT_NOT_VISIBLE(FORBIDDEN, "지금은 연락처를 공개하지 않는 기간입니다."),
     ;
 
     private final HttpStatus status;

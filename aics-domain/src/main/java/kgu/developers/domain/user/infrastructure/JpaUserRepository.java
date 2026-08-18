@@ -11,4 +11,6 @@ public interface JpaUserRepository extends JpaRepository<UserJpaEntity, String> 
     Optional<UserJpaEntity> findByStudentNumberAndDeletedAtIsNull(String studentNumber);
 
     List<UserJpaEntity> findAllByDeletedAtIsNullOrderByStudentNumberAsc();
+
+    List<UserJpaEntity> findAllByStudentNumberInAndDeletedAtIsNullOrderByStudentNumberAsc(List<String> studentNumbers);
 }

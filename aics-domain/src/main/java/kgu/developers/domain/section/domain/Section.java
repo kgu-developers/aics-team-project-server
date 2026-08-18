@@ -1,5 +1,6 @@
 package kgu.developers.domain.section.domain;
 
+import kgu.developers.domain.section.exception.ContactNotVisibleException;
 import kgu.developers.domain.section.exception.InvalidCapacityException;
 import kgu.developers.domain.section.exception.InvalidContactVisiblePeriodException;
 import lombok.*;
@@ -78,6 +79,16 @@ public class Section {
     }
     this.contactVisibleFrom = contactVisibleFrom;
     this.contactVisibleUntil = contactVisibleUntil;
+  }
+
+  /** 공개 시작이 없으면 아직 공개 전, 공개 종료가 없으면 기한 없이 공개. 경계는 포함한다. */
+  public void validateContactVisible(LocalDateTime at) {
+    if (contactVisibleFrom == null || at.isBefore(contactVisibleFrom)) {
+      throw new ContactNotVisibleException();
+    }
+    if (contactVisibleUntil != null && at.isAfter(contactVisibleUntil)) {
+      throw new ContactNotVisibleException();
+    }
   }
 
   public void delete() {
