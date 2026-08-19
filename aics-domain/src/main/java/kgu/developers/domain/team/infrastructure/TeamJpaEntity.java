@@ -26,6 +26,9 @@ public class TeamJpaEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     @ManyToOne(fetch = LAZY, optional = false)
     @JoinColumn(name = "section_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_section_team"))
@@ -47,6 +50,7 @@ public class TeamJpaEntity extends BaseTimeEntity {
     public Team toDomain() {
         return Team.builder()
                 .id(id)
+                .version(version)
                 .sectionId(section.getId())
                 .name(name)
                 .kickoffRule(kickoffRule)
@@ -61,6 +65,7 @@ public class TeamJpaEntity extends BaseTimeEntity {
     public static TeamJpaEntity toEntity(Team team, SectionJpaEntity section) {
         TeamJpaEntity  entity = TeamJpaEntity.builder()
                 .id(team.getId())
+                .version(team.getVersion())
                 .section(section)
                 .name(team.getName())
                 .kickoffRule(team.getKickoffRule())
