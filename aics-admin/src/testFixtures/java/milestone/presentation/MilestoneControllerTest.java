@@ -25,7 +25,6 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import kgu.developers.admin.config.JwtCookieAuthenticationFilter;
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.MilestoneControllerImpl;
@@ -35,6 +34,7 @@ import kgu.developers.common.config.CorsConfig;
 import kgu.developers.common.exception.GlobalExceptionHandler;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
+import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 
 @WebMvcTest
