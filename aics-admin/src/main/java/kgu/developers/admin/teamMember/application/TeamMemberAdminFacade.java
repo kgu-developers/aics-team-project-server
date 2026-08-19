@@ -9,6 +9,7 @@ import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -17,6 +18,7 @@ public class TeamMemberAdminFacade {
 	private final TeamMemberCommandService teamMemberCommandService;
 	private final UserQueryService userQueryService;
 
+	@Transactional
 	public TeamMemberAdminResponse updateTeamMember(
 		Long teamId, String studentNumber, TeamMemberUpdateRequest request) {
 		TeamMember teamMember = teamMemberQueryService.getTeamMember(teamId, studentNumber);
