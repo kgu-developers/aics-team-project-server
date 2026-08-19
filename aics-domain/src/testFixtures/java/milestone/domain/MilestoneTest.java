@@ -109,6 +109,16 @@ class MilestoneTest {
     }
 
     @Test
+    @DisplayName("공개 상태를 마감(CLOSED)으로 변경할 수 있다")
+    void changeStatusToClosed() {
+        Milestone milestone = Milestone.create(1L, "제안서", null, 1, schedule());
+
+        milestone.changeStatus(MilestoneStatus.CLOSED);
+
+        assertThat(milestone.getStatus()).isEqualTo(MilestoneStatus.CLOSED);
+    }
+
+    @Test
     @DisplayName("마일스톤의 평가 기간만 수정할 수 있다")
     void updateEvaluationWindow() {
         Milestone milestone = Milestone.create(1L, "제안서", null, 1, schedule());
