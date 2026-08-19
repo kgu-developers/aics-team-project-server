@@ -1,5 +1,6 @@
 package kgu.developers.domain.team.domain;
 
+import kgu.developers.domain.team.exception.TeamAlreadyConfirmedException;
 import lombok.*;
 
 import static lombok.AccessLevel.PROTECTED;
@@ -53,6 +54,12 @@ public class Team {
 
     public void updateStatus(Status status) {
         this.status = status;
+    }
+
+    public void validateNotConfirmed() {
+        if (status == Status.CONFIRMED) {
+            throw new TeamAlreadyConfirmedException();
+        }
     }
 
     public void delete() {
