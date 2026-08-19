@@ -32,7 +32,7 @@ public interface TeamController {
 	);
 
 	@Operation(summary = "킥오프 정보 저장 API", description = """
-			- Description : 이 API는 팀명/주제/운영방식/회의방식과 팀장, 역할분담을 저장합니다.
+			- Description : 이 API는 팀명/운영방식/회의방식과 팀장, 역할분담을 저장합니다.
 			- 팀장은 한 명만 지정되며 기존 팀장은 자동으로 해제됩니다.
 			- 요청에 없는 팀원의 역할분담은 유지됩니다.
 			- 확정된 팀은 수정할 수 없어 409를 응답합니다.
