@@ -8,6 +8,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface JpaEnrollmentRepository extends JpaRepository<EnrollmentJpaEntity, Long> {
 	Optional<EnrollmentJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
+	boolean existsBySectionIdAndUserIdAndDeletedAtIsNull(Long sectionId, String userId);
+
+	Optional<EnrollmentJpaEntity> findBySectionIdAndUserIdAndDeletedAtIsNull(Long sectionId, String userId);
+
+	Optional<EnrollmentJpaEntity> findBySectionIdAndUserId(Long sectionId, String userId);
+
 	List<EnrollmentJpaEntity> findAllBySectionIdAndDeletedAtIsNullOrderByUserIdAsc(Long sectionId);
 
 	List<EnrollmentJpaEntity> findAllByUserIdAndDeletedAtIsNullOrderBySectionIdAsc(String userId);

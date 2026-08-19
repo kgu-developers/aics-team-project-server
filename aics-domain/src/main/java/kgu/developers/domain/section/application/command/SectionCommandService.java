@@ -65,6 +65,12 @@ public class SectionCommandService {
         sectionRepository.save(section);
     }
 
+    public void changeContactVisiblePeriod(Section section, LocalDateTime contactVisibleFrom,
+                                           LocalDateTime contactVisibleUntil) {
+        section.updateContactVisiblePeriod(contactVisibleFrom, contactVisibleUntil);
+        sectionRepository.save(section);
+    }
+
     public void changeCourse(Section section, Long courseId) {
         requireCourse(courseId);
         section.updateCourseId(courseId);

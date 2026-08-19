@@ -17,4 +17,6 @@ public interface UserRepository {
     void archiveAndHardDelete(User user);
 
     List<User> findAllOrderByStudentNumber();
+
+    List<User> findAllByStudentNumberIn(List<String> studentNumbers);
 }

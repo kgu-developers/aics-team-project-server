@@ -57,4 +57,16 @@ public class UserRepositoryImpl implements UserRepository {
                 .map(UserJpaEntity::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<User> findAllByStudentNumberIn(List<String> studentNumbers) {
+        if (studentNumbers.isEmpty()) {
+            return List.of();
+        }
+        List<UserJpaEntity> entities =
+                jpaUserRepository.findAllByStudentNumberInAndDeletedAtIsNullOrderByStudentNumberAsc(studentNumbers);
+        return entities.stream()
+                .map(UserJpaEntity::toDomain)
+                .collect(Collectors.toList());
+    }
 }

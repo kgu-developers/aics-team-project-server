@@ -1,7 +1,9 @@
 package mock.repository;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -55,6 +57,18 @@ public class FakeSectionRepository implements SectionRepository {
     public List<SectionDetail> findAllByProfessorId(String professorId) {
         return store.values().stream()
             .filter(section -> section.getProfessorId().equals(professorId))
+            .map(section -> new SectionDetail(section, null, null))
+            .toList();
+    }
+
+    @Override
+    public List<SectionDetail> findAllByIdIn(List<Long> ids) {
+        // 실제 구현(findAllByIdInAndDeletedAtIsNullOrderByCodeAsc)과 같이 삭제분을 빼고 code 순으로 준다.
+        return ids.stream()
+            .map(store::get)
+            .filter(Objects::nonNull)
+            .filter(section -> section.getDeletedAt() == null)
+            .sorted(Comparator.comparing(Section::getCode))
             .map(section -> new SectionDetail(section, null, null))
             .toList();
     }

@@ -15,53 +15,54 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "\"enrollment\"")
+@Table(name = "\"enrollment\"", uniqueConstraints = @UniqueConstraint(name = "uk_enrollment_section_user", columnNames = {
+    "section_id", "user_id" }))
 @Builder
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class EnrollmentJpaEntity extends BaseTimeEntity {
-    @Id
-    @GeneratedValue(strategy = IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = IDENTITY)
+  private Long id;
 
-    @Column(nullable = false)
-    private Long sectionId;
+  @Column(nullable = false)
+  private Long sectionId;
 
-    @Column(nullable = false, length = 20)
-    private String userId;
+  @Column(nullable = false, length = 20)
+  private String userId;
 
-    @Column(nullable = false, length = 16)
-    @Enumerated(STRING)
-    private Role role;
+  @Column(nullable = false, length = 16)
+  @Enumerated(STRING)
+  private Role role;
 
-    @Column(nullable = false, length = 16)
-    @Enumerated(STRING)
-    private Status status;
+  @Column(nullable = false, length = 16)
+  @Enumerated(STRING)
+  private Status status;
 
-    public Enrollment toDomain() {
-        return Enrollment.builder()
-                .id(id)
-                .sectionId(sectionId)
-                .userId(userId)
-                .role(role)
-                .status(status)
-                .createdAt(getCreatedAt())
-                .updatedAt(getUpdatedAt())
-                .deletedAt(getDeletedAt())
-                .build();
-    }
+  public Enrollment toDomain() {
+    return Enrollment.builder()
+        .id(id)
+        .sectionId(sectionId)
+        .userId(userId)
+        .role(role)
+        .status(status)
+        .createdAt(getCreatedAt())
+        .updatedAt(getUpdatedAt())
+        .deletedAt(getDeletedAt())
+        .build();
+  }
 
-    public static EnrollmentJpaEntity toEntity(Enrollment enrollment) {
-        EnrollmentJpaEntity entity = EnrollmentJpaEntity.builder()
-                .id(enrollment.getId())
-                .sectionId(enrollment.getSectionId())
-                .userId(enrollment.getUserId())
-                .role(enrollment.getRole())
-                .status(enrollment.getStatus())
-                .build();
-        entity.createdAt = enrollment.getCreatedAt();
-        entity.setDeletedAt(enrollment.getDeletedAt());
-        return entity;
-    }
+  public static EnrollmentJpaEntity toEntity(Enrollment enrollment) {
+    EnrollmentJpaEntity entity = EnrollmentJpaEntity.builder()
+        .id(enrollment.getId())
+        .sectionId(enrollment.getSectionId())
+        .userId(enrollment.getUserId())
+        .role(enrollment.getRole())
+        .status(enrollment.getStatus())
+        .build();
+    entity.createdAt = enrollment.getCreatedAt();
+    entity.setDeletedAt(enrollment.getDeletedAt());
+    return entity;
+  }
 }
