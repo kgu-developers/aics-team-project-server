@@ -111,6 +111,71 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
+    @DisplayName("팀장으로 지정하면 기존 팀장을 먼저 내린다")
+    void promotingLeaderDemotesCurrentLeader() {
+        TeamMember teamMember = teamMember();
+        TeamMember currentLeader = TeamMember.builder()
+                .id(2L).teamId(1L).userId("202611111").isLeader(true).build();
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(currentLeader));
+        given(teamMemberRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        teamMemberCommandService.updateTeamMember(teamMember, null, null, true);
+
+        assertThat(currentLeader.isLeader()).isFalse();
+        assertThat(teamMember.isLeader()).isTrue();
+        verify(teamMemberRepository).save(currentLeader);
+        verify(teamMemberRepository).save(teamMember);
+    }
+
+    @Test
+    @DisplayName("옮겨간 팀의 기존 팀장을 내린다")
+    void promotingLeaderAfterMoveDemotesTargetTeamLeader() {
+        TeamMember teamMember = teamMember();
+        TeamMember targetTeamLeader = TeamMember.builder()
+                .id(2L).teamId(2L).userId("202611111").isLeader(true).build();
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamQueryService.getTeamById(2L)).willReturn(team(2L, Status.FORMING));
+        given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
+        given(teamMemberRepository.findLeaderByTeamId(2L)).willReturn(Optional.of(targetTeamLeader));
+        given(teamMemberRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        teamMemberCommandService.updateTeamMember(teamMember, 2L, null, true);
+
+        assertThat(targetTeamLeader.isLeader()).isFalse();
+        verify(teamMemberRepository, never()).findLeaderByTeamId(1L);
+    }
+
+    @Test
+    @DisplayName("이미 팀장인 팀원을 다시 팀장으로 지정해도 자기 자신을 내리지 않는다")
+    void promotingSameLeaderKeepsLeadership() {
+        TeamMember teamMember = TeamMember.builder()
+                .id(1L).teamId(1L).userId("202699999").isLeader(true).build();
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(teamMember));
+        given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
+
+        teamMemberCommandService.updateTeamMember(teamMember, null, null, true);
+
+        assertThat(teamMember.isLeader()).isTrue();
+        verify(teamMemberRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("팀장에서 내릴 때는 다른 팀원을 건드리지 않는다")
+    void demotingLeaderTouchesNobodyElse() {
+        TeamMember teamMember = TeamMember.builder()
+                .id(1L).teamId(1L).userId("202699999").isLeader(true).build();
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
+
+        teamMemberCommandService.updateTeamMember(teamMember, null, null, false);
+
+        assertThat(teamMember.isLeader()).isFalse();
+        verify(teamMemberRepository, never()).findLeaderByTeamId(any());
+    }
+
+    @Test
     @DisplayName("확정된 팀의 팀원은 수정할 수 없다")
     void rejectsUpdateOnConfirmedTeam() {
         TeamMember teamMember = teamMember();

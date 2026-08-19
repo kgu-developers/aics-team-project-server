@@ -37,9 +37,22 @@ public class TeamMemberCommandService {
             teamMember.updateProjectRole(projectRole);
         }
         if (isLeader != null) {
+            if (isLeader) {
+                demoteCurrentLeader(teamMember);
+            }
             teamMember.updateIsLeader(isLeader);
         }
         return teamMemberRepository.save(teamMember);
+    }
+
+    // 기존 팀장을 먼저 내려야 한 팀에 팀장이 둘이 되는 순간이 없다. 팀 이동 뒤에 호출되므로 옮겨간 팀이 기준이다.
+    private void demoteCurrentLeader(TeamMember teamMember) {
+        teamMemberRepository.findLeaderByTeamId(teamMember.getTeamId())
+                .filter(leader -> !leader.getId().equals(teamMember.getId()))
+                .ifPresent(leader -> {
+                    leader.updateIsLeader(false);
+                    teamMemberRepository.save(leader);
+                });
     }
 
     public void updateKickoffRoles(Long teamId, String leaderStudentNumber, Map<String, String> projectRoles) {
