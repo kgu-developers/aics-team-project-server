@@ -38,7 +38,7 @@ public class TeamFacade {
 	@Transactional
 	public TeamKickoffResponse updateKickoff(Long teamId, TeamKickoffUpdateRequest request) {
 		Team team = teamCommandService.updateKickoff(
-			teamId, request.name(), request.topic(), request.kickoffRule(), request.meetingSchedule());
+			teamId, request.name(), request.kickoffRule(), request.meetingSchedule());
 
 		// 학번이 겹치면 마지막 값을 쓴다
 		Map<String, String> projectRoles = request.memberRoles() == null ? Map.of()

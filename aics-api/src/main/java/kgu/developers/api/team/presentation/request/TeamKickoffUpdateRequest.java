@@ -14,10 +14,6 @@ public record TeamKickoffUpdateRequest(
 	@Size(max = 200)
 	String name,
 
-	@Schema(description = "프로젝트 주제", example = "AI 학습 도우미")
-	@Size(max = 200)
-	String topic,
-
 	@Schema(description = "팀 운영방식", example = "매주 화요일 회고", requiredMode = Schema.RequiredMode.REQUIRED)
 	@NotBlank
 	String kickoffRule,

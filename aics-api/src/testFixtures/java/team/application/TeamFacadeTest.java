@@ -57,7 +57,7 @@ class TeamFacadeTest {
 	@DisplayName("getKickoffByTeamId는 팀 운영규칙과 회의일정을 응답한다")
 	void getKickoffByTeamId() {
 		given(teamQueryService.getTeamById(1L)).willReturn(Team.builder()
-			.id(1L).sectionId(10L).name("1팀").topic("AI 학습 도우미").kickoffRule("매주 화요일 회고")
+			.id(1L).sectionId(10L).name("1팀").kickoffRule("매주 화요일 회고")
 			.meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
 
 		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
@@ -70,7 +70,6 @@ class TeamFacadeTest {
 		assertThat(response.name()).isEqualTo("1팀");
 		assertThat(response.members()).singleElement()
 			.satisfies(m -> assertThat(m.isLeader()).isTrue());
-		assertThat(response.topic()).isEqualTo("AI 학습 도우미");
 		assertThat(response.kickoffRule()).isEqualTo("매주 화요일 회고");
 		assertThat(response.meetingSchedule()).isEqualTo("매주 목 19:00");
 	}
@@ -79,10 +78,10 @@ class TeamFacadeTest {
 	@DisplayName("updateKickoff는 팀 정보와 역할분담을 저장하고 저장 결과를 응답한다")
 	void updateKickoff() {
 		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
-			"1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00", "202699999",
+			"1팀", "매주 화요일 회고", "매주 목 19:00", "202699999",
 			List.of(new MemberRole("202699999", "백엔드")));
-		given(teamCommandService.updateKickoff(1L, "1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00"))
-			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").topic("AI 학습 도우미")
+		given(teamCommandService.updateKickoff(1L, "1팀", "매주 화요일 회고", "매주 목 19:00"))
+			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀")
 				.kickoffRule("매주 화요일 회고").meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
 		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
 			.willReturn(List.of(member(1L, "202699999", true)));
@@ -92,7 +91,6 @@ class TeamFacadeTest {
 		TeamKickoffResponse response = teamFacade.updateKickoff(1L, request);
 
 		verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of("202699999", "백엔드"));
-		assertThat(response.topic()).isEqualTo("AI 학습 도우미");
 		assertThat(response.members()).singleElement()
 			.satisfies(m -> assertThat(m.name()).isEqualTo("김철수"));
 	}
@@ -101,8 +99,8 @@ class TeamFacadeTest {
 	@DisplayName("updateKickoff는 역할분담이 비어도 팀장만 반영한다")
 	void updateKickoffWithoutRoles() {
 		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
-			"1팀", null, null, null, "202699999", null);
-		given(teamCommandService.updateKickoff(1L, "1팀", null, null, null))
+			"1팀", null, null, "202699999", null);
+		given(teamCommandService.updateKickoff(1L, "1팀", null, null))
 			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build());
 		given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of());
 		given(userQueryService.getUsersByStudentNumbers(List.of())).willReturn(List.of());

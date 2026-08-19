@@ -89,10 +89,9 @@ class TeamCommandServiceTest {
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         Team updated = teamCommandService.updateKickoff(
-                1L, "새 팀명", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00 온라인");
+                1L, "새 팀명", "매주 화요일 회고", "매주 목 19:00 온라인");
 
         assertThat(updated.getName()).isEqualTo("새 팀명");
-        assertThat(updated.getTopic()).isEqualTo("AI 학습 도우미");
         assertThat(updated.getKickoffRule()).isEqualTo("매주 화요일 회고");
         assertThat(updated.getMeetingSchedule()).isEqualTo("매주 목 19:00 온라인");
     }
@@ -102,7 +101,7 @@ class TeamCommandServiceTest {
     void rejectsKickoffUpdateOnConfirmedTeam() {
         given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.CONFIRMED));
 
-        assertThatThrownBy(() -> teamCommandService.updateKickoff(1L, "새 팀명", null, null, null))
+        assertThatThrownBy(() -> teamCommandService.updateKickoff(1L, "새 팀명", null, null))
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
 
         verify(teamRepository, never()).save(any());
@@ -116,7 +115,7 @@ class TeamCommandServiceTest {
         given(teamRepository.findAllBySectionId(10L))
                 .willReturn(List.of(team, team(2L, Status.FORMING)));
 
-        assertThatThrownBy(() -> teamCommandService.updateKickoff(1L, "2팀", null, "k", "m"))
+        assertThatThrownBy(() -> teamCommandService.updateKickoff(1L, "2팀", "k", "m"))
                 .isInstanceOf(DuplicateTeamNameException.class);
 
         assertThat(team.getName()).isEqualTo("1팀");
@@ -132,7 +131,7 @@ class TeamCommandServiceTest {
                 .willReturn(List.of(team, team(2L, Status.FORMING)));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
-        assertThat(teamCommandService.updateKickoff(1L, "1팀", "주제", "k", "m").getName())
+        assertThat(teamCommandService.updateKickoff(1L, "1팀", "k", "m").getName())
                 .isEqualTo("1팀");
     }
 }

@@ -15,9 +15,6 @@ public record TeamKickoffResponse(
 	@Schema(description = "팀명", example = "1팀", requiredMode = REQUIRED)
 	String name,
 
-	@Schema(description = "프로젝트 주제", example = "AI 학습 도우미")
-	String topic,
-
 	@Schema(description = "팀 운영방식", example = "매주 화요일 회고")
 	String kickoffRule,
 
@@ -32,7 +29,6 @@ public record TeamKickoffResponse(
 		return new TeamKickoffResponse(
 			team.getId(),
 			team.getName(),
-			team.getTopic(),
 			team.getKickoffRule(),
 			team.getMeetingSchedule(),
 			members

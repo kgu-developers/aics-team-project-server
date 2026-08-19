@@ -47,7 +47,7 @@ class TeamControllerTest {
 	}
 
 	private TeamKickoffResponse response() {
-		return new TeamKickoffResponse(1L, "1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00",
+		return new TeamKickoffResponse(1L, "1팀", "매주 화요일 회고", "매주 목 19:00",
 			List.of(new TeamMemberResponse(1L, "202699999", "김철수", true, "백엔드")));
 	}
 
@@ -61,7 +61,6 @@ class TeamControllerTest {
 			.andExpect(jsonPath("$.id").value(1))
 			.andExpect(jsonPath("$.name").value("1팀"))
 			.andExpect(jsonPath("$.kickoffRule").value("매주 화요일 회고"))
-			.andExpect(jsonPath("$.topic").value("AI 학습 도우미"))
 			.andExpect(jsonPath("$.meetingSchedule").value("매주 목 19:00"))
 			.andExpect(jsonPath("$.members[0].projectRole").value("백엔드"));
 
@@ -72,7 +71,7 @@ class TeamControllerTest {
 	@DisplayName("킥오프 정보를 저장하면 200과 저장된 정보를 응답한다")
 	void updateKickoff() throws Exception {
 		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
-			"1팀", "AI 학습 도우미", "매주 화요일 회고", "매주 목 19:00", "202699999",
+			"1팀", "매주 화요일 회고", "매주 목 19:00", "202699999",
 			List.of(new MemberRole("202699999", "백엔드")));
 		given(teamFacade.updateKickoff(eq(1L), any())).willReturn(response());
 
@@ -80,7 +79,6 @@ class TeamControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.topic").value("AI 학습 도우미"))
 			.andExpect(jsonPath("$.members[0].isLeader").value(true))
 			.andExpect(jsonPath("$.members[0].projectRole").value("백엔드"));
 

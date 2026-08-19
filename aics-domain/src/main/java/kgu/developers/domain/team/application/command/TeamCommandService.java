@@ -20,13 +20,12 @@ public class TeamCommandService {
     private final TeamQueryService teamQueryService;
     private final TeamRepository teamRepository;
 
-    public Team updateKickoff(Long teamId, String name, String topic, String kickoffRule, String meetingSchedule) {
+    public Team updateKickoff(Long teamId, String name, String kickoffRule, String meetingSchedule) {
         Team team = teamQueryService.getTeamById(teamId);
         team.validateNotConfirmed();
         validateNameNotTaken(team, name);
 
         team.updateName(name);
-        team.updateTopic(topic);
         team.updateKickoffRule(kickoffRule);
         team.updateMeetingSchedule(meetingSchedule);
 
