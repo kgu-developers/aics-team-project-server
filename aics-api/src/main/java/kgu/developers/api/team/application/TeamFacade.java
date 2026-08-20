@@ -30,13 +30,17 @@ public class TeamFacade {
 	private final TeamMemberQueryService teamMemberQueryService;
 	private final TeamMemberCommandService teamMemberCommandService;
 	private final UserQueryService userQueryService;
+	private final TeamAccessValidator teamAccessValidator;
 
-	public TeamKickoffResponse getKickoffByTeamId(Long teamId) {
+	public TeamKickoffResponse getKickoffByTeamId(Long teamId, String userId) {
+		teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
 		return TeamKickoffResponse.of(teamQueryService.getTeamById(teamId), members(teamId));
 	}
 
 	@Transactional
-	public TeamKickoffResponse updateKickoff(Long teamId, TeamKickoffUpdateRequest request) {
+	public TeamKickoffResponse updateKickoff(Long teamId, String userId, TeamKickoffUpdateRequest request) {
+		teamAccessValidator.validateMembership(teamId, userId);
+
 		Team team = teamCommandService.updateKickoff(
 			teamId, request.name(), request.kickoffRule(), request.meetingSchedule());
 

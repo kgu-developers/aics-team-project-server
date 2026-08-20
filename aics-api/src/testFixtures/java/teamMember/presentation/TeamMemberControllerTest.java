@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -32,6 +34,8 @@ class TeamMemberControllerTest {
 	private TeamMemberFacade teamMemberFacade;
 
 	private MockMvc mockMvc;
+	private final Authentication authentication =
+		new UsernamePasswordAuthenticationToken(STUDENT_NUMBER, null);
 
 	@BeforeEach
 	void setUp() {
@@ -43,11 +47,11 @@ class TeamMemberControllerTest {
 	@Test
 	@DisplayName("팀원 연락처를 조회하면 200과 이메일, 연락처를 응답한다")
 	void getContacts() throws Exception {
-		given(teamMemberFacade.getContacts(1L)).willReturn(
+		given(teamMemberFacade.getContacts(1L, STUDENT_NUMBER)).willReturn(
 			new TeamMemberContactListResponse(List.of(new TeamMemberContactResponse(
 				STUDENT_NUMBER, "김철수", "kim@kgu.ac.kr", "010-0000-0001", true))));
 
-		mockMvc.perform(get(BASE_URL, 1L))
+		mockMvc.perform(get(BASE_URL, 1L).principal(authentication))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.contents.length()").value(1))
 			.andExpect(jsonPath("$.contents[0].studentNumber").value(STUDENT_NUMBER))
@@ -55,6 +59,6 @@ class TeamMemberControllerTest {
 			.andExpect(jsonPath("$.contents[0].phone").value("010-0000-0001"))
 			.andExpect(jsonPath("$.contents[0].isLeader").value(true));
 
-		verify(teamMemberFacade).getContacts(1L);
+		verify(teamMemberFacade).getContacts(1L, STUDENT_NUMBER);
 	}
 }

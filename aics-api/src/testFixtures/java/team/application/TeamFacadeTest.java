@@ -1,7 +1,10 @@
 package team.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
@@ -13,7 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
+import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.team.application.TeamFacade;
 import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest;
 import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
@@ -46,8 +51,13 @@ class TeamFacadeTest {
 	@Mock
 	private UserQueryService userQueryService;
 
+	@Mock
+	private TeamAccessValidator teamAccessValidator;
+
 	@InjectMocks
 	private TeamFacade teamFacade;
+
+	private static final String USER = "202699999";
 
 	private TeamMember member(Long id, String userId, boolean isLeader) {
 		return TeamMember.builder().id(id).teamId(1L).userId(userId).isLeader(isLeader).build();
@@ -65,7 +75,7 @@ class TeamFacadeTest {
 		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
 			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
 
-		TeamKickoffResponse response = teamFacade.getKickoffByTeamId(1L);
+		TeamKickoffResponse response = teamFacade.getKickoffByTeamId(1L, USER);
 
 		assertThat(response.name()).isEqualTo("1팀");
 		assertThat(response.members()).singleElement()
@@ -88,7 +98,7 @@ class TeamFacadeTest {
 		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
 			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
 
-		TeamKickoffResponse response = teamFacade.updateKickoff(1L, request);
+		TeamKickoffResponse response = teamFacade.updateKickoff(1L, USER, request);
 
 		verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of("202699999", "백엔드"));
 		assertThat(response.members()).singleElement()
@@ -105,8 +115,34 @@ class TeamFacadeTest {
 		given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of());
 		given(userQueryService.getUsersByStudentNumbers(List.of())).willReturn(List.of());
 
-		teamFacade.updateKickoff(1L, request);
+		teamFacade.updateKickoff(1L, USER, request);
 
 		verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of());
+	}
+
+	@Test
+	@DisplayName("팀원도 담당 교수도 아니면 킥오프를 조회할 수 없다")
+	void rejectsKickoffReadForOutsider() {
+		willThrow(new AccessDeniedException("denied"))
+			.given(teamAccessValidator).validateMembershipOrProfessor(1L, USER);
+
+		assertThatThrownBy(() -> teamFacade.getKickoffByTeamId(1L, USER))
+			.isInstanceOf(AccessDeniedException.class);
+
+		verify(teamQueryService, never()).getTeamById(1L);
+	}
+
+	@Test
+	@DisplayName("팀원이 아니면 킥오프를 저장할 수 없다")
+	void rejectsKickoffUpdateForNonMember() {
+		willThrow(new AccessDeniedException("denied"))
+			.given(teamAccessValidator).validateMembership(1L, USER);
+		TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+			"1팀", null, null, "202699999", null);
+
+		assertThatThrownBy(() -> teamFacade.updateKickoff(1L, USER, request))
+			.isInstanceOf(AccessDeniedException.class);
+
+		verify(teamCommandService, never()).updateKickoff(1L, "1팀", null, null);
 	}
 }

@@ -5,6 +5,7 @@ import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,7 +23,7 @@ public class TeamMemberControllerImpl implements TeamMemberController {
 	@Override
 	@GetMapping("/contacts")
 	public ResponseEntity<TeamMemberContactListResponse> getContacts(
-			@Positive @PathVariable Long teamId) {
-		return ResponseEntity.ok(teamMemberFacade.getContacts(teamId));
+			@Positive @PathVariable Long teamId, Authentication authentication) {
+		return ResponseEntity.ok(teamMemberFacade.getContacts(teamId, authentication.getName()));
 	}
 }

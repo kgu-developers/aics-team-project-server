@@ -15,7 +15,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
+import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
 import kgu.developers.domain.section.exception.ContactNotVisibleException;
@@ -37,8 +39,13 @@ class TeamMemberFacadeTest {
 	@Mock
 	private UserQueryService userQueryService;
 
+	@Mock
+	private TeamAccessValidator teamAccessValidator;
+
 	@InjectMocks
 	private TeamMemberFacade teamMemberFacade;
+
+	private static final String USER = "202699999";
 
 	private TeamMember member() {
 		return TeamMember.builder()
@@ -53,7 +60,7 @@ class TeamMemberFacadeTest {
 			User.builder().studentNumber("202699999").name("김철수")
 				.email("kim@kgu.ac.kr").phone("010-0000-0001").build()));
 
-		TeamMemberContactListResponse response = teamMemberFacade.getContacts(1L);
+		TeamMemberContactListResponse response = teamMemberFacade.getContacts(1L, USER);
 
 		assertThat(response.contents()).singleElement().satisfies(contact -> {
 			assertThat(contact.studentNumber()).isEqualTo("202699999");
@@ -68,7 +75,7 @@ class TeamMemberFacadeTest {
 		given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(member()));
 		given(userQueryService.getUsersByStudentNumbers(List.of("202699999"))).willReturn(List.of());
 
-		TeamMemberContactListResponse response = teamMemberFacade.getContacts(1L);
+		TeamMemberContactListResponse response = teamMemberFacade.getContacts(1L, USER);
 
 		assertThat(response.contents()).singleElement().satisfies(contact -> {
 			assertThat(contact.studentNumber()).isEqualTo("202699999");
@@ -82,9 +89,22 @@ class TeamMemberFacadeTest {
 	void rejectsContactsOutsidePeriod() {
 		willThrow(new ContactNotVisibleException()).given(teamQueryService).validateContactVisible(1L);
 
-		assertThatThrownBy(() -> teamMemberFacade.getContacts(1L))
+		assertThatThrownBy(() -> teamMemberFacade.getContacts(1L, USER))
 			.isInstanceOf(ContactNotVisibleException.class);
 
+		verify(teamMemberQueryService, never()).getTeamMembersByTeamId(1L);
+	}
+
+	@Test
+	@DisplayName("팀원도 담당 교수도 아니면 공개기간을 보지도 않고 예외를 던진다")
+	void rejectsContactsForOutsider() {
+		willThrow(new AccessDeniedException("denied"))
+			.given(teamAccessValidator).validateMembershipOrProfessor(1L, USER);
+
+		assertThatThrownBy(() -> teamMemberFacade.getContacts(1L, USER))
+			.isInstanceOf(AccessDeniedException.class);
+
+		verify(teamQueryService, never()).validateContactVisible(1L);
 		verify(teamMemberQueryService, never()).getTeamMembersByTeamId(1L);
 	}
 }

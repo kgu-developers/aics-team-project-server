@@ -7,6 +7,7 @@ import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest;
 import kgu.developers.api.team.presentation.response.TeamKickoffResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,15 +27,16 @@ public class TeamControllerImpl implements TeamController {
 	@Override
 	@GetMapping("/teams/{teamId}/kickoff")
 	public ResponseEntity<TeamKickoffResponse> getKickoffByTeamId(
-			@Positive @PathVariable Long teamId) {
-		return ResponseEntity.ok(teamFacade.getKickoffByTeamId(teamId));
+			@Positive @PathVariable Long teamId, Authentication authentication) {
+		return ResponseEntity.ok(teamFacade.getKickoffByTeamId(teamId, authentication.getName()));
 	}
 
 	@Override
 	@PutMapping("/teams/{teamId}/kickoff")
 	public ResponseEntity<TeamKickoffResponse> updateKickoff(
 			@Positive @PathVariable Long teamId,
-			@Valid @RequestBody TeamKickoffUpdateRequest request) {
-		return ResponseEntity.ok(teamFacade.updateKickoff(teamId, request));
+			@Valid @RequestBody TeamKickoffUpdateRequest request,
+			Authentication authentication) {
+		return ResponseEntity.ok(teamFacade.updateKickoff(teamId, authentication.getName(), request));
 	}
 }

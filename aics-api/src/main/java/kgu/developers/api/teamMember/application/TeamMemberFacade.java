@@ -6,6 +6,7 @@ import static java.util.stream.Collectors.toMap;
 import java.util.List;
 import java.util.Map;
 
+import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactResponse;
 import kgu.developers.domain.team.application.query.TeamQueryService;
@@ -22,8 +23,11 @@ public class TeamMemberFacade {
 	private final TeamQueryService teamQueryService;
 	private final TeamMemberQueryService teamMemberQueryService;
 	private final UserQueryService userQueryService;
+	private final TeamAccessValidator teamAccessValidator;
 
-	public TeamMemberContactListResponse getContacts(Long teamId) {
+	public TeamMemberContactListResponse getContacts(Long teamId, String userId) {
+		// 공개기간 확인 전에 소속부터 확인한다. 기간만 보면 teamId 만 바꿔 남의 팀 연락처를 읽을 수 있다.
+		teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
 		teamQueryService.validateContactVisible(teamId);
 
 		List<TeamMember> teamMembers = teamMemberQueryService.getTeamMembersByTeamId(teamId);
