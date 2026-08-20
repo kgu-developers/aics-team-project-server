@@ -43,6 +43,9 @@ public class TeamCommandService {
     public List<Team> finalizeTeams(Long sectionId) {
         return teamQueryService.getTeamsBySectionId(sectionId).stream()
                 .map(team -> {
+                    if (team.getStatus() == CONFIRMED) {
+                        return team;
+                    }
                     team.updateStatus(CONFIRMED);
                     return teamRepository.save(team);
                 })

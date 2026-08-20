@@ -70,6 +70,23 @@ class TeamCommandServiceTest {
     }
 
     @Test
+    @DisplayName("이미 확정된 팀은 다시 저장하지 않는다")
+    void finalizeTeamsSkipsAlreadyConfirmed() {
+        Team confirmed = team(1L, Status.CONFIRMED);
+        Team forming = team(2L, Status.FORMING);
+        given(teamQueryService.getTeamsBySectionId(10L)).willReturn(List.of(confirmed, forming));
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
+
+        List<Team> finalized = teamCommandService.finalizeTeams(10L);
+
+        verify(teamRepository, times(1)).save(any());
+        verify(teamRepository, never()).save(confirmed);
+
+        assertThat(finalized).hasSize(2)
+                .allSatisfy(team -> assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED));
+    }
+
+    @Test
     @DisplayName("없는 분반은 확정할 수 없다")
     void rejectsMissingSection() {
         given(teamQueryService.getTeamsBySectionId(99L)).willThrow(new SectionNotFoundException());
