@@ -51,13 +51,6 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
-    public List<User> findAllByStudentNumbers(List<String> studentNumbers) {
-        return jpaUserRepository.findByStudentNumberInAndDeletedAtIsNull(studentNumbers).stream()
-                .map(UserJpaEntity::toDomain)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<User> findAllOrderByStudentNumber() {
         List<UserJpaEntity> entities = jpaUserRepository.findAllByDeletedAtIsNullOrderByStudentNumberAsc();
         return entities.stream()

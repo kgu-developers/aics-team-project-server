@@ -20,7 +20,7 @@ public class UserQueryService {
     }
 
     public List<User> getUsersByStudentNumbers(List<String> studentNumbers) {
-        return userRepository.findAllByStudentNumbers(studentNumbers);
+        return userRepository.findAllByStudentNumberIn(studentNumbers);
     }
 
     public User getUserByStudentNumber(String studentNumber) {
