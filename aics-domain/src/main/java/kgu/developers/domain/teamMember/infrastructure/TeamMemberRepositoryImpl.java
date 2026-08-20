@@ -5,9 +5,13 @@ import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teamMember.exception.LeaderAlreadyExistsException;
+import kgu.developers.domain.teamMember.exception.TeamMemberAlreadyExistsException;
+import kgu.developers.domain.teamMember.exception.TeamMemberConcurrentlyModifiedException;
 import kgu.developers.domain.teamMember.exception.TeamMemberNotFoundException;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +24,8 @@ import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 @Repository
 @RequiredArgsConstructor
 public class TeamMemberRepositoryImpl implements TeamMemberRepository {
+    private static final String TEAM_MEMBER_INDEX = "uk_team_member_team_user";
+
     private final JpaTeamMemberRepository jpaTeamMemberRepository;
     private final EntityManager entityManager;
 
@@ -32,8 +38,16 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
         TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, teamMember.getTeamId());
         UserJpaEntity user = entityManager.getReference(UserJpaEntity.class, teamMember.getUserId());
         TeamMemberJpaEntity entity = TeamMemberJpaEntity.toEntity(teamMember, team, user);
-        TeamMemberJpaEntity savedEntity = jpaTeamMemberRepository.save(entity);
-        return savedEntity.toDomain();
+        try {
+            return jpaTeamMemberRepository.saveAndFlush(entity).toDomain();
+        } catch (OptimisticLockingFailureException e) {
+            throw new TeamMemberConcurrentlyModifiedException();
+        } catch (DataIntegrityViolationException e) {
+            if (e.getMostSpecificCause().getMessage().contains(TEAM_MEMBER_INDEX)) {
+                throw new TeamMemberAlreadyExistsException();
+            }
+            throw e;
+        }
     }
 
     @Override
