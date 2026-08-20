@@ -27,7 +27,9 @@ import kgu.developers.domain.team.exception.TeamAlreadyConfirmedException;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.teamMember.exception.LeaderAlreadyExistsException;
 import kgu.developers.domain.teamMember.exception.TeamMemberAlreadyExistsException;
+import kgu.developers.domain.teamMember.exception.TeamMemberSectionMismatchException;
 import kgu.developers.domain.teamMember.exception.TeamMemberNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,7 +51,15 @@ class TeamMemberCommandServiceTest {
     }
 
     private Team team(Long id, Status status) {
-        return Team.builder().id(id).sectionId(10L).name(id + "팀").status(status).build();
+        return team(id, status, 10L);
+    }
+
+    private Team team(Long id, Status status, Long sectionId) {
+        return Team.builder().id(id).sectionId(sectionId).name(id + "팀").status(status).build();
+    }
+
+    private TeamMember leaderOf(Long teamId, Long id) {
+        return TeamMember.builder().id(id).teamId(teamId).userId("202611111").isLeader(true).build();
     }
 
     @Test
@@ -126,24 +136,6 @@ class TeamMemberCommandServiceTest {
         assertThat(teamMember.isLeader()).isTrue();
         verify(teamMemberRepository).save(currentLeader);
         verify(teamMemberRepository).save(teamMember);
-    }
-
-    @Test
-    @DisplayName("옮겨간 팀의 기존 팀장을 내린다")
-    void promotingLeaderAfterMoveDemotesTargetTeamLeader() {
-        TeamMember teamMember = teamMember();
-        TeamMember targetTeamLeader = TeamMember.builder()
-                .id(2L).teamId(2L).userId("202611111").isLeader(true).build();
-        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
-        given(teamQueryService.getTeamById(2L)).willReturn(team(2L, Status.FORMING));
-        given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
-        given(teamMemberRepository.findLeaderByTeamId(2L)).willReturn(Optional.of(targetTeamLeader));
-        given(teamMemberRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
-
-        teamMemberCommandService.updateTeamMember(teamMember, 2L, null, true);
-
-        assertThat(targetTeamLeader.isLeader()).isFalse();
-        verify(teamMemberRepository, never()).findLeaderByTeamId(1L);
     }
 
     @Test
@@ -311,5 +303,53 @@ class TeamMemberCommandServiceTest {
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
 
         verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("다른 분반의 팀으로는 옮길 수 없다")
+    void rejectsMoveToOtherSection() {
+        TeamMember member = teamMember();
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING, 10L));
+        given(teamQueryService.getTeamById(2L)).willReturn(team(2L, Status.FORMING, 99L));
+
+        assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(member, 2L, null, null))
+                .isInstanceOf(TeamMemberSectionMismatchException.class);
+
+        assertThat(member.getTeamId()).isEqualTo(1L);
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("팀장이 있는 팀으로 팀장을 옮기면 409를 던지고 그 팀 팀장을 건드리지 않는다")
+    void rejectsMovingLeaderIntoTeamWithLeader() {
+        TeamMember member = teamMember();
+        TeamMember targetLeader = leaderOf(2L, 9L);
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamQueryService.getTeamById(2L)).willReturn(team(2L, Status.FORMING));
+        given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
+        given(teamMemberRepository.findLeaderByTeamId(2L)).willReturn(Optional.of(targetLeader));
+
+        assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(member, 2L, null, true))
+                .isInstanceOf(LeaderAlreadyExistsException.class);
+
+        assertThat(targetLeader.isLeader()).isTrue();
+        verify(teamMemberRepository, never()).save(any());
+        verify(teamMemberRepository, never()).findLeaderByTeamId(1L);
+    }
+
+    @Test
+    @DisplayName("같은 팀 안에서 팀장을 바꾸면 기존 팀장은 자동으로 내려간다")
+    void demotesLeaderWithinSameTeam() {
+        TeamMember member = teamMember();
+        TeamMember currentLeader = leaderOf(1L, 9L);
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(currentLeader));
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
+
+        teamMemberCommandService.updateTeamMember(member, null, null, true);
+
+        assertThat(currentLeader.isLeader()).isFalse();
+        assertThat(member.isLeader()).isTrue();
+        verify(teamMemberRepository, times(2)).save(any());
     }
 }
