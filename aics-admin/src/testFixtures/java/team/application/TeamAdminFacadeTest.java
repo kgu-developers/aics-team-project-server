@@ -20,8 +20,8 @@ import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
+import kgu.developers.domain.teamMember.domain.TeamMemberWithUser;
 import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,9 +36,6 @@ class TeamAdminFacadeTest {
 	@Mock
 	private TeamMemberQueryService teamMemberQueryService;
 
-	@Mock
-	private UserQueryService userQueryService;
-
 	@InjectMocks
 	private TeamAdminFacade teamAdminFacade;
 
@@ -49,16 +46,18 @@ class TeamAdminFacadeTest {
 		return TeamMember.builder().id(id).teamId(1L).userId(userId).isLeader(isLeader).build();
 	}
 
+	private TeamMemberWithUser withUser(TeamMember member, String name) {
+		return new TeamMemberWithUser(member,
+			User.builder().studentNumber(member.getUserId()).name(name).build());
+	}
+
 	@Test
 	@DisplayName("getTeamById는 팀원 목록에 사용자 이름을 채워 응답한다")
 	void getTeamById() {
 		given(teamQueryService.getTeamById(1L)).willReturn(team);
-		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
-			.willReturn(List.of(member(1L, "202699999", true), member(2L, "202611111", false)));
-		given(userQueryService.getUsersByStudentNumbers(List.of("202699999", "202611111")))
-			.willReturn(List.of(
-				User.builder().studentNumber("202699999").name("김철수").build(),
-				User.builder().studentNumber("202611111").name("이영희").build()));
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			withUser(member(1L, "202699999", true), "김철수"),
+			withUser(member(2L, "202611111", false), "이영희")));
 
 		TeamAdminDetailResponse response = teamAdminFacade.getTeamById(1L);
 
@@ -73,10 +72,8 @@ class TeamAdminFacadeTest {
 	@DisplayName("getTeamById는 사용자가 조회되지 않아도 이름만 비운 채 응답한다")
 	void getTeamByIdWithMissingUser() {
 		given(teamQueryService.getTeamById(1L)).willReturn(team);
-		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
-			.willReturn(List.of(member(1L, "202699999", true)));
-		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
-			.willReturn(List.of());
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L))
+			.willReturn(List.of(new TeamMemberWithUser(member(1L, "202699999", true), null)));
 
 		TeamAdminDetailResponse response = teamAdminFacade.getTeamById(1L);
 

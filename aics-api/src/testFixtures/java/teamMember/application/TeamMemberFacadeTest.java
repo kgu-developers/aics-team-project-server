@@ -24,7 +24,7 @@ import kgu.developers.domain.section.exception.ContactNotVisibleException;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.teamMember.domain.TeamMemberWithUser;
 import kgu.developers.domain.user.domain.User;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,9 +35,6 @@ class TeamMemberFacadeTest {
 
 	@Mock
 	private TeamMemberQueryService teamMemberQueryService;
-
-	@Mock
-	private UserQueryService userQueryService;
 
 	@Mock
 	private TeamAccessValidator teamAccessValidator;
@@ -55,10 +52,9 @@ class TeamMemberFacadeTest {
 	@Test
 	@DisplayName("공개기간 안이면 팀원 연락처를 응답한다")
 	void getContacts() {
-		given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(member()));
-		given(userQueryService.getUsersByStudentNumbers(List.of("202699999"))).willReturn(List.of(
-			User.builder().studentNumber("202699999").name("김철수")
-				.email("kim@kgu.ac.kr").phone("010-0000-0001").build()));
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(member(), User.builder().studentNumber("202699999").name("김철수")
+				.email("kim@kgu.ac.kr").phone("010-0000-0001").build())));
 
 		TeamMemberContactListResponse response = teamMemberFacade.getContacts(1L, USER);
 
@@ -72,8 +68,8 @@ class TeamMemberFacadeTest {
 	@Test
 	@DisplayName("사용자가 조회되지 않아도 학번만 담아 응답한다")
 	void getContactsWithMissingUser() {
-		given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(member()));
-		given(userQueryService.getUsersByStudentNumbers(List.of("202699999"))).willReturn(List.of());
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L))
+			.willReturn(List.of(new TeamMemberWithUser(member(), null)));
 
 		TeamMemberContactListResponse response = teamMemberFacade.getContacts(1L, USER);
 
@@ -92,7 +88,7 @@ class TeamMemberFacadeTest {
 		assertThatThrownBy(() -> teamMemberFacade.getContacts(1L, USER))
 			.isInstanceOf(ContactNotVisibleException.class);
 
-		verify(teamMemberQueryService, never()).getTeamMembersByTeamId(1L);
+		verify(teamMemberQueryService, never()).getTeamMembersWithUsers(1L);
 	}
 
 	@Test
@@ -105,6 +101,6 @@ class TeamMemberFacadeTest {
 			.isInstanceOf(AccessDeniedException.class);
 
 		verify(teamQueryService, never()).validateContactVisible(1L);
-		verify(teamMemberQueryService, never()).getTeamMembersByTeamId(1L);
+		verify(teamMemberQueryService, never()).getTeamMembersWithUsers(1L);
 	}
 }

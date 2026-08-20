@@ -1,10 +1,6 @@
 package kgu.developers.admin.team.application;
 
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
-
 import java.util.List;
-import java.util.Map;
 
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
@@ -13,9 +9,6 @@ import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
-import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.user.application.query.UserQueryService;
-import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +18,6 @@ public class TeamAdminFacade {
 	private final TeamQueryService teamQueryService;
 	private final TeamCommandService teamCommandService;
 	private final TeamMemberQueryService teamMemberQueryService;
-	private final UserQueryService userQueryService;
 
 	public TeamAdminDetailResponse getTeamById(Long teamId) {
 		return TeamAdminDetailResponse.of(teamQueryService.getTeamById(teamId), members(teamId));
@@ -36,15 +28,8 @@ public class TeamAdminFacade {
 	}
 
 	private List<TeamMemberAdminResponse> members(Long teamId) {
-		List<TeamMember> teamMembers = teamMemberQueryService.getTeamMembersByTeamId(teamId);
-
-		Map<String, User> users = userQueryService
-			.getUsersByStudentNumbers(teamMembers.stream().map(TeamMember::getUserId).toList())
-			.stream()
-			.collect(toMap(User::getStudentNumber, identity()));
-
-		return teamMembers.stream()
-			.map(member -> TeamMemberAdminResponse.of(member, users.get(member.getUserId())))
+		return teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
+			.map(it -> TeamMemberAdminResponse.of(it.member(), it.user()))
 			.toList();
 	}
 }

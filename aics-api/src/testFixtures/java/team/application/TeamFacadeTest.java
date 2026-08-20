@@ -30,7 +30,7 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.teamMember.domain.TeamMemberWithUser;
 import kgu.developers.domain.user.domain.User;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,9 +49,6 @@ class TeamFacadeTest {
 	private TeamMemberCommandService teamMemberCommandService;
 
 	@Mock
-	private UserQueryService userQueryService;
-
-	@Mock
 	private TeamAccessValidator teamAccessValidator;
 
 	@InjectMocks
@@ -63,6 +60,11 @@ class TeamFacadeTest {
 		return TeamMember.builder().id(id).teamId(1L).userId(userId).isLeader(isLeader).build();
 	}
 
+	private TeamMemberWithUser withUser(TeamMember member, String name) {
+		return new TeamMemberWithUser(member,
+			User.builder().studentNumber(member.getUserId()).name(name).build());
+	}
+
 	@Test
 	@DisplayName("getKickoffByTeamId는 팀 운영규칙과 회의일정을 응답한다")
 	void getKickoffByTeamId() {
@@ -70,10 +72,8 @@ class TeamFacadeTest {
 			.id(1L).sectionId(10L).name("1팀").kickoffRule("매주 화요일 회고")
 			.meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
 
-		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
-			.willReturn(List.of(member(1L, "202699999", true)));
-		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
-			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L))
+			.willReturn(List.of(withUser(member(1L, "202699999", true), "김철수")));
 
 		TeamKickoffResponse response = teamFacade.getKickoffByTeamId(1L, USER);
 
@@ -93,10 +93,8 @@ class TeamFacadeTest {
 		given(teamCommandService.updateKickoff(1L, "1팀", "매주 화요일 회고", "매주 목 19:00"))
 			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀")
 				.kickoffRule("매주 화요일 회고").meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
-		given(teamMemberQueryService.getTeamMembersByTeamId(1L))
-			.willReturn(List.of(member(1L, "202699999", true)));
-		given(userQueryService.getUsersByStudentNumbers(List.of("202699999")))
-			.willReturn(List.of(User.builder().studentNumber("202699999").name("김철수").build()));
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L))
+			.willReturn(List.of(withUser(member(1L, "202699999", true), "김철수")));
 
 		TeamKickoffResponse response = teamFacade.updateKickoff(1L, USER, request);
 
@@ -112,8 +110,7 @@ class TeamFacadeTest {
 			"1팀", null, null, "202699999", null);
 		given(teamCommandService.updateKickoff(1L, "1팀", null, null))
 			.willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build());
-		given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of());
-		given(userQueryService.getUsersByStudentNumbers(List.of())).willReturn(List.of());
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of());
 
 		teamFacade.updateKickoff(1L, USER, request);
 

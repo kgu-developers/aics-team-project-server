@@ -1,6 +1,5 @@
 package kgu.developers.api.team.application;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 import java.util.List;
@@ -15,9 +14,6 @@ import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
-import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.user.application.query.UserQueryService;
-import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +25,6 @@ public class TeamFacade {
 	private final TeamCommandService teamCommandService;
 	private final TeamMemberQueryService teamMemberQueryService;
 	private final TeamMemberCommandService teamMemberCommandService;
-	private final UserQueryService userQueryService;
 	private final TeamAccessValidator teamAccessValidator;
 
 	public TeamKickoffResponse getKickoffByTeamId(Long teamId, String userId) {
@@ -54,15 +49,8 @@ public class TeamFacade {
 	}
 
 	private List<TeamMemberResponse> members(Long teamId) {
-		List<TeamMember> teamMembers = teamMemberQueryService.getTeamMembersByTeamId(teamId);
-
-		Map<String, User> users = userQueryService
-			.getUsersByStudentNumbers(teamMembers.stream().map(TeamMember::getUserId).toList())
-			.stream()
-			.collect(toMap(User::getStudentNumber, identity()));
-
-		return teamMembers.stream()
-			.map(member -> TeamMemberResponse.of(member, users.get(member.getUserId())))
+		return teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
+			.map(it -> TeamMemberResponse.of(it.member(), it.user()))
 			.toList();
 	}
 }
