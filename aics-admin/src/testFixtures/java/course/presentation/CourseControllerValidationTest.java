@@ -31,7 +31,7 @@ import kgu.developers.common.exception.GlobalExceptionHandler;
 
 @WebMvcTest
 @Import({CourseControllerImpl.class, GlobalExceptionHandler.class})
-@WithMockUser(roles = "PROFESSOR")
+@WithMockUser(roles = "ADMIN")
 @TestPropertySource(properties = {
     "spring.security.user.name=admin",
     "spring.security.user.password=admin"
