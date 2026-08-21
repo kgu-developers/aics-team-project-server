@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -27,6 +28,7 @@ import kgu.developers.domain.enrollment.application.command.EnrollmentCommandSer
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.importBatch.domain.ImportBatch;
 import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
 import kgu.developers.domain.importBatch.domain.Type;
@@ -82,9 +84,18 @@ public class EnrollmentImportFacade {
                 continue;
             }
             String studentNumber = row.path("studentNumber").asText();
+            Role role = Role.valueOf(row.path("role").asText());
 
-            if (enrollmentRepository.existsBySectionIdAndUserId(batch.getSectionId(), studentNumber)) {
-                skipped++;
+            // 미리보기 이후 등록됐을 수 있으므로 다시 확인한다. 수강 취소 상태면 다시 활성화한다.
+            Enrollment existing = enrollmentRepository
+                .findBySectionIdAndUserId(batch.getSectionId(), studentNumber).orElse(null);
+            if (existing != null) {
+                if (existing.getStatus() == Status.ACTIVE) {
+                    skipped++;
+                    continue;
+                }
+                enrollmentCommandService.updateEnrollment(batch.getSectionId(), studentNumber, role, Status.ACTIVE);
+                applied++;
                 continue;
             }
             if (status == NEW_USER && userRepository.findByStudentNumber(studentNumber).isEmpty()) {
@@ -93,8 +104,7 @@ public class EnrollmentImportFacade {
                     row.path("phone").asText(), false);
                 createdUsers++;
             }
-            enrollmentCommandService.createEnrollment(batch.getSectionId(), studentNumber,
-                Role.valueOf(row.path("role").asText()));
+            enrollmentCommandService.createEnrollment(batch.getSectionId(), studentNumber, role);
             applied++;
         }
         importBatchRepository.save(batch);
@@ -108,9 +118,8 @@ public class EnrollmentImportFacade {
             .stream()
             .map(User::getStudentNumber)
             .collect(Collectors.toSet());
-        Set<String> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
-            .map(Enrollment::getUserId)
-            .collect(Collectors.toSet());
+        Map<String, Status> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
+            .collect(Collectors.toMap(Enrollment::getUserId, Enrollment::getStatus));
 
         Set<String> seenNumbers = new HashSet<>();
         Set<String> seenEmails = new HashSet<>();
@@ -119,16 +128,20 @@ public class EnrollmentImportFacade {
             .toList();
     }
 
-    private EnrollmentImportRow classify(EnrollmentImportRow row, Set<String> members, Set<String> enrolled,
-        Set<String> seenNumbers, Set<String> seenEmails) {
+    private EnrollmentImportRow classify(EnrollmentImportRow row, Set<String> members,
+        Map<String, Status> enrolled, Set<String> seenNumbers, Set<String> seenEmails) {
         if (row.status() == INVALID) {
             return row;
         }
         if (!seenNumbers.add(row.studentNumber())) {
             return row.with(INVALID, "파일 안에 중복된 학번입니다.");
         }
-        if (enrolled.contains(row.studentNumber())) {
+        Status enrollmentStatus = enrolled.get(row.studentNumber());
+        if (enrollmentStatus == Status.ACTIVE) {
             return row.with(DUPLICATE, "이미 등록된 수강생입니다.");
+        }
+        if (enrollmentStatus != null) {
+            return row.with(VALID, "수강 취소 상태입니다. 반영 시 다시 활성화합니다.");
         }
         if (members.contains(row.studentNumber())) {
             return row;

@@ -5,6 +5,7 @@ import static kgu.developers.api.importcommon.RowStatus.VALID;
 import static kgu.developers.api.importcommon.Sheets.cell;
 import static kgu.developers.api.importcommon.Sheets.column;
 import static kgu.developers.api.importcommon.Sheets.headerRow;
+import static kgu.developers.api.importcommon.Sheets.tooLong;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -81,6 +82,15 @@ public final class EnrollmentSheetReader {
         }
         if (email.isEmpty()) {
             email = studentNumber + SCHOOL_MAIL_DOMAIN;
+        }
+
+        // 저장 시 잘리거나 실패하지 않도록 user 테이블 컬럼 길이를 미리 확인한다
+        String tooLong = tooLong("학번", studentNumber, 16);
+        tooLong = tooLong != null ? tooLong : tooLong("이름", name, 32);
+        tooLong = tooLong != null ? tooLong : tooLong("이메일", email, 64);
+        tooLong = tooLong != null ? tooLong : tooLong("연락처", phone, 20);
+        if (tooLong != null) {
+            return invalid(rowNumber, studentNumber, name, email, phone, tooLong);
         }
         return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone, role, VALID, null);
     }

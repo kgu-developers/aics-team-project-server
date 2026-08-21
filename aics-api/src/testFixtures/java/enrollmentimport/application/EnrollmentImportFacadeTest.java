@@ -149,6 +149,53 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("preview는 수강 취소 상태 학생을 재등록 대상으로 본다")
+    public void preview_ReenrollsWithdrawnStudent() throws IOException {
+        // given
+        given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
+            Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.WITHDRAWN)));
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-0000-0001", ""}));
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.VALID);
+        assertThat(response.rows().get(0).message()).contains("수강 취소");
+    }
+
+    @Test
+    @DisplayName("apply는 수강 취소 상태를 다시 활성화한다")
+    public void apply_ReactivatesWithdrawnEnrollment() {
+        // given
+        ImportBatch batch = batch(0, List.of(row(2, MEMBER, RowStatus.VALID)));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, MEMBER)).willReturn(
+            Optional.of(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.WITHDRAWN)));
+
+        // when
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        // then
+        assertThat(response.applied()).isEqualTo(1);
+        assertThat(response.skipped()).isZero();
+        verify(enrollmentCommandService).updateEnrollment(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE);
+        verify(enrollmentCommandService, never()).createEnrollment(any(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("preview는 컬럼 길이를 넘는 값을 오류로 표시한다")
+    public void preview_RejectsTooLongValues() throws IOException {
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT, excel(
+            new String[] {MEMBER, "홍길동", "a".repeat(60) + "@kyonggi.ac.kr", "010-0000-0001", ""}));
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("64자");
+    }
+
+    @Test
     @DisplayName("preview는 조교가 아니면 거부한다")
     public void preview_RejectsNonAssistant() throws IOException {
         // given
@@ -193,7 +240,8 @@ public class EnrollmentImportFacadeTest {
         // given
         ImportBatch batch = batch(0, List.of(row(2, MEMBER, RowStatus.VALID)));
         given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
-        given(enrollmentRepository.existsBySectionIdAndUserId(SECTION_ID, MEMBER)).willReturn(true);
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, MEMBER)).willReturn(
+            Optional.of(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE)));
 
         // when
         EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
