@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.api.enrollmentimport.presentation.response.EnrollmentImportApplyResponse;
 import kgu.developers.api.enrollmentimport.presentation.response.EnrollmentImportPreviewResponse;
-import kgu.developers.api.importcommon.RowStatus;
 import kgu.developers.api.importcommon.SectionStaffValidator;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
@@ -79,14 +78,14 @@ public class EnrollmentImportFacade {
         int createdUsers = 0;
         int skipped = 0;
         for (JsonNode row : batch.getPayload()) {
-            RowStatus status = RowStatus.valueOf(row.path("status").asText());
-            if (status != VALID && status != NEW_USER) {
+            String status = row.path("status").asText();
+            boolean newUser = NEW_USER.name().equals(status);
+            if (!newUser && !VALID.name().equals(status)) {
                 continue;
             }
             String studentNumber = row.path("studentNumber").asText();
             Role role = Role.valueOf(row.path("role").asText());
 
-            // 미리보기 이후 등록됐을 수 있으므로 다시 확인한다. 수강 취소 상태면 다시 활성화한다.
             Enrollment existing = enrollmentRepository
                 .findBySectionIdAndUserId(batch.getSectionId(), studentNumber).orElse(null);
             if (existing != null) {
@@ -98,7 +97,7 @@ public class EnrollmentImportFacade {
                 applied++;
                 continue;
             }
-            if (status == NEW_USER && userRepository.findByStudentNumber(studentNumber).isEmpty()) {
+            if (newUser && userRepository.findByStudentNumber(studentNumber).isEmpty()) {
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
                     row.path("name").asText(), studentNumber, UserGlobalRole.USER,
                     row.path("phone").asText(), false);
@@ -113,22 +112,28 @@ public class EnrollmentImportFacade {
     }
 
     private List<EnrollmentImportRow> validate(Long sectionId, List<EnrollmentImportRow> rows) {
-        Set<String> members = userRepository
-            .findAllByStudentNumberIn(rows.stream().map(EnrollmentImportRow::studentNumber).toList())
-            .stream()
+        List<String> studentNumbers = rows.stream().map(EnrollmentImportRow::studentNumber).toList();
+        Set<String> members = userRepository.findAllByStudentNumberIn(studentNumbers).stream()
             .map(User::getStudentNumber)
             .collect(Collectors.toSet());
+        Set<String> everRegistered = userRepository.findAllIncludingDeletedByStudentNumberIn(studentNumbers).stream()
+            .map(User::getStudentNumber)
+            .collect(Collectors.toSet());
+        Map<String, String> emailOwners = userRepository
+            .findAllByEmailIn(rows.stream().map(EnrollmentImportRow::email).toList()).stream()
+            .collect(Collectors.toMap(User::getEmail, User::getStudentNumber));
         Map<String, Status> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .collect(Collectors.toMap(Enrollment::getUserId, Enrollment::getStatus));
 
         Set<String> seenNumbers = new HashSet<>();
         Set<String> seenEmails = new HashSet<>();
         return rows.stream()
-            .map(row -> classify(row, members, enrolled, seenNumbers, seenEmails))
+            .map(row -> classify(row, members, everRegistered, emailOwners, enrolled, seenNumbers, seenEmails))
             .toList();
     }
 
     private EnrollmentImportRow classify(EnrollmentImportRow row, Set<String> members,
+        Set<String> everRegistered, Map<String, String> emailOwners,
         Map<String, Status> enrolled, Set<String> seenNumbers, Set<String> seenEmails) {
         if (row.status() == INVALID) {
             return row;
@@ -146,13 +151,14 @@ public class EnrollmentImportFacade {
         if (members.contains(row.studentNumber())) {
             return row;
         }
-        if (userRepository.findIncludingDeleted(row.studentNumber()).isPresent()) {
+        if (everRegistered.contains(row.studentNumber())) {
             return row.with(INVALID, "탈퇴 이력이 있는 학번입니다. 관리자에게 문의하세요.");
         }
         if (!seenEmails.add(row.email())) {
             return row.with(INVALID, "파일 안에 중복된 이메일입니다.");
         }
-        if (userRepository.existsByEmailAndStudentNumberNotAndDeletedAtIsNull(row.email(), row.studentNumber())) {
+        String emailOwner = emailOwners.get(row.email());
+        if (emailOwner != null && !emailOwner.equals(row.studentNumber())) {
             return row.with(INVALID, "이미 사용 중인 이메일입니다.");
         }
         return row.with(NEW_USER, "가입되지 않은 학생입니다. 반영 시 계정을 만듭니다.");

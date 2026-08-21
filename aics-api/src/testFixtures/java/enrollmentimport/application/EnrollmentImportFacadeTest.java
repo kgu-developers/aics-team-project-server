@@ -137,7 +137,8 @@ public class EnrollmentImportFacadeTest {
     @DisplayName("preview는 탈퇴 이력이 있는 학번을 오류로 표시한다")
     public void preview_RejectsWithdrawnUser() throws IOException {
         // given
-        given(userRepository.findIncludingDeleted(NEWCOMER)).willReturn(Optional.of(user(NEWCOMER)));
+        given(userRepository.findAllIncludingDeletedByStudentNumberIn(any()))
+            .willReturn(List.of(user(NEWCOMER)));
 
         // when
         EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
@@ -146,6 +147,21 @@ public class EnrollmentImportFacadeTest {
         // then
         assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
         assertThat(response.rows().get(0).message()).contains("탈퇴");
+    }
+
+    @Test
+    @DisplayName("preview는 다른 사람이 쓰는 이메일을 오류로 표시한다")
+    public void preview_RejectsTakenEmail() throws IOException {
+        // given
+        given(userRepository.findAllByEmailIn(any())).willReturn(List.of(user(MEMBER)));
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", MEMBER + "@kyonggi.ac.kr", "010-0000-0003", ""}));
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("이미 사용 중인 이메일");
     }
 
     @Test
