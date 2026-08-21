@@ -5,6 +5,7 @@ import static kgu.developers.api.importcommon.RowStatus.VALID;
 import static kgu.developers.api.importcommon.Sheets.cell;
 import static kgu.developers.api.importcommon.Sheets.column;
 import static kgu.developers.api.importcommon.Sheets.headerRow;
+import static kgu.developers.api.importcommon.Sheets.tooLong;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -73,6 +74,14 @@ public final class TeamSheetReader {
         }
         if (studentNumber.isEmpty()) {
             return invalid(rowNumber, teamName, studentNumber, name, leader, projectRole, "학번이 비어 있습니다.");
+        }
+
+        // 저장 시 잘리거나 실패하지 않도록 team/team_member 컬럼 길이를 미리 확인한다
+        String tooLong = tooLong("팀명", teamName, 200);
+        tooLong = tooLong != null ? tooLong : tooLong("학번", studentNumber, 16);
+        tooLong = tooLong != null ? tooLong : tooLong("역할", projectRole, 50);
+        if (tooLong != null) {
+            return invalid(rowNumber, teamName, studentNumber, name, leader, projectRole, tooLong);
         }
         return new TeamImportRow(rowNumber, teamName, studentNumber, name, leader, projectRole, VALID, null);
     }

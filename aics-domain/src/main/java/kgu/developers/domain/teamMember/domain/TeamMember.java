@@ -45,4 +45,10 @@ public class TeamMember {
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
+
+    public void reactivate(boolean isLeader, String projectRole) {
+        this.deletedAt = null;
+        this.isLeader = isLeader;
+        this.projectRole = projectRole;
+    }
 }

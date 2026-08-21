@@ -65,6 +65,14 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     }
 
     @Override
+    public Optional<TeamMember> findIncludingDeleted(Long teamId, String userId) {
+        return store.values().stream()
+            .filter(teamMember -> teamMember.getTeamId().equals(teamId))
+            .filter(teamMember -> teamMember.getUserId().equals(userId))
+            .findFirst();
+    }
+
+    @Override
     public Optional<TeamMember> findLeaderByTeamId(Long teamId) {
         return store.values().stream()
             .filter(teamMember -> teamMember.getDeletedAt() == null)

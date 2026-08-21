@@ -18,6 +18,8 @@ public interface JpaTeamMemberRepository extends JpaRepository<TeamMemberJpaEnti
 
     Optional<TeamMemberJpaEntity> findByTeamIdAndUserStudentNumberAndDeletedAtIsNull(Long teamId, String userId);
 
+    Optional<TeamMemberJpaEntity> findByTeamIdAndUserStudentNumber(Long teamId, String userId);
+
     Optional<TeamMemberJpaEntity> findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(Long teamId);
 
     boolean existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(Long teamId);

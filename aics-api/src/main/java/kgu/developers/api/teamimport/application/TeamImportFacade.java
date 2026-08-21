@@ -86,20 +86,30 @@ public class TeamImportFacade {
             String teamName = row.path("teamName").asText();
             String studentNumber = row.path("studentNumber").asText();
 
+            boolean leader = row.path("leader").asBoolean();
+            String projectRole = row.path("projectRole").asText();
+
             Long teamId = teamIds.get(teamName);
             if (teamId == null) {
+                // 운영규칙·회의일정은 팀이 직접 채우는 값이라 빈 값으로 만든다 (컬럼이 NOT NULL이다)
                 teamId = teamRepository.save(
-                    Team.create(batch.getSectionId(), teamName, null, null, Status.FORMING)).getId();
+                    Team.create(batch.getSectionId(), teamName, "", "", Status.FORMING)).getId();
                 teamIds.put(teamName, teamId);
                 createdTeams++;
             }
-            // 미리보기 이후 편성됐을 수 있으므로 다시 확인한다
-            if (teamMemberRepository.findByTeamIdAndUserId(teamId, studentNumber).isPresent()) {
+            // 미리보기 이후 편성됐을 수 있고, 팀에서 빠졌던 학생은 (team_id, user_id) 유니크 제약 때문에
+            // 새로 넣지 못하므로 삭제된 이력까지 보고 되살린다
+            TeamMember existing = teamMemberRepository.findIncludingDeleted(teamId, studentNumber).orElse(null);
+            if (existing != null && existing.getDeletedAt() == null) {
                 skipped++;
                 continue;
             }
-            teamMemberRepository.save(TeamMember.create(teamId, studentNumber,
-                row.path("leader").asBoolean(), emptyToNull(row.path("projectRole").asText())));
+            if (existing != null) {
+                existing.reactivate(leader, projectRole);
+                teamMemberRepository.save(existing);
+            } else {
+                teamMemberRepository.save(TeamMember.create(teamId, studentNumber, leader, projectRole));
+            }
             appliedMembers++;
         }
         importBatchRepository.save(batch);
@@ -153,9 +163,5 @@ public class TeamImportFacade {
             return row.with(INVALID, "이 팀에는 이미 팀장이 있습니다.");
         }
         return row;
-    }
-
-    private static String emptyToNull(String value) {
-        return value.isEmpty() ? null : value;
     }
 }

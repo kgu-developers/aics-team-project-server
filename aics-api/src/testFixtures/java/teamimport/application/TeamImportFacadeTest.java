@@ -182,8 +182,69 @@ public class TeamImportFacadeTest {
                 TeamMember::isLeader, TeamMember::getProjectRole)
             .containsExactly(
                 org.assertj.core.groups.Tuple.tuple(10L, STUDENT_A, true, "백엔드"),
-                org.assertj.core.groups.Tuple.tuple(10L, STUDENT_B, false, null),
-                org.assertj.core.groups.Tuple.tuple(20L, STUDENT_C, false, null));
+                org.assertj.core.groups.Tuple.tuple(10L, STUDENT_B, false, ""),
+                org.assertj.core.groups.Tuple.tuple(20L, STUDENT_C, false, ""));
+    }
+
+    @Test
+    @DisplayName("apply는 팀에서 빠졌던 학생을 되살려 편성한다")
+    public void apply_ReactivatesRemovedMember() {
+        // given: (team_id, user_id) 유니크 제약 때문에 새로 넣으면 안 되는 상황
+        given(teamRepository.findAllBySectionId(SECTION_ID))
+            .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
+        TeamMember removed = TeamMember.builder().id(5L).teamId(10L).userId(STUDENT_A)
+            .isLeader(false).projectRole("").deletedAt(LocalDateTime.now().minusDays(1)).build();
+        given(teamMemberRepository.findIncludingDeleted(10L, STUDENT_A)).willReturn(Optional.of(removed));
+        ImportBatch batch = batch(0, List.of(row(2, "1팀", STUDENT_A, true, "백엔드", RowStatus.VALID)));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+        // when
+        TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        // then
+        assertThat(response.appliedMembers()).isEqualTo(1);
+        assertThat(response.skipped()).isZero();
+        ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+        verify(teamMemberRepository).save(captor.capture());
+        assertThat(captor.getValue().getId()).isEqualTo(5L);
+        assertThat(captor.getValue().getDeletedAt()).isNull();
+        assertThat(captor.getValue().isLeader()).isTrue();
+        assertThat(captor.getValue().getProjectRole()).isEqualTo("백엔드");
+    }
+
+    @Test
+    @DisplayName("apply가 만드는 팀과 팀원은 NOT NULL 컬럼을 빈 값으로라도 채운다")
+    public void apply_FillsNotNullColumns() {
+        // given
+        ImportBatch batch = batch(0, List.of(row(2, "1팀", STUDENT_A, false, "", RowStatus.VALID)));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+        given(teamRepository.save(any())).willAnswer(invocation -> Team.builder().id(10L)
+            .sectionId(SECTION_ID).name("1팀").build());
+
+        // when
+        facade.apply(1L, ASSISTANT);
+
+        // then
+        ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
+        verify(teamRepository).save(teamCaptor.capture());
+        assertThat(teamCaptor.getValue().getKickoffRule()).isNotNull();
+        assertThat(teamCaptor.getValue().getMeetingSchedule()).isNotNull();
+
+        ArgumentCaptor<TeamMember> memberCaptor = ArgumentCaptor.forClass(TeamMember.class);
+        verify(teamMemberRepository).save(memberCaptor.capture());
+        assertThat(memberCaptor.getValue().getProjectRole()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("preview는 컬럼 길이를 넘는 값을 오류로 표시한다")
+    public void preview_RejectsTooLongValues() throws IOException {
+        // when
+        TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {"1팀", STUDENT_A, "홍길동", "", "역".repeat(51)}));
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("50자");
     }
 
     @Test
