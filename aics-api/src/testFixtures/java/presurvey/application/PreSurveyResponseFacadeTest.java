@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +20,10 @@ import org.springframework.security.access.AccessDeniedException;
 import kgu.developers.api.preSurveyResponse.application.PreSurveyResponseFacade;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
+import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseQueryService;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponseNotFoundException;
@@ -32,6 +36,8 @@ class PreSurveyResponseFacadeTest {
 	private static final Long SECTION_ID = 1L;
 	private static final String STUDENT = "202012345";
 	private static final String OUTSIDER = "202000000";
+	private static final String WITHDRAWN_STUDENT = "202099999";
+	private static final String ASSISTANT = "202088888";
 
 	@Mock
 	private EnrollmentRepository enrollmentRepository;
@@ -46,8 +52,14 @@ class PreSurveyResponseFacadeTest {
 				new PreSurveyResponseQueryService(repository),
 				enrollmentRepository
 		);
-		given(enrollmentRepository.existsBySectionIdAndUserId(SECTION_ID, STUDENT)).willReturn(true);
-		given(enrollmentRepository.existsBySectionIdAndUserId(SECTION_ID, OUTSIDER)).willReturn(false);
+		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, STUDENT))
+				.willReturn(Optional.of(Enrollment.create(SECTION_ID, STUDENT, Role.STUDENT, Status.ACTIVE)));
+		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, OUTSIDER))
+				.willReturn(Optional.empty());
+		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, WITHDRAWN_STUDENT))
+				.willReturn(Optional.of(Enrollment.create(SECTION_ID, WITHDRAWN_STUDENT, Role.STUDENT, Status.WITHDRAWN)));
+		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
+				.willReturn(Optional.of(Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE)));
 	}
 
 	private PreSurveyResponseSubmitRequest request(List<String> roles, String topicOpinion) {
@@ -110,6 +122,24 @@ class PreSurveyResponseFacadeTest {
 		assertThatThrownBy(() -> preSurveyResponseFacade.submit(SECTION_ID, OUTSIDER, request(List.of("BACKEND"), null)))
 				.isInstanceOf(AccessDeniedException.class);
 		assertThatThrownBy(() -> preSurveyResponseFacade.getMyResponse(OUTSIDER, SECTION_ID))
+				.isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	@DisplayName("수강 철회한 학생은 제출도 조회도 막힌다")
+	void rejectsWithdrawnUser() {
+		assertThatThrownBy(() -> preSurveyResponseFacade.submit(SECTION_ID, WITHDRAWN_STUDENT, request(List.of("BACKEND"), null)))
+				.isInstanceOf(AccessDeniedException.class);
+		assertThatThrownBy(() -> preSurveyResponseFacade.getMyResponse(WITHDRAWN_STUDENT, SECTION_ID))
+				.isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	@DisplayName("조교는 제출도 조회도 막힌다")
+	void rejectsAssistantUser() {
+		assertThatThrownBy(() -> preSurveyResponseFacade.submit(SECTION_ID, ASSISTANT, request(List.of("BACKEND"), null)))
+				.isInstanceOf(AccessDeniedException.class);
+		assertThatThrownBy(() -> preSurveyResponseFacade.getMyResponse(ASSISTANT, SECTION_ID))
 				.isInstanceOf(AccessDeniedException.class);
 	}
 }
