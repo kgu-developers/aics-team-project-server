@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.admin.enrollmentimport.presentation.response.EnrollmentImportApplyResponse;
 import kgu.developers.admin.enrollmentimport.presentation.response.EnrollmentImportPreviewResponse;
+import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
 import kgu.developers.domain.enrollment.domain.Enrollment;
@@ -51,11 +52,13 @@ public class EnrollmentImportFacade {
     private final UserCommandService userCommandService;
     private final UserRepository userRepository;
     private final SectionRepository sectionRepository;
+    private final SectionStaffValidator sectionStaffValidator;
 
     public EnrollmentImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
+        sectionStaffValidator.validate(sectionId, uploaderId);
 
         List<EnrollmentImportRow> rows = validate(sectionId, EnrollmentSheetReader.read(file));
         EnrollmentImportSummary summary = EnrollmentImportSummary.of(rows);
@@ -73,6 +76,8 @@ public class EnrollmentImportFacade {
         if (batch.getType() != Type.ENROLLMENT) {
             throw new ImportBatchNotFoundException();
         }
+        sectionStaffValidator.validate(batch.getSectionId(), userId);
+
         batch.apply(LocalDateTime.now());
 
         int applied = 0;

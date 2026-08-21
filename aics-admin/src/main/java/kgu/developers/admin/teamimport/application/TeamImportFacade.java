@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.admin.teamimport.presentation.response.TeamImportApplyResponse;
 import kgu.developers.admin.teamimport.presentation.response.TeamImportPreviewResponse;
+import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
@@ -49,11 +50,13 @@ public class TeamImportFacade {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final SectionRepository sectionRepository;
+    private final SectionStaffValidator sectionStaffValidator;
 
     public TeamImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
+        sectionStaffValidator.validate(sectionId, uploaderId);
 
         List<TeamImportRow> rows = validate(sectionId, TeamSheetReader.read(file));
         TeamImportSummary summary = TeamImportSummary.of(rows);
@@ -71,6 +74,8 @@ public class TeamImportFacade {
         if (batch.getType() != Type.TEAM) {
             throw new ImportBatchNotFoundException();
         }
+        sectionStaffValidator.validate(batch.getSectionId(), userId);
+
         batch.apply(LocalDateTime.now());
 
         Map<String, Long> teamIds = new HashMap<>();

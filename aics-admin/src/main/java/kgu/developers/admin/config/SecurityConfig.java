@@ -32,6 +32,12 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/admin-docs/**", "/admin-api-docs/**").permitAll()
+            // 명단 업로드는 조교도 쓰므로 ROLE_ADMIN을 요구하지 않는다.
+            // 대신 SectionStaffValidator가 담당 분반인지 확인한다.
+            .requestMatchers("/api/v1/admin/oop/sections/*/enrollment-imports/**",
+                "/api/v1/admin/oop/sections/*/team-imports/**",
+                "/api/v1/admin/oop/enrollment-imports/**",
+                "/api/v1/admin/oop/team-imports/**").authenticated()
             .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())
         .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))

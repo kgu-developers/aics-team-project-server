@@ -23,6 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 
 import kgu.developers.admin.importcommon.RowStatus;
 import kgu.developers.admin.teamimport.application.TeamImportFacade;
@@ -39,6 +40,7 @@ import kgu.developers.domain.importBatch.domain.ImportBatch;
 import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
 import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsException;
+import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
@@ -46,6 +48,7 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.domain.UserRepository;
 
 public class TeamImportFacadeTest {
 
@@ -61,6 +64,7 @@ public class TeamImportFacadeTest {
   private TeamRepository teamRepository;
   private TeamMemberRepository teamMemberRepository;
   private SectionRepository sectionRepository;
+  private UserRepository userRepository;
   private TeamImportFacade facade;
 
   @BeforeEach
@@ -70,10 +74,14 @@ public class TeamImportFacadeTest {
     teamRepository = mock(TeamRepository.class);
     teamMemberRepository = mock(TeamMemberRepository.class);
     sectionRepository = mock(SectionRepository.class);
+    userRepository = mock(UserRepository.class);
     facade = new TeamImportFacade(importBatchRepository, enrollmentRepository, teamRepository,
-        teamMemberRepository, sectionRepository);
+        teamMemberRepository, sectionRepository,
+        new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
 
     given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
+    given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
+        .willReturn(Optional.of(Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE)));
     given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
         Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE),
         Enrollment.create(SECTION_ID, STUDENT_A, Role.STUDENT, Status.ACTIVE),
@@ -137,6 +145,15 @@ public class TeamImportFacadeTest {
     // then
     assertThat(moved.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
     assertThat(moved.rows().get(0).message()).contains("1팀");
+  }
+
+  @Test
+  @DisplayName("preview는 그 분반 조교도 담당 교수도 관리자도 아니면 거부한다")
+  public void preview_RejectsNonStaff() throws IOException {
+    // when & then
+    assertThatThrownBy(() -> facade.preview(SECTION_ID, STUDENT_A,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "" })))
+        .isInstanceOf(AccessDeniedException.class);
   }
 
   @Test

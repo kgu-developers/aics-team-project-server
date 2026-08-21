@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 
 import kgu.developers.admin.enrollmentimport.application.EnrollmentImportFacade;
 import kgu.developers.admin.enrollmentimport.application.EnrollmentImportRow;
@@ -38,6 +39,7 @@ import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
+import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
@@ -77,9 +79,12 @@ public class EnrollmentImportFacadeTest {
         sectionRepository = mock(SectionRepository.class);
         facade = new EnrollmentImportFacade(importBatchRepository, enrollmentRepository,
             enrollmentCommandService, userCommandService, userRepository,
-            sectionRepository);
+            sectionRepository,
+            new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
 
         given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
+            .willReturn(Optional.of(Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE)));
         given(enrollmentRepository.findAllBySectionId(SECTION_ID))
             .willReturn(List.of(Enrollment.create(SECTION_ID, ENROLLED, Role.STUDENT, Status.ACTIVE)));
         given(userRepository.findAllByStudentNumberIn(any()))
@@ -210,6 +215,31 @@ public class EnrollmentImportFacadeTest {
         // then
         assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
         assertThat(response.rows().get(0).message()).contains("64자");
+    }
+
+    @Test
+    @DisplayName("preview는 그 분반 조교도 담당 교수도 관리자도 아니면 거부한다")
+    public void preview_RejectsNonStaff() throws IOException {
+        // when & then
+        assertThatThrownBy(() -> facade.preview(SECTION_ID, MEMBER,
+            excel(new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-0000-0001", ""})))
+            .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("preview는 전역 관리자면 분반 조교가 아니어도 허용한다")
+    public void preview_AllowsGlobalAdmin() throws IOException {
+        // given
+        given(userRepository.findByStudentNumber(MEMBER)).willReturn(Optional.of(
+            User.create(MEMBER, MEMBER + "@kyonggi.ac.kr", "관리자", "password",
+                UserGlobalRole.ADMIN, "010-0000-0000")));
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, MEMBER,
+            excel(new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-0000-0001", ""}));
+
+        // then
+        assertThat(response.importId()).isEqualTo(1L);
     }
 
     @Test
