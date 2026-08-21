@@ -1,7 +1,7 @@
 package kgu.developers.domain.preSurveyResponse.application.command;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -11,19 +11,27 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class PreSurveyResponseCommandService {
   private final PreSurveyResponseRepository preSurveyResponseRepository;
 
   public PreSurveyResponse submit(String userId, Long sectionId, JsonNode preferredRoles,
       String topicOpinion, String etcOpinion) {
-    PreSurveyResponse response = preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)
-        .map(existing -> {
-          existing.update(preferredRoles, topicOpinion, etcOpinion);
-          return existing;
-        })
-        .orElseGet(() -> PreSurveyResponse.create(userId, sectionId, preferredRoles, topicOpinion, etcOpinion));
+    PreSurveyResponse existing = preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)
+        .orElse(null);
 
-    return preSurveyResponseRepository.save(response);
+    if (existing != null) {
+      existing.update(preferredRoles, topicOpinion, etcOpinion);
+      return preSurveyResponseRepository.save(existing);
+    }
+
+    try {
+      PreSurveyResponse response = PreSurveyResponse.create(userId, sectionId, preferredRoles, topicOpinion, etcOpinion);
+      return preSurveyResponseRepository.save(response);
+    } catch (DataIntegrityViolationException e) {
+      PreSurveyResponse response = preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)
+          .orElseThrow(() -> e);
+      response.update(preferredRoles, topicOpinion, etcOpinion);
+      return preSurveyResponseRepository.save(response);
+    }
   }
 }

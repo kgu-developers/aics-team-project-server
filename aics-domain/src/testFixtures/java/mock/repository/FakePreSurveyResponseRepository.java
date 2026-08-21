@@ -8,6 +8,8 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.springframework.dao.DataIntegrityViolationException;
+
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponseRepository;
 
@@ -18,6 +20,16 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 
 	@Override
 	public PreSurveyResponse save(PreSurveyResponse response) {
+		if (response.getId() == null) {
+			boolean existsActive = store.values().stream()
+					.anyMatch(r -> r.getDeletedAt() == null
+							&& r.getUserId().equals(response.getUserId())
+							&& r.getSectionId().equals(response.getSectionId()));
+			if (existsActive) {
+				throw new DataIntegrityViolationException("uk_pre_survey_response_active_user_section 위반: 이미 해당 유저의 활성 응답이 존재함");
+			}
+		}
+
 		Long id = response.getId() != null ? response.getId() : sequence.incrementAndGet();
 		LocalDateTime createdAt = response.getCreatedAt() != null ? response.getCreatedAt() : LocalDateTime.now();
 
@@ -49,6 +61,7 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 				.filter(response -> response.getDeletedAt() == null)
 				.filter(response -> response.getUserId().equals(userId))
 				.filter(response -> response.getSectionId().equals(sectionId))
+				.sorted(Comparator.comparing(PreSurveyResponse::getId).reversed())
 				.findFirst();
 	}
 
