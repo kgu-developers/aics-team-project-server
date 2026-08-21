@@ -75,6 +75,7 @@ public class TeamImportFacade {
         Map<String, Long> teamIds = new HashMap<>();
         teamRepository.findAllBySectionId(batch.getSectionId())
             .forEach(team -> teamIds.put(team.getName(), team.getId()));
+        Set<String> enrolled = activeEnrollments(batch.getSectionId());
 
         int createdTeams = 0;
         int appliedMembers = 0;
@@ -89,16 +90,18 @@ public class TeamImportFacade {
             boolean leader = row.path("leader").asBoolean();
             String projectRole = row.path("projectRole").asText();
 
+            if (!enrolled.contains(studentNumber)) {
+                skipped++;
+                continue;
+            }
+
             Long teamId = teamIds.get(teamName);
             if (teamId == null) {
-                // 운영규칙·회의일정은 팀이 직접 채우는 값이라 빈 값으로 만든다 (컬럼이 NOT NULL이다)
                 teamId = teamRepository.save(
                     Team.create(batch.getSectionId(), teamName, "", "", Status.FORMING)).getId();
                 teamIds.put(teamName, teamId);
                 createdTeams++;
             }
-            // 미리보기 이후 편성됐을 수 있고, 팀에서 빠졌던 학생은 (team_id, user_id) 유니크 제약 때문에
-            // 새로 넣지 못하므로 삭제된 이력까지 보고 되살린다
             TeamMember existing = teamMemberRepository.findIncludingDeleted(teamId, studentNumber).orElse(null);
             if (existing != null && existing.getDeletedAt() == null) {
                 skipped++;
@@ -117,11 +120,15 @@ public class TeamImportFacade {
         return new TeamImportApplyResponse(batch.getId(), createdTeams, appliedMembers, skipped);
     }
 
-    private List<TeamImportRow> validate(Long sectionId, List<TeamImportRow> rows) {
-        Set<String> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
+    private Set<String> activeEnrollments(Long sectionId) {
+        return enrollmentRepository.findAllBySectionId(sectionId).stream()
             .filter(enrollment -> enrollment.getStatus() == ACTIVE)
             .map(Enrollment::getUserId)
             .collect(Collectors.toSet());
+    }
+
+    private List<TeamImportRow> validate(Long sectionId, List<TeamImportRow> rows) {
+        Set<String> enrolled = activeEnrollments(sectionId);
 
         List<Team> teams = teamRepository.findAllBySectionId(sectionId);
         Map<String, String> assignedTeamOf = new HashMap<>();  // 학번 -> 이미 속한 팀명

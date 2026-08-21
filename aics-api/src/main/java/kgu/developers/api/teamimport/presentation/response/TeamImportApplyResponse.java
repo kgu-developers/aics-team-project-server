@@ -14,7 +14,8 @@ public record TeamImportApplyResponse(
     @Schema(description = "편성된 팀원 수", example = "38", requiredMode = REQUIRED)
     int appliedMembers,
 
-    @Schema(description = "이미 편성되어 건너뛴 수", example = "2", requiredMode = REQUIRED)
+    @Schema(description = "건너뛴 수 (이미 편성됐거나, 미리보기 이후 수강이 빠진 학생)", example = "2",
+        requiredMode = REQUIRED)
     int skipped
 ) {
 }
