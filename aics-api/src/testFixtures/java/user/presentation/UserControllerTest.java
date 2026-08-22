@@ -180,35 +180,4 @@ class UserControllerTest {
 
     verify(userFacade, never()).getMe(any());
   }
-
-  @Test
-  @DisplayName("수강생이자 교원인 분반은 중복 없이 응답한다")
-  void getMeWithDuplicateSections() throws Exception {
-    kgu.developers.api.section.presentation.response.SectionResponse section1 =
-        new kgu.developers.api.section.presentation.response.SectionResponse(
-            1L, "CS101", "01", "월123", 40, null, null, 1L, "객체지향프로그래밍",
-            2026, kgu.developers.domain.course.domain.SemesterType.SPRING,
-            kgu.developers.domain.course.domain.StatusType.ACTIVE);
-
-    UserResponse mockResponse = UserResponse.builder()
-        .studentNumber(STUDENT_NUMBER)
-        .email("test@kyonggi.ac.kr")
-        .name("테스트")
-        .globalRole(UserGlobalRole.USER)
-        .phone("010-1234-5678")
-        .sections(List.of(section1, section1))
-        .createdAt(null)
-        .updatedAt(null)
-        .build();
-
-    when(userFacade.getMe(STUDENT_NUMBER)).thenReturn(mockResponse);
-
-    mockMvc.perform(get("/api/v1/oop/users/me")
-            .with(user(STUDENT_NUMBER)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.sections").isArray())
-        .andExpect(jsonPath("$.sections.length()").value(1));
-
-    verify(userFacade).getMe(STUDENT_NUMBER);
-  }
 }

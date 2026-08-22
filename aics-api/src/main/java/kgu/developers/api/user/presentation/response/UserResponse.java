@@ -6,7 +6,9 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -94,9 +96,7 @@ public record UserResponse(
         allSections.addAll(professorSectionResponses);
 
         List<SectionResponse> deduplicatedSections = allSections.stream()
-                .collect(Collectors.toMap(SectionResponse::id, Function.identity(), (existing, replacement) -> existing))
-                .values()
-                .stream()
+                .filter(distinctByKey(SectionResponse::id))
                 .toList();
 
         return UserResponse.builder()
@@ -109,6 +109,11 @@ public record UserResponse(
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
+        Map<Object, Boolean> seen = new ConcurrentHashMap<>();
+        return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
     }
 }
 
