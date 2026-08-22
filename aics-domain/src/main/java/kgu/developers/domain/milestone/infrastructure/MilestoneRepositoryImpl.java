@@ -1,5 +1,6 @@
 package kgu.developers.domain.milestone.infrastructure;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,12 +34,54 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     @Transactional
     public List<Milestone> saveAll(List<Milestone> milestones) {
         Map<Long, MilestoneJpaEntity> existingEntities = findExistingEntities(milestones);
+        validateExistingEntities(milestones, existingEntities);
+        moveWeekNumberChangesToTemporaryRange(milestones, existingEntities);
         List<MilestoneJpaEntity> entities = milestones.stream()
                 .map(milestone -> entityForSave(milestone, existingEntities))
                 .toList();
-        return jpaMilestoneRepository.saveAll(entities).stream()
+        return jpaMilestoneRepository.saveAllAndFlush(entities).stream()
                 .map(MilestoneJpaEntity::toDomain)
                 .toList();
+    }
+
+    private void validateExistingEntities(
+            List<Milestone> milestones,
+            Map<Long, MilestoneJpaEntity> existingEntities
+    ) {
+        for (Milestone milestone : milestones) {
+            if (milestone.getId() != null && !existingEntities.containsKey(milestone.getId())) {
+                throw new MilestoneNotFoundException(milestone.getId());
+            }
+        }
+    }
+
+    private void moveWeekNumberChangesToTemporaryRange(
+            List<Milestone> milestones,
+            Map<Long, MilestoneJpaEntity> existingEntities
+    ) {
+        int highestReservedWeekNumber = milestones.stream()
+                .mapToInt(Milestone::getWeekNumber)
+                .max()
+                .orElse(0);
+        for (MilestoneJpaEntity entity : existingEntities.values()) {
+            highestReservedWeekNumber = Math.max(highestReservedWeekNumber, entity.getWeekNumber());
+        }
+
+        List<MilestoneJpaEntity> changedEntities = new ArrayList<>();
+        for (Milestone milestone : milestones) {
+            MilestoneJpaEntity entity = existingEntities.get(milestone.getId());
+            if (entity != null && entity.getWeekNumber() != milestone.getWeekNumber()) {
+                changedEntities.add(entity);
+            }
+        }
+
+        for (int index = 0; index < changedEntities.size(); index++) {
+            int temporaryWeekNumber = Math.addExact(highestReservedWeekNumber, index + 1);
+            changedEntities.get(index).moveToTemporaryWeekNumber(temporaryWeekNumber);
+        }
+        if (!changedEntities.isEmpty()) {
+            jpaMilestoneRepository.flush();
+        }
     }
 
     private Map<Long, MilestoneJpaEntity> findExistingEntities(List<Milestone> milestones) {
@@ -60,7 +103,8 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
         }
 
         MilestoneJpaEntity entity = jpaMilestoneRepository
-                .findActiveByIdForUpdate(milestone.getId())
+                .findById(milestone.getId())
+                .filter(existingEntity -> existingEntity.getDeletedAt() == null)
                 .orElse(null);
         return updateExistingEntity(milestone, entity);
     }
@@ -94,6 +138,13 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     }
 
     @Override
+    @Transactional
+    public Optional<Milestone> findByIdForUpdate(Long id) {
+        return jpaMilestoneRepository.findActiveByIdForUpdate(id)
+                .map(MilestoneJpaEntity::toDomain);
+    }
+
+    @Override
     public List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId) {
         return jpaMilestoneRepository
                 .findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(sectionId)
@@ -103,6 +154,7 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     }
 
     @Override
+    @Transactional
     public List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId) {
         return jpaMilestoneRepository.findAllActiveBySectionIdForUpdate(sectionId)
                 .stream()

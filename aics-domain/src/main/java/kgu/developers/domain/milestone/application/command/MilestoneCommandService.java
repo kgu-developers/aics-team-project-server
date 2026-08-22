@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +17,7 @@ import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class MilestoneCommandService {
+    private static final String ACTIVE_WEEK_CONSTRAINT = "uq_milestone_active_section_week";
+
     private final MilestoneRepository milestoneRepository;
 
     public Long createMilestone(
@@ -38,10 +43,18 @@ public class MilestoneCommandService {
                 .stream()
                 .anyMatch(existingMilestone -> existingMilestone.getWeekNumber() == weekNumber);
         if (duplicateWeekNumber) {
-            throw new IllegalArgumentException("같은 분반에서 주차를 중복할 수 없습니다.");
+            throw new DuplicateMilestoneWeekException();
         }
 
-        Milestone savedMilestone = milestoneRepository.save(milestone);
+        Milestone savedMilestone;
+        try {
+            savedMilestone = milestoneRepository.save(milestone);
+        } catch (DataIntegrityViolationException exception) {
+            if (hasConstraintName(exception, ACTIVE_WEEK_CONSTRAINT)) {
+                throw new DuplicateMilestoneWeekException(exception);
+            }
+            throw exception;
+        }
 
         if (savedMilestone.getId() == null) {
             throw new IllegalStateException("저장된 마일스톤 식별자가 없습니다.");
@@ -57,7 +70,7 @@ public class MilestoneCommandService {
             MilestoneSchedule schedule
     ) {
         validateSchedule(schedule);
-        Milestone milestone = getRequiredMilestone(sectionId, milestoneId);
+        Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         milestone.updateDetails(title, description);
         milestone.updateSchedule(schedule);
         milestoneRepository.save(milestone);
@@ -65,7 +78,7 @@ public class MilestoneCommandService {
 
     public void changeStatus(Long sectionId, Long milestoneId, MilestoneStatus status) {
         validateStatus(status);
-        Milestone milestone = getRequiredMilestone(sectionId, milestoneId);
+        Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         milestone.changeStatus(status);
         milestoneRepository.save(milestone);
     }
@@ -76,7 +89,7 @@ public class MilestoneCommandService {
             LocalDateTime evaluationOpensAt,
             LocalDateTime evaluationClosesAt
     ) {
-        Milestone milestone = getRequiredMilestone(sectionId, milestoneId);
+        Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         milestone.updateEvaluationWindow(evaluationOpensAt, evaluationClosesAt);
         milestoneRepository.save(milestone);
     }
@@ -119,7 +132,14 @@ public class MilestoneCommandService {
         for (int index = 0; index < milestones.size(); index++) {
             milestones.get(index).changeWeekNumber(changes.get(index).weekNumber());
         }
-        milestoneRepository.saveAll(milestones);
+        try {
+            milestoneRepository.saveAll(sectionMilestones);
+        } catch (DataIntegrityViolationException exception) {
+            if (hasConstraintName(exception, ACTIVE_WEEK_CONSTRAINT)) {
+                throw new DuplicateMilestoneWeekException(exception);
+            }
+            throw exception;
+        }
     }
 
     private Milestone getRequiredSectionMilestone(
@@ -164,6 +184,17 @@ public class MilestoneCommandService {
         return milestone;
     }
 
+    private Milestone getRequiredMilestoneForUpdate(Long sectionId, Long milestoneId) {
+        validateSectionId(sectionId);
+        validateMilestoneId(milestoneId);
+        Milestone milestone = milestoneRepository.findByIdForUpdate(milestoneId)
+                .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
+        if (!milestone.belongsToSection(sectionId)) {
+            throw new MilestoneSectionMismatchException(milestoneId, sectionId);
+        }
+        return milestone;
+    }
+
     private void validateMilestoneId(Long milestoneId) {
         if (milestoneId == null || milestoneId <= 0) {
             throw new IllegalArgumentException("마일스톤 식별자는 양수여야 합니다.");
@@ -186,5 +217,18 @@ public class MilestoneCommandService {
         if (sectionId == null || sectionId <= 0) {
             throw new IllegalArgumentException("분반 식별자는 양수여야 합니다.");
         }
+    }
+
+    private boolean hasConstraintName(Throwable throwable, String constraintName) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException constraintViolationException) {
+                if (constraintName.equals(constraintViolationException.getConstraintName())) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

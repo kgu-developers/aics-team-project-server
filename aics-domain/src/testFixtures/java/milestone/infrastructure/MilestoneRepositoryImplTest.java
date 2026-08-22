@@ -6,11 +6,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +27,7 @@ import kgu.developers.domain.milestone.infrastructure.MilestoneRepositoryImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.jpa.repository.Lock;
@@ -132,11 +136,9 @@ class MilestoneRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("기존 마일스톤을 저장할 때 관리 중인 엔티티의 삭제 상태를 보존한다")
-    void preservesBaseEntityStateWhenUpdating() {
-        LocalDateTime deletedAt = LocalDateTime.of(2026, 8, 12, 10, 0);
+    @DisplayName("잠금 조회로 관리 중인 기존 엔티티를 추가 잠금 없이 갱신한다")
+    void updatesManagedEntityWithoutSecondLock() {
         MilestoneJpaEntity existingEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 1));
-        existingEntity.setDeletedAt(deletedAt);
         Milestone updated = Milestone.restore(
                 1L,
                 7L,
@@ -153,7 +155,7 @@ class MilestoneRepositoryImplTest {
                         null
                 )
         );
-        given(jpaMilestoneRepository.findActiveByIdForUpdate(1L))
+        given(jpaMilestoneRepository.findById(1L))
                 .willReturn(Optional.of(existingEntity));
         given(jpaMilestoneRepository.save(existingEntity)).willReturn(existingEntity);
         MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
@@ -161,14 +163,15 @@ class MilestoneRepositoryImplTest {
         Milestone result = repository.save(updated);
 
         assertThat(result.getTitle()).isEqualTo("수정된 마일스톤");
-        assertThat(existingEntity.getDeletedAt()).isEqualTo(deletedAt);
+        verify(jpaMilestoneRepository).findById(1L);
         verify(jpaMilestoneRepository).save(existingEntity);
+        verify(jpaMilestoneRepository, never()).findActiveByIdForUpdate(anyLong());
     }
 
     @Test
     @DisplayName("삭제되었거나 존재하지 않는 마일스톤은 저장으로 되살리지 않는다")
     void doesNotRecreateMissingMilestoneDuringUpdate() {
-        given(jpaMilestoneRepository.findActiveByIdForUpdate(1L))
+        given(jpaMilestoneRepository.findById(1L))
                 .willReturn(Optional.empty());
         MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
 
@@ -176,27 +179,61 @@ class MilestoneRepositoryImplTest {
                 .isInstanceOf(MilestoneNotFoundException.class)
                 .extracting("milestoneId")
                 .isEqualTo(1L);
-        verify(jpaMilestoneRepository).findActiveByIdForUpdate(1L);
+        verify(jpaMilestoneRepository).findById(1L);
         verifyNoMoreInteractions(jpaMilestoneRepository);
     }
 
     @Test
-    @DisplayName("여러 마일스톤 저장 시 기존 엔티티를 한 번에 조회한다")
-    void batchLoadsExistingEntitiesWhenSavingAll() {
-        MilestoneJpaEntity firstEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 1));
-        MilestoneJpaEntity secondEntity = MilestoneJpaEntity.fromDomain(milestone(2L, 2));
-        List<Milestone> updates = List.of(milestone(1L, 3), milestone(2L, 4));
-        given(jpaMilestoneRepository.findAllActiveByIdInForUpdate(List.of(1L, 2L)))
-                .willReturn(List.of(firstEntity, secondEntity));
-        given(jpaMilestoneRepository.saveAll(List.of(firstEntity, secondEntity)))
-                .willReturn(List.of(firstEntity, secondEntity));
+    @DisplayName("수정용 단건 조회는 활성 마일스톤을 잠가 반환한다")
+    void findsAndLocksMilestoneById() {
+        given(jpaMilestoneRepository.findActiveByIdForUpdate(1L))
+                .willReturn(Optional.of(MilestoneJpaEntity.fromDomain(milestone(1L, 1))));
+        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+
+        Optional<Milestone> result = repository.findByIdForUpdate(1L);
+
+        assertThat(result).get().extracting(Milestone::getId).isEqualTo(1L);
+        verify(jpaMilestoneRepository).findActiveByIdForUpdate(1L);
+    }
+
+    @Test
+    @DisplayName("주차 맞교환은 임시 주차를 먼저 반영한 뒤 최종 주차로 저장한다")
+    void usesTemporaryWeekNumbersBeforeSavingSwappedWeekNumbers() {
+        MilestoneJpaEntity firstEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 2));
+        MilestoneJpaEntity secondEntity = MilestoneJpaEntity.fromDomain(milestone(2L, 4));
+        MilestoneJpaEntity unchangedEntity = MilestoneJpaEntity.fromDomain(milestone(3L, 8));
+        List<Milestone> updates = List.of(
+                milestone(1L, 4),
+                milestone(2L, 2),
+                milestone(3L, 8)
+        );
+        List<List<Integer>> weekNumbersAtFlush = new ArrayList<>();
+        given(jpaMilestoneRepository.findAllActiveByIdInForUpdate(List.of(1L, 2L, 3L)))
+                .willReturn(List.of(firstEntity, secondEntity, unchangedEntity));
+        doAnswer(invocation -> {
+            weekNumbersAtFlush.add(List.of(
+                    firstEntity.getWeekNumber(),
+                    secondEntity.getWeekNumber(),
+                    unchangedEntity.getWeekNumber()
+            ));
+            return null;
+        }).when(jpaMilestoneRepository).flush();
+        given(jpaMilestoneRepository.saveAllAndFlush(
+                List.of(firstEntity, secondEntity, unchangedEntity)
+        )).willReturn(List.of(firstEntity, secondEntity, unchangedEntity));
         MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
 
         List<Milestone> result = repository.saveAll(updates);
 
-        assertThat(result).extracting(Milestone::getWeekNumber).containsExactly(3, 4);
-        verify(jpaMilestoneRepository).findAllActiveByIdInForUpdate(List.of(1L, 2L));
+        assertThat(weekNumbersAtFlush).containsExactly(List.of(9, 10, 8));
+        assertThat(result).extracting(Milestone::getWeekNumber).containsExactly(4, 2, 8);
+        verify(jpaMilestoneRepository).findAllActiveByIdInForUpdate(List.of(1L, 2L, 3L));
         verify(jpaMilestoneRepository, never()).findActiveByIdForUpdate(anyLong());
+        InOrder saveOrder = inOrder(jpaMilestoneRepository);
+        saveOrder.verify(jpaMilestoneRepository).flush();
+        saveOrder.verify(jpaMilestoneRepository).saveAllAndFlush(
+                List.of(firstEntity, secondEntity, unchangedEntity)
+        );
     }
 
     @Test

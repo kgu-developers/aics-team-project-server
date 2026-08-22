@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS milestone (
     title VARCHAR(100) NOT NULL,
     description TEXT,
     week_number INTEGER NOT NULL CHECK (week_number > 0),
-    status VARCHAR(16) NOT NULL CHECK (status IN ('DRAFT', 'PUBLISHED')),
+    status VARCHAR(16) NOT NULL,
     opens_at TIMESTAMP,
     due_at TIMESTAMP NOT NULL,
     late_submission_until TIMESTAMP,
@@ -15,6 +15,13 @@ CREATE TABLE IF NOT EXISTS milestone (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
 );
+
+-- 기존 테이블의 자동 생성 제약(DRAFT, PUBLISHED)도 CLOSED를 허용하도록 교체한다.
+-- 명시적 제약명도 먼저 제거하므로 이 스크립트는 반복 실행할 수 있다.
+ALTER TABLE milestone DROP CONSTRAINT IF EXISTS milestone_status_check;
+ALTER TABLE milestone DROP CONSTRAINT IF EXISTS chk_milestone_status;
+ALTER TABLE milestone ADD CONSTRAINT chk_milestone_status
+    CHECK (status IN ('DRAFT', 'PUBLISHED', 'CLOSED'));
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_milestone_active_section_week
     ON milestone (section_id, week_number)

@@ -118,6 +118,13 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
         evaluationClosesAt = schedule.evaluationClosesAt();
     }
 
+    void moveToTemporaryWeekNumber(int temporaryWeekNumber) {
+        if (temporaryWeekNumber <= 0) {
+            throw new IllegalArgumentException("임시 주차는 양수여야 합니다.");
+        }
+        weekNumber = temporaryWeekNumber;
+    }
+
     public Milestone toDomain() {
         return Milestone.restore(
                 id,

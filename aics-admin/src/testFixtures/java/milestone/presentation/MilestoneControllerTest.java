@@ -3,6 +3,7 @@ package milestone.presentation;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,18 +22,21 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import kgu.developers.admin.config.SecurityConfig;
+import kgu.developers.admin.milestone.application.MilestoneAccessValidator;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.MilestoneControllerImpl;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.common.exception.GlobalExceptionHandler;
+import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
@@ -69,6 +73,9 @@ class MilestoneControllerTest {
     private MilestoneFacade milestoneFacade;
 
     @MockitoBean
+    private MilestoneAccessValidator milestoneAccessValidator;
+
+    @MockitoBean
     private TokenRevocationStore tokenRevocationStore;
 
     @Test
@@ -87,7 +94,7 @@ class MilestoneControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(username = "202012345", roles = "ADMIN")
     @DisplayName("관리자는 분반별 마일스톤 목록을 조회할 수 있다")
     void adminCanGetMilestones() throws Exception {
         given(milestoneFacade.getMilestones(1L, null))
@@ -96,6 +103,21 @@ class MilestoneControllerTest {
         mockMvc.perform(get(MILESTONES_URL))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
+
+        verify(milestoneAccessValidator).validateSectionAccess(1L, "202012345");
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    @DisplayName("담당 교수가 아닌 관리자는 분반 마일스톤에 접근할 수 없다")
+    void anotherProfessorForbidden() throws Exception {
+        willThrow(new AccessDeniedException("담당 교수만 분반 마일스톤에 접근할 수 있습니다."))
+                .given(milestoneAccessValidator)
+                .validateSectionAccess(1L, "202012345");
+
+        mockMvc.perform(get(MILESTONES_URL))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 
     @Test
@@ -120,6 +142,28 @@ class MilestoneControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(10));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("같은 분반의 주차가 동시에 생성되면 409를 응답한다")
+    void duplicateWeekConflict() throws Exception {
+        given(milestoneFacade.createMilestone(eq(1L), any()))
+                .willThrow(new DuplicateMilestoneWeekException());
+
+        mockMvc.perform(post(MILESTONES_URL).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "제안서",
+                                  "weekNumber": 2,
+                                  "schedule": {
+                                    "dueAt": "2026-09-10T23:59:59"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MILESTONE_WEEK_CONFLICT"));
     }
 
     @Test
