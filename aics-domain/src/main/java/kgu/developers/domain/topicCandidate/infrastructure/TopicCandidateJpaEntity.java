@@ -12,7 +12,13 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "\"topic_candidate\"")
+@Table(
+    name = "\"topic_candidate\"",
+    indexes = {
+        @Index(columnList = "team_id", name = "idx_team_id"),
+        @Index(columnList = "proposer_user_id", name = "idx_proposer_user_id")
+    }
+)
 @Builder
 @Getter
 @AllArgsConstructor
