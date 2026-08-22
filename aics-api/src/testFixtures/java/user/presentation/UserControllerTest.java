@@ -3,8 +3,11 @@ package user.presentation;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.DisplayName;
@@ -18,19 +21,19 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.Cookie;
+import java.util.List;
 import kgu.developers.api.config.SecurityConfig;
 import kgu.developers.api.user.application.UserFacade;
 import kgu.developers.api.user.presentation.UserControllerImpl;
 import kgu.developers.api.user.presentation.request.UserUpdateRequest;
-import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
+import kgu.developers.api.user.presentation.response.UserResponse;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
 
 @WebMvcTest
-@Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class,
-    UserControllerImpl.class})
+@Import({SecurityConfig.class, JwtUtil.class, UserControllerImpl.class})
 @TestPropertySource(properties = {
     "jwt.secret_key=local-dev-jwt-secret-key-0123456789",
     "jwt.issuer=kgudevelopers@gmail.com"
@@ -158,5 +161,41 @@ class UserControllerTest {
         .andExpect(status().isUnauthorized());
 
     verify(userFacade, never()).updateUserPassword(any(), any());
+  }
+
+  @Test
+  @DisplayName("로그인한 사용자의 정보를 조회한다")
+  void getMe() throws Exception {
+    UserResponse mockResponse = UserResponse.builder()
+        .studentNumber(STUDENT_NUMBER)
+        .email("test@kyonggi.ac.kr")
+        .name("테스트")
+        .globalRole(UserGlobalRole.USER)
+        .phone("010-1234-5678")
+        .sections(List.of())
+        .createdAt(null)
+        .updatedAt(null)
+        .build();
+
+    when(userFacade.getMe(STUDENT_NUMBER)).thenReturn(mockResponse);
+
+    mockMvc.perform(get("/api/v1/oop/users/me")
+            .cookie(accessTokenCookie(STUDENT_NUMBER)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.studentNumber").value(STUDENT_NUMBER))
+        .andExpect(jsonPath("$.email").value("test@kyonggi.ac.kr"))
+        .andExpect(jsonPath("$.name").value("테스트"))
+        .andExpect(jsonPath("$.globalRole").value("USER"));
+
+    verify(userFacade).getMe(STUDENT_NUMBER);
+  }
+
+  @Test
+  @DisplayName("토큰이 없으면 내 정보 조회 시 401을 응답한다")
+  void getMeWithoutToken() throws Exception {
+    mockMvc.perform(get("/api/v1/oop/users/me"))
+        .andExpect(status().isUnauthorized());
+
+    verify(userFacade, never()).getMe(any());
   }
 }

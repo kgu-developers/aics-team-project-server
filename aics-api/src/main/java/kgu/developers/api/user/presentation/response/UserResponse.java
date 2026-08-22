@@ -3,8 +3,16 @@ package kgu.developers.api.user.presentation.response;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import kgu.developers.api.section.presentation.response.SectionResponse;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import lombok.Builder;
@@ -26,6 +34,9 @@ public record UserResponse(
         @Schema(description = "전화번호", example = "010-1234-6789", requiredMode = REQUIRED)
         String phone,
 
+        @Schema(description = "소속 분반 목록")
+        List<SectionResponse> sections,
+
         @Schema(description = "생성 일시")
         LocalDateTime createdAt,
 
@@ -39,8 +50,59 @@ public record UserResponse(
                 .name(user.getName())
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
+                .sections(Collections.emptyList())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+    }
+
+    public static UserResponse from(User user, List<Enrollment> enrollments, List<SectionDetail> sectionDetails) {
+        Map<Long, SectionDetail> sectionMap = sectionDetails.stream()
+                .collect(Collectors.toMap(sd -> sd.section().getId(), Function.identity()));
+
+        List<SectionResponse> sections = enrollments.stream()
+                .filter(e -> sectionMap.containsKey(e.getSectionId()))
+                .map(e -> SectionResponse.from(sectionMap.get(e.getSectionId())))
+                .toList();
+
+        return UserResponse.builder()
+                .studentNumber(user.getStudentNumber())
+                .email(user.getEmail())
+                .name(user.getName())
+                .globalRole(user.getGlobalRole())
+                .phone(user.getPhone())
+                .sections(sections)
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+    }
+
+    public static UserResponse from(User user, List<Enrollment> enrollments, List<SectionDetail> enrollmentSectionDetails, List<SectionDetail> professorSections) {
+        Map<Long, SectionDetail> enrollmentSectionMap = enrollmentSectionDetails.stream()
+                .collect(Collectors.toMap(sd -> sd.section().getId(), Function.identity()));
+
+        List<SectionResponse> enrollmentSections = enrollments.stream()
+                .filter(e -> enrollmentSectionMap.containsKey(e.getSectionId()))
+                .map(e -> SectionResponse.from(enrollmentSectionMap.get(e.getSectionId())))
+                .toList();
+
+        List<SectionResponse> professorSectionResponses = professorSections.stream()
+                .map(SectionResponse::from)
+                .toList();
+
+        List<SectionResponse> allSections = new java.util.ArrayList<>(enrollmentSections);
+        allSections.addAll(professorSectionResponses);
+
+        return UserResponse.builder()
+                .studentNumber(user.getStudentNumber())
+                .email(user.getEmail())
+                .name(user.getName())
+                .globalRole(user.getGlobalRole())
+                .phone(user.getPhone())
+                .sections(allSections)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
     }
 }
+
