@@ -93,13 +93,19 @@ public record UserResponse(
         List<SectionResponse> allSections = new java.util.ArrayList<>(enrollmentSections);
         allSections.addAll(professorSectionResponses);
 
+        List<SectionResponse> deduplicatedSections = allSections.stream()
+                .collect(Collectors.toMap(SectionResponse::id, Function.identity(), (existing, replacement) -> existing))
+                .values()
+                .stream()
+                .toList();
+
         return UserResponse.builder()
                 .studentNumber(user.getStudentNumber())
                 .email(user.getEmail())
                 .name(user.getName())
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
-                .sections(allSections)
+                .sections(deduplicatedSections)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
