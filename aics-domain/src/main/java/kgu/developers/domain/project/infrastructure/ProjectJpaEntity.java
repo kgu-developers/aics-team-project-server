@@ -43,7 +43,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String goal;
 
-    @Column(length = 500)
+    @Column(length = 255)
     private String repositoryUrl;
 
     @Column(columnDefinition = "JSON")
@@ -53,7 +53,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private ApprovalStatus approvalStatus;
 
-    @Column(length = 100)
+    @Column(length = 200)
     private String meetingStyle;
 
     @Column(name = "proposal_completed_at")
