@@ -352,4 +352,24 @@ class TeamMemberCommandServiceTest {
         assertThat(member.isLeader()).isTrue();
         verify(teamMemberRepository, times(2)).save(any());
     }
+
+    @Test
+    @DisplayName("기존 팀장을 isLeader=null로 다른 팀으로 이동할 때 대상 팀에 팀장이 있으면 예외를 던진다")
+    void rejectsMovingExistingLeaderWithNullIsLeaderIntoTeamWithLeader() {
+        TeamMember existingLeader = TeamMember.builder()
+                .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
+                .build();
+        TeamMember targetLeader = leaderOf(2L, 9L);
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamQueryService.getTeamById(2L)).willReturn(team(2L, Status.FORMING));
+        given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
+        given(teamMemberRepository.findLeaderByTeamId(2L)).willReturn(Optional.of(targetLeader));
+
+        assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(existingLeader, 2L, null, null))
+                .isInstanceOf(LeaderAlreadyExistsException.class);
+
+        assertThat(existingLeader.getTeamId()).isEqualTo(1L);
+        assertThat(targetLeader.isLeader()).isTrue();
+        verify(teamMemberRepository, never()).save(any());
+    }
 }

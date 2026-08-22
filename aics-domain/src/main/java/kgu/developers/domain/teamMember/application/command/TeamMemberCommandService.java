@@ -30,6 +30,7 @@ public class TeamMemberCommandService {
     currentTeam.validateNotConfirmed();
 
     boolean moved = targetTeamId != null && !targetTeamId.equals(teamMember.getTeamId());
+    boolean finalLeaderStatus = isLeader == null ? teamMember.isLeader() : isLeader;
     if (moved) {
       Team targetTeam = teamQueryService.getTeamById(targetTeamId);
       targetTeam.validateNotConfirmed();
@@ -40,6 +41,9 @@ public class TeamMemberCommandService {
           .ifPresent(existing -> {
             throw new TeamMemberAlreadyExistsException();
           });
+      if (finalLeaderStatus) {
+        validateNoLeaderInTeam(targetTeamId, teamMember.getId());
+      }
       teamMember.updateTeamId(targetTeamId);
     }
     if (projectRole != null) {
@@ -47,9 +51,7 @@ public class TeamMemberCommandService {
     }
     if (isLeader != null) {
       if (isLeader) {
-        if (moved) {
-          validateNoLeaderInTeam(teamMember);
-        } else {
+        if (!moved) {
           demoteCurrentLeader(teamMember);
         }
       }
@@ -58,9 +60,9 @@ public class TeamMemberCommandService {
     return teamMemberRepository.save(teamMember);
   }
 
-  private void validateNoLeaderInTeam(TeamMember teamMember) {
-    teamMemberRepository.findLeaderByTeamId(teamMember.getTeamId())
-        .filter(leader -> !leader.getId().equals(teamMember.getId()))
+  private void validateNoLeaderInTeam(Long teamId, Long memberId) {
+    teamMemberRepository.findLeaderByTeamId(teamId)
+        .filter(leader -> !leader.getId().equals(memberId))
         .ifPresent(leader -> {
           throw new LeaderAlreadyExistsException();
         });
