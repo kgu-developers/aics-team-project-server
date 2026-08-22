@@ -35,7 +35,7 @@ public class TeamRepositoryImpl implements TeamRepository {
         } catch (OptimisticLockingFailureException e) {
             throw new TeamConcurrentlyModifiedException();
         } catch (DataIntegrityViolationException e) {
-            if (e.getMostSpecificCause().getMessage().contains(TEAM_NAME_INDEX)) {
+            if (Optional.ofNullable(e.getMostSpecificCause().getMessage()).map(m -> m.contains(TEAM_NAME_INDEX)).orElse(false)) {
                 throw new DuplicateTeamNameException();
             }
             throw e;

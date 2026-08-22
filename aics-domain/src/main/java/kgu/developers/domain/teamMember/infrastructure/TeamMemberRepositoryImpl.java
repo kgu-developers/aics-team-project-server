@@ -43,7 +43,7 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
         } catch (OptimisticLockingFailureException e) {
             throw new TeamMemberConcurrentlyModifiedException();
         } catch (DataIntegrityViolationException e) {
-            if (e.getMostSpecificCause().getMessage().contains(TEAM_MEMBER_INDEX)) {
+            if (Optional.ofNullable(e.getMostSpecificCause().getMessage()).map(m -> m.contains(TEAM_MEMBER_INDEX)).orElse(false)) {
                 throw new TeamMemberAlreadyExistsException();
             }
             throw e;
