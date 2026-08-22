@@ -29,7 +29,7 @@ public class TopicVoteJpaEntity extends BaseTimeEntity {
     @Column(name = "candidate_id", nullable = false)
     private Long candidateId;
 
-    @Column(name = "voter_user_id", nullable = false, length = 50)
+    @Column(name = "voter_user_id", nullable = false, length = 20)
     private String voterUserId;
 
     public TopicVote toDomain() {
