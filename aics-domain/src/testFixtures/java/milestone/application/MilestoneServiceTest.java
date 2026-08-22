@@ -172,6 +172,20 @@ class MilestoneServiceTest {
     }
 
     @Test
+    @DisplayName("잠금 목록의 대체 조회로 찾은 마일스톤도 주차 변경 저장 대상에 포함한다")
+    void saveFallbackMilestoneWhenUpdatingWeekNumbers() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        repository.omitFromNextSectionLockQuery(milestoneId);
+
+        commandService.updateWeekNumbers(1L, List.of(
+                new MilestoneWeekNumberChange(milestoneId, 3)
+        ));
+
+        assertThat(queryService.getMilestone(1L, milestoneId).getWeekNumber()).isEqualTo(3);
+        assertThat(repository.lastSavedBatchIds).containsExactly(milestoneId);
+    }
+
+    @Test
     @DisplayName("주차 변경 중 DB 중복 제약과 충돌하면 명확한 도메인 예외로 변환한다")
     void translateConcurrentWeekNumberUpdateConflict() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
@@ -312,6 +326,7 @@ class MilestoneServiceTest {
         private final Map<Long, Milestone> milestones = new LinkedHashMap<>();
         private List<Long> lastSavedBatchIds = List.of();
         private String nextDataIntegrityViolationMessage;
+        private Long omittedIdFromNextSectionLockQuery;
 
         @Override
         public Milestone save(Milestone milestone) {
@@ -367,7 +382,16 @@ class MilestoneServiceTest {
 
         @Override
         public List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId) {
-            return findAllBySectionIdOrderByWeekNumber(sectionId);
+            List<Milestone> sectionMilestones = findAllBySectionIdOrderByWeekNumber(sectionId);
+            if (omittedIdFromNextSectionLockQuery == null) {
+                return sectionMilestones;
+            }
+
+            Long omittedId = omittedIdFromNextSectionLockQuery;
+            omittedIdFromNextSectionLockQuery = null;
+            return sectionMilestones.stream()
+                    .filter(milestone -> !milestone.getId().equals(omittedId))
+                    .toList();
         }
 
         @Override
@@ -393,6 +417,10 @@ class MilestoneServiceTest {
 
         private void failNextSaveWithDataIntegrityViolation(String message) {
             nextDataIntegrityViolationMessage = message;
+        }
+
+        private void omitFromNextSectionLockQuery(Long milestoneId) {
+            omittedIdFromNextSectionLockQuery = milestoneId;
         }
     }
 }

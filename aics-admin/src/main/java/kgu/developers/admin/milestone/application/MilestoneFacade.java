@@ -20,6 +20,7 @@ import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.InvalidMilestoneRequestException;
 import lombok.RequiredArgsConstructor;
 
@@ -110,7 +111,12 @@ public class MilestoneFacade {
     private <T> T asInvalidRequest(Supplier<T> operation) {
         try {
             return operation.get();
-        } catch (IllegalArgumentException | DataIntegrityViolationException exception) {
+        } catch (DataIntegrityViolationException exception) {
+            if (DuplicateMilestoneWeekException.isActiveWeekConstraintViolation(exception)) {
+                throw new DuplicateMilestoneWeekException(exception);
+            }
+            throw new InvalidMilestoneRequestException(exception);
+        } catch (IllegalArgumentException exception) {
             throw new InvalidMilestoneRequestException(exception);
         }
     }

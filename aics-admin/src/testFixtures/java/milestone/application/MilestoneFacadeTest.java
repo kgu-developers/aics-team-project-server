@@ -6,9 +6,11 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +33,7 @@ import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.InvalidMilestoneRequestException;
 
 @ExtendWith(MockitoExtension.class)
@@ -184,7 +187,7 @@ class MilestoneFacadeTest {
     }
 
     @Test
-    @DisplayName("동시에 중복된 주차를 생성하면 제어된 잘못된 요청 예외로 변환한다")
+    @DisplayName("동시에 중복된 주차를 생성하면 주차 충돌 예외로 변환한다")
     void duplicateWeekNumberAtDatabaseBoundary() {
         MilestoneCreateRequest request = new MilestoneCreateRequest(
                 "제안서",
@@ -192,7 +195,24 @@ class MilestoneFacadeTest {
                 2,
                 scheduleRequest()
         );
-        willThrow(new DataIntegrityViolationException("uq_milestone_active_section_week"))
+        willThrow(dataIntegrityViolation("uq_milestone_active_section_week"))
+                .given(milestoneCommandService)
+                .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
+
+        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
+                .isInstanceOf(DuplicateMilestoneWeekException.class);
+    }
+
+    @Test
+    @DisplayName("주차 충돌과 무관한 무결성 위반은 잘못된 요청으로 변환한다")
+    void unrelatedDataIntegrityViolationAtDatabaseBoundary() {
+        MilestoneCreateRequest request = new MilestoneCreateRequest(
+                "제안서",
+                "제안서 제출",
+                2,
+                scheduleRequest()
+        );
+        willThrow(dataIntegrityViolation("fk_milestone_section"))
                 .given(milestoneCommandService)
                 .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
 
@@ -272,5 +292,14 @@ class MilestoneFacadeTest {
 
     private MilestoneSchedule schedule() {
         return new MilestoneSchedule(null, DUE_AT, null, null, null, null);
+    }
+
+    private DataIntegrityViolationException dataIntegrityViolation(String constraintName) {
+        ConstraintViolationException cause = new ConstraintViolationException(
+                "제약 조건 위반",
+                new SQLException("테스트용 제약 조건 위반"),
+                constraintName
+        );
+        return new DataIntegrityViolationException("마일스톤 저장 실패", cause);
     }
 }
