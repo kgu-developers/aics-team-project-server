@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -73,5 +75,19 @@ class PreSurveyResponseJpaEntityTest {
 		assertThat(entity.getCreatedAt()).isEqualTo(createdAt);
 		assertThat(entity.getDeletedAt()).isEqualTo(deletedAt);
 		assertThat(entity.toDomain().getId()).isEqualTo(1L);
+	}
+
+	@Test
+	@DisplayName("PreSurveyResponseJpaEntity에는 user_id와 section_id 조합에 대한 유니크 제약조건이 있다")
+	void entityHasUniqueConstraintOnUserIdAndSectionId() {
+		Table tableAnnotation = PreSurveyResponseJpaEntity.class.getAnnotation(Table.class);
+		assertThat(tableAnnotation).isNotNull();
+
+		UniqueConstraint[] uniqueConstraints = tableAnnotation.uniqueConstraints();
+		assertThat(uniqueConstraints).hasSize(1);
+
+		UniqueConstraint constraint = uniqueConstraints[0];
+		assertThat(constraint.name()).isEqualTo("uk_pre_survey_response_user_section");
+		assertThat(constraint.columnNames()).containsExactly("user_id", "section_id");
 	}
 }
