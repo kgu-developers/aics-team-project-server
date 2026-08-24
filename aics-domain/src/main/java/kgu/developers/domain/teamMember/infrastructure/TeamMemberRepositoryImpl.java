@@ -51,6 +51,17 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     }
 
     @Override
+    public List<TeamMember> findAllByTeamIdIn(List<Long> teamIds) {
+        if (teamIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamMemberRepository.findAllByTeamIdInAndDeletedAtIsNull(teamIds)
+                .stream()
+                .map(TeamMemberJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<TeamMember> findAllByUserId(String userId) {
         return jpaTeamMemberRepository.findAllByUserStudentNumberAndDeletedAtIsNull(userId)
                 .stream()

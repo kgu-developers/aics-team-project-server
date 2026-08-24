@@ -48,6 +48,14 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     }
 
     @Override
+    public List<TeamMember> findAllByTeamIdIn(List<Long> teamIds) {
+        return store.values().stream()
+            .filter(teamMember -> teamMember.getDeletedAt() == null)
+            .filter(teamMember -> teamIds.contains(teamMember.getTeamId()))
+            .toList();
+    }
+
+    @Override
     public List<TeamMember> findAllByUserId(String userId) {
         return store.values().stream()
             .filter(teamMember -> teamMember.getDeletedAt() == null)

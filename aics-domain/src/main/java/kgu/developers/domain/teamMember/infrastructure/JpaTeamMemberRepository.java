@@ -14,6 +14,8 @@ public interface JpaTeamMemberRepository extends JpaRepository<TeamMemberJpaEnti
 
     List<TeamMemberJpaEntity> findAllByTeamIdAndDeletedAtIsNull(Long teamId);
 
+    List<TeamMemberJpaEntity> findAllByTeamIdInAndDeletedAtIsNull(List<Long> teamIds);
+
     List<TeamMemberJpaEntity> findAllByUserStudentNumberAndDeletedAtIsNull(String userId);
 
     Optional<TeamMemberJpaEntity> findByTeamIdAndUserStudentNumberAndDeletedAtIsNull(Long teamId, String userId);

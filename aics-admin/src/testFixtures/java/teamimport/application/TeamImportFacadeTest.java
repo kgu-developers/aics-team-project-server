@@ -128,12 +128,13 @@ public class TeamImportFacadeTest {
   }
 
   @Test
-  @DisplayName("preview는 이미 편성된 학생을 같은 팀이면 건너뛰고 다른 팀이면 오류로 본다")
+  @DisplayName("preview는 팀원을 한 번에 조회해 기존 팀 편성을 검증한다")
   public void preview_ChecksExistingTeams() throws IOException {
     // given
-    Team team = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
-    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team));
-    given(teamMemberRepository.findAllByTeamId(10L))
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    Team team2 = Team.builder().id(20L).sectionId(SECTION_ID).name("2팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1, team2));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L, 20L)))
         .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, null)));
 
     // when
@@ -143,6 +144,8 @@ public class TeamImportFacadeTest {
 
     // then
     assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.DUPLICATE);
+    verify(teamMemberRepository).findAllByTeamIdIn(List.of(10L, 20L));
+    verify(teamMemberRepository, never()).findAllByTeamId(any());
 
     // when: 같은 학생을 다른 팀에 넣으면 오류
     TeamImportPreviewResponse moved = facade.preview(SECTION_ID, ASSISTANT,

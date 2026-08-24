@@ -165,16 +165,17 @@ public class TeamImportFacade {
         Set<String> enrolled = activeEnrollments(sectionId);
 
         List<Team> teams = teamRepository.findAllBySectionId(sectionId);
+        Map<Long, String> teamNames = teams.stream()
+            .collect(Collectors.toMap(Team::getId, Team::getName));
         Map<String, String> assignedTeamOf = new HashMap<>();  // 학번 -> 이미 속한 팀명
         Set<String> teamsWithLeader = new HashSet<>();
-        for (Team team : teams) {
-            teamMemberRepository.findAllByTeamId(team.getId()).forEach(member -> {
-                assignedTeamOf.put(member.getUserId(), team.getName());
-                if (member.isLeader()) {
-                    teamsWithLeader.add(team.getName());
-                }
-            });
-        }
+        teamMemberRepository.findAllByTeamIdIn(teams.stream().map(Team::getId).toList()).forEach(member -> {
+            String teamName = teamNames.get(member.getTeamId());
+            assignedTeamOf.put(member.getUserId(), teamName);
+            if (member.isLeader()) {
+                teamsWithLeader.add(teamName);
+            }
+        });
 
         Set<String> seenNumbers = new HashSet<>();
         Set<String> leaderTeams = new HashSet<>(teamsWithLeader);
