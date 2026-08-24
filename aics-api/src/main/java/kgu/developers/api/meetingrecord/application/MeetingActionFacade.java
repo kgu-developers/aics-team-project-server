@@ -10,6 +10,7 @@ import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryS
 import kgu.developers.domain.meetingrecord.domain.MeetingAction;
 import kgu.developers.domain.meetingrecord.domain.MeetingActionStatus;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.meetingrecord.exception.MeetingActionInvalidAssigneeException;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -35,6 +36,9 @@ public class MeetingActionFacade {
     public MeetingActionResponse createMeetingAction(Long meetingRecordId, String userId, MeetingActionCreateRequest request) {
         MeetingRecord meetingRecord = meetingRecordQueryService.getMeetingRecord(meetingRecordId);
         validateTeamMembership(meetingRecord.getTeamId(), userId);
+        if (request.assigneeId() != null) {
+            validateAssignee(meetingRecord.getTeamId(), request.assigneeId());
+        }
         Long id = meetingActionCommandService.createMeetingAction(
             meetingRecordId,
             request.assigneeId(),
@@ -49,12 +53,17 @@ public class MeetingActionFacade {
         MeetingAction meetingAction = meetingActionQueryService.getMeetingAction(id);
         MeetingRecord meetingRecord = meetingRecordQueryService.getMeetingRecord(meetingAction.getMeetingRecordId());
         validateTeamMembership(meetingRecord.getTeamId(), userId);
+        if (!request.clearAssignee() && request.assigneeId() != null) {
+            validateAssignee(meetingRecord.getTeamId(), request.assigneeId());
+        }
         meetingActionCommandService.updateMeetingAction(
             id,
             request.assigneeId(),
             request.content(),
             request.status(),
-            request.dueAt()
+            request.dueAt(),
+            request.clearAssignee(),
+            request.clearDueAt()
         );
         return MeetingActionResponse.from(meetingActionQueryService.getMeetingAction(id));
     }
@@ -67,6 +76,12 @@ public class MeetingActionFacade {
     private void validateTeamMembership(Long teamId, String userId) {
         if (teamMemberRepository.findByTeamIdAndUserId(teamId, userId).isEmpty()) {
             throw new AccessDeniedException("해당 팀에 소속된 사용자만 액션플랜에 접근할 수 있습니다.");
+        }
+    }
+
+    private void validateAssignee(Long teamId, String assigneeId) {
+        if (teamMemberRepository.findByTeamIdAndUserId(teamId, assigneeId).isEmpty()) {
+            throw new MeetingActionInvalidAssigneeException();
         }
     }
 }

@@ -18,6 +18,12 @@ public record MeetingActionUpdateRequest(
     LocalDateTime dueAt,
 
     @Schema(description = "담당자 학번", example = "202412346")
-    String assigneeId
+    String assigneeId,
+
+    @Schema(description = "마감일 해제 여부(true면 dueAt 값과 무관하게 마감일을 해제)", example = "false")
+    boolean clearDueAt,
+
+    @Schema(description = "담당자 해제 여부(true면 assigneeId 값과 무관하게 담당자를 해제)", example = "false")
+    boolean clearAssignee
 ) {
 }

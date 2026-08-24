@@ -31,6 +31,7 @@ public class MeetingActionFacadeTest {
 
     private static final String MEMBER = "202412345";
     private static final String NON_MEMBER = "202400000";
+    private static final String OTHER_TEAM_STUDENT = "202400111";
 
     private MeetingActionFacade meetingActionFacade;
     private Long meetingRecordId;
@@ -84,6 +85,21 @@ public class MeetingActionFacadeTest {
     }
 
     @Test
+    @DisplayName("같은 팀 소속이 아닌 사용자를 담당자로 지정하면 예외를 던진다")
+    public void createMeetingAction_AssigneeNotTeamMember_ThrowsException() {
+        // given
+        MeetingActionCreateRequest request = MeetingActionCreateRequest.builder()
+            .content("작업 내용")
+            .status(MeetingActionStatus.IN_PROGRESS)
+            .assigneeId(OTHER_TEAM_STUDENT)
+            .build();
+
+        // when & then
+        assertThatThrownBy(() -> meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, request))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
     @DisplayName("getMeetingActions는 회의록의 액션플랜 목록을 반환한다")
     public void getMeetingActions_Success() {
         // given
@@ -119,6 +135,36 @@ public class MeetingActionFacadeTest {
         // then
         assertEquals(MeetingActionStatus.DONE, updated.status());
         assertEquals("작업 내용", updated.content());
+    }
+
+    @Test
+    @DisplayName("updateMeetingAction은 clearAssignee가 true면 담당자를 해제한다")
+    public void updateMeetingAction_ClearAssignee_RemovesAssignee() {
+        // given
+        MeetingActionResponse persisted = meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
+        MeetingActionUpdateRequest updateRequest = MeetingActionUpdateRequest.builder()
+            .clearAssignee(true)
+            .build();
+
+        // when
+        MeetingActionResponse updated = meetingActionFacade.updateMeetingAction(persisted.id(), MEMBER, updateRequest);
+
+        // then
+        assertEquals(null, updated.assigneeId());
+    }
+
+    @Test
+    @DisplayName("같은 팀 소속이 아닌 사용자로 담당자를 변경하면 예외를 던진다")
+    public void updateMeetingAction_AssigneeNotTeamMember_ThrowsException() {
+        // given
+        MeetingActionResponse persisted = meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
+        MeetingActionUpdateRequest updateRequest = MeetingActionUpdateRequest.builder()
+            .assigneeId(OTHER_TEAM_STUDENT)
+            .build();
+
+        // when & then
+        assertThatThrownBy(() -> meetingActionFacade.updateMeetingAction(persisted.id(), MEMBER, updateRequest))
+            .isInstanceOf(CustomException.class);
     }
 
     @Test

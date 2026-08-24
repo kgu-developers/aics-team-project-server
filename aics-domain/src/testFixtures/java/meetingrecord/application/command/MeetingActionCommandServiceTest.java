@@ -51,7 +51,7 @@ class MeetingActionCommandServiceTest {
         Long id = createMeetingAction();
 
         // when
-        commandService.updateMeetingAction(id, null, "수정된 내용", MeetingActionStatus.DONE, null);
+        commandService.updateMeetingAction(id, null, "수정된 내용", MeetingActionStatus.DONE, null, false, false);
 
         // then
         MeetingAction updated = fakeMeetingActionRepository.findById(id).orElseThrow();
@@ -61,10 +61,49 @@ class MeetingActionCommandServiceTest {
     }
 
     @Test
+    @DisplayName("updateMeetingAction은 clearAssignee가 true면 assigneeId 값과 무관하게 담당자를 해제한다")
+    void updateMeetingAction_ClearAssignee_RemovesAssignee() {
+        // given
+        Long id = createMeetingAction();
+
+        // when
+        commandService.updateMeetingAction(id, "202412399", null, null, null, true, false);
+
+        // then
+        MeetingAction updated = fakeMeetingActionRepository.findById(id).orElseThrow();
+        assertThat(updated.getAssigneeId()).isNull();
+    }
+
+    @Test
+    @DisplayName("updateMeetingAction은 clearDueAt이 true면 마감일을 해제한다")
+    void updateMeetingAction_ClearDueAt_RemovesDueAt() {
+        // given
+        Long id = createMeetingAction();
+
+        // when
+        commandService.updateMeetingAction(id, null, null, null, null, false, true);
+
+        // then
+        MeetingAction updated = fakeMeetingActionRepository.findById(id).orElseThrow();
+        assertThat(updated.getDueAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("updateMeetingAction은 공백만 있는 content로 수정하면 예외를 던진다")
+    void updateMeetingAction_BlankContent_ThrowsException() {
+        // given
+        Long id = createMeetingAction();
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updateMeetingAction(id, null, "   ", null, null, false, false))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
     @DisplayName("updateMeetingAction은 존재하지 않는 액션플랜이면 예외를 던진다")
     void updateMeetingAction_NotFound_ThrowsException() {
         // when & then
-        assertThatThrownBy(() -> commandService.updateMeetingAction(999L, null, "내용", null, null))
+        assertThatThrownBy(() -> commandService.updateMeetingAction(999L, null, "내용", null, null, false, false))
             .isInstanceOf(CustomException.class);
     }
 }

@@ -5,7 +5,9 @@ import java.util.Optional;
 import kgu.developers.domain.meetingrecord.domain.MeetingAction;
 import kgu.developers.domain.meetingrecord.domain.MeetingActionRepository;
 import kgu.developers.domain.meetingrecord.domain.MeetingActionStatus;
+import kgu.developers.domain.meetingrecord.exception.MeetingActionConcurrentlyModifiedException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -16,7 +18,11 @@ public class MeetingActionRepositoryImpl implements MeetingActionRepository {
 
     @Override
     public MeetingAction save(MeetingAction meetingAction) {
-        return jpaMeetingActionRepository.save(MeetingActionJpaEntity.toEntity(meetingAction)).toDomain();
+        try {
+            return jpaMeetingActionRepository.saveAndFlush(MeetingActionJpaEntity.toEntity(meetingAction)).toDomain();
+        } catch (OptimisticLockingFailureException e) {
+            throw new MeetingActionConcurrentlyModifiedException();
+        }
     }
 
     @Override
