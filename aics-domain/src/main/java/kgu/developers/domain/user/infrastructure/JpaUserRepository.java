@@ -17,4 +17,6 @@ public interface JpaUserRepository extends JpaRepository<UserJpaEntity, String> 
     List<UserJpaEntity> findAllByStudentNumberIn(List<String> studentNumbers);
 
     List<UserJpaEntity> findAllByEmailInAndDeletedAtIsNull(List<String> emails);
+
+    List<UserJpaEntity> findAllByEmailIn(List<String> emails);
 }

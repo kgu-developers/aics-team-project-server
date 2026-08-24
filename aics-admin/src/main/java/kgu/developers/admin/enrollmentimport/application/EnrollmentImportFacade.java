@@ -129,18 +129,21 @@ public class EnrollmentImportFacade {
         Map<String, String> emailOwners = userRepository
             .findAllByEmailIn(rows.stream().map(EnrollmentImportRow::email).toList()).stream()
             .collect(Collectors.toMap(User::getEmail, User::getStudentNumber));
+        Map<String, String> everUsedEmails = userRepository
+            .findAllIncludingDeletedByEmailIn(rows.stream().map(EnrollmentImportRow::email).toList()).stream()
+            .collect(Collectors.toMap(User::getEmail, User::getStudentNumber));
         Map<String, Status> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .collect(Collectors.toMap(Enrollment::getUserId, Enrollment::getStatus));
 
         Set<String> seenNumbers = new HashSet<>();
         Set<String> seenEmails = new HashSet<>();
         return rows.stream()
-            .map(row -> classify(row, members, everRegistered, emailOwners, enrolled, seenNumbers, seenEmails))
+            .map(row -> classify(row, members, everRegistered, emailOwners, everUsedEmails, enrolled, seenNumbers, seenEmails))
             .toList();
     }
 
     private EnrollmentImportRow classify(EnrollmentImportRow row, Set<String> members,
-        Set<String> everRegistered, Map<String, String> emailOwners,
+        Set<String> everRegistered, Map<String, String> emailOwners, Map<String, String> everUsedEmails,
         Map<String, Status> enrolled, Set<String> seenNumbers, Set<String> seenEmails) {
         if (row.status() == INVALID) {
             return row;
@@ -167,6 +170,10 @@ public class EnrollmentImportFacade {
         String emailOwner = emailOwners.get(row.email());
         if (emailOwner != null && !emailOwner.equals(row.studentNumber())) {
             return row.with(INVALID, "이미 사용 중인 이메일입니다.");
+        }
+        String everUsedEmailOwner = everUsedEmails.get(row.email());
+        if (everUsedEmailOwner != null && !everUsedEmailOwner.equals(row.studentNumber())) {
+            return row.with(INVALID, "탈퇴한 사용자가 사용했던 이메일입니다. 관리자에게 문의하세요.");
         }
         return row.with(NEW_USER, "가입되지 않은 학생입니다. 반영 시 계정을 만듭니다.");
     }

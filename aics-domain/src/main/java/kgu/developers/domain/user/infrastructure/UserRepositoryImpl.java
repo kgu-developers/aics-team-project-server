@@ -79,6 +79,16 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public List<User> findAllIncludingDeletedByEmailIn(List<String> emails) {
+        if (emails.isEmpty()) {
+            return List.of();
+        }
+        return jpaUserRepository.findAllByEmailIn(emails).stream()
+                .map(UserJpaEntity::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<User> findAllByStudentNumberIn(List<String> studentNumbers) {
         if (studentNumbers.isEmpty()) {
             return List.of();

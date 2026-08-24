@@ -89,6 +89,10 @@ public class EnrollmentImportFacadeTest {
             .willReturn(List.of(Enrollment.create(SECTION_ID, ENROLLED, Role.STUDENT, Status.ACTIVE)));
         given(userRepository.findAllByStudentNumberIn(any()))
             .willReturn(List.of(user(MEMBER), user(ENROLLED)));
+        given(userRepository.findAllIncludingDeletedByStudentNumberIn(any()))
+            .willReturn(List.of(user(MEMBER), user(ENROLLED)));
+        given(userRepository.findAllByEmailIn(any())).willReturn(List.of());
+        given(userRepository.findAllIncludingDeletedByEmailIn(any())).willReturn(List.of());
         given(importBatchRepository.save(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 1L));
     }
 
@@ -145,6 +149,8 @@ public class EnrollmentImportFacadeTest {
         // given
         given(userRepository.findAllIncludingDeletedByStudentNumberIn(any()))
             .willReturn(List.of(user(NEWCOMER)));
+        given(userRepository.findAllByEmailIn(any())).willReturn(List.of());
+        given(userRepository.findAllIncludingDeletedByEmailIn(any())).willReturn(List.of());
 
         // when
         EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
@@ -168,6 +174,24 @@ public class EnrollmentImportFacadeTest {
         // then
         assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
         assertThat(response.rows().get(0).message()).contains("이미 사용 중인 이메일");
+    }
+
+    @Test
+    @DisplayName("preview는 탈퇴한 사용자가 사용했던 이메일을 오류로 표시한다")
+    public void preview_RejectsEmailFromDeletedUser() throws IOException {
+        // given
+        given(userRepository.findAllByEmailIn(any())).willReturn(List.of());
+        given(userRepository.findAllIncludingDeletedByEmailIn(any())).willReturn(List.of(user(MEMBER)));
+        given(userRepository.findAllIncludingDeletedByStudentNumberIn(any()))
+            .willReturn(List.of(user(MEMBER), user(ENROLLED)));
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", MEMBER + "@kyonggi.ac.kr", "010-0000-0003", ""}));
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("탈퇴한 사용자가 사용했던 이메일");
     }
 
     @Test

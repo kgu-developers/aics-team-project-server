@@ -23,4 +23,6 @@ public interface UserRepository {
     List<User> findAllIncludingDeletedByStudentNumberIn(List<String> studentNumbers);
 
     List<User> findAllByEmailIn(List<String> emails);
+
+    List<User> findAllIncludingDeletedByEmailIn(List<String> emails);
 }
