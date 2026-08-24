@@ -13,6 +13,15 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
 
     private final Map<Long, TeamMember> store = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(0);
+    private final Map<Long, Long> sectionIdByTeamId;
+
+    public FakeTeamMemberRepository() {
+        this(Map.of());
+    }
+
+    public FakeTeamMemberRepository(Map<Long, Long> sectionIdByTeamId) {
+        this.sectionIdByTeamId = new ConcurrentHashMap<>(sectionIdByTeamId);
+    }
 
     @Override
     public TeamMember save(TeamMember teamMember) {
@@ -96,7 +105,11 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
 
     @Override
     public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
-        return Optional.empty();
+        return store.values().stream()
+            .filter(teamMember -> teamMember.getDeletedAt() == null)
+            .filter(teamMember -> teamMember.getUserId().equals(userId))
+            .filter(teamMember -> sectionId.equals(sectionIdByTeamId.get(teamMember.getTeamId())))
+            .findFirst();
     }
 
     @Override
