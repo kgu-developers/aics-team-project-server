@@ -24,6 +24,9 @@ public interface JpaTeamMemberRepository extends JpaRepository<TeamMemberJpaEnti
 
     boolean existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(Long teamId);
 
+    @Query("SELECT tm FROM TeamMemberJpaEntity tm WHERE tm.team.section.id = :sectionId AND tm.user.studentNumber = :userId AND tm.deletedAt IS NULL")
+    Optional<TeamMemberJpaEntity> findBySectionIdAndUserStudentNumberAndDeletedAtIsNull(@Param("sectionId") Long sectionId, @Param("userId") String userId);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update TeamMemberJpaEntity tm set tm.deletedAt = :now, tm.updatedAt = :now"
             + " where tm.team.id = :teamId and tm.deletedAt is null")

@@ -81,6 +81,12 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
         return jpaTeamMemberRepository.existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId);
     }
 
+    @Override
+    public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
+        return jpaTeamMemberRepository.findBySectionIdAndUserStudentNumberAndDeletedAtIsNull(sectionId, userId)
+                .map(TeamMemberJpaEntity::toDomain);
+    }
+
     private void validateNoOtherLeader(TeamMember teamMember) {
         entityManager.find(TeamJpaEntity.class, teamMember.getTeamId(), PESSIMISTIC_WRITE);
         jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamMember.getTeamId())

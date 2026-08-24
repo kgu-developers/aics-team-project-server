@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.persistence.EntityManager;
+
 import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.admin.teamimport.presentation.response.TeamImportApplyResponse;
@@ -37,6 +39,7 @@ import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -51,6 +54,7 @@ public class TeamImportFacade {
     private final TeamMemberRepository teamMemberRepository;
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
+    private final EntityManager entityManager;
 
     public TeamImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
@@ -76,6 +80,9 @@ public class TeamImportFacade {
         }
         sectionStaffValidator.validate(batch.getSectionId(), userId);
 
+        entityManager.find(SectionJpaEntity.class, batch.getSectionId(), 
+            jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+
         batch.apply(LocalDateTime.now());
 
         Map<String, Long> teamIds = new HashMap<>();
@@ -97,6 +104,27 @@ public class TeamImportFacade {
             String projectRole = row.path("projectRole").asText();
 
             if (!enrolled.contains(studentNumber)) {
+                skipped++;
+                continue;
+            }
+
+            TeamMember existingInSection = teamMemberRepository
+                .findActiveBySectionIdAndUserId(batch.getSectionId(), studentNumber)
+                .orElse(null);
+            
+            if (existingInSection != null) {
+                Long existingTeamId = existingInSection.getTeamId();
+                String existingTeamName = teamIds.entrySet().stream()
+                    .filter(entry -> entry.getValue().equals(existingTeamId))
+                    .map(Map.Entry::getKey)
+                    .findFirst()
+                    .orElse("알 수 없는 팀");
+                
+                if (existingTeamId.equals(teamIds.get(teamName))) {
+                    skipped++;
+                    continue;
+                }
+                
                 skipped++;
                 continue;
             }

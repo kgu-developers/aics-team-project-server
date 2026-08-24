@@ -20,6 +20,8 @@ public interface TeamMemberRepository {
 
     boolean existsByTeamIdAndIsLeaderTrue(Long teamId);
 
+    Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId);
+
     void deleteById(Long id);
 
     void deleteAllByTeamId(Long teamId);

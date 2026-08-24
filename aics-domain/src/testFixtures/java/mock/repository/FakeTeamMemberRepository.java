@@ -87,6 +87,11 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     }
 
     @Override
+    public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
+        return Optional.empty();
+    }
+
+    @Override
     public void deleteById(Long id) {
         Optional.ofNullable(store.get(id)).ifPresent(teamMember -> teamMember.delete());
     }

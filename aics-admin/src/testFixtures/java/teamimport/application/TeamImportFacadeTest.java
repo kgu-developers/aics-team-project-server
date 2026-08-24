@@ -50,6 +50,8 @@ import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.domain.UserRepository;
 
+import jakarta.persistence.EntityManager;
+
 public class TeamImportFacadeTest {
 
   private static final Long SECTION_ID = 1L;
@@ -65,6 +67,7 @@ public class TeamImportFacadeTest {
   private TeamMemberRepository teamMemberRepository;
   private SectionRepository sectionRepository;
   private UserRepository userRepository;
+  private EntityManager entityManager;
   private TeamImportFacade facade;
 
   @BeforeEach
@@ -75,9 +78,11 @@ public class TeamImportFacadeTest {
     teamMemberRepository = mock(TeamMemberRepository.class);
     sectionRepository = mock(SectionRepository.class);
     userRepository = mock(UserRepository.class);
+    entityManager = mock(EntityManager.class);
     facade = new TeamImportFacade(importBatchRepository, enrollmentRepository, teamRepository,
         teamMemberRepository, sectionRepository,
-        new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
+        new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository),
+        entityManager);
 
     given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
     given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
@@ -89,6 +94,7 @@ public class TeamImportFacadeTest {
         Enrollment.create(SECTION_ID, STUDENT_C, Role.STUDENT, Status.ACTIVE)));
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
     given(importBatchRepository.save(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 1L));
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(any(), any())).willReturn(Optional.empty());
   }
 
   @Test
@@ -316,6 +322,99 @@ public class TeamImportFacadeTest {
         .isInstanceOf(ImportBatchHasInvalidRowsException.class);
     verify(teamRepository, never()).save(any());
     verify(teamMemberRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("apply는 분반 내 다른 팀에 이미 속한 학생을 건너뛴다")
+  public void apply_SkipsStudentsInOtherTeamsInSection() {
+    // given: STUDENT_A가 이미 2팀에 속해 있는 상황
+    Team team2 = Team.builder().id(20L).sectionId(SECTION_ID).name("2팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team2));
+    
+    TeamMember existingMember = TeamMember.create(20L, STUDENT_A, false, "백엔드");
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
+        .willReturn(Optional.of(existingMember));
+    
+    ImportBatch batch = batch(0, List.of(
+        row(2, "1팀", STUDENT_A, true, "프론트", RowStatus.VALID),
+        row(3, "1팀", STUDENT_B, false, "", RowStatus.VALID)));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+    given(teamRepository.save(any())).willAnswer(invocation -> Team.builder().id(10L)
+        .sectionId(SECTION_ID).name("1팀").build());
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then: STUDENT_A는 건너뛰고, STUDENT_B만 추가됨
+    assertThat(response.appliedMembers()).isEqualTo(1);
+    assertThat(response.skipped()).isEqualTo(1);
+    
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getUserId()).isEqualTo(STUDENT_B);
+  }
+
+  @Test
+  @DisplayName("apply는 같은 팀에 이미 속한 학생을 건너뛴다")
+  public void apply_SkipsStudentsInSameTeam() {
+    // given: STUDENT_A가 이미 1팀에 속해 있는 상황
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    
+    TeamMember existingMember = TeamMember.create(10L, STUDENT_A, false, "백엔드");
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
+        .willReturn(Optional.of(existingMember));
+    
+    ImportBatch batch = batch(0, List.of(
+        row(2, "1팀", STUDENT_A, true, "프론트", RowStatus.VALID),
+        row(3, "1팀", STUDENT_B, false, "", RowStatus.VALID)));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then: STUDENT_A는 건너뛰고, STUDENT_B만 추가됨
+    assertThat(response.appliedMembers()).isEqualTo(1);
+    assertThat(response.skipped()).isEqualTo(1);
+    
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getUserId()).isEqualTo(STUDENT_B);
+  }
+
+  @Test
+  @DisplayName("apply는 미리보기 후 다른 팀에 배정된 학생을 건너뛴다")
+  public void apply_SkipsStudentsAssignedToAnotherTeamAfterPreview() {
+    // given: 미리보기 시점에는 STUDENT_A가 어느 팀에도 속하지 않음
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
+    
+    // 미리보어 데이터에는 STUDENT_A가 1팀에 포함됨
+    ImportBatch batch = batch(0, List.of(
+        row(2, "1팀", STUDENT_A, true, "백엔드", RowStatus.VALID),
+        row(3, "1팀", STUDENT_B, false, "", RowStatus.VALID)));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+    
+    // 하지만 apply 시점에는 STUDENT_A가 이미 2팀에 배정됨 (미리보기 후 변경)
+    Team team2 = Team.builder().id(20L).sectionId(SECTION_ID).name("2팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team2));
+    
+    TeamMember existingMember = TeamMember.create(20L, STUDENT_A, false, "프론트");
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
+        .willReturn(Optional.of(existingMember));
+    
+    given(teamRepository.save(any())).willAnswer(invocation -> Team.builder().id(10L)
+        .sectionId(SECTION_ID).name("1팀").build());
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then: STUDENT_A는 건너뛰고, STUDENT_B만 1팀에 추가됨
+    assertThat(response.appliedMembers()).isEqualTo(1);
+    assertThat(response.skipped()).isEqualTo(1);
+    
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getUserId()).isEqualTo(STUDENT_B);
   }
 
   private TeamImportRow row(int rowNumber, String teamName, String studentNumber, boolean leader,
