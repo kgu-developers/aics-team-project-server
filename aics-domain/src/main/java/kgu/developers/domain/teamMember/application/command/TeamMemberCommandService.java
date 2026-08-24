@@ -4,7 +4,9 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,14 +91,19 @@ public class TeamMemberCommandService {
     projectRoles.keySet().forEach(studentNumber -> requireMember(members, studentNumber));
 
     // 기존 팀장을 먼저 내려야 한 팀에 팀장이 둘이 되는 순간이 없다
+    Set<String> processedMembers = new HashSet<>();
     members.values().stream()
         .filter(member -> member.isLeader() && !member.getUserId().equals(leaderStudentNumber))
-        .forEach(member -> applyChanges(member, false, projectRoles));
+        .forEach(member -> {
+          applyChanges(member, false, projectRoles);
+          processedMembers.add(member.getUserId());
+        });
 
     applyChanges(leader, true, projectRoles);
+    processedMembers.add(leaderStudentNumber);
 
     members.values().stream()
-        .filter(member -> !member.getUserId().equals(leaderStudentNumber))
+        .filter(member -> !processedMembers.contains(member.getUserId()))
         .forEach(member -> applyChanges(member, false, projectRoles));
 
     teamMemberRepository.saveAll(new ArrayList<>(members.values()));
