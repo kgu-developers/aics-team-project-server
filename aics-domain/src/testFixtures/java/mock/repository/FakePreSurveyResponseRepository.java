@@ -17,9 +17,29 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 
 	private final Map<Long, PreSurveyResponse> store = new ConcurrentHashMap<>();
 	private final AtomicLong sequence = new AtomicLong(0);
+	private Runnable beforeNextSave;
 
 	@Override
-	public synchronized PreSurveyResponse save(PreSurveyResponse response) {
+	public PreSurveyResponse save(PreSurveyResponse response) {
+		Runnable hook = takeBeforeNextSaveHook();
+		if (hook != null) {
+			hook.run();
+		}
+
+		return saveAtomically(response);
+	}
+
+	public synchronized void runBeforeNextSave(Runnable hook) {
+		beforeNextSave = hook;
+	}
+
+	private synchronized Runnable takeBeforeNextSaveHook() {
+		Runnable hook = beforeNextSave;
+		beforeNextSave = null;
+		return hook;
+	}
+
+	private synchronized PreSurveyResponse saveAtomically(PreSurveyResponse response) {
 		if (response.getId() == null) {
 			boolean existsActive = store.values().stream()
 					.anyMatch(r -> r.getDeletedAt() == null

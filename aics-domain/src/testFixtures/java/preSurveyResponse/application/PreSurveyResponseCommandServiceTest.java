@@ -2,6 +2,8 @@ package preSurveyResponse.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -71,16 +73,16 @@ class PreSurveyResponseCommandServiceTest {
 		Long sectionId = 1L;
 		JsonNode roles1 = objectMapper.readTree("[\"BACKEND\"]");
 
-		// 먼저 다른 트랜잭션이 저장했다고 가상
-		PreSurveyResponse competitor = repository.save(PreSurveyResponse.create(userId, sectionId, roles1, "웹 서비스", "최초"));
+		PreSurveyResponse competitor = PreSurveyResponse.create(userId, sectionId, roles1, "웹 서비스", "최초");
+		AtomicReference<PreSurveyResponse> savedCompetitor = new AtomicReference<>();
+		repository.runBeforeNextSave(() -> savedCompetitor.set(repository.save(competitor)));
 
-		// when: 이미 DB에 존재하지만 check-then-act 시점에 못 본 상황을 흉내내어 새로 제출 시도
-		// FakePreSurveyResponseRepository.save 는 id가 null인데 active가 존재하면 DataIntegrityViolationException을 발생시킴
+		// when: 최초 조회 뒤, 새 응답 저장 직전에 경쟁 요청이 저장된다.
 		JsonNode roles2 = objectMapper.readTree("[\"FULLSTACK\"]");
 		PreSurveyResponse result = commandService.submit(userId, sectionId, roles2, "모바일 앱", "경쟁에서 재조회 후 갱신");
 
 		// then
-		assertThat(result.getId()).isEqualTo(competitor.getId());
+		assertThat(result.getId()).isEqualTo(savedCompetitor.get().getId());
 		assertThat(result.getTopicOpinion()).isEqualTo("모바일 앱");
 		assertThat(result.getEtcOpinion()).isEqualTo("경쟁에서 재조회 후 갱신");
 	}
