@@ -16,6 +16,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -206,8 +207,6 @@ class TeamMemberCommandServiceTest {
         TeamMember newLeader = member("202622222", false, "프론트엔드");
         given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
         given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(oldLeader, newLeader));
-        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
-
         teamMemberCommandService.updateKickoffRoles(1L, "202622222",
                 Map.of("202611111", "기획", "202622222", "백엔드"));
 
@@ -215,6 +214,7 @@ class TeamMemberCommandServiceTest {
         assertThat(oldLeader.getProjectRole()).isEqualTo("기획");
         assertThat(newLeader.isLeader()).isTrue();
         assertThat(newLeader.getProjectRole()).isEqualTo("백엔드");
+        assertSavedInOrder(oldLeader, newLeader);
     }
 
     @Test
@@ -229,7 +229,7 @@ class TeamMemberCommandServiceTest {
 
         assertThat(other.getProjectRole()).isEqualTo("프론트엔드");
         assertThat(other.isLeader()).isFalse();
-        verify(teamMemberRepository, never()).save(any());
+        verify(teamMemberRepository, never()).saveAll(any());
     }
 
     @Test
@@ -241,15 +241,12 @@ class TeamMemberCommandServiceTest {
         given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
         given(teamMemberRepository.findAllByTeamId(1L))
                 .willReturn(List.of(leader, unchanged, changed));
-        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
-
         teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of(
                 "202611111", "백엔드",        // 그대로
                 "202622222", "프론트엔드",    // 그대로
                 "202633333", "디자인"));      // 변경
 
-        verify(teamMemberRepository, times(1)).save(any());
-        verify(teamMemberRepository).save(changed);
+        assertSavedInOrder(changed);
     }
 
     @Test
@@ -259,12 +256,18 @@ class TeamMemberCommandServiceTest {
         TeamMember newLeader = member("202622222", false, "프론트엔드");
         given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
         given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(oldLeader, newLeader));
-        willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
-
         teamMemberCommandService.updateKickoffRoles(1L, "202622222", Map.of("202611111", "기획"));
 
-        verify(teamMemberRepository, times(1)).save(oldLeader);
-        verify(teamMemberRepository, times(1)).save(newLeader);
+        assertSavedInOrder(oldLeader, newLeader);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertSavedInOrder(TeamMember... expectedMembers) {
+        ArgumentCaptor<List<TeamMember>> membersCaptor = ArgumentCaptor.forClass(List.class);
+
+        verify(teamMemberRepository).saveAll(membersCaptor.capture());
+
+        assertThat(membersCaptor.getValue()).containsExactly(expectedMembers);
     }
 
     @Test

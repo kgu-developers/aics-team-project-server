@@ -5,6 +5,7 @@ import static java.util.stream.Collectors.toMap;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -90,37 +91,49 @@ public class TeamMemberCommandService {
     TeamMember leader = requireMember(members, leaderStudentNumber);
     projectRoles.keySet().forEach(studentNumber -> requireMember(members, studentNumber));
 
-    // 기존 팀장을 먼저 내려야 한 팀에 팀장이 둘이 되는 순간이 없다
+    // 기존 팀장을 먼저 내려야 한 팀에 팀장이 둘이 되는 순간이 없다.
+    List<TeamMember> changedMembers = new ArrayList<>();
     Set<String> processedMembers = new HashSet<>();
     members.values().stream()
         .filter(member -> member.isLeader() && !member.getUserId().equals(leaderStudentNumber))
         .forEach(member -> {
-          applyChanges(member, false, projectRoles);
+          if (applyChanges(member, false, projectRoles)) {
+            changedMembers.add(member);
+          }
           processedMembers.add(member.getUserId());
         });
 
-    applyChanges(leader, true, projectRoles);
+    if (applyChanges(leader, true, projectRoles)) {
+      changedMembers.add(leader);
+    }
     processedMembers.add(leaderStudentNumber);
 
     members.values().stream()
         .filter(member -> !processedMembers.contains(member.getUserId()))
-        .forEach(member -> applyChanges(member, false, projectRoles));
+        .forEach(member -> {
+          if (applyChanges(member, false, projectRoles)) {
+            changedMembers.add(member);
+          }
+        });
 
-    teamMemberRepository.saveAll(new ArrayList<>(members.values()));
+    if (!changedMembers.isEmpty()) {
+      teamMemberRepository.saveAll(changedMembers);
+    }
   }
 
-  private void applyChanges(TeamMember member, boolean isLeader, Map<String, String> projectRoles) {
+  private boolean applyChanges(TeamMember member, boolean isLeader, Map<String, String> projectRoles) {
     String projectRole = projectRoles.get(member.getUserId());
     boolean changed = member.isLeader() != isLeader
         || (projectRole != null && !projectRole.equals(member.getProjectRole()));
     if (!changed) {
-      return;
+      return false;
     }
 
     member.updateIsLeader(isLeader);
     if (projectRole != null) {
       member.updateProjectRole(projectRole);
     }
+    return true;
   }
 
   private TeamMember requireMember(Map<String, TeamMember> members, String studentNumber) {
