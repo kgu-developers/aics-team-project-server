@@ -3,6 +3,7 @@ package kgu.developers.domain.teamMember.application.command;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
+import java.util.ArrayList;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -97,6 +98,8 @@ public class TeamMemberCommandService {
     members.values().stream()
         .filter(member -> !member.getUserId().equals(leaderStudentNumber))
         .forEach(member -> applyChanges(member, false, projectRoles));
+
+    teamMemberRepository.saveAll(new ArrayList<>(members.values()));
   }
 
   private void applyChanges(TeamMember member, boolean isLeader, Map<String, String> projectRoles) {
@@ -111,7 +114,6 @@ public class TeamMemberCommandService {
     if (projectRole != null) {
       member.updateProjectRole(projectRole);
     }
-    teamMemberRepository.save(member);
   }
 
   private TeamMember requireMember(Map<String, TeamMember> members, String studentNumber) {

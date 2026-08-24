@@ -51,6 +51,13 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     }
 
     @Override
+    public List<TeamMember> saveAll(List<TeamMember> teamMembers) {
+        return teamMembers.stream()
+                .map(this::save)
+                .toList();
+    }
+
+    @Override
     public Optional<TeamMember> findById(Long id) {
         return jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
                 .map(TeamMemberJpaEntity::toDomain);

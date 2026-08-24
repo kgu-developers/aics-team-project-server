@@ -34,6 +34,13 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     }
 
     @Override
+    public List<TeamMember> saveAll(List<TeamMember> teamMembers) {
+        return teamMembers.stream()
+            .map(this::save)
+            .toList();
+    }
+
+    @Override
     public Optional<TeamMember> findById(Long id) {
         return Optional.ofNullable(store.get(id))
             .filter(teamMember -> teamMember.getDeletedAt() == null);
