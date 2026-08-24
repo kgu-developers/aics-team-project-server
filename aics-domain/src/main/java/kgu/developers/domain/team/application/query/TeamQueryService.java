@@ -1,7 +1,6 @@
 package kgu.developers.domain.team.application.query;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -40,8 +39,6 @@ public class TeamQueryService {
             throw new SectionNotFoundException();
         }
 
-        return teamRepository.findAllBySectionId(sectionId).stream()
-                .sorted(Comparator.comparing(Team::getName))
-                .toList();
+        return teamRepository.findAllBySectionId(sectionId);
     }
 }

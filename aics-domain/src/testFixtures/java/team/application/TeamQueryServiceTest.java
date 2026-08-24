@@ -63,7 +63,7 @@ class TeamQueryServiceTest {
     }
 
     @Test
-    @DisplayName("분반의 팀 목록을 팀명 순으로 조회한다")
+    @DisplayName("분반의 팀 목록을 조회한다")
     void getTeamsBySectionId() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(sectionDetail()));
         given(teamRepository.findAllBySectionId(1L))
@@ -71,7 +71,7 @@ class TeamQueryServiceTest {
 
         assertThat(teamQueryService.getTeamsBySectionId(1L))
                 .extracting(Team::getName)
-                .containsExactly("1팀", "2팀", "3팀");
+                .containsExactlyInAnyOrder("1팀", "2팀", "3팀");
     }
 
     @Test
