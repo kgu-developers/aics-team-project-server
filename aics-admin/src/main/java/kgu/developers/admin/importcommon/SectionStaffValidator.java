@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
@@ -40,7 +41,7 @@ public class SectionStaffValidator {
 
     private boolean isAssistant(Long sectionId, String studentNumber) {
         return enrollmentRepository.findBySectionIdAndUserId(sectionId, studentNumber)
-            .filter(enrollment -> enrollment.getRole() == Role.ASSISTANT)
+            .filter(enrollment -> enrollment.getRole() == Role.ASSISTANT && enrollment.getStatus() == Status.ACTIVE)
             .isPresent();
     }
 }
