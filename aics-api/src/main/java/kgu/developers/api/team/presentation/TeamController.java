@@ -56,4 +56,20 @@ public interface TeamController {
 		) @Valid @RequestBody TeamKickoffUpdateRequest request,
 		Authentication authentication
 	);
+
+	@Operation(summary = "팀장 자진 선언 API", description = """
+			- Description : 해당 팀의 팀원이 스스로 팀장으로 선언합니다.
+			- 팀장이 아직 없는 경우에만 선언할 수 있으며, 최초 선언자가 팀장과 팀 확정을 함께 완료합니다.
+			- 이미 팀장이 있거나 확정된 팀이면 409를 응답합니다.
+			- 해당 팀 소속 팀원만 선언할 수 있으며, 그 외에는 403을 응답합니다.
+		""")
+	@ApiResponse(responseCode = "204")
+	ResponseEntity<Void> claimLeader(
+		@Parameter(
+			description = "팀 ID는 URL 경로 변수 입니다.",
+			example = "1",
+			required = true
+		) @Positive @PathVariable Long teamId,
+		Authentication authentication
+	);
 }

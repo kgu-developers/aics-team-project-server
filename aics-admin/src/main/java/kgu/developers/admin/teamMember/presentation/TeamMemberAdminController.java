@@ -23,6 +23,7 @@ public interface TeamMemberAdminController {
 			- 옮길 팀에 해당 학생이 이미 있으면 409, 팀장이 이미 있는 팀으로 팀장을 옮기면 409를 응답합니다.
 			- 같은 팀 안에서 팀장을 바꾸는 경우에는 기존 팀장이 자동으로 해제됩니다.
 			- 다른 분반의 팀으로는 옮길 수 없어 400을 응답합니다.
+			- 확정된 팀은 팀장 여부(isLeader)만 변경할 수 있습니다.
 		""")
 	@ApiResponse(
 		responseCode = "200",

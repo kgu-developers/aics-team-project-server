@@ -25,3 +25,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_team_member_team_user
     WHERE deleted_at IS NULL;
 
 COMMENT ON INDEX uk_team_member_team_user IS '한 팀에 같은 학번 중복 방지. 이름 변경 시 TeamMemberRepositoryImpl 의 상수도 함께 수정할 것.';
+
+-- 팀장 자진 선언의 동시성 보장. 애플리케이션의 선행 조회만으로는 동시에 도착한 요청을
+-- 막을 수 없으므로, 활성 팀원 중 한 팀당 한 명만 is_leader=true 가 되도록 DB가 보장한다.
+-- TeamMemberRepositoryImpl 이 이 인덱스명으로 LeaderAlreadyExistsException(409)을 판별한다.
+CREATE UNIQUE INDEX IF NOT EXISTS uk_team_member_one_leader
+    ON team_member (team_id)
+    WHERE is_leader = TRUE AND deleted_at IS NULL;
+
+COMMENT ON INDEX uk_team_member_one_leader IS '활성 팀원 중 팀당 팀장 한 명 보장. 이름 변경 시 TeamMemberRepositoryImpl 의 상수도 함께 수정할 것.';

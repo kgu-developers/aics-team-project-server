@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamAlreadyConfirmedException;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -41,6 +42,9 @@ class TeamMemberCommandServiceTest {
 
     @Mock
     private TeamQueryService teamQueryService;
+
+    @Mock
+    private TeamRepository teamRepository;
 
     @InjectMocks
     private TeamMemberCommandService teamMemberCommandService;
@@ -106,6 +110,50 @@ class TeamMemberCommandServiceTest {
         assertThat(teamMember.getTeamId()).isEqualTo(1L);
         assertThat(teamMember.getProjectRole()).isEqualTo("백엔드");
         assertThat(teamMember.isLeader()).isTrue();
+    }
+
+    @Test
+    @DisplayName("팀장이 없는 형성중 팀의 팀원은 스스로 팀장이 될 수 있다")
+    void claimLeader() {
+        TeamMember member = teamMember();
+        Team team = team(1L, Status.FORMING);
+        given(teamQueryService.getTeamById(1L)).willReturn(team);
+        given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
+        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.empty());
+        given(teamMemberRepository.save(member)).willReturn(member);
+
+        TeamMember claimed = teamMemberCommandService.claimLeader(1L, "202699999");
+
+        assertThat(claimed.isLeader()).isTrue();
+        assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
+        verify(teamMemberRepository).save(member);
+        verify(teamRepository).save(team);
+    }
+
+    @Test
+    @DisplayName("이미 팀장이 있으면 팀장 자진 선언은 409 예외를 던진다")
+    void rejectsLeaderClaimWhenLeaderAlreadyExists() {
+        TeamMember member = teamMember();
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
+        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(leaderOf(1L, 2L)));
+
+        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(1L, "202699999"))
+                .isInstanceOf(LeaderAlreadyExistsException.class);
+
+        assertThat(member.isLeader()).isFalse();
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("확정된 팀에서는 팀장 자진 선언을 할 수 없다")
+    void rejectsLeaderClaimOnConfirmedTeam() {
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.CONFIRMED));
+
+        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(1L, "202699999"))
+                .isInstanceOf(TeamAlreadyConfirmedException.class);
+
+        verify(teamMemberRepository, never()).findByTeamIdAndUserId(any(), any());
     }
 
     @Test
@@ -179,6 +227,23 @@ class TeamMemberCommandServiceTest {
 
         assertThat(teamMember.getProjectRole()).isEqualTo("백엔드");
         verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("확정된 팀도 교수 PATCH를 통한 팀장 재배정은 허용한다")
+    void allowsLeaderReassignmentOnConfirmedTeam() {
+        TeamMember member = teamMember();
+        TeamMember currentLeader = leaderOf(1L, 2L);
+        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.CONFIRMED));
+        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(currentLeader));
+        given(teamMemberRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        teamMemberCommandService.updateTeamMember(member, null, null, true);
+
+        assertThat(member.isLeader()).isTrue();
+        assertThat(currentLeader.isLeader()).isFalse();
+        verify(teamMemberRepository).save(currentLeader);
+        verify(teamMemberRepository).save(member);
     }
 
     @Test

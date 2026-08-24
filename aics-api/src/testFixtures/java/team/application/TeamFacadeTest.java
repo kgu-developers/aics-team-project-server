@@ -161,4 +161,25 @@ class TeamFacadeTest {
 
     verify(teamCommandService, never()).updateKickoff(1L, "1팀", null, null);
   }
+
+  @Test
+  @DisplayName("팀장 자진 선언은 인증된 팀원만 자신의 팀장 선언으로 처리한다")
+  void claimLeader() {
+    teamFacade.claimLeader(1L, USER);
+
+    verify(teamAccessValidator).validateMembership(1L, USER);
+    verify(teamMemberCommandService).claimLeader(1L, USER);
+  }
+
+  @Test
+  @DisplayName("팀원이 아니면 팀장 자진 선언을 진행하지 않는다")
+  void rejectsLeaderClaimForNonMember() {
+    willThrow(new AccessDeniedException("denied"))
+        .given(teamAccessValidator).validateMembership(1L, USER);
+
+    assertThatThrownBy(() -> teamFacade.claimLeader(1L, USER))
+        .isInstanceOf(AccessDeniedException.class);
+
+    verify(teamMemberCommandService, never()).claimLeader(1L, USER);
+  }
 }

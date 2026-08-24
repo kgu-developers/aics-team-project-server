@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -99,5 +100,15 @@ class TeamControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"name\":\"\",\"leaderStudentNumber\":\"\"}"))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("팀장이 없으면 팀원이 자진 선언해 204를 응답한다")
+	void claimLeader() throws Exception {
+		mockMvc.perform(post(BASE_URL + "/teams/{teamId}/leader-claim", 1L)
+				.principal(authentication))
+			.andExpect(status().isNoContent());
+
+		verify(teamFacade).claimLeader(1L, STUDENT_NUMBER);
 	}
 }

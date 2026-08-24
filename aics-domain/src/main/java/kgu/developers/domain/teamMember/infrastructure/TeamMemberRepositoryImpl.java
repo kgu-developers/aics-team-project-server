@@ -25,6 +25,7 @@ import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 @RequiredArgsConstructor
 public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     private static final String TEAM_MEMBER_INDEX = "uk_team_member_team_user";
+    private static final String TEAM_LEADER_INDEX = "uk_team_member_one_leader";
 
     private final JpaTeamMemberRepository jpaTeamMemberRepository;
     private final EntityManager entityManager;
@@ -43,7 +44,11 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
         } catch (OptimisticLockingFailureException e) {
             throw new TeamMemberConcurrentlyModifiedException();
         } catch (DataIntegrityViolationException e) {
-            if (Optional.ofNullable(e.getMostSpecificCause().getMessage()).map(m -> m.contains(TEAM_MEMBER_INDEX)).orElse(false)) {
+            String message = Optional.ofNullable(e.getMostSpecificCause().getMessage()).orElse("");
+            if (message.contains(TEAM_LEADER_INDEX)) {
+                throw new LeaderAlreadyExistsException();
+            }
+            if (message.contains(TEAM_MEMBER_INDEX)) {
                 throw new TeamMemberAlreadyExistsException();
             }
             throw e;

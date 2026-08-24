@@ -46,6 +46,12 @@ public class TeamFacade {
     return TeamKickoffResponse.of(team, members(teamId));
   }
 
+  @Transactional
+  public void claimLeader(Long teamId, String userId) {
+    teamAccessValidator.validateMembership(teamId, userId);
+    teamMemberCommandService.claimLeader(teamId, userId);
+  }
+
   private List<TeamMemberResponse> members(Long teamId) {
     return teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
         .map(it -> TeamMemberResponse.of(it.member(), it.user()))
