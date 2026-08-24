@@ -19,7 +19,7 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 	private final AtomicLong sequence = new AtomicLong(0);
 
 	@Override
-	public PreSurveyResponse save(PreSurveyResponse response) {
+	public synchronized PreSurveyResponse save(PreSurveyResponse response) {
 		if (response.getId() == null) {
 			boolean existsActive = store.values().stream()
 					.anyMatch(r -> r.getDeletedAt() == null
