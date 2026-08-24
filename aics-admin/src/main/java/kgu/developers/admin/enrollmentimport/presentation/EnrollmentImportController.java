@@ -43,7 +43,7 @@ public interface EnrollmentImportController {
 
     @Operation(summary = "수강생 명단 반영 API", description = """
             - Description : 이 API는 미리보기 결과의 VALID/NEW_USER 행을 실제 수강 정보로 반영합니다.
-            - NEW_USER 행은 계정을 함께 만듭니다. 초기 비밀번호는 학번이며, 학생이 로그인 후 비밀번호 변경 API로 바꿔야 합니다.
+            - NEW_USER 행은 계정을 함께 만듭니다. 학생이 로그인 후 비밀번호 변경 API로 변경해야 합니다.
             - 이미 등록된 수강생은 건너뛰며, 이미 반영했거나 만료된 업로드는 반영할 수 없습니다.
             - 해당 분반의 조교·담당 교수 또는 전역 관리자만 호출할 수 있습니다.
         """)

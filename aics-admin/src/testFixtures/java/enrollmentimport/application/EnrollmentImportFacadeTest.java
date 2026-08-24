@@ -272,7 +272,7 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.applied()).isEqualTo(2);
         assertThat(response.createdUsers()).isEqualTo(1);
         assertThat(response.skipped()).isZero();
-        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", NEWCOMER,
+        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "010-0000-0000",
             UserGlobalRole.USER, "010-0000-0000", false);
         verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);

@@ -104,9 +104,10 @@ public class EnrollmentImportFacade {
                 continue;
             }
             if (newUser && userRepository.findByStudentNumber(studentNumber).isEmpty()) {
+                String phone = row.path("phone").asText();
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
-                    row.path("name").asText(), studentNumber, UserGlobalRole.USER,
-                    row.path("phone").asText(), false);
+                    row.path("name").asText(), phone, UserGlobalRole.USER,
+                    phone, false);
                 createdUsers++;
             }
             enrollmentCommandService.createEnrollment(batch.getSectionId(), studentNumber, role);
