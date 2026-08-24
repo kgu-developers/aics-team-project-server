@@ -7,7 +7,6 @@ import org.apache.poi.ss.usermodel.Sheet;
 import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
 
 public final class Sheets {
-    private static final DataFormatter FORMATTER = new DataFormatter();
     private static final int HEADER_SEARCH_LIMIT = 10;
 
     private Sheets() {
@@ -39,7 +38,7 @@ public final class Sheets {
     }
 
     public static String cell(Row row, int index) {
-        return index < 0 ? "" : FORMATTER.formatCellValue(row.getCell(index)).trim();
+        return index < 0 ? "" : new DataFormatter().formatCellValue(row.getCell(index)).trim();
     }
 
     public static String tooLong(String label, String value, int max) {
