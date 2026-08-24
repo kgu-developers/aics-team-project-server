@@ -1,6 +1,7 @@
 package mock.repository;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,6 +25,7 @@ public class FakeSectionAnnouncementRepository implements SectionAnnouncementRep
             .title(sectionAnnouncement.getTitle())
             .content(sectionAnnouncement.getContent())
             .publishedAt(sectionAnnouncement.getPublishedAt())
+            .version(sectionAnnouncement.getVersion())
             .createdAt(sectionAnnouncement.getCreatedAt() != null ? sectionAnnouncement.getCreatedAt() : LocalDateTime.now())
             .updatedAt(LocalDateTime.now())
             .build();
@@ -38,9 +40,11 @@ public class FakeSectionAnnouncementRepository implements SectionAnnouncementRep
     }
 
     @Override
-    public List<SectionAnnouncement> findAllBySectionId(Long sectionId) {
+    public List<SectionAnnouncement> findAllPublishedBySectionId(Long sectionId, LocalDateTime now) {
         return store.values().stream()
             .filter(announcement -> announcement.getSectionId().equals(sectionId))
+            .filter(announcement -> !announcement.getPublishedAt().isAfter(now))
+            .sorted(Comparator.comparing(SectionAnnouncement::getPublishedAt).reversed())
             .toList();
     }
 

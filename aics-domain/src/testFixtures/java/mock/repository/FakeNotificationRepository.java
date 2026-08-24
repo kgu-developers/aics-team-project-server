@@ -21,6 +21,7 @@ public class FakeNotificationRepository implements NotificationRepository {
             .id(id)
             .userId(notification.getUserId())
             .type(notification.getType())
+            .sourceId(notification.getSourceId())
             .title(notification.getTitle())
             .message(notification.getMessage())
             .link(notification.getLink())

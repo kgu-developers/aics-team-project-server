@@ -1,5 +1,6 @@
 package kgu.developers.domain.sectionannouncement.application.query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncement;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncementRepository;
@@ -20,7 +21,8 @@ public class SectionAnnouncementQueryService {
             .orElseThrow(SectionAnnouncementNotFoundException::new);
     }
 
+    // publishedAt이 미래(예약 게시)인 것은 그 시각이 되기 전까지 목록에서 제외한다.
     public List<SectionAnnouncement> getAnnouncements(Long sectionId) {
-        return sectionAnnouncementRepository.findAllBySectionId(sectionId);
+        return sectionAnnouncementRepository.findAllPublishedBySectionId(sectionId, LocalDateTime.now());
     }
 }

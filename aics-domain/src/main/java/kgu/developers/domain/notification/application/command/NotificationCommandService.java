@@ -15,11 +15,11 @@ public class NotificationCommandService {
 
     private final NotificationRepository notificationRepository;
 
-    public void createNotification(String userId, NotificationType type, String title, String message, String link) {
-        notificationRepository.save(Notification.create(userId, type, title, message, link));
+    public void createNotification(String userId, NotificationType type, Long sourceId, String title, String message, String link) {
+        notificationRepository.save(Notification.create(userId, type, sourceId, title, message, link));
     }
 
-    public void broadcast(List<String> userIds, NotificationType type, String title, String message, String link) {
-        userIds.forEach(userId -> createNotification(userId, type, title, message, link));
+    public void broadcast(List<String> userIds, NotificationType type, Long sourceId, String title, String message, String link) {
+        userIds.forEach(userId -> createNotification(userId, type, sourceId, title, message, link));
     }
 }

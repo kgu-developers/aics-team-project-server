@@ -42,7 +42,7 @@ public class SectionAnnouncementFacade {
         LocalDateTime publishedAt = request.publishedAt() != null ? request.publishedAt() : LocalDateTime.now();
         Long id = sectionAnnouncementCommandService.createAnnouncement(sectionId, request.title(), request.content(), publishedAt);
 
-        broadcastToSection(sectionId, request.title());
+        broadcastToSection(sectionId, id, request.title());
 
         return SectionAnnouncementResponse.from(sectionAnnouncementQueryService.getAnnouncement(id));
     }
@@ -56,7 +56,7 @@ public class SectionAnnouncementFacade {
     }
 
     // 등록 성공 시 분반 소속(ACTIVE) 전원에게 브로드캐스트한다(교수 요구사항).
-    private void broadcastToSection(Long sectionId, String title) {
+    private void broadcastToSection(Long sectionId, Long announcementId, String title) {
         List<String> targetUserIds = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
             .map(Enrollment::getUserId)
@@ -65,6 +65,7 @@ public class SectionAnnouncementFacade {
         notificationCommandService.broadcast(
             targetUserIds,
             NotificationType.SECTION_ANNOUNCEMENT,
+            announcementId,
             "새 공지사항: " + title,
             title,
             null

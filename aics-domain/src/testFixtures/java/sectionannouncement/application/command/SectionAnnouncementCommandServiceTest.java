@@ -61,4 +61,37 @@ class SectionAnnouncementCommandServiceTest {
         assertThatThrownBy(() -> commandService.updateAnnouncement(999L, "제목", null, null))
             .isInstanceOf(CustomException.class);
     }
+
+    @Test
+    @DisplayName("updateAnnouncement는 공백만 있는 제목이면 예외를 던진다")
+    void updateAnnouncement_BlankTitle_ThrowsException() {
+        // given
+        Long id = createAnnouncement();
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updateAnnouncement(id, "   ", null, null))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("updateAnnouncement는 공백만 있는 내용이면 예외를 던진다")
+    void updateAnnouncement_BlankContent_ThrowsException() {
+        // given
+        Long id = createAnnouncement();
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updateAnnouncement(id, null, "   ", null))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("updateAnnouncement는 아무 필드도 전달되지 않으면 예외를 던진다")
+    void updateAnnouncement_EmptyUpdate_ThrowsException() {
+        // given
+        Long id = createAnnouncement();
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updateAnnouncement(id, null, null, null))
+            .isInstanceOf(CustomException.class);
+    }
 }

@@ -25,8 +25,12 @@ class SectionAnnouncementQueryServiceTest {
     }
 
     private SectionAnnouncement save(Long sectionId) {
+        return save(sectionId, LocalDateTime.now());
+    }
+
+    private SectionAnnouncement save(Long sectionId, LocalDateTime publishedAt) {
         return fakeSectionAnnouncementRepository.save(
-            SectionAnnouncement.create(sectionId, "제목", "내용", LocalDateTime.now())
+            SectionAnnouncement.create(sectionId, "제목", "내용", publishedAt)
         );
     }
 
@@ -52,7 +56,7 @@ class SectionAnnouncementQueryServiceTest {
     }
 
     @Test
-    @DisplayName("getAnnouncements는 분반의 공지사항 전체를 반환한다")
+    @DisplayName("getAnnouncements는 분반의 게시된 공지사항 전체를 반환한다")
     void getAnnouncements_ReturnsAll() {
         // given
         save(1L);
@@ -64,5 +68,34 @@ class SectionAnnouncementQueryServiceTest {
 
         // then
         assertThat(results).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("getAnnouncements는 게시일시가 미래인(예약 게시) 공지사항은 제외한다")
+    void getAnnouncements_ExcludesScheduled() {
+        // given
+        save(1L, LocalDateTime.now().minusMinutes(1));
+        save(1L, LocalDateTime.now().plusDays(1));
+
+        // when
+        List<SectionAnnouncement> results = queryService.getAnnouncements(1L);
+
+        // then
+        assertThat(results).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("getAnnouncements는 게시일시 최신순으로 반환한다")
+    void getAnnouncements_OrderedByPublishedAtDesc() {
+        // given
+        SectionAnnouncement older = save(1L, LocalDateTime.now().minusDays(2));
+        SectionAnnouncement newer = save(1L, LocalDateTime.now().minusMinutes(1));
+
+        // when
+        List<SectionAnnouncement> results = queryService.getAnnouncements(1L);
+
+        // then
+        assertThat(results).extracting(SectionAnnouncement::getId)
+            .containsExactly(newer.getId(), older.getId());
     }
 }

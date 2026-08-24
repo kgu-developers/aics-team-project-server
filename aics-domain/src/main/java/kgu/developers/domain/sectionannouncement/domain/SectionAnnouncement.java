@@ -15,6 +15,7 @@ public class SectionAnnouncement {
     private String title;
     private String content;
     private LocalDateTime publishedAt;
+    private long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

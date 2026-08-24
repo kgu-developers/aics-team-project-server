@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.time.LocalDateTime;
 import kgu.developers.api.sectionannouncement.application.SectionAnnouncementFacade;
 import kgu.developers.api.sectionannouncement.presentation.request.SectionAnnouncementCreateRequest;
 import kgu.developers.api.sectionannouncement.presentation.request.SectionAnnouncementUpdateRequest;
@@ -76,6 +77,25 @@ public class SectionAnnouncementFacadeTest {
         assertNotNull(result.id());
         assertEquals(1, fakeNotificationRepository.findAll().size());
         assertEquals(STUDENT, fakeNotificationRepository.findAll().get(0).getUserId());
+        assertEquals(result.id(), fakeNotificationRepository.findAll().get(0).getSourceId());
+    }
+
+    @Test
+    @DisplayName("게시일시가 미래인 공지사항은 목록 조회에서 보이지 않는다")
+    public void getAnnouncements_ExcludesScheduledAnnouncement() {
+        // given
+        SectionAnnouncementCreateRequest scheduledRequest = SectionAnnouncementCreateRequest.builder()
+            .title("예약 공지")
+            .content("내일 공개됩니다.")
+            .publishedAt(LocalDateTime.now().plusDays(1))
+            .build();
+        facade.createAnnouncement(sectionId, PROFESSOR, scheduledRequest);
+
+        // when
+        SectionAnnouncementListResponse result = facade.getAnnouncements(sectionId, STUDENT);
+
+        // then
+        assertEquals(0, result.contents().size());
     }
 
     @Test

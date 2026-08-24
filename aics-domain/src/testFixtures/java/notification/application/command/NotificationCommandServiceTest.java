@@ -25,11 +25,12 @@ class NotificationCommandServiceTest {
     @DisplayName("createNotification은 알림 하나를 저장한다")
     void createNotification_Success() {
         // when
-        commandService.createNotification("202412345", NotificationType.SECTION_ANNOUNCEMENT, "제목", "내용", null);
+        commandService.createNotification("202412345", NotificationType.SECTION_ANNOUNCEMENT, 1L, "제목", "내용", null);
 
         // then
         assertThat(fakeNotificationRepository.findAll()).hasSize(1);
         assertThat(fakeNotificationRepository.findAll().get(0).getUserId()).isEqualTo("202412345");
+        assertThat(fakeNotificationRepository.findAll().get(0).getSourceId()).isEqualTo(1L);
         assertThat(fakeNotificationRepository.findAll().get(0).isRead()).isFalse();
     }
 
@@ -39,7 +40,7 @@ class NotificationCommandServiceTest {
         // when
         commandService.broadcast(
             List.of("202412345", "202412346", "202412347"),
-            NotificationType.SECTION_ANNOUNCEMENT, "제목", "내용", null
+            NotificationType.SECTION_ANNOUNCEMENT, 1L, "제목", "내용", null
         );
 
         // then

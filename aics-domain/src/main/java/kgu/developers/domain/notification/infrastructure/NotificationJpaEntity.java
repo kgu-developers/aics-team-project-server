@@ -37,6 +37,10 @@ public class NotificationJpaEntity extends BaseTimeEntity {
     @Enumerated(STRING)
     private NotificationType type;
 
+    // 원본 엔티티 id(예: SectionAnnouncement.id). 통합 쪽지함에서 원본 이동/중복 판단의 근거.
+    @Column(name = "source_id")
+    private Long sourceId;
+
     @Column(nullable = false, length = 200)
     private String title;
 
@@ -53,6 +57,7 @@ public class NotificationJpaEntity extends BaseTimeEntity {
             .id(this.id)
             .userId(this.userId)
             .type(this.type)
+            .sourceId(this.sourceId)
             .title(this.title)
             .message(this.message)
             .link(this.link)
@@ -67,6 +72,7 @@ public class NotificationJpaEntity extends BaseTimeEntity {
             .id(domain.getId())
             .userId(domain.getUserId())
             .type(domain.getType())
+            .sourceId(domain.getSourceId())
             .title(domain.getTitle())
             .message(domain.getMessage())
             .link(domain.getLink())
