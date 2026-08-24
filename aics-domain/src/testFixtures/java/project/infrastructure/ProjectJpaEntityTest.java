@@ -23,7 +23,6 @@ class ProjectJpaEntityTest {
   @DisplayName("toEntity는 기존 프로젝트의 생성일과 삭제일을 그대로 옮긴다")
   void toEntityKeepsTimestamps() {
     LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 9, 0);
-    LocalDateTime updatedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
     LocalDateTime deletedAt = LocalDateTime.of(2026, 3, 1, 9, 0);
 
     ObjectNode externalLinks = objectMapper.createObjectNode();
@@ -41,7 +40,6 @@ class ProjectJpaEntityTest {
         .meetingStyle("온라인")
         .proposalCompletedAt(LocalDateTime.of(2026, 2, 1, 12, 0))
         .createdAt(createdAt)
-        .updatedAt(updatedAt)
         .deletedAt(deletedAt)
         .build();
 
@@ -49,7 +47,7 @@ class ProjectJpaEntityTest {
     ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
 
     assertThat(entity.getCreatedAt()).isEqualTo(createdAt);
-    assertThat(entity.getUpdatedAt()).isEqualTo(updatedAt);
+    assertThat(entity.getUpdatedAt()).isNull();
     assertThat(entity.getDeletedAt()).isEqualTo(deletedAt);
   }
 
@@ -57,7 +55,6 @@ class ProjectJpaEntityTest {
   @DisplayName("toDomain는 엔티티의 모든 필드를 도메인으로 변환한다")
   void toDomainConvertsAllFields() {
     LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 9, 0);
-    LocalDateTime updatedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
     LocalDateTime proposalCompletedAt = LocalDateTime.of(2026, 2, 1, 12, 0);
 
     ObjectNode externalLinks = objectMapper.createObjectNode();
@@ -75,7 +72,6 @@ class ProjectJpaEntityTest {
         .meetingStyle("온라인")
         .proposalCompletedAt(proposalCompletedAt)
         .createdAt(createdAt)
-        .updatedAt(updatedAt)
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(2L).build();
@@ -94,6 +90,6 @@ class ProjectJpaEntityTest {
     assertThat(domain.getMeetingStyle()).isEqualTo("온라인");
     assertThat(domain.getProposalCompletedAt()).isEqualTo(proposalCompletedAt);
     assertThat(domain.getCreatedAt()).isEqualTo(createdAt);
-    assertThat(domain.getUpdatedAt()).isEqualTo(updatedAt);
+    assertThat(domain.getUpdatedAt()).isNull();
   }
 }

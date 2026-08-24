@@ -91,7 +91,6 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .proposalCompletedAt(project.getProposalCompletedAt())
                 .build();
         entity.createdAt = project.getCreatedAt();
-        entity.updatedAt = project.getUpdatedAt();
         entity.setDeletedAt(project.getDeletedAt());
         return entity;
     }
