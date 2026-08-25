@@ -8,7 +8,10 @@ import static org.mockito.Mockito.verify;
 import java.util.List;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.topiccandidate.application.TopicCandidateFacade;
+import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
+import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
+import kgu.developers.domain.topicCandidate.application.command.TopicCandidateCommandService;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
 import kgu.developers.domain.topicVote.domain.TopicVote;
@@ -24,6 +27,7 @@ class TopicCandidateFacadeTest {
 
     private TopicCandidateRepository topicCandidateRepository;
     private TopicVoteRepository topicVoteRepository;
+    private TopicCandidateCommandService topicCandidateCommandService;
     private TeamAccessValidator teamAccessValidator;
     private TopicCandidateFacade topicCandidateFacade;
 
@@ -31,8 +35,10 @@ class TopicCandidateFacadeTest {
     void setUp() {
         topicCandidateRepository = mock(TopicCandidateRepository.class);
         topicVoteRepository = mock(TopicVoteRepository.class);
+        topicCandidateCommandService = mock(TopicCandidateCommandService.class);
         teamAccessValidator = mock(TeamAccessValidator.class);
         topicCandidateFacade = new TopicCandidateFacade(
+            topicCandidateCommandService,
             topicCandidateRepository,
             topicVoteRepository,
             teamAccessValidator
@@ -88,6 +94,31 @@ class TopicCandidateFacadeTest {
 
         // then
         assertThat(result.contents()).isEmpty();
+        verify(teamAccessValidator).validateMembership(TEAM_ID, CURRENT_USER_ID);
+    }
+
+    @Test
+    @DisplayName("createTopicCandidate는 인증된 팀원의 제목과 설명으로 후보를 등록한다")
+    void createTopicCandidate_CreatesCandidate() {
+        // given
+        TopicCandidateCreateRequest request = new TopicCandidateCreateRequest("AI 기반 학습 도우미", "학생별 맞춤형 학습 계획을 지원합니다.");
+        TopicCandidate topicCandidate = candidate(1L, request.title(), request.description());
+        given(topicCandidateCommandService.createTopicCandidate(
+            TEAM_ID, CURRENT_USER_ID, request.title(), request.description()
+        )).willReturn(topicCandidate);
+
+        // when
+        TopicCandidatePersistResponse result = topicCandidateFacade.createTopicCandidate(TEAM_ID, CURRENT_USER_ID, request);
+
+        // then
+        assertThat(result)
+            .extracting(
+                TopicCandidatePersistResponse::id,
+                TopicCandidatePersistResponse::proposerUserId,
+                TopicCandidatePersistResponse::title,
+                TopicCandidatePersistResponse::description
+            )
+            .containsExactly(1L, CURRENT_USER_ID, request.title(), request.description());
         verify(teamAccessValidator).validateMembership(TEAM_ID, CURRENT_USER_ID);
     }
 

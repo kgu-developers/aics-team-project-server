@@ -2,7 +2,10 @@ package kgu.developers.api.topiccandidate.application;
 
 import java.util.List;
 import kgu.developers.api.team.application.TeamAccessValidator;
+import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
+import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
+import kgu.developers.domain.topicCandidate.application.command.TopicCandidateCommandService;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
 import kgu.developers.domain.topicVote.domain.TopicVote;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TopicCandidateFacade {
 
+    private final TopicCandidateCommandService topicCandidateCommandService;
     private final TopicCandidateRepository topicCandidateRepository;
     private final TopicVoteRepository topicVoteRepository;
     private final TeamAccessValidator teamAccessValidator;
@@ -28,5 +32,21 @@ public class TopicCandidateFacade {
             candidates.stream().map(TopicCandidate::getId).toList()
         );
         return TopicCandidateListResponse.of(candidates, votes, userId);
+    }
+
+    @Transactional
+    public TopicCandidatePersistResponse createTopicCandidate(
+        Long teamId,
+        String proposerUserId,
+        TopicCandidateCreateRequest request
+    ) {
+        teamAccessValidator.validateMembership(teamId, proposerUserId);
+        TopicCandidate topicCandidate = topicCandidateCommandService.createTopicCandidate(
+            teamId,
+            proposerUserId,
+            request.title(),
+            request.description()
+        );
+        return TopicCandidatePersistResponse.of(topicCandidate);
     }
 }
