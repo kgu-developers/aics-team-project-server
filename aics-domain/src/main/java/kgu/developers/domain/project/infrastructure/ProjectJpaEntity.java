@@ -2,6 +2,8 @@ package kgu.developers.domain.project.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
@@ -46,6 +48,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(length = 255)
     private String repositoryUrl;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "JSON")
     private JsonNode externalLinks;
 
