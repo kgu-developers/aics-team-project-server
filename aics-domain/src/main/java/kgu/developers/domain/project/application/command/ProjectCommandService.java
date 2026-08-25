@@ -49,6 +49,10 @@ public class ProjectCommandService {
             throw new ProjectProposalCompletedException();
         }
 
+        if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks)) {
+            return project;
+        }
+
         project.updateTitle(title);
         project.updateDescription(description);
         project.updateGoal(goal);
@@ -66,6 +70,9 @@ public class ProjectCommandService {
     public void completeProposal(Long projectId) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(ProjectNotFoundException::new);
+        if (project.getProposalCompletedAt() != null) {
+            throw new ProjectProposalCompletedException();
+        }
         project.completeProposal();
         projectRepository.save(project);
     }

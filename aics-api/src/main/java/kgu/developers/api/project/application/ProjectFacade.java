@@ -16,6 +16,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
+
 @Component
 @RequiredArgsConstructor
 @Transactional
@@ -70,8 +72,13 @@ public class ProjectFacade {
     public ProjectApprovalSummaryResponse getApprovalSummary(Long projectId, String userId) {
         Project project = projectQueryService.getProject(projectId);
         validateTeamMembership(project.getTeamId(), userId);
-        int totalCount = teamMemberRepository.findAllByTeamId(project.getTeamId()).size();
-        int approvedCount = projectApprovalRepository.findAllByProjectId(projectId).size();
+        Set<String> activeMemberIds = teamMemberRepository.findAllByTeamId(project.getTeamId()).stream()
+            .map(member -> member.getUserId())
+            .collect(java.util.stream.Collectors.toSet());
+        int totalCount = activeMemberIds.size();
+        int approvedCount = (int) projectApprovalRepository.findAllByProjectId(projectId).stream()
+            .filter(approval -> activeMemberIds.contains(approval.getUserId()))
+            .count();
         return ProjectApprovalSummaryResponse.of(approvedCount, totalCount);
     }
 

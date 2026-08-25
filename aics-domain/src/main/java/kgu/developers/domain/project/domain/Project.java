@@ -29,6 +29,7 @@ public class Project {
     private String meetingStyle;  // 회의방식
 
     private LocalDateTime proposalCompletedAt;  // 제안 완료 시각
+    private long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
@@ -76,6 +77,22 @@ public class Project {
 
     public void completeProposal() {
         this.proposalCompletedAt = LocalDateTime.now();
+    }
+
+    public boolean hasSameProposalContent(
+        String title,
+        String description,
+        String goal,
+        String meetingStyle,
+        String repositoryUrl,
+        JsonNode externalLinks
+    ) {
+        return java.util.Objects.equals(this.title, title)
+            && java.util.Objects.equals(this.description, description)
+            && java.util.Objects.equals(this.goal, goal)
+            && java.util.Objects.equals(this.meetingStyle, meetingStyle)
+            && java.util.Objects.equals(this.repositoryUrl, repositoryUrl)
+            && java.util.Objects.equals(this.externalLinks, externalLinks);
     }
 
     public void delete() {

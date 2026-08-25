@@ -17,7 +17,7 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     @Override
     public ProjectApproval save(ProjectApproval projectApproval) {
         ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.toEntity(projectApproval);
-        return jpaProjectApprovalRepository.save(entity).toDomain();
+        return jpaProjectApprovalRepository.saveAndFlush(entity).toDomain();
     }
 
     @Override

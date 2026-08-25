@@ -6,6 +6,7 @@ import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -19,6 +20,10 @@ public class ProjectApprovalCommandService {
         if (projectApprovalRepository.existsByProjectIdAndUserId(projectId, userId)) {
             throw new DuplicateProjectApprovalException();
         }
-        projectApprovalRepository.save(ProjectApproval.create(projectId, userId, LocalDateTime.now()));
+        try {
+            projectApprovalRepository.save(ProjectApproval.create(projectId, userId, LocalDateTime.now()));
+        } catch (DataIntegrityViolationException exception) {
+            throw new DuplicateProjectApprovalException();
+        }
     }
 }
