@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 class TopicVoteCommandServiceTest {
 
@@ -100,5 +101,49 @@ class TopicVoteCommandServiceTest {
         assertThat(result).isSameAs(deletedVote);
         assertThat(result.getDeletedAt()).isNull();
         verify(topicVoteRepository).save(any(TopicVote.class));
+    }
+
+    @Test
+    @DisplayName("vote는 동시 투표 시 중복 생성을 방지하고 기존 투표를 반환한다")
+    void vote_HandlesConcurrentVoteCreation() {
+        // given
+        TopicVote existingVote = TopicVote.builder()
+            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
+        
+        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID))
+            .willReturn(Optional.empty(), Optional.of(existingVote));
+
+        given(topicVoteRepository.save(any(TopicVote.class)))
+            .willThrow(new DataIntegrityViolationException("duplicate key"))
+            .willReturn(existingVote);
+
+        // when
+        TopicVote result = topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
+
+        // then
+        assertThat(result).isSameAs(existingVote);
+        assertThat(result.getCandidateId()).isEqualTo(CANDIDATE_ID);
+    }
+
+    @Test
+    @DisplayName("vote는 동시 투표 시 중복 생성을 방지하고 후보를 변경한다")
+    void vote_HandlesConcurrentVoteCreationWithDifferentCandidate() {
+        // given
+        TopicVote existingVote = TopicVote.builder()
+            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
+        
+        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID))
+            .willReturn(Optional.empty(), Optional.of(existingVote));
+        
+        given(topicVoteRepository.save(any(TopicVote.class)))
+            .willThrow(new DataIntegrityViolationException("duplicate key"))
+            .willReturn(existingVote);
+
+        // when
+        TopicVote result = topicVoteCommandService.vote(TEAM_ID, CHANGED_CANDIDATE_ID, VOTER_USER_ID);
+
+        // then
+        assertThat(result).isSameAs(existingVote);
+        assertThat(result.getCandidateId()).isEqualTo(CHANGED_CANDIDATE_ID);
     }
 }

@@ -4,6 +4,7 @@ import java.util.Optional;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +25,19 @@ public class TopicVoteCommandService {
             return reactivateVote(vote, candidateId);
         }
         
-        return topicVoteRepository.save(TopicVote.create(teamId, candidateId, voterUserId));
+        try {
+            return topicVoteRepository.save(TopicVote.create(teamId, candidateId, voterUserId));
+        } catch (DataIntegrityViolationException e) {
+            Optional<TopicVote> retryVote = topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId);
+            if (retryVote.isPresent()) {
+                TopicVote vote = retryVote.get();
+                if (vote.getDeletedAt() == null) {
+                    return changeVoteCandidate(vote, candidateId);
+                }
+                return reactivateVote(vote, candidateId);
+            }
+            throw e;
+        }
     }
 
     public void cancelVote(Long candidateId, String voterUserId) {

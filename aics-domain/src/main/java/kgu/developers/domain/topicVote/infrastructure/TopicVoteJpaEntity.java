@@ -14,6 +14,9 @@ import static lombok.AccessLevel.PROTECTED;
 @Entity
 @Table(
 		name = "topic_vote",
+		uniqueConstraints = {
+			@UniqueConstraint(name = "uk_topic_vote_team_voter", columnNames = {"team_id", "voter_user_id"})
+		},
 		indexes = {
 			@Index(name = "idx_topic_vote_candidate", columnList = "candidate_id, deleted_at"),
 			@Index(name = "idx_topic_vote_team_voter", columnList = "team_id, voter_user_id, deleted_at")
