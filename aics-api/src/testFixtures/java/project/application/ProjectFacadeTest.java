@@ -12,7 +12,6 @@ import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
-import kgu.developers.domain.project.exception.ProjectApprovalRequiredException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
@@ -80,8 +79,6 @@ class ProjectFacadeTest {
         TeamMember leader = TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장");
         given(projectQueryService.getProject(10L)).willReturn(project());
         given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(leader));
-        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(leader));
-        given(projectApprovalRepository.existsByProjectIdAndUserId(10L, MEMBER_ID)).willReturn(true);
 
         projectFacade.completeProposal(10L, MEMBER_ID);
 
@@ -100,17 +97,14 @@ class ProjectFacadeTest {
     }
 
     @Test
-    @DisplayName("completeProposal은 승인하지 않은 팀원이 있으면 전제조건 예외를 던진다")
-    void completeProposal_requiresAllMemberApprovals() {
+    @DisplayName("completeProposal은 동의 검증을 잠금 경계의 커맨드 서비스에 위임한다")
+    void completeProposal_delegatesApprovalValidationToCommandService() {
         TeamMember leader = TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장");
         given(projectQueryService.getProject(10L)).willReturn(project());
         given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(leader));
-        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(leader));
-        given(projectApprovalRepository.existsByProjectIdAndUserId(10L, MEMBER_ID)).willReturn(false);
+        projectFacade.completeProposal(10L, MEMBER_ID);
 
-        assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
-            .isInstanceOf(ProjectApprovalRequiredException.class);
-        then(projectCommandService).shouldHaveNoInteractions();
+        then(projectCommandService).should().completeProposal(10L);
     }
 
     @Test
@@ -132,7 +126,7 @@ class ProjectFacadeTest {
         given(projectQueryService.getProject(10L)).willReturn(project());
         given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(member));
         given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(member, TeamMember.create(TEAM_ID, "202412346", false, "기획자")));
-        given(projectApprovalRepository.findAllByProjectId(10L)).willReturn(List.of(
+        given(projectApprovalRepository.findAllByProjectIdAndProposalRevision(10L, 0L)).willReturn(List.of(
             ProjectApproval.builder().id(1L).projectId(10L).userId(MEMBER_ID).build()
         ));
 

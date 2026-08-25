@@ -15,7 +15,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 @Entity
 @Table(name = "\"project_approval\"", uniqueConstraints = @UniqueConstraint(name = "uk_project_approval_project_user", columnNames = {
-    "project_id", "user_id" }))
+    "project_id", "user_id", "proposal_revision" }))
 @Builder
 @Getter
 @AllArgsConstructor
@@ -32,6 +32,9 @@ public class ProjectApprovalJpaEntity extends BaseTimeEntity {
     private String userId;
 
     @Column(nullable = false)
+    private long proposalRevision;
+
+    @Column(nullable = false)
     private LocalDateTime approvedAt;
 
     public ProjectApproval toDomain() {
@@ -39,6 +42,7 @@ public class ProjectApprovalJpaEntity extends BaseTimeEntity {
             .id(id)
             .projectId(projectId)
             .userId(userId)
+            .proposalRevision(proposalRevision)
             .approvedAt(approvedAt)
             .createdAt(getCreatedAt())
             .updatedAt(getUpdatedAt())
@@ -51,6 +55,7 @@ public class ProjectApprovalJpaEntity extends BaseTimeEntity {
             .id(projectApproval.getId())
             .projectId(projectApproval.getProjectId())
             .userId(projectApproval.getUserId())
+            .proposalRevision(projectApproval.getProposalRevision())
             .approvedAt(projectApproval.getApprovedAt())
             .build();
         entity.createdAt = projectApproval.getCreatedAt();

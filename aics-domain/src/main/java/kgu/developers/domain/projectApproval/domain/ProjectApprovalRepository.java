@@ -10,9 +10,13 @@ public interface ProjectApprovalRepository {
 
     boolean existsByProjectIdAndUserId(Long projectId, String userId);
 
+    boolean existsByProjectIdAndUserIdAndProposalRevision(Long projectId, String userId, long proposalRevision);
+
     Optional<ProjectApproval> findByProjectIdAndUserId(Long projectId, String userId);
 
     List<ProjectApproval> findAllByProjectId(Long projectId);
+
+    List<ProjectApproval> findAllByProjectIdAndProposalRevision(Long projectId, long proposalRevision);
 
     List<ProjectApproval> findAllByUserId(String userId);
 

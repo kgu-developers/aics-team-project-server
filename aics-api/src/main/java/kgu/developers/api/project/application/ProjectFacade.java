@@ -6,8 +6,6 @@ import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryRe
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
-import kgu.developers.domain.project.exception.ProjectApprovalRequiredException;
-import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
@@ -51,21 +49,12 @@ public class ProjectFacade {
         Project project = projectQueryService.getProject(projectId);
         validateTeamLeader(project.getTeamId(), userId);
 
-        boolean allMembersApproved = teamMemberRepository.findAllByTeamId(project.getTeamId()).stream()
-            .allMatch(member -> projectApprovalRepository.existsByProjectIdAndUserId(projectId, member.getUserId()));
-        if (!allMembersApproved) {
-            throw new ProjectApprovalRequiredException();
-        }
-
         projectCommandService.completeProposal(projectId);
     }
 
     public void approveProject(Long projectId, String userId) {
         Project project = projectQueryService.getProject(projectId);
         validateTeamMembership(project.getTeamId(), userId);
-        if (project.getProposalCompletedAt() != null) {
-            throw new ProjectProposalCompletedException();
-        }
         projectApprovalCommandService.approve(projectId, userId);
     }
 
@@ -76,7 +65,8 @@ public class ProjectFacade {
             .map(member -> member.getUserId())
             .collect(java.util.stream.Collectors.toSet());
         int totalCount = activeMemberIds.size();
-        int approvedCount = (int) projectApprovalRepository.findAllByProjectId(projectId).stream()
+        int approvedCount = (int) projectApprovalRepository
+            .findAllByProjectIdAndProposalRevision(projectId, project.getProposalRevision()).stream()
             .filter(approval -> activeMemberIds.contains(approval.getUserId()))
             .count();
         return ProjectApprovalSummaryResponse.of(approvedCount, totalCount);

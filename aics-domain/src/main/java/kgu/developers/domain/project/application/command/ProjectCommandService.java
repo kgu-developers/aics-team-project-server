@@ -7,6 +7,7 @@ import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ public class ProjectCommandService {
 
     private final ProjectRepository projectRepository;
     private final ProjectApprovalRepository projectApprovalRepository;
+    private final TeamMemberRepository teamMemberRepository;
 
     public Project saveProject(
         Long teamId,
@@ -28,7 +30,7 @@ public class ProjectCommandService {
         String repositoryUrl,
         JsonNode externalLinks
     ) {
-        return projectRepository.findAllByTeamId(teamId).stream()
+        return projectRepository.findAllByTeamIdForUpdate(teamId).stream()
             .findFirst()
             .map(project -> updateProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks))
             .orElseGet(() -> projectRepository.save(Project.create(
@@ -60,7 +62,7 @@ public class ProjectCommandService {
         project.updateRepositoryUrl(repositoryUrl);
         project.updateExternalLinks(externalLinks);
         project.updateApprovalStatus(ApprovalStatus.DRAFT);
-
+        project.increaseProposalRevision();
         projectApprovalRepository.findAllByProjectId(project.getId())
             .forEach(approval -> projectApprovalRepository.deleteById(approval.getId()));
 
@@ -68,10 +70,17 @@ public class ProjectCommandService {
     }
 
     public void completeProposal(Long projectId) {
-        Project project = projectRepository.findById(projectId)
+        Project project = projectRepository.findByIdForUpdate(projectId)
             .orElseThrow(ProjectNotFoundException::new);
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
+        }
+        boolean allMembersApproved = teamMemberRepository.findAllByTeamId(project.getTeamId()).stream()
+            .allMatch(member -> projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(
+                projectId, member.getUserId(), project.getProposalRevision()
+            ));
+        if (!allMembersApproved) {
+            throw new kgu.developers.domain.project.exception.ProjectApprovalRequiredException();
         }
         project.completeProposal();
         projectRepository.save(project);

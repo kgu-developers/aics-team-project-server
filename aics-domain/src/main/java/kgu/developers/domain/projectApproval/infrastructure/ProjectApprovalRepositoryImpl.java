@@ -32,6 +32,12 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     }
 
     @Override
+    public boolean existsByProjectIdAndUserIdAndProposalRevision(Long projectId, String userId, long proposalRevision) {
+        return jpaProjectApprovalRepository
+            .existsByProjectIdAndUserIdAndProposalRevisionAndDeletedAtIsNull(projectId, userId, proposalRevision);
+    }
+
+    @Override
     public Optional<ProjectApproval> findByProjectIdAndUserId(Long projectId, String userId) {
         return jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(projectId, userId)
             .map(ProjectApprovalJpaEntity::toDomain);
@@ -40,6 +46,15 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     @Override
     public List<ProjectApproval> findAllByProjectId(Long projectId) {
         return jpaProjectApprovalRepository.findAllByProjectIdAndDeletedAtIsNullOrderByUserIdAsc(projectId)
+            .stream()
+            .map(ProjectApprovalJpaEntity::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<ProjectApproval> findAllByProjectIdAndProposalRevision(Long projectId, long proposalRevision) {
+        return jpaProjectApprovalRepository
+            .findAllByProjectIdAndProposalRevisionAndDeletedAtIsNullOrderByUserIdAsc(projectId, proposalRevision)
             .stream()
             .map(ProjectApprovalJpaEntity::toDomain)
             .toList();

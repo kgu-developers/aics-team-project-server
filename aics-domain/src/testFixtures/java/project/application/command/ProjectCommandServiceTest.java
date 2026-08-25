@@ -13,6 +13,8 @@ import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,12 +32,13 @@ class ProjectCommandServiceTest {
 
     @Mock private ProjectRepository projectRepository;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
+    @Mock private TeamMemberRepository teamMemberRepository;
     @InjectMocks private ProjectCommandService projectCommandService;
 
     @Test
     @DisplayName("saveProject는 기존 제안서가 없으면 DRAFT 상태로 생성한다")
     void saveProject_createsProject() throws Exception {
-        given(projectRepository.findAllByTeamId(1L)).willReturn(List.of());
+        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of());
         given(projectRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(invocation -> invocation.getArgument(0));
 
         Project result = saveProject();
@@ -49,7 +52,7 @@ class ProjectCommandServiceTest {
     void saveProject_updatesAndClearsApprovals() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
             .goal("기존 목표").approvalStatus(ApprovalStatus.APPROVED).build();
-        given(projectRepository.findAllByTeamId(1L)).willReturn(List.of(existing));
+        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of(existing));
         given(projectApprovalRepository.findAllByProjectId(10L)).willReturn(List.of(
             ProjectApproval.builder().id(100L).projectId(10L).userId("202412345").approvedAt(LocalDateTime.now()).build()
         ));
@@ -59,6 +62,7 @@ class ProjectCommandServiceTest {
 
         assertThat(result.getTitle()).isEqualTo("새 제목");
         assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
+        assertThat(result.getProposalRevision()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteById(100L);
     }
 
@@ -68,7 +72,7 @@ class ProjectCommandServiceTest {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
             .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT).build();
-        given(projectRepository.findAllByTeamId(1L)).willReturn(List.of(existing));
+        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of(existing));
 
         saveProject();
 
@@ -81,7 +85,7 @@ class ProjectCommandServiceTest {
     void saveProject_rejectsCompletedProject() throws Exception {
         Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findAllByTeamId(1L)).willReturn(List.of(completed));
+        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of(completed));
 
         assertThatThrownBy(this::saveProject).isInstanceOf(CustomException.class);
     }
@@ -91,7 +95,8 @@ class ProjectCommandServiceTest {
     void completeProposal() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of());
 
         projectCommandService.completeProposal(10L);
 
@@ -104,9 +109,22 @@ class ProjectCommandServiceTest {
     void completeProposal_rejectsCompletedProject() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("completeProposal은 현재 제안서 리비전에 대한 동의만 확인한다")
+    void completeProposal_requiresApprovalForCurrentRevision() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).proposalRevision(2L).build();
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(TeamMember.create(1L, "202412345", false, "개발자")));
+        given(projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(10L, "202412345", 2L)).willReturn(false);
+
+        assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
+        then(projectRepository).should(org.mockito.Mockito.never()).save(project);
     }
 
     private Project saveProject() throws Exception {

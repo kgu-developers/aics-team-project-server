@@ -33,6 +33,12 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     }
 
     @Override
+    public Optional<Project> findByIdForUpdate(Long id) {
+        return jpaProjectRepository.findByIdForUpdate(id)
+                .map(ProjectJpaEntity::toDomain);
+    }
+
+    @Override
     public List<Project> findAllById(List<Long> ids) {
         return jpaProjectRepository.findAllByIdInAndDeletedAtIsNull(ids)
                 .stream()
@@ -43,6 +49,14 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     @Override
     public List<Project> findAllByTeamId(Long teamId) {
         return jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(teamId)
+                .stream()
+                .map(ProjectJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Project> findAllByTeamIdForUpdate(Long teamId) {
+        return jpaProjectRepository.findAllByTeamIdForUpdate(teamId)
                 .stream()
                 .map(ProjectJpaEntity::toDomain)
                 .toList();

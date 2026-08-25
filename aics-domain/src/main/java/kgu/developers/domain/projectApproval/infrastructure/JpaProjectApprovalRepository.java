@@ -10,9 +10,13 @@ public interface JpaProjectApprovalRepository extends JpaRepository<ProjectAppro
 
     boolean existsByProjectIdAndUserIdAndDeletedAtIsNull(Long projectId, String userId);
 
+    boolean existsByProjectIdAndUserIdAndProposalRevisionAndDeletedAtIsNull(Long projectId, String userId, long proposalRevision);
+
     Optional<ProjectApprovalJpaEntity> findByProjectIdAndUserIdAndDeletedAtIsNull(Long projectId, String userId);
 
     List<ProjectApprovalJpaEntity> findAllByProjectIdAndDeletedAtIsNullOrderByUserIdAsc(Long projectId);
+
+    List<ProjectApprovalJpaEntity> findAllByProjectIdAndProposalRevisionAndDeletedAtIsNullOrderByUserIdAsc(Long projectId, long proposalRevision);
 
     List<ProjectApprovalJpaEntity> findAllByUserIdAndDeletedAtIsNullOrderByProjectIdAsc(String userId);
 }

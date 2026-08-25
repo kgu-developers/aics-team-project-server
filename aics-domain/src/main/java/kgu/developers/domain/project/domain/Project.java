@@ -29,6 +29,7 @@ public class Project {
     private String meetingStyle;  // 회의방식
 
     private LocalDateTime proposalCompletedAt;  // 제안 완료 시각
+    private long proposalRevision;  // 동의 대상 제안서 리비전
     private long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -77,6 +78,10 @@ public class Project {
 
     public void completeProposal() {
         this.proposalCompletedAt = LocalDateTime.now();
+    }
+
+    public void increaseProposalRevision() {
+        this.proposalRevision++;
     }
 
     public boolean hasSameProposalContent(
