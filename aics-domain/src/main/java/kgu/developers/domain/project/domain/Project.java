@@ -84,6 +84,12 @@ public class Project {
         this.proposalRevision++;
     }
 
+    public void restore() {
+        this.deletedAt = null;
+        this.proposalCompletedAt = null;
+        this.approvalStatus = ApprovalStatus.DRAFT;
+    }
+
     public boolean hasSameProposalContent(
         String title,
         String description,

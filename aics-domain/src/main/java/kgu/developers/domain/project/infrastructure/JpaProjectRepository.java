@@ -22,5 +22,9 @@ public interface JpaProjectRepository extends JpaRepository<ProjectJpaEntity, Lo
     @Query("select p from ProjectJpaEntity p where p.team.id = :teamId and p.deletedAt is null")
     List<ProjectJpaEntity> findAllByTeamIdForUpdate(@Param("teamId") Long teamId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ProjectJpaEntity p where p.team.id = :teamId")
+    List<ProjectJpaEntity> findAllByTeamIdIncludingDeletedForUpdate(@Param("teamId") Long teamId);
+
     List<ProjectJpaEntity> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 }

@@ -30,12 +30,27 @@ public class ProjectCommandService {
         String repositoryUrl,
         JsonNode externalLinks
     ) {
-        return projectRepository.findAllByTeamIdForUpdate(teamId).stream()
+        return projectRepository.findAllByTeamIdIncludingDeletedForUpdate(teamId).stream()
             .findFirst()
-            .map(project -> updateProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks))
+            .map(project -> project.getDeletedAt() == null
+                ? updateProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks, false)
+                : restoreProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks))
             .orElseGet(() -> projectRepository.save(Project.create(
                 teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle
             )));
+    }
+
+    private Project restoreProject(
+        Project project,
+        String title,
+        String description,
+        String goal,
+        String meetingStyle,
+        String repositoryUrl,
+        JsonNode externalLinks
+    ) {
+        project.restore();
+        return updateProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks, true);
     }
 
     private Project updateProject(
@@ -45,13 +60,14 @@ public class ProjectCommandService {
         String goal,
         String meetingStyle,
         String repositoryUrl,
-        JsonNode externalLinks
+        JsonNode externalLinks,
+        boolean forceApprovalReset
     ) {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
 
-        if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks)) {
+        if (!forceApprovalReset && project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks)) {
             return project;
         }
 

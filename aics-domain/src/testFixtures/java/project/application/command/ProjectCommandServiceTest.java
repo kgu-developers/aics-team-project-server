@@ -38,7 +38,7 @@ class ProjectCommandServiceTest {
     @Test
     @DisplayName("saveProject는 기존 제안서가 없으면 DRAFT 상태로 생성한다")
     void saveProject_createsProject() throws Exception {
-        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of());
+        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of());
         given(projectRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(invocation -> invocation.getArgument(0));
 
         Project result = saveProject();
@@ -52,7 +52,7 @@ class ProjectCommandServiceTest {
     void saveProject_updatesAndClearsApprovals() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
             .goal("기존 목표").approvalStatus(ApprovalStatus.APPROVED).build();
-        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of(existing));
+        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(existing));
         given(projectApprovalRepository.findAllByProjectId(10L)).willReturn(List.of(
             ProjectApproval.builder().id(100L).projectId(10L).userId("202412345").approvedAt(LocalDateTime.now()).build()
         ));
@@ -72,7 +72,7 @@ class ProjectCommandServiceTest {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
             .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT).build();
-        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of(existing));
+        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(existing));
 
         saveProject();
 
@@ -85,7 +85,7 @@ class ProjectCommandServiceTest {
     void saveProject_rejectsCompletedProject() throws Exception {
         Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findAllByTeamIdForUpdate(1L)).willReturn(List.of(completed));
+        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(completed));
 
         assertThatThrownBy(this::saveProject).isInstanceOf(CustomException.class);
     }
@@ -112,6 +112,23 @@ class ProjectCommandServiceTest {
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("saveProject는 삭제된 프로젝트를 복원해 동일 팀의 새 제안서를 저장한다")
+    void saveProject_restoresSoftDeletedProject() throws Exception {
+        Project deleted = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
+            .goal("기존 목표").approvalStatus(ApprovalStatus.DRAFT).deletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(deleted));
+        given(projectApprovalRepository.findAllByProjectId(10L)).willReturn(List.of());
+        given(projectRepository.save(deleted)).willReturn(deleted);
+
+        Project result = saveProject();
+
+        assertThat(result.getId()).isEqualTo(10L);
+        assertThat(result.getDeletedAt()).isNull();
+        assertThat(result.getTitle()).isEqualTo("새 제목");
+        assertThat(result.getProposalRevision()).isEqualTo(1L);
     }
 
     @Test
