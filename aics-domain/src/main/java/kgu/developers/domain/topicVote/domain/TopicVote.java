@@ -45,6 +45,10 @@ public class TopicVote {
         this.voterUserId = voterUserId;
     }
 
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }

@@ -15,4 +15,6 @@ public interface JpaTopicVoteRepository extends JpaRepository<TopicVoteJpaEntity
     Optional<TopicVoteJpaEntity> findByTeamIdAndVoterUserIdAndDeletedAtIsNull(Long teamId, String voterUserId);
 
     Optional<TopicVoteJpaEntity> findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(Long candidateId, String voterUserId);
+
+    Optional<TopicVoteJpaEntity> findByTeamIdAndVoterUserId(Long teamId, String voterUserId);
 }

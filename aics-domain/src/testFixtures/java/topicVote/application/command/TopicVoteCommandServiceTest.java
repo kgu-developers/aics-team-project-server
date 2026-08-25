@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 class TopicVoteCommandServiceTest {
 
@@ -79,5 +80,44 @@ class TopicVoteCommandServiceTest {
 
         // then
         verify(topicVoteRepository).deleteByCandidateIdAndVoterUserId(CANDIDATE_ID, VOTER_USER_ID);
+    }
+
+    @Test
+    @DisplayName("vote는 동시성 충돌 시 기존 투표를 찾아 후보를 변경한다")
+    void vote_HandlesConcurrentConflict_WhenDataIntegrityViolationOccurs() {
+        // given
+        TopicVote existingVote = TopicVote.builder()
+            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
+        
+        given(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM_ID, VOTER_USER_ID))
+            .willReturn(Optional.empty())
+            .willReturn(Optional.of(existingVote));
+        given(topicVoteRepository.save(any(TopicVote.class)))
+            .willThrow(new DataIntegrityViolationException("Unique constraint violation"))
+            .willReturn(existingVote);
+
+        // when
+        TopicVote result = topicVoteCommandService.vote(TEAM_ID, CHANGED_CANDIDATE_ID, VOTER_USER_ID);
+
+        // then
+        assertThat(result).isSameAs(existingVote);
+        assertThat(result.getCandidateId()).isEqualTo(CHANGED_CANDIDATE_ID);
+    }
+
+    @Test
+    @DisplayName("vote는 취소된 투표 후 재투표를 허용한다")
+    void vote_AllowsRevoteAfterCancellation() {
+        // given
+        given(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM_ID, VOTER_USER_ID)).willReturn(Optional.empty());
+        TopicVote newVote = TopicVote.builder()
+            .id(2L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
+        given(topicVoteRepository.save(any(TopicVote.class))).willReturn(newVote);
+
+        // when
+        TopicVote result = topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
+
+        // then
+        assertThat(result).isSameAs(newVote);
+        verify(topicVoteRepository).save(any(TopicVote.class));
     }
 }
