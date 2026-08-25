@@ -20,8 +20,7 @@ import static lombok.AccessLevel.PROTECTED;
 @Entity
 @Table(
 		name = "\"pre_survey_response\"",
-		indexes = @Index(name = "idx_pre_survey_response_section", columnList = "section_id, deleted_at"),
-		uniqueConstraints = @UniqueConstraint(name = "uk_pre_survey_response_user_section", columnNames = {"user_id", "section_id"})
+		indexes = @Index(name = "idx_pre_survey_response_section", columnList = "section_id, deleted_at")
 )
 @Builder
 @Getter

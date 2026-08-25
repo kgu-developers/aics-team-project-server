@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -78,16 +77,10 @@ class PreSurveyResponseJpaEntityTest {
 	}
 
 	@Test
-	@DisplayName("PreSurveyResponseJpaEntity에는 user_id와 section_id 조합에 대한 유니크 제약조건이 있다")
-	void entityHasUniqueConstraintOnUserIdAndSectionId() {
+	@DisplayName("엔티티는 소프트 삭제된 응답의 재제출을 막는 무조건 유니크 제약을 만들지 않는다")
+	void entityDoesNotHaveUnconditionalUniqueConstraintOnUserIdAndSectionId() {
 		Table tableAnnotation = PreSurveyResponseJpaEntity.class.getAnnotation(Table.class);
 		assertThat(tableAnnotation).isNotNull();
-
-		UniqueConstraint[] uniqueConstraints = tableAnnotation.uniqueConstraints();
-		assertThat(uniqueConstraints).hasSize(1);
-
-		UniqueConstraint constraint = uniqueConstraints[0];
-		assertThat(constraint.name()).isEqualTo("uk_pre_survey_response_user_section");
-		assertThat(constraint.columnNames()).containsExactly("user_id", "section_id");
+		assertThat(tableAnnotation.uniqueConstraints()).isEmpty();
 	}
 }
