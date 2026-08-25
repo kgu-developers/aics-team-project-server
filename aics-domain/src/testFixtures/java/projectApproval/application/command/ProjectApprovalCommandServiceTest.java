@@ -1,0 +1,45 @@
+package projectApproval.application.command;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+
+import kgu.developers.common.exception.CustomException;
+import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
+import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class ProjectApprovalCommandServiceTest {
+
+    @Mock private ProjectApprovalRepository projectApprovalRepository;
+    @InjectMocks private ProjectApprovalCommandService projectApprovalCommandService;
+
+    @Test
+    @DisplayName("approve는 본인 동의 기록을 생성한다")
+    void approve() {
+        given(projectApprovalRepository.existsByProjectIdAndUserId(10L, "202412345")).willReturn(false);
+
+        projectApprovalCommandService.approve(10L, "202412345");
+
+        ArgumentCaptor<kgu.developers.domain.projectApproval.domain.ProjectApproval> captor = ArgumentCaptor.forClass(kgu.developers.domain.projectApproval.domain.ProjectApproval.class);
+        then(projectApprovalRepository).should().save(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getProjectId()).isEqualTo(10L);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getUserId()).isEqualTo("202412345");
+    }
+
+    @Test
+    @DisplayName("approve는 이미 동의한 사용자면 예외를 던진다")
+    void approve_rejectsDuplicate() {
+        given(projectApprovalRepository.existsByProjectIdAndUserId(10L, "202412345")).willReturn(true);
+
+        assertThatThrownBy(() -> projectApprovalCommandService.approve(10L, "202412345"))
+            .isInstanceOf(CustomException.class);
+    }
+}

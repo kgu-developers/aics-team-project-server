@@ -14,6 +14,7 @@ import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.exception.ProjectApprovalRequiredException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +38,7 @@ class ProjectFacadeTest {
     @Mock private ProjectQueryService projectQueryService;
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
+    @Mock private ProjectApprovalCommandService projectApprovalCommandService;
     @InjectMocks private ProjectFacade projectFacade;
 
     @Test
@@ -108,6 +110,18 @@ class ProjectFacadeTest {
         assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
             .isInstanceOf(ProjectApprovalRequiredException.class);
         then(projectCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("approveProject는 본인 팀원 동의를 저장한다")
+    void approveProject() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID))
+            .willReturn(Optional.of(TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자")));
+
+        projectFacade.approveProject(10L, MEMBER_ID);
+
+        then(projectApprovalCommandService).should().approve(10L, MEMBER_ID);
     }
 
     private ProjectRequest request() throws Exception {

@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,6 +41,13 @@ public class ProjectControllerImpl implements ProjectController {
     @PatchMapping("/projects/{projectId}/proposal-complete")
     public ResponseEntity<Void> completeProposal(@PathVariable Long projectId, Authentication authentication) {
         projectFacade.completeProposal(projectId, authentication.getName());
+        return ResponseEntity.ok().build();
+    }
+
+    @Override
+    @PostMapping("/projects/{projectId}/approval")
+    public ResponseEntity<Void> approveProject(@PathVariable Long projectId, Authentication authentication) {
+        projectFacade.approveProject(projectId, authentication.getName());
         return ResponseEntity.ok().build();
     }
 }

@@ -6,6 +6,8 @@ import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.exception.ProjectApprovalRequiredException;
+import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
+import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class ProjectFacade {
     private final ProjectQueryService projectQueryService;
     private final TeamMemberRepository teamMemberRepository;
     private final ProjectApprovalRepository projectApprovalRepository;
+    private final ProjectApprovalCommandService projectApprovalCommandService;
 
     public ProjectResponse getProject(Long teamId, String userId) {
         validateTeamMembership(teamId, userId);
@@ -52,6 +55,15 @@ public class ProjectFacade {
         }
 
         projectCommandService.completeProposal(projectId);
+    }
+
+    public void approveProject(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        validateTeamMembership(project.getTeamId(), userId);
+        if (project.getProposalCompletedAt() != null) {
+            throw new ProjectProposalCompletedException();
+        }
+        projectApprovalCommandService.approve(projectId, userId);
     }
 
     private void validateTeamMembership(Long teamId, String userId) {

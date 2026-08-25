@@ -25,4 +25,7 @@ public interface ProjectController {
 
     @Operation(summary = "프로젝트 제안 단계 완료")
     ResponseEntity<Void> completeProposal(@PathVariable Long projectId, Authentication authentication);
+
+    @Operation(summary = "프로젝트 제안서 동의")
+    ResponseEntity<Void> approveProject(@PathVariable Long projectId, Authentication authentication);
 }
