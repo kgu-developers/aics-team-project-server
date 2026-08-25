@@ -37,6 +37,17 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     }
 
     @Override
+    public List<TopicVote> findAllByCandidateIdIn(List<Long> candidateIds) {
+        if (candidateIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTopicVoteRepository.findAllByCandidateIdInAndDeletedAtIsNull(candidateIds)
+                .stream()
+                .map(TopicVoteJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<TopicVote> findByCandidateIdAndVoterUserId(Long candidateId, String voterUserId) {
         return jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(candidateId, voterUserId)
                 .map(TopicVoteJpaEntity::toDomain);
