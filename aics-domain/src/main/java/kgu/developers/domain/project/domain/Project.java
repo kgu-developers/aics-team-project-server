@@ -19,6 +19,7 @@ public class Project {
     private Long id;
 
     private Long teamId;  // 팀 식별자
+    private Long topicCandidateId;  // 최종 확정 주제 후보 식별자
 
     private String title;  // 제목
     private String description;  // 설명
@@ -48,6 +49,10 @@ public class Project {
 
     public void updateTitle(String title) {
         this.title = requireNonNull(title, "title");
+    }
+
+    public void updateTopicCandidateId(Long topicCandidateId) {
+        this.topicCandidateId = requireNonNull(topicCandidateId, "topicCandidateId");
     }
 
     public void updateDescription(String description) {

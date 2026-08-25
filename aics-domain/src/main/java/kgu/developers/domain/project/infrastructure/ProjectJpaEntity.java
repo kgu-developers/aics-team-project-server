@@ -6,6 +6,7 @@ import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
+import kgu.developers.domain.topicCandidate.infrastructure.TopicCandidateJpaEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,6 +34,10 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @JoinColumn(name = "team_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_team_project"))
     private TeamJpaEntity team;
+
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "topic_candidate_id", foreignKey = @ForeignKey(name = "fk_topic_candidate_project"))
+    private TopicCandidateJpaEntity topicCandidate;
 
     @Column(nullable = false, length = 200)
     private String title;
@@ -63,6 +68,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
         return Project.builder()
                 .id(id)
                 .teamId(team.getId())
+                .topicCandidateId(topicCandidate == null ? null : topicCandidate.getId())
                 .title(title)
                 .description(description)
                 .goal(goal)
@@ -77,10 +83,15 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .build();
     }
 
-    public static ProjectJpaEntity toEntity(Project project, TeamJpaEntity team) {
+    public static ProjectJpaEntity toEntity(
+        Project project,
+        TeamJpaEntity team,
+        TopicCandidateJpaEntity topicCandidate
+    ) {
         ProjectJpaEntity entity = ProjectJpaEntity.builder()
                 .id(project.getId())
                 .team(team)
+                .topicCandidate(topicCandidate)
                 .title(project.getTitle())
                 .description(project.getDescription())
                 .goal(project.getGoal())

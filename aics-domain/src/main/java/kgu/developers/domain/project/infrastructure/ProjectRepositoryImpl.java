@@ -5,6 +5,7 @@ import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
+import kgu.developers.domain.topicCandidate.infrastructure.TopicCandidateJpaEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,10 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     @Override
     public Project save(Project project) {
         TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, project.getTeamId());
-        ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
+        TopicCandidateJpaEntity topicCandidate = project.getTopicCandidateId() == null
+            ? null
+            : entityManager.getReference(TopicCandidateJpaEntity.class, project.getTopicCandidateId());
+        ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team, topicCandidate);
         ProjectJpaEntity savedEntity = jpaProjectRepository.save(entity);
         return savedEntity.toDomain();
     }
