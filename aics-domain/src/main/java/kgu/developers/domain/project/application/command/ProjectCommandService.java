@@ -5,6 +5,7 @@ import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
+import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -60,5 +61,12 @@ public class ProjectCommandService {
             .forEach(approval -> projectApprovalRepository.deleteById(approval.getId()));
 
         return projectRepository.save(project);
+    }
+
+    public void completeProposal(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
+        project.completeProposal();
+        projectRepository.save(project);
     }
 }

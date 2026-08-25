@@ -19,4 +19,9 @@ public class ProjectQueryService {
             .findFirst()
             .orElseThrow(ProjectNotFoundException::new);
     }
+
+    public Project getProject(Long projectId) {
+        return projectRepository.findById(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
+    }
 }

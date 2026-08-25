@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectCommandServiceTest {
@@ -69,6 +70,19 @@ class ProjectCommandServiceTest {
         given(projectRepository.findAllByTeamId(1L)).willReturn(List.of(completed));
 
         assertThatThrownBy(this::saveProject).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("completeProposal은 프로젝트의 제안 완료 시각을 설정한다")
+    void completeProposal() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+
+        projectCommandService.completeProposal(10L);
+
+        assertThat(project.getProposalCompletedAt()).isNotNull();
+        then(projectRepository).should().save(project);
     }
 
     private Project saveProject() throws Exception {

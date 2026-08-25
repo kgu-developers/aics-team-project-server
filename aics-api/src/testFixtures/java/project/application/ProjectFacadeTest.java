@@ -12,6 +12,7 @@ import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.exception.ProjectApprovalRequiredException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
@@ -24,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Optional;
+import java.util.List;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectFacadeTest {
@@ -67,6 +69,45 @@ class ProjectFacadeTest {
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
 
         assertThat(projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()).goal()).isEqualTo("피드백 자동화");
+    }
+
+    @Test
+    @DisplayName("completeProposal은 팀장이고 모든 팀원이 승인하면 완료 처리한다")
+    void completeProposal() {
+        TeamMember leader = TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장");
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(leader));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(leader));
+        given(projectApprovalRepository.existsByProjectIdAndUserId(10L, MEMBER_ID)).willReturn(true);
+
+        projectFacade.completeProposal(10L, MEMBER_ID);
+
+        then(projectCommandService).should().completeProposal(10L);
+    }
+
+    @Test
+    @DisplayName("completeProposal은 팀장이 아니면 접근을 거부한다")
+    void completeProposal_deniesNonLeader() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID))
+            .willReturn(Optional.of(TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자")));
+
+        assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
+            .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("completeProposal은 승인하지 않은 팀원이 있으면 전제조건 예외를 던진다")
+    void completeProposal_requiresAllMemberApprovals() {
+        TeamMember leader = TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장");
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(leader));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(leader));
+        given(projectApprovalRepository.existsByProjectIdAndUserId(10L, MEMBER_ID)).willReturn(false);
+
+        assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
+            .isInstanceOf(ProjectApprovalRequiredException.class);
+        then(projectCommandService).shouldHaveNoInteractions();
     }
 
     private ProjectRequest request() throws Exception {

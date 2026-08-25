@@ -22,4 +22,7 @@ public interface ProjectController {
         @Valid @RequestBody ProjectRequest request,
         Authentication authentication
     );
+
+    @Operation(summary = "프로젝트 제안 단계 완료")
+    ResponseEntity<Void> completeProposal(@PathVariable Long projectId, Authentication authentication);
 }

@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -97,6 +98,16 @@ class ProjectControllerTest {
             .containsExactly("AI 학습 도우미", "학습 기록을 분석하는 서비스", "개인별 피드백 자동화");
         org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().externalLinks())
             .isEqualTo(request.externalLinks());
+    }
+
+    @Test
+    @DisplayName("PATCH /projects/{projectId}/proposal-complete는 완료 처리를 요청한다")
+    void completeProposal() throws Exception {
+        mockMvc.perform(patch("/projects/{projectId}/proposal-complete", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+
+        then(projectFacade).should().completeProposal(10L, USER_ID);
     }
 
     private ProjectResponse response() throws Exception {

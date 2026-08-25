@@ -2,6 +2,7 @@ package kgu.developers.domain.project.exception;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.PRECONDITION_REQUIRED;
 
 import org.springframework.http.HttpStatus;
 
@@ -13,7 +14,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum ProjectDomainExceptionCode implements ExceptionCode {
     PROJECT_NOT_FOUND(NOT_FOUND, "프로젝트를 찾을 수 없습니다."),
-    PROJECT_PROPOSAL_COMPLETED(FORBIDDEN, "완료된 프로젝트 제안서는 수정할 수 없습니다.");
+    PROJECT_PROPOSAL_COMPLETED(FORBIDDEN, "완료된 프로젝트 제안서는 수정할 수 없습니다."),
+    PROJECT_APPROVAL_REQUIRED(PRECONDITION_REQUIRED, "모든 팀원의 프로젝트 제안서 승인이 필요합니다.");
 
     private final HttpStatus status;
     private final String message;
