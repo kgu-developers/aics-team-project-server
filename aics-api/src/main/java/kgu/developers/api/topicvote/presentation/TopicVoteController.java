@@ -23,4 +23,14 @@ public interface TopicVoteController {
     )
     @ApiResponse(responseCode = "201", content = @Content(schema = @Schema(implementation = TopicVotePersistResponse.class)))
     ResponseEntity<TopicVotePersistResponse> vote(@PathVariable Long candidateId, Authentication authentication);
+
+    @Operation(
+        summary = "주제 후보 투표 취소 API",
+        description = """
+            Description : 팀원이 해당 주제 후보에 행사한 투표를 취소한다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "204")
+    ResponseEntity<Void> cancelVote(@PathVariable Long candidateId, Authentication authentication);
 }

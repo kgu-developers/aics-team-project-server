@@ -28,4 +28,11 @@ public class TopicVoteFacade {
         TopicVote topicVote = topicVoteCommandService.vote(topicCandidate.getTeamId(), candidateId, voterUserId);
         return TopicVotePersistResponse.of(topicVote);
     }
+
+    public void cancelVote(Long candidateId, String voterUserId) {
+        TopicCandidate topicCandidate = topicCandidateRepository.findById(candidateId)
+            .orElseThrow(TopicCandidateNotFoundException::new);
+        teamAccessValidator.validateMembership(topicCandidate.getTeamId(), voterUserId);
+        topicVoteCommandService.cancelVote(candidateId, voterUserId);
+    }
 }

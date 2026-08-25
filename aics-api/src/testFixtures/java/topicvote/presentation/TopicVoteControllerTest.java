@@ -2,6 +2,7 @@ package topicvote.presentation;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,5 +54,16 @@ class TopicVoteControllerTest {
             .andExpect(jsonPath("$.voterUserId").value(VOTER_USER_ID));
 
         verify(topicVoteFacade).vote(CANDIDATE_ID, VOTER_USER_ID);
+    }
+
+    @Test
+    @DisplayName("DELETE /topic-candidates/{candidateId}/vote는 투표를 취소하고 204를 반환한다")
+    void cancelVote_CancelsVote() throws Exception {
+        // when & then
+        mockMvc.perform(delete("/api/v1/topic-candidates/{candidateId}/vote", CANDIDATE_ID)
+                .principal(new UsernamePasswordAuthenticationToken(VOTER_USER_ID, null, List.of())))
+            .andExpect(status().isNoContent());
+
+        verify(topicVoteFacade).cancelVote(CANDIDATE_ID, VOTER_USER_ID);
     }
 }

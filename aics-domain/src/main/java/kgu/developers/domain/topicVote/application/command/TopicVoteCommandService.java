@@ -17,6 +17,10 @@ public class TopicVoteCommandService {
             .orElseGet(() -> topicVoteRepository.save(TopicVote.create(teamId, candidateId, voterUserId)));
     }
 
+    public void cancelVote(Long candidateId, String voterUserId) {
+        topicVoteRepository.deleteByCandidateIdAndVoterUserId(candidateId, voterUserId);
+    }
+
     private TopicVote changeVoteCandidate(TopicVote existingVote, Long candidateId) {
         if (existingVote.getCandidateId().equals(candidateId)) {
             return existingVote;

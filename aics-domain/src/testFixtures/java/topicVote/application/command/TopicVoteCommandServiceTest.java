@@ -70,4 +70,14 @@ class TopicVoteCommandServiceTest {
         assertThat(result.getCandidateId()).isEqualTo(CHANGED_CANDIDATE_ID);
         verify(topicVoteRepository).save(existingVote);
     }
+
+    @Test
+    @DisplayName("cancelVote는 후보와 투표자 기준으로 투표를 취소한다")
+    void cancelVote_DeletesVote() {
+        // when
+        topicVoteCommandService.cancelVote(CANDIDATE_ID, VOTER_USER_ID);
+
+        // then
+        verify(topicVoteRepository).deleteByCandidateIdAndVoterUserId(CANDIDATE_ID, VOTER_USER_ID);
+    }
 }
