@@ -70,6 +70,10 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
 
     @Override
     public void deleteById(Long id) {
-        jpaProjectApprovalRepository.deleteById(id);
+        jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(id)
+            .ifPresent(approval -> {
+                approval.delete();
+                jpaProjectApprovalRepository.saveAndFlush(approval);
+            });
     }
 }
