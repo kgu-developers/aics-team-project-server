@@ -14,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApprovalCommandServiceTest {
@@ -38,6 +39,17 @@ class ProjectApprovalCommandServiceTest {
     @DisplayName("approve는 이미 동의한 사용자면 예외를 던진다")
     void approve_rejectsDuplicate() {
         given(projectApprovalRepository.existsByProjectIdAndUserId(10L, "202412345")).willReturn(true);
+
+        assertThatThrownBy(() -> projectApprovalCommandService.approve(10L, "202412345"))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("approve는 동시 요청으로 유니크 제약이 충돌해도 중복 동의 예외로 변환한다")
+    void approve_convertsUniqueConstraintViolation() {
+        given(projectApprovalRepository.existsByProjectIdAndUserId(10L, "202412345")).willReturn(false);
+        given(projectApprovalRepository.save(org.mockito.ArgumentMatchers.any()))
+            .willThrow(new DataIntegrityViolationException("duplicate"));
 
         assertThatThrownBy(() -> projectApprovalCommandService.approve(10L, "202412345"))
             .isInstanceOf(CustomException.class);

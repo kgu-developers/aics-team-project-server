@@ -63,6 +63,20 @@ class ProjectCommandServiceTest {
     }
 
     @Test
+    @DisplayName("saveProject는 내용이 같으면 승인 이력을 초기화하지 않는다")
+    void saveProject_keepsApprovalsWhenContentIsUnchanged() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
+            .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findAllByTeamId(1L)).willReturn(List.of(existing));
+
+        saveProject();
+
+        then(projectApprovalRepository).shouldHaveNoInteractions();
+        then(projectRepository).should(org.mockito.Mockito.never()).save(existing);
+    }
+
+    @Test
     @DisplayName("saveProject는 완료된 제안서를 수정할 수 없다")
     void saveProject_rejectsCompletedProject() throws Exception {
         Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
@@ -83,6 +97,16 @@ class ProjectCommandServiceTest {
 
         assertThat(project.getProposalCompletedAt()).isNotNull();
         then(projectRepository).should().save(project);
+    }
+
+    @Test
+    @DisplayName("completeProposal은 이미 완료된 제안서면 예외를 던진다")
+    void completeProposal_rejectsCompletedProject() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+
+        assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
     }
 
     private Project saveProject() throws Exception {
