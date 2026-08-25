@@ -47,7 +47,7 @@ class TopicCandidateControllerTest {
         given(topicCandidateFacade.getTopicCandidates(TEAM_ID, USER_ID)).willReturn(response());
 
         // when & then
-        mockMvc.perform(get("/teams/{teamId}/topic-candidates", TEAM_ID)
+        mockMvc.perform(get("/api/v1/teams/{teamId}/topic-candidates", TEAM_ID)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.contents[0].id").value(1L))
@@ -68,7 +68,7 @@ class TopicCandidateControllerTest {
         given(topicCandidateFacade.createTopicCandidate(TEAM_ID, USER_ID, request)).willReturn(persistResponse());
 
         // when & then
-        mockMvc.perform(post("/teams/{teamId}/topic-candidates", TEAM_ID)
+        mockMvc.perform(post("/api/v1/teams/{teamId}/topic-candidates", TEAM_ID)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""

@@ -48,6 +48,12 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     }
 
     @Override
+    public Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId) {
+        return jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
+                .map(TopicVoteJpaEntity::toDomain);
+    }
+
+    @Override
     public Optional<TopicVote> findByCandidateIdAndVoterUserId(Long candidateId, String voterUserId) {
         return jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(candidateId, voterUserId)
                 .map(TopicVoteJpaEntity::toDomain);

@@ -12,6 +12,8 @@ public interface TopicVoteRepository {
 
     List<TopicVote> findAllByCandidateIdIn(List<Long> candidateIds);
 
+    Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId);
+
     Optional<TopicVote> findByCandidateIdAndVoterUserId(Long candidateId, String voterUserId);
 
     void deleteById(Long id);
