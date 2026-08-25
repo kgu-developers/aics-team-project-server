@@ -15,6 +15,7 @@ import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.exception.ProjectApprovalRequiredException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
+import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -122,6 +123,24 @@ class ProjectFacadeTest {
         projectFacade.approveProject(10L, MEMBER_ID);
 
         then(projectApprovalCommandService).should().approve(10L, MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("getApprovalSummary는 완료 인원과 전체 인원을 반환한다")
+    void getApprovalSummary() {
+        TeamMember member = TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자");
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(member));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(member, TeamMember.create(TEAM_ID, "202412346", false, "기획자")));
+        given(projectApprovalRepository.findAllByProjectId(10L)).willReturn(List.of(
+            ProjectApproval.builder().id(1L).projectId(10L).userId(MEMBER_ID).build()
+        ));
+
+        var response = projectFacade.getApprovalSummary(10L, MEMBER_ID);
+
+        assertThat(response.approvedCount()).isEqualTo(1);
+        assertThat(response.totalCount()).isEqualTo(2);
+        assertThat(response.progress()).isEqualTo("1/2");
     }
 
     private ProjectRequest request() throws Exception {

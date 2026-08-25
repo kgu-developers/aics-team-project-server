@@ -14,6 +14,7 @@ import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.ProjectControllerImpl;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,6 +109,20 @@ class ProjectControllerTest {
             .andExpect(status().isOk());
 
         then(projectFacade).should().completeProposal(10L, USER_ID);
+    }
+
+    @Test
+    @DisplayName("GET /projects/{projectId}/approvals는 팀원 동의 진행 현황을 반환한다")
+    void getApprovalSummary() throws Exception {
+        given(projectFacade.getApprovalSummary(10L, USER_ID))
+            .willReturn(ProjectApprovalSummaryResponse.of(2, 4));
+
+        mockMvc.perform(get("/projects/{projectId}/approvals", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.approvedCount").value(2))
+            .andExpect(jsonPath("$.totalCount").value(4))
+            .andExpect(jsonPath("$.progress").value("2/4"));
     }
 
     private ProjectResponse response() throws Exception {

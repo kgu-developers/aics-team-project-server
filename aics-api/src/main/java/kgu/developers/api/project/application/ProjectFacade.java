@@ -2,6 +2,7 @@ package kgu.developers.api.project.application;
 
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
@@ -64,6 +65,14 @@ public class ProjectFacade {
             throw new ProjectProposalCompletedException();
         }
         projectApprovalCommandService.approve(projectId, userId);
+    }
+
+    public ProjectApprovalSummaryResponse getApprovalSummary(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        validateTeamMembership(project.getTeamId(), userId);
+        int totalCount = teamMemberRepository.findAllByTeamId(project.getTeamId()).size();
+        int approvedCount = projectApprovalRepository.findAllByProjectId(projectId).size();
+        return ProjectApprovalSummaryResponse.of(approvedCount, totalCount);
     }
 
     private void validateTeamMembership(Long teamId, String userId) {

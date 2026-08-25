@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -49,5 +50,14 @@ public class ProjectControllerImpl implements ProjectController {
     public ResponseEntity<Void> approveProject(@PathVariable Long projectId, Authentication authentication) {
         projectFacade.approveProject(projectId, authentication.getName());
         return ResponseEntity.ok().build();
+    }
+
+    @Override
+    @GetMapping("/projects/{projectId}/approvals")
+    public ResponseEntity<ProjectApprovalSummaryResponse> getApprovalSummary(
+        @PathVariable Long projectId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(projectFacade.getApprovalSummary(projectId, authentication.getName()));
     }
 }

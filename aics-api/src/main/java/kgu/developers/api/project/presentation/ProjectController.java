@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,4 +29,7 @@ public interface ProjectController {
 
     @Operation(summary = "프로젝트 제안서 동의")
     ResponseEntity<Void> approveProject(@PathVariable Long projectId, Authentication authentication);
+
+    @Operation(summary = "프로젝트 제안서 팀원 동의 현황 조회")
+    ResponseEntity<ProjectApprovalSummaryResponse> getApprovalSummary(@PathVariable Long projectId, Authentication authentication);
 }
