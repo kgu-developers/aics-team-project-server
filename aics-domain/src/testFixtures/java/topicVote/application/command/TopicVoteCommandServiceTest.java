@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import kgu.developers.domain.topicVote.application.command.TopicVoteCommandService;
 import kgu.developers.domain.topicVote.domain.TopicVote;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.dao.DataIntegrityViolationException;
 
 class TopicVoteCommandServiceTest {
 
@@ -38,7 +38,7 @@ class TopicVoteCommandServiceTest {
         // given
         TopicVote savedVote = TopicVote.builder()
             .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
-        given(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM_ID, VOTER_USER_ID)).willReturn(Optional.empty());
+        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID)).willReturn(Optional.empty());
         given(topicVoteRepository.save(any(TopicVote.class))).willReturn(savedVote);
 
         // when
@@ -59,7 +59,7 @@ class TopicVoteCommandServiceTest {
         // given
         TopicVote existingVote = TopicVote.builder()
             .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
-        given(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM_ID, VOTER_USER_ID))
+        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID))
             .willReturn(Optional.of(existingVote));
         given(topicVoteRepository.save(existingVote)).willReturn(existingVote);
 
@@ -83,41 +83,22 @@ class TopicVoteCommandServiceTest {
     }
 
     @Test
-    @DisplayName("vote는 동시성 충돌 시 기존 투표를 찾아 후보를 변경한다")
-    void vote_HandlesConcurrentConflict_WhenDataIntegrityViolationOccurs() {
-        // given
-        TopicVote existingVote = TopicVote.builder()
-            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
-        
-        given(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM_ID, VOTER_USER_ID))
-            .willReturn(Optional.empty())
-            .willReturn(Optional.of(existingVote));
-        given(topicVoteRepository.save(any(TopicVote.class)))
-            .willThrow(new DataIntegrityViolationException("Unique constraint violation"))
-            .willReturn(existingVote);
-
-        // when
-        TopicVote result = topicVoteCommandService.vote(TEAM_ID, CHANGED_CANDIDATE_ID, VOTER_USER_ID);
-
-        // then
-        assertThat(result).isSameAs(existingVote);
-        assertThat(result.getCandidateId()).isEqualTo(CHANGED_CANDIDATE_ID);
-    }
-
-    @Test
     @DisplayName("vote는 취소된 투표 후 재투표를 허용한다")
     void vote_AllowsRevoteAfterCancellation() {
         // given
-        given(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM_ID, VOTER_USER_ID)).willReturn(Optional.empty());
-        TopicVote newVote = TopicVote.builder()
-            .id(2L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
-        given(topicVoteRepository.save(any(TopicVote.class))).willReturn(newVote);
+        TopicVote deletedVote = TopicVote.builder()
+            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID)
+            .deletedAt(java.time.LocalDateTime.now()).build();
+        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID))
+            .willReturn(Optional.of(deletedVote));
+        given(topicVoteRepository.save(any(TopicVote.class))).willReturn(deletedVote);
 
         // when
         TopicVote result = topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
 
         // then
-        assertThat(result).isSameAs(newVote);
+        assertThat(result).isSameAs(deletedVote);
+        assertThat(result.getDeletedAt()).isNull();
         verify(topicVoteRepository).save(any(TopicVote.class));
     }
 }
