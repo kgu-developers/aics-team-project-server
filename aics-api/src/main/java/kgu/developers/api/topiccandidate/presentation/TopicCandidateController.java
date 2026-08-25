@@ -35,7 +35,7 @@ public interface TopicCandidateController {
     @Operation(
         summary = "주제 후보 등록 API",
         description = """
-            Description : 팀원이 주제 후보를 등록한다. 후보 수 제한은 적용하지 않는다.
+            Description : 팀원이 주제 후보를 등록한다. 팀원당 활성 후보는 하나이며, 이미 등록한 경우 409를 응답한다.
             Assignee : 담당자명
             """
     )

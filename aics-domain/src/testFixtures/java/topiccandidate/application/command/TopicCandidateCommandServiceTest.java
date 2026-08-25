@@ -1,14 +1,17 @@
 package topiccandidate.application.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import kgu.developers.domain.topicCandidate.application.command.TopicCandidateCommandService;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
+import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +44,7 @@ class TopicCandidateCommandServiceTest {
             .title(TITLE)
             .description(DESCRIPTION)
             .build();
+        given(topicCandidateRepository.existsByTeamIdAndProposerUserId(TEAM_ID, PROPOSER_USER_ID)).willReturn(false);
         given(topicCandidateRepository.save(any(TopicCandidate.class))).willReturn(savedCandidate);
 
         // when
@@ -60,5 +64,17 @@ class TopicCandidateCommandServiceTest {
             )
             .containsExactly(TEAM_ID, PROPOSER_USER_ID, TITLE, DESCRIPTION);
         assertThat(result).isSameAs(savedCandidate);
+    }
+
+    @Test
+    @DisplayName("createTopicCandidate는 같은 팀에 활성 후보가 있으면 중복으로 거절한다")
+    void createTopicCandidate_RejectsDuplicateActiveCandidate() {
+        given(topicCandidateRepository.existsByTeamIdAndProposerUserId(TEAM_ID, PROPOSER_USER_ID)).willReturn(true);
+
+        assertThatThrownBy(() -> topicCandidateCommandService.createTopicCandidate(
+            TEAM_ID, PROPOSER_USER_ID, TITLE, DESCRIPTION
+        )).isInstanceOf(DuplicateTopicCandidateException.class);
+
+        verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
     }
 }

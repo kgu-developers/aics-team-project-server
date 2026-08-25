@@ -13,4 +13,6 @@ public interface JpaTopicCandidateRepository extends JpaRepository<TopicCandidat
     List<TopicCandidateJpaEntity> findByProposerUserIdAndDeletedAtIsNull(String proposerUserId);
 
     Optional<TopicCandidateJpaEntity> findByTeamIdAndTitle(Long teamId, String title);
+
+    boolean existsByTeamIdAndProposerUserIdAndDeletedAtIsNull(Long teamId, String proposerUserId);
 }

@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
+import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateException;
 import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateTitleException;
 import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,11 @@ import lombok.RequiredArgsConstructor;
 public class TopicCandidateCommandService {
     private final TopicCandidateRepository topicCandidateRepository;
 
-    public Long createTopicCandidate(Long teamId, String proposerUserId, String title, String description) {
+    public TopicCandidate createTopicCandidate(Long teamId, String proposerUserId, String title, String description) {
+        if (topicCandidateRepository.existsByTeamIdAndProposerUserId(teamId, proposerUserId)) {
+            throw new DuplicateTopicCandidateException();
+        }
+
         TopicCandidate existing = topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(teamId, title)
                 .orElse(null);
         if (existing != null) {
@@ -23,11 +28,11 @@ public class TopicCandidateCommandService {
                 throw new DuplicateTopicCandidateTitleException();
             }
             existing.reactivate(proposerUserId, description);
-            return topicCandidateRepository.save(existing).getId();
+            return topicCandidateRepository.save(existing);
         }
 
         TopicCandidate topicCandidate = TopicCandidate.create(teamId, proposerUserId, title, description);
-        return topicCandidateRepository.save(topicCandidate).getId();
+        return topicCandidateRepository.save(topicCandidate);
     }
 
     public void updateTopicCandidate(Long id, String title, String description) {

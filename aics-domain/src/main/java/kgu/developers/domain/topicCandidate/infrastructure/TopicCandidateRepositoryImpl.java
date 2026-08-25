@@ -71,4 +71,9 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
                 .map(TopicCandidateJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public boolean existsByTeamIdAndProposerUserId(Long teamId, String proposerUserId) {
+        return jpaTopicCandidateRepository.existsByTeamIdAndProposerUserIdAndDeletedAtIsNull(teamId, proposerUserId);
+    }
 }
