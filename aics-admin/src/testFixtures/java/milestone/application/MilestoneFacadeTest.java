@@ -174,19 +174,6 @@ class MilestoneFacadeTest {
     }
 
     @Test
-    @DisplayName("평가 기간과 해제 의도가 모두 없는 요청은 거부한다")
-    void rejectEmptyEvaluationWindowRequest() {
-        MilestoneEvaluationWindowRequest request = new MilestoneEvaluationWindowRequest(
-                null,
-                null,
-                false
-        );
-
-        assertThatThrownBy(() -> milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request))
-                .isInstanceOf(InvalidMilestoneRequestException.class);
-    }
-
-    @Test
     @DisplayName("동시에 중복된 주차를 생성하면 주차 충돌 예외로 변환한다")
     void duplicateWeekNumberAtDatabaseBoundary() {
         MilestoneCreateRequest request = new MilestoneCreateRequest(
@@ -204,7 +191,24 @@ class MilestoneFacadeTest {
     }
 
     @Test
-    @DisplayName("주차 충돌과 무관한 무결성 위반은 잘못된 요청으로 변환한다")
+    @DisplayName("스키마가 포함된 주차 제약 이름도 주차 충돌 예외로 변환한다")
+    void schemaQualifiedDuplicateWeekNumberAtDatabaseBoundary() {
+        MilestoneCreateRequest request = new MilestoneCreateRequest(
+                "제안서",
+                "제안서 제출",
+                2,
+                scheduleRequest()
+        );
+        willThrow(dataIntegrityViolation("public.uq_milestone_active_section_week"))
+                .given(milestoneCommandService)
+                .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
+
+        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
+                .isInstanceOf(DuplicateMilestoneWeekException.class);
+    }
+
+    @Test
+    @DisplayName("주차 충돌과 무관한 무결성 위반은 공통 409 처리를 위해 원본 예외를 유지한다")
     void unrelatedDataIntegrityViolationAtDatabaseBoundary() {
         MilestoneCreateRequest request = new MilestoneCreateRequest(
                 "제안서",
@@ -217,7 +221,7 @@ class MilestoneFacadeTest {
                 .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
 
         assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
-                .isInstanceOf(InvalidMilestoneRequestException.class);
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

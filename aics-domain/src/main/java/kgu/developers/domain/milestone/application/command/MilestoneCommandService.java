@@ -47,10 +47,7 @@ public class MilestoneCommandService {
         try {
             savedMilestone = milestoneRepository.save(milestone);
         } catch (DataIntegrityViolationException exception) {
-            if (DuplicateMilestoneWeekException.isActiveWeekConstraintViolation(exception)) {
-                throw new DuplicateMilestoneWeekException(exception);
-            }
-            throw exception;
+            throw DuplicateMilestoneWeekException.translate(exception);
         }
 
         if (savedMilestone.getId() == null) {
@@ -115,7 +112,7 @@ public class MilestoneCommandService {
                 throw new IllegalArgumentException("같은 마일스톤의 주차를 두 번 변경할 수 없습니다.");
             }
 
-            getRequiredSectionMilestone(
+            getRequiredSectionMilestoneForUpdate(
                     sectionId,
                     change.milestoneId(),
                     sectionMilestonesById,
@@ -131,14 +128,11 @@ public class MilestoneCommandService {
         try {
             milestoneRepository.saveAll(sectionMilestones);
         } catch (DataIntegrityViolationException exception) {
-            if (DuplicateMilestoneWeekException.isActiveWeekConstraintViolation(exception)) {
-                throw new DuplicateMilestoneWeekException(exception);
-            }
-            throw exception;
+            throw DuplicateMilestoneWeekException.translate(exception);
         }
     }
 
-    private Milestone getRequiredSectionMilestone(
+    private Milestone getRequiredSectionMilestoneForUpdate(
             Long sectionId,
             Long milestoneId,
             Map<Long, Milestone> sectionMilestonesById,
@@ -149,10 +143,7 @@ public class MilestoneCommandService {
             return milestone;
         }
 
-        milestone = getRequiredMilestone(milestoneId);
-        if (!milestone.belongsToSection(sectionId)) {
-            throw new MilestoneSectionMismatchException(milestoneId, sectionId);
-        }
+        milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         sectionMilestonesById.put(milestoneId, milestone);
         sectionMilestones.add(milestone);
         return milestone;

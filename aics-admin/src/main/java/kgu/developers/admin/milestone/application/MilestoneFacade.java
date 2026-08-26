@@ -80,7 +80,6 @@ public class MilestoneFacade {
             MilestoneEvaluationWindowRequest request
     ) {
         asInvalidRequest(() -> {
-            request.validateIntent();
             milestoneCommandService.updateEvaluationWindow(
                     sectionId,
                     milestoneId,
@@ -112,10 +111,7 @@ public class MilestoneFacade {
         try {
             return operation.get();
         } catch (DataIntegrityViolationException exception) {
-            if (DuplicateMilestoneWeekException.isActiveWeekConstraintViolation(exception)) {
-                throw new DuplicateMilestoneWeekException(exception);
-            }
-            throw new InvalidMilestoneRequestException(exception);
+            throw DuplicateMilestoneWeekException.translate(exception);
         } catch (IllegalArgumentException exception) {
             throw new InvalidMilestoneRequestException(exception);
         }

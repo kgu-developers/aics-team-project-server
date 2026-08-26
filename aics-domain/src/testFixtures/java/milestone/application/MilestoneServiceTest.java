@@ -75,6 +75,15 @@ class MilestoneServiceTest {
     }
 
     @Test
+    @DisplayName("스키마가 포함된 주차 제약 이름도 도메인 충돌 예외로 변환한다")
+    void translateSchemaQualifiedDuplicateWeekConflict() {
+        repository.failNextSaveWithDataIntegrityViolation("public.uq_milestone_active_section_week");
+
+        assertThatThrownBy(() -> createMilestone(1L, "제안서", 2))
+                .isInstanceOf(DuplicateMilestoneWeekException.class);
+    }
+
+    @Test
     @DisplayName("주차 중복과 무관한 DB 제약 위반은 중복 주차로 오인하지 않는다")
     void preserveUnrelatedDataIntegrityViolation() {
         repository.failNextSaveWithDataIntegrityViolation("uq_milestone_active_section_week_backup");
@@ -172,7 +181,7 @@ class MilestoneServiceTest {
     }
 
     @Test
-    @DisplayName("잠금 목록의 대체 조회로 찾은 마일스톤도 주차 변경 저장 대상에 포함한다")
+    @DisplayName("잠금 목록에서 누락된 마일스톤도 단건 잠금 후 주차 변경 저장 대상에 포함한다")
     void saveFallbackMilestoneWhenUpdatingWeekNumbers() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
         repository.omitFromNextSectionLockQuery(milestoneId);
@@ -183,6 +192,7 @@ class MilestoneServiceTest {
 
         assertThat(queryService.getMilestone(1L, milestoneId).getWeekNumber()).isEqualTo(3);
         assertThat(repository.lastSavedBatchIds).containsExactly(milestoneId);
+        assertThat(repository.lastLockedMilestoneId).isEqualTo(milestoneId);
     }
 
     @Test
@@ -327,6 +337,7 @@ class MilestoneServiceTest {
         private List<Long> lastSavedBatchIds = List.of();
         private String nextDataIntegrityViolationMessage;
         private Long omittedIdFromNextSectionLockQuery;
+        private Long lastLockedMilestoneId;
 
         @Override
         public Milestone save(Milestone milestone) {
@@ -370,6 +381,7 @@ class MilestoneServiceTest {
 
         @Override
         public Optional<Milestone> findByIdForUpdate(Long id) {
+            lastLockedMilestoneId = id;
             return findById(id);
         }
 

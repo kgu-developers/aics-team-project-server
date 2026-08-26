@@ -30,6 +30,7 @@ import kgu.developers.domain.milestone.domain.MilestoneStatus;
 public interface MilestoneController {
 
     @Operation(summary = "마일스톤 생성")
+    @ApiResponse(responseCode = "409", description = "같은 분반의 주차가 이미 사용 중임")
     ResponseEntity<MilestonePersistResponse> createMilestone(
             @Parameter(description = "분반 ID", required = true) @Positive Long sectionId,
             @Valid MilestoneCreateRequest request,
@@ -75,6 +76,7 @@ public interface MilestoneController {
     );
 
     @Operation(summary = "마일스톤 주차 일괄 변경")
+    @ApiResponse(responseCode = "409", description = "같은 분반의 주차가 이미 사용 중임")
     ResponseEntity<Void> updateWeekNumbers(
             @Parameter(description = "분반 ID", required = true) @Positive Long sectionId,
             @Valid MilestoneWeekNumbersRequest request,

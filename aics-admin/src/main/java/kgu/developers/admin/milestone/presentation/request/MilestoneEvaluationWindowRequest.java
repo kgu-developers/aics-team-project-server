@@ -23,10 +23,4 @@ public record MilestoneEvaluationWindowRequest(
         boolean hasEvaluationWindow = evaluationOpensAt != null || evaluationClosesAt != null;
         return clearEvaluationWindow ? !hasEvaluationWindow : hasEvaluationWindow;
     }
-
-    public void validateIntent() {
-        if (!isEvaluationWindowIntentValid()) {
-            throw new IllegalArgumentException("평가 기간을 입력하거나 해제 여부를 명시해야 합니다.");
-        }
-    }
 }
