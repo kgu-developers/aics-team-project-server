@@ -38,8 +38,27 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository {
     }
 
     @Override
+    public Page<TeamMessage> findByThreadIdIn(List<Long> threadIds, Pageable pageable) {
+        if (threadIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return jpaTeamMessageRepository.findByThreadIdIn(threadIds, pageable)
+            .map(TeamMessageJpaEntity::toDomain);
+    }
+
+    @Override
     public List<Long> findIdsByThreadId(Long threadId) {
         return jpaTeamMessageRepository.findAllByThreadId(threadId).stream()
+            .map(TeamMessageJpaEntity::getId)
+            .toList();
+    }
+
+    @Override
+    public List<Long> findIdsByThreadIdIn(List<Long> threadIds) {
+        if (threadIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamMessageRepository.findAllByThreadIdIn(threadIds).stream()
             .map(TeamMessageJpaEntity::getId)
             .toList();
     }

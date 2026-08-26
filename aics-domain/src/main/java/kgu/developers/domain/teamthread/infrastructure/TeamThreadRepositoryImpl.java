@@ -1,5 +1,6 @@
 package kgu.developers.domain.teamthread.infrastructure;
 
+import java.util.List;
 import java.util.Optional;
 import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.teamthread.domain.TeamThreadRepository;
@@ -25,5 +26,15 @@ public class TeamThreadRepositoryImpl implements TeamThreadRepository {
     @Override
     public Optional<TeamThread> findByTeamId(Long teamId) {
         return jpaTeamThreadRepository.findByTeamId(teamId).map(TeamThreadJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<TeamThread> findAllByTeamIdIn(List<Long> teamIds) {
+        if (teamIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamThreadRepository.findAllByTeamIdIn(teamIds).stream()
+            .map(TeamThreadJpaEntity::toDomain)
+            .toList();
     }
 }

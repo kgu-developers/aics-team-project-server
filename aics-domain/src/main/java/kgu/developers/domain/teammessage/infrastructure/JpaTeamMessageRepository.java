@@ -12,5 +12,9 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
 
     Page<TeamMessageJpaEntity> findByThreadIdAndRelatedType(Long threadId, TeamMessageRelatedType relatedType, Pageable pageable);
 
+    Page<TeamMessageJpaEntity> findByThreadIdIn(List<Long> threadIds, Pageable pageable);
+
     List<TeamMessageJpaEntity> findAllByThreadId(Long threadId);
+
+    List<TeamMessageJpaEntity> findAllByThreadIdIn(List<Long> threadIds);
 }

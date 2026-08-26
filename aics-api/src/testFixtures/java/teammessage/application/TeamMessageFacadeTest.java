@@ -13,6 +13,9 @@ import kgu.developers.api.teammessage.presentation.response.TeamMessagePageRespo
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePersistResponse;
 import kgu.developers.api.teammessage.presentation.response.UnreadMessageCountResponse;
 import kgu.developers.common.exception.CustomException;
+import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.team.domain.Status;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
@@ -38,9 +41,12 @@ public class TeamMessageFacadeTest {
     private static final String USER_A = "202412345";
     private static final String USER_B = "202412346";
     private static final String OUTSIDER = "202400000";
+    private static final String PROFESSOR_ID = "202699999";
 
     private TeamMessageFacade teamMessageFacade;
     private FakeTeamThreadRepository fakeTeamThreadRepository;
+    private FakeTeamRepository fakeTeamRepository;
+    private FakeSectionRepository fakeSectionRepository;
 
     @BeforeEach
     void init() {
@@ -48,8 +54,8 @@ public class TeamMessageFacadeTest {
         FakeTeamMessageRepository fakeTeamMessageRepository = new FakeTeamMessageRepository();
         FakeTeamMessageReadReceiptRepository fakeTeamMessageReadReceiptRepository = new FakeTeamMessageReadReceiptRepository();
         FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
-        FakeTeamRepository fakeTeamRepository = new FakeTeamRepository();
-        FakeSectionRepository fakeSectionRepository = new FakeSectionRepository();
+        fakeTeamRepository = new FakeTeamRepository();
+        fakeSectionRepository = new FakeSectionRepository();
 
         fakeTeamMemberRepository.save(TeamMember.create(1L, USER_A, false, "기록자"));
         fakeTeamMemberRepository.save(TeamMember.create(1L, USER_B, false, "발표자"));
@@ -214,5 +220,44 @@ public class TeamMessageFacadeTest {
         // then
         assertEquals(1, result.contents().size());
         assertEquals(TeamMessageRelatedType.QUESTION, result.contents().get(0).relatedType());
+    }
+
+    @Test
+    @DisplayName("담당 교수는 팀 메시지를 조회·등록하고 중요 표시·읽음 처리를 할 수 있다")
+    void teamOperations_ProfessorCanAccessOwnedSectionTeam() {
+        // given
+        fakeSectionRepository.save(Section.builder()
+            .id(1L)
+            .professorId(PROFESSOR_ID)
+            .build());
+        fakeTeamRepository.save(Team.builder()
+            .id(1L)
+            .sectionId(1L)
+            .name("A팀")
+            .kickoffRule("규칙")
+            .meetingSchedule("매주 월요일")
+            .status(Status.CONFIRMED)
+            .build());
+        TeamMessagePersistResponse posted = teamMessageFacade.postMessage(1L, USER_A, createRequest("확인 부탁드립니다."));
+
+        // when
+        TeamMessagePageResponse messages = teamMessageFacade.getMessages(
+            1L, null, PageRequest.of(0, 10), PROFESSOR_ID);
+        teamMessageFacade.updateImportant(posted.id(), true, PROFESSOR_ID);
+        teamMessageFacade.markAsRead(posted.id(), PROFESSOR_ID);
+        UnreadMessageCountResponse unreadCount = teamMessageFacade.getUnreadCount(1L, PROFESSOR_ID);
+        TeamMessagePersistResponse reply = teamMessageFacade.postMessage(
+            1L, PROFESSOR_ID, createRequest("확인했습니다."));
+
+        // then
+        assertEquals(1, messages.contents().size());
+        assertEquals(0, unreadCount.count());
+        assertEquals(PROFESSOR_ID, reply.senderId());
+        assertTrue(teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), PROFESSOR_ID)
+            .contents().stream()
+            .filter(message -> message.id().equals(posted.id()))
+            .findFirst()
+            .orElseThrow()
+            .important());
     }
 }

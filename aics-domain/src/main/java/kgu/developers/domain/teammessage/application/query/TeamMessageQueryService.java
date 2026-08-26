@@ -33,12 +33,22 @@ public class TeamMessageQueryService {
         return teamMessageRepository.findByThreadId(threadId, pageable);
     }
 
+    public Page<TeamMessage> getMessages(List<Long> threadIds, Pageable pageable) {
+        return teamMessageRepository.findByThreadIdIn(threadIds, pageable);
+    }
+
     public Set<Long> findReadMessageIds(String userId, List<Long> messageIds) {
         return teamMessageReadReceiptRepository.findReadMessageIds(userId, messageIds);
     }
 
     public long countUnread(Long threadId, String userId) {
         List<Long> messageIds = teamMessageRepository.findIdsByThreadId(threadId);
+        Set<Long> readMessageIds = teamMessageReadReceiptRepository.findReadMessageIds(userId, messageIds);
+        return messageIds.size() - readMessageIds.size();
+    }
+
+    public long countUnread(List<Long> threadIds, String userId) {
+        List<Long> messageIds = teamMessageRepository.findIdsByThreadIdIn(threadIds);
         Set<Long> readMessageIds = teamMessageReadReceiptRepository.findReadMessageIds(userId, messageIds);
         return messageIds.size() - readMessageIds.size();
     }
