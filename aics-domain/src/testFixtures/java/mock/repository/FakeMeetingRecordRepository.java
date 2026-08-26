@@ -11,6 +11,9 @@ import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 public class FakeMeetingRecordRepository implements MeetingRecordRepository {
 
@@ -61,6 +64,17 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
             .filter(meetingRecord -> meetingRecord.getTeamId().equals(teamId))
             .filter(meetingRecord -> phase == null || meetingRecord.getPhase() == phase)
             .toList();
+    }
+
+    @Override
+    public Page<MeetingRecord> findAllByTeamIdIn(List<Long> teamIds, Pageable pageable) {
+        List<MeetingRecord> records = store.values().stream()
+            .filter(meetingRecord -> teamIds.contains(meetingRecord.getTeamId()))
+            .sorted((left, right) -> right.getMeetingAt().compareTo(left.getMeetingAt()))
+            .toList();
+        int start = Math.min((int) pageable.getOffset(), records.size());
+        int end = Math.min(start + pageable.getPageSize(), records.size());
+        return new PageImpl<>(records.subList(start, end), pageable, records.size());
     }
 
     @Override
