@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest
 @Import({TeamEvaluationCriterionControllerImpl.class, GlobalExceptionHandler.class})
-@WithMockUser(roles = "PROFESSOR")
+@WithMockUser(roles = "ADMIN")
 @TestPropertySource(properties = {
     "spring.security.user.name=admin",
     "spring.security.user.password=admin"
@@ -91,7 +91,7 @@ class TeamEvaluationCriterionControllerTest {
   void rejectNonPositiveSectionId(long sectionId) throws Exception {
     mockMvc.perform(get(URL, sectionId))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
     then(facade).shouldHaveNoInteractions();
   }
@@ -108,7 +108,7 @@ class TeamEvaluationCriterionControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(body))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
     then(facade).shouldHaveNoInteractions();
   }
