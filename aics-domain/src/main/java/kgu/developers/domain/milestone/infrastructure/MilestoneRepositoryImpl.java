@@ -145,6 +145,13 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     }
 
     @Override
+    @Transactional
+    public Optional<Milestone> findByIdAndSectionIdForUpdate(Long id, Long sectionId) {
+        return jpaMilestoneRepository.findActiveByIdAndSectionIdForUpdate(id, sectionId)
+                .map(MilestoneJpaEntity::toDomain);
+    }
+
+    @Override
     public List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId) {
         return jpaMilestoneRepository
                 .findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(sectionId)

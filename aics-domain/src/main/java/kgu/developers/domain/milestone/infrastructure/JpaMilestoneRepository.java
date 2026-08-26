@@ -27,6 +27,19 @@ public interface JpaMilestoneRepository extends JpaRepository<MilestoneJpaEntity
     @Query("""
             SELECT milestone
             FROM MilestoneJpaEntity milestone
+            WHERE milestone.id = :id
+              AND milestone.sectionId = :sectionId
+              AND milestone.deletedAt IS NULL
+            """)
+    Optional<MilestoneJpaEntity> findActiveByIdAndSectionIdForUpdate(
+            @Param("id") Long id,
+            @Param("sectionId") Long sectionId
+    );
+
+    @Lock(PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT milestone
+            FROM MilestoneJpaEntity milestone
             WHERE milestone.id IN :ids AND milestone.deletedAt IS NULL
             ORDER BY milestone.id
             """)

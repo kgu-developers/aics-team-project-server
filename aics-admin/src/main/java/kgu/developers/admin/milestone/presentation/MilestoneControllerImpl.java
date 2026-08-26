@@ -42,9 +42,8 @@ public class MilestoneControllerImpl implements MilestoneController {
             @RequestBody MilestoneCreateRequest request,
             Authentication authentication
     ) {
-        validateSectionAccess(sectionId, authentication);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(milestoneFacade.createMilestone(sectionId, request));
+                .body(milestoneFacade.createMilestone(sectionId, authentication.getName(), request));
     }
 
     @Override
@@ -77,8 +76,7 @@ public class MilestoneControllerImpl implements MilestoneController {
             @RequestBody MilestoneUpdateRequest request,
             Authentication authentication
     ) {
-        validateSectionAccess(sectionId, authentication);
-        milestoneFacade.updateMilestone(sectionId, milestoneId, request);
+        milestoneFacade.updateMilestone(sectionId, authentication.getName(), milestoneId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -90,8 +88,7 @@ public class MilestoneControllerImpl implements MilestoneController {
             @RequestBody MilestoneStatusRequest request,
             Authentication authentication
     ) {
-        validateSectionAccess(sectionId, authentication);
-        milestoneFacade.changeStatus(sectionId, milestoneId, request);
+        milestoneFacade.changeStatus(sectionId, authentication.getName(), milestoneId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -103,8 +100,12 @@ public class MilestoneControllerImpl implements MilestoneController {
             @RequestBody MilestoneEvaluationWindowRequest request,
             Authentication authentication
     ) {
-        validateSectionAccess(sectionId, authentication);
-        milestoneFacade.updateEvaluationWindow(sectionId, milestoneId, request);
+        milestoneFacade.updateEvaluationWindow(
+                sectionId,
+                authentication.getName(),
+                milestoneId,
+                request
+        );
         return ResponseEntity.noContent().build();
     }
 
@@ -115,8 +116,7 @@ public class MilestoneControllerImpl implements MilestoneController {
             @RequestBody MilestoneWeekNumbersRequest request,
             Authentication authentication
     ) {
-        validateSectionAccess(sectionId, authentication);
-        milestoneFacade.updateWeekNumbers(sectionId, request);
+        milestoneFacade.updateWeekNumbers(sectionId, authentication.getName(), request);
         return ResponseEntity.noContent().build();
     }
 

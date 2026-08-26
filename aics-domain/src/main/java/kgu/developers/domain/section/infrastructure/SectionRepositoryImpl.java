@@ -1,5 +1,7 @@
 package kgu.developers.domain.section.infrastructure;
 
+import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
+
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.course.infrastructure.CourseJpaEntity;
 import kgu.developers.domain.section.domain.Section;
@@ -65,5 +67,13 @@ public class SectionRepositoryImpl implements SectionRepository {
     @Override
     public boolean existsActiveByIdAndProfessorId(Long id, String professorId) {
         return jpaSectionRepository.existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(id, professorId);
+    }
+
+    @Override
+    public boolean lockActiveByIdAndProfessorId(Long id, String professorId) {
+        SectionJpaEntity section = entityManager.find(SectionJpaEntity.class, id, PESSIMISTIC_WRITE);
+        return section != null
+                && section.getDeletedAt() == null
+                && professorId.equals(section.getProfessor().getStudentNumber());
     }
 }

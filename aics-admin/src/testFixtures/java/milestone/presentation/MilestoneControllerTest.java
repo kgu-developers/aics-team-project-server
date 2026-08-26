@@ -124,7 +124,7 @@ class MilestoneControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("관리자는 올바른 요청으로 마일스톤을 생성할 수 있다")
     void createMilestone() throws Exception {
-        given(milestoneFacade.createMilestone(eq(1L), any()))
+        given(milestoneFacade.createMilestone(eq(1L), eq("user"), any()))
                 .willReturn(MilestonePersistResponse.of(10L));
 
         mockMvc.perform(post(MILESTONES_URL).with(csrf())
@@ -148,7 +148,7 @@ class MilestoneControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("같은 분반의 주차가 동시에 생성되면 409를 응답한다")
     void duplicateWeekConflict() throws Exception {
-        given(milestoneFacade.createMilestone(eq(1L), any()))
+        given(milestoneFacade.createMilestone(eq(1L), eq("user"), any()))
                 .willThrow(new DuplicateMilestoneWeekException());
 
         mockMvc.perform(post(MILESTONES_URL).with(csrf())
@@ -186,6 +186,7 @@ class MilestoneControllerTest {
 
         verify(milestoneFacade).updateMilestone(
                 eq(1L),
+                eq("user"),
                 eq(2L),
                 any()
         );
@@ -204,6 +205,7 @@ class MilestoneControllerTest {
 
         verify(milestoneFacade).changeStatus(
                 eq(1L),
+                eq("user"),
                 eq(2L),
                 any()
         );
@@ -225,6 +227,7 @@ class MilestoneControllerTest {
 
         verify(milestoneFacade).updateEvaluationWindow(
                 eq(1L),
+                eq("user"),
                 eq(2L),
                 any()
         );
@@ -254,6 +257,7 @@ class MilestoneControllerTest {
 
         verify(milestoneFacade).updateEvaluationWindow(
                 eq(1L),
+                eq("user"),
                 eq(2L),
                 any()
         );
@@ -294,6 +298,7 @@ class MilestoneControllerTest {
 
         verify(milestoneFacade).updateWeekNumbers(
                 eq(1L),
+                eq("user"),
                 any()
         );
     }

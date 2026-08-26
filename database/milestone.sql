@@ -30,4 +30,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_milestone_active_section_week
 CREATE INDEX IF NOT EXISTS idx_milestone_section_status_week
     ON milestone (section_id, status, week_number);
 
--- Add the section foreign key after the section table contract is merged.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_milestone_section'
+    ) THEN
+        ALTER TABLE milestone
+            ADD CONSTRAINT fk_milestone_section
+            FOREIGN KEY (section_id) REFERENCES section(id);
+    END IF;
+END $$;

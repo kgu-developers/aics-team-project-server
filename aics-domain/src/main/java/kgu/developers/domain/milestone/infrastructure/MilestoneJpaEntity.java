@@ -1,6 +1,7 @@
 package kgu.developers.domain.milestone.infrastructure;
 
 import static jakarta.persistence.EnumType.STRING;
+import static jakarta.persistence.FetchType.LAZY;
 import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
@@ -8,14 +9,18 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -43,6 +48,15 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
 
     @Column(name = "section_id", nullable = false)
     private Long sectionId;
+
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(
+            name = "section_id",
+            insertable = false,
+            updatable = false,
+            foreignKey = @ForeignKey(name = "fk_milestone_section")
+    )
+    private SectionJpaEntity section;
 
     @Column(nullable = false, length = 100)
     private String title;

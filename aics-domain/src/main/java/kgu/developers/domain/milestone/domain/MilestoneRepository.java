@@ -13,6 +13,8 @@ public interface MilestoneRepository {
 
     Optional<Milestone> findByIdForUpdate(Long id);
 
+    Optional<Milestone> findByIdAndSectionIdForUpdate(Long id, Long sectionId);
+
     List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId);
 
     List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId);

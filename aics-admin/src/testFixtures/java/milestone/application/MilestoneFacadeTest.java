@@ -40,6 +40,7 @@ import kgu.developers.domain.milestone.exception.InvalidMilestoneRequestExceptio
 class MilestoneFacadeTest {
     private static final Long SECTION_ID = 1L;
     private static final Long MILESTONE_ID = 2L;
+    private static final String PROFESSOR_ID = "20260001";
     private static final LocalDateTime DUE_AT = LocalDateTime.of(2026, 9, 10, 23, 59);
 
     @Mock
@@ -62,13 +63,15 @@ class MilestoneFacadeTest {
         );
         given(milestoneCommandService.createMilestone(
                 SECTION_ID,
+                PROFESSOR_ID,
                 "제안서",
                 "제안서 제출",
                 2,
                 schedule()
         )).willReturn(MILESTONE_ID);
 
-        assertThat(milestoneFacade.createMilestone(SECTION_ID, request).id()).isEqualTo(MILESTONE_ID);
+        assertThat(milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request).id())
+                .isEqualTo(MILESTONE_ID);
     }
 
     @Test
@@ -86,10 +89,11 @@ class MilestoneFacadeTest {
     void updateMilestone() {
         MilestoneUpdateRequest request = new MilestoneUpdateRequest("중간보고서", null, scheduleRequest());
 
-        milestoneFacade.updateMilestone(SECTION_ID, MILESTONE_ID, request);
+        milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
         verify(milestoneCommandService).updateMilestone(
                 SECTION_ID,
+                PROFESSOR_ID,
                 MILESTONE_ID,
                 "중간보고서",
                 null,
@@ -102,12 +106,13 @@ class MilestoneFacadeTest {
     void changeStatus() {
         milestoneFacade.changeStatus(
                 SECTION_ID,
+                PROFESSOR_ID,
                 MILESTONE_ID,
                 new MilestoneStatusRequest(MilestoneStatus.PUBLISHED)
         );
 
         verify(milestoneCommandService)
-                .changeStatus(SECTION_ID, MILESTONE_ID, MilestoneStatus.PUBLISHED);
+                .changeStatus(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, MilestoneStatus.PUBLISHED);
     }
 
     @Test
@@ -121,10 +126,11 @@ class MilestoneFacadeTest {
                 false
         );
 
-        milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request);
+        milestoneFacade.updateEvaluationWindow(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
         verify(milestoneCommandService).updateEvaluationWindow(
                 SECTION_ID,
+                PROFESSOR_ID,
                 MILESTONE_ID,
                 evaluationOpensAt,
                 evaluationClosesAt
@@ -145,12 +151,18 @@ class MilestoneFacadeTest {
                 .given(milestoneCommandService)
                 .updateEvaluationWindow(
                         SECTION_ID,
+                        PROFESSOR_ID,
                         MILESTONE_ID,
                         evaluationOpensAt,
                         evaluationClosesAt
                 );
 
-        assertThatThrownBy(() -> milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request))
+        assertThatThrownBy(() -> milestoneFacade.updateEvaluationWindow(
+                SECTION_ID,
+                PROFESSOR_ID,
+                MILESTONE_ID,
+                request
+        ))
                 .isInstanceOf(InvalidMilestoneRequestException.class);
     }
 
@@ -163,10 +175,11 @@ class MilestoneFacadeTest {
                 true
         );
 
-        milestoneFacade.updateEvaluationWindow(SECTION_ID, MILESTONE_ID, request);
+        milestoneFacade.updateEvaluationWindow(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
         verify(milestoneCommandService).updateEvaluationWindow(
                 SECTION_ID,
+                PROFESSOR_ID,
                 MILESTONE_ID,
                 null,
                 null
@@ -184,9 +197,16 @@ class MilestoneFacadeTest {
         );
         willThrow(dataIntegrityViolation("uq_milestone_active_section_week"))
                 .given(milestoneCommandService)
-                .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
+                .createMilestone(
+                        SECTION_ID,
+                        PROFESSOR_ID,
+                        "제안서",
+                        "제안서 제출",
+                        2,
+                        schedule()
+                );
 
-        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
+        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
                 .isInstanceOf(DuplicateMilestoneWeekException.class);
     }
 
@@ -201,9 +221,16 @@ class MilestoneFacadeTest {
         );
         willThrow(dataIntegrityViolation("public.uq_milestone_active_section_week"))
                 .given(milestoneCommandService)
-                .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
+                .createMilestone(
+                        SECTION_ID,
+                        PROFESSOR_ID,
+                        "제안서",
+                        "제안서 제출",
+                        2,
+                        schedule()
+                );
 
-        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
+        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
                 .isInstanceOf(DuplicateMilestoneWeekException.class);
     }
 
@@ -218,9 +245,16 @@ class MilestoneFacadeTest {
         );
         willThrow(dataIntegrityViolation("fk_milestone_section"))
                 .given(milestoneCommandService)
-                .createMilestone(SECTION_ID, "제안서", "제안서 제출", 2, schedule());
+                .createMilestone(
+                        SECTION_ID,
+                        PROFESSOR_ID,
+                        "제안서",
+                        "제안서 제출",
+                        2,
+                        schedule()
+                );
 
-        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
+        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -231,10 +265,11 @@ class MilestoneFacadeTest {
                 new MilestoneWeekNumberItem(MILESTONE_ID, 3)
         ));
 
-        milestoneFacade.updateWeekNumbers(SECTION_ID, request);
+        milestoneFacade.updateWeekNumbers(SECTION_ID, PROFESSOR_ID, request);
 
         verify(milestoneCommandService).updateWeekNumbers(
                 SECTION_ID,
+                PROFESSOR_ID,
                 List.of(new MilestoneWeekNumberChange(MILESTONE_ID, 3))
         );
     }
@@ -252,7 +287,7 @@ class MilestoneFacadeTest {
         );
         MilestoneCreateRequest request = new MilestoneCreateRequest("제안서", null, 2, invalidSchedule);
 
-        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, request))
+        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
                 .isInstanceOf(InvalidMilestoneRequestException.class);
     }
 
@@ -272,9 +307,14 @@ class MilestoneFacadeTest {
         MilestoneStatusRequest request = new MilestoneStatusRequest(null);
         willThrow(new IllegalArgumentException("공개 상태는 필수입니다."))
                 .given(milestoneCommandService)
-                .changeStatus(SECTION_ID, MILESTONE_ID, null);
+                .changeStatus(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, null);
 
-        assertThatThrownBy(() -> milestoneFacade.changeStatus(SECTION_ID, MILESTONE_ID, request))
+        assertThatThrownBy(() -> milestoneFacade.changeStatus(
+                SECTION_ID,
+                PROFESSOR_ID,
+                MILESTONE_ID,
+                request
+        ))
                 .isInstanceOf(InvalidMilestoneRequestException.class);
     }
 

@@ -30,10 +30,15 @@ public class MilestoneFacade {
     private final MilestoneCommandService milestoneCommandService;
     private final MilestoneQueryService milestoneQueryService;
 
-    public MilestonePersistResponse createMilestone(Long sectionId, MilestoneCreateRequest request) {
+    public MilestonePersistResponse createMilestone(
+            Long sectionId,
+            String professorId,
+            MilestoneCreateRequest request
+    ) {
         return asInvalidRequest(() -> {
             Long milestoneId = milestoneCommandService.createMilestone(
                     sectionId,
+                    professorId,
                     request.title(),
                     request.description(),
                     request.weekNumber(),
@@ -56,9 +61,15 @@ public class MilestoneFacade {
         ));
     }
 
-    public void updateMilestone(Long sectionId, Long milestoneId, MilestoneUpdateRequest request) {
+    public void updateMilestone(
+            Long sectionId,
+            String professorId,
+            Long milestoneId,
+            MilestoneUpdateRequest request
+    ) {
         asInvalidRequest(() -> milestoneCommandService.updateMilestone(
                 sectionId,
+                professorId,
                 milestoneId,
                 request.title(),
                 request.description(),
@@ -66,9 +77,15 @@ public class MilestoneFacade {
         ));
     }
 
-    public void changeStatus(Long sectionId, Long milestoneId, MilestoneStatusRequest request) {
+    public void changeStatus(
+            Long sectionId,
+            String professorId,
+            Long milestoneId,
+            MilestoneStatusRequest request
+    ) {
         asInvalidRequest(() -> milestoneCommandService.changeStatus(
                 sectionId,
+                professorId,
                 milestoneId,
                 request.status()
         ));
@@ -76,12 +93,14 @@ public class MilestoneFacade {
 
     public void updateEvaluationWindow(
             Long sectionId,
+            String professorId,
             Long milestoneId,
             MilestoneEvaluationWindowRequest request
     ) {
         asInvalidRequest(() -> {
             milestoneCommandService.updateEvaluationWindow(
                     sectionId,
+                    professorId,
                     milestoneId,
                     request.evaluationOpensAt(),
                     request.evaluationClosesAt()
@@ -89,9 +108,14 @@ public class MilestoneFacade {
         });
     }
 
-    public void updateWeekNumbers(Long sectionId, MilestoneWeekNumbersRequest request) {
+    public void updateWeekNumbers(
+            Long sectionId,
+            String professorId,
+            MilestoneWeekNumbersRequest request
+    ) {
         asInvalidRequest(() -> milestoneCommandService.updateWeekNumbers(
                 sectionId,
+                professorId,
                 request.toDomain()
         ));
     }

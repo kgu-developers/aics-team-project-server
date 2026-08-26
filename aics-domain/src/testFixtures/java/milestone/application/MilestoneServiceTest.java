@@ -2,6 +2,10 @@ package milestone.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -28,17 +32,24 @@ import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
+import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
+import kgu.developers.domain.section.domain.SectionRepository;
 
 class MilestoneServiceTest {
+    private static final String PROFESSOR_ID = "20260001";
+
     private FakeMilestoneRepository repository;
+    private SectionRepository sectionRepository;
     private MilestoneCommandService commandService;
     private MilestoneQueryService queryService;
 
     @BeforeEach
     void setUp() {
         repository = new FakeMilestoneRepository();
-        commandService = new MilestoneCommandService(repository);
+        sectionRepository = mock(SectionRepository.class);
+        when(sectionRepository.lockActiveByIdAndProfessorId(anyLong(), anyString())).thenReturn(true);
+        commandService = new MilestoneCommandService(repository, sectionRepository);
         queryService = new MilestoneQueryService(repository);
     }
 
@@ -63,6 +74,17 @@ class MilestoneServiceTest {
                 .isInstanceOf(DuplicateMilestoneWeekException.class);
 
         assertThat(queryService.getMilestones(1L, null)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("담당 교수가 아닌 사용자는 마일스톤을 생성할 수 없다")
+    void rejectCreateFromAnotherProfessor() {
+        when(sectionRepository.lockActiveByIdAndProfessorId(1L, PROFESSOR_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> createMilestone(1L, "제안서", 2))
+                .isInstanceOf(MilestoneSectionAccessDeniedException.class);
+
+        assertThat(queryService.getMilestones(1L, null)).isEmpty();
     }
 
     @Test
@@ -105,7 +127,14 @@ class MilestoneServiceTest {
                 null
         );
 
-        commandService.updateMilestone(1L, milestoneId, "제안서 수정", "수정된 설명", updatedSchedule);
+        commandService.updateMilestone(
+                1L,
+                PROFESSOR_ID,
+                milestoneId,
+                "제안서 수정",
+                "수정된 설명",
+                updatedSchedule
+        );
 
         Milestone updated = queryService.getMilestone(1L, milestoneId);
         assertThat(updated.getTitle()).isEqualTo("제안서 수정");
@@ -123,6 +152,7 @@ class MilestoneServiceTest {
 
         commandService.updateEvaluationWindow(
                 1L,
+                PROFESSOR_ID,
                 milestoneId,
                 evaluationOpensAt,
                 evaluationClosesAt
@@ -141,6 +171,7 @@ class MilestoneServiceTest {
 
         assertThatThrownBy(() -> commandService.updateEvaluationWindow(
                 1L,
+                PROFESSOR_ID,
                 milestoneId,
                 LocalDateTime.of(2026, 9, 11, 0, 0),
                 LocalDateTime.of(2026, 9, 12, 0, 0)
@@ -154,7 +185,7 @@ class MilestoneServiceTest {
         Long second = createMilestone(1L, "중간보고서", 4);
         Long first = createMilestone(1L, "제안서", 2);
         createMilestone(2L, "다른 분반 제안서", 1);
-        commandService.changeStatus(1L, first, MilestoneStatus.PUBLISHED);
+        commandService.changeStatus(1L, PROFESSOR_ID, first, MilestoneStatus.PUBLISHED);
 
         List<Milestone> all = queryService.getMilestones(1L, null);
         List<Milestone> published = queryService.getMilestones(1L, MilestoneStatus.PUBLISHED);
@@ -170,7 +201,7 @@ class MilestoneServiceTest {
         Long second = createMilestone(1L, "중간보고서", 4);
         Long unchanged = createMilestone(1L, "최종보고서", 8);
 
-        commandService.updateWeekNumbers(1L, List.of(
+        commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(first, 3),
                 new MilestoneWeekNumberChange(second, 6)
         ));
@@ -186,7 +217,7 @@ class MilestoneServiceTest {
         Long milestoneId = createMilestone(1L, "제안서", 2);
         repository.omitFromNextSectionLockQuery(milestoneId);
 
-        commandService.updateWeekNumbers(1L, List.of(
+        commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(milestoneId, 3)
         ));
 
@@ -201,7 +232,7 @@ class MilestoneServiceTest {
         Long milestoneId = createMilestone(1L, "제안서", 2);
         repository.failNextSaveWithDataIntegrityViolation();
 
-        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, List.of(
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(milestoneId, 3)
         )))
                 .isInstanceOf(DuplicateMilestoneWeekException.class);
@@ -213,7 +244,7 @@ class MilestoneServiceTest {
         Long first = createMilestone(1L, "제안서", 2);
         Long otherSection = createMilestone(2L, "다른 분반 제안서", 3);
 
-        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, List.of(
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(first, 5),
                 new MilestoneWeekNumberChange(otherSection, 6)
         )))
@@ -227,7 +258,7 @@ class MilestoneServiceTest {
     void rejectDuplicateWeekNumberChange() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
 
-        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, List.of(
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(milestoneId, 3),
                 new MilestoneWeekNumberChange(milestoneId, 4)
         )))
@@ -243,7 +274,7 @@ class MilestoneServiceTest {
         Long first = createMilestone(1L, "제안서", 2);
         Long second = createMilestone(1L, "중간보고서", 4);
 
-        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, List.of(
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(first, 5),
                 new MilestoneWeekNumberChange(second, 5)
         )))
@@ -260,7 +291,7 @@ class MilestoneServiceTest {
         Long first = createMilestone(1L, "제안서", 2);
         Long unchanged = createMilestone(1L, "중간보고서", 4);
 
-        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, List.of(
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(first, 4)
         )))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -276,7 +307,7 @@ class MilestoneServiceTest {
         Long first = createMilestone(1L, "제안서", 2);
         Long second = createMilestone(1L, "중간보고서", 4);
 
-        commandService.updateWeekNumbers(1L, List.of(
+        commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(first, 4),
                 new MilestoneWeekNumberChange(second, 2)
         ));
@@ -299,7 +330,12 @@ class MilestoneServiceTest {
 
         assertThatThrownBy(() -> queryService.getMilestone(1L, milestoneId))
                 .isInstanceOf(MilestoneSectionMismatchException.class);
-        assertThatThrownBy(() -> commandService.changeStatus(1L, milestoneId, MilestoneStatus.PUBLISHED))
+        assertThatThrownBy(() -> commandService.changeStatus(
+                1L,
+                PROFESSOR_ID,
+                milestoneId,
+                MilestoneStatus.PUBLISHED
+        ))
                 .isInstanceOf(MilestoneSectionMismatchException.class);
     }
 
@@ -316,7 +352,14 @@ class MilestoneServiceTest {
     void rejectUpdateWithoutScheduleBeforeMutation() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
 
-        assertThatThrownBy(() -> commandService.updateMilestone(1L, milestoneId, "변경된 제목", null, null))
+        assertThatThrownBy(() -> commandService.updateMilestone(
+                1L,
+                PROFESSOR_ID,
+                milestoneId,
+                "변경된 제목",
+                null,
+                null
+        ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("일정");
 
@@ -324,7 +367,14 @@ class MilestoneServiceTest {
     }
 
     private Long createMilestone(Long sectionId, String title, int weekNumber) {
-        return commandService.createMilestone(sectionId, title, null, weekNumber, schedule());
+        return commandService.createMilestone(
+                sectionId,
+                PROFESSOR_ID,
+                title,
+                null,
+                weekNumber,
+                schedule()
+        );
     }
 
     private MilestoneSchedule schedule() {
@@ -383,6 +433,12 @@ class MilestoneServiceTest {
         public Optional<Milestone> findByIdForUpdate(Long id) {
             lastLockedMilestoneId = id;
             return findById(id);
+        }
+
+        @Override
+        public Optional<Milestone> findByIdAndSectionIdForUpdate(Long id, Long sectionId) {
+            lastLockedMilestoneId = id;
+            return findById(id).filter(milestone -> milestone.belongsToSection(sectionId));
         }
 
         @Override

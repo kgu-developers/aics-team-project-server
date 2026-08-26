@@ -18,7 +18,9 @@ import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
+import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
+import kgu.developers.domain.section.domain.SectionRepository;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -26,14 +28,17 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class MilestoneCommandService {
     private final MilestoneRepository milestoneRepository;
+    private final SectionRepository sectionRepository;
 
     public Long createMilestone(
             Long sectionId,
+            String professorId,
             String title,
             String description,
             int weekNumber,
             MilestoneSchedule schedule
     ) {
+        lockOwnedSection(sectionId, professorId);
         Milestone milestone = Milestone.create(sectionId, title, description, weekNumber, schedule);
         boolean duplicateWeekNumber = milestoneRepository
                 .findAllBySectionIdForUpdateOrderByWeekNumber(sectionId)
@@ -58,11 +63,13 @@ public class MilestoneCommandService {
 
     public void updateMilestone(
             Long sectionId,
+            String professorId,
             Long milestoneId,
             String title,
             String description,
             MilestoneSchedule schedule
     ) {
+        lockOwnedSection(sectionId, professorId);
         validateSchedule(schedule);
         Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         milestone.updateDetails(title, description);
@@ -70,7 +77,13 @@ public class MilestoneCommandService {
         milestoneRepository.save(milestone);
     }
 
-    public void changeStatus(Long sectionId, Long milestoneId, MilestoneStatus status) {
+    public void changeStatus(
+            Long sectionId,
+            String professorId,
+            Long milestoneId,
+            MilestoneStatus status
+    ) {
+        lockOwnedSection(sectionId, professorId);
         validateStatus(status);
         Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         milestone.changeStatus(status);
@@ -79,17 +92,23 @@ public class MilestoneCommandService {
 
     public void updateEvaluationWindow(
             Long sectionId,
+            String professorId,
             Long milestoneId,
             LocalDateTime evaluationOpensAt,
             LocalDateTime evaluationClosesAt
     ) {
+        lockOwnedSection(sectionId, professorId);
         Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         milestone.updateEvaluationWindow(evaluationOpensAt, evaluationClosesAt);
         milestoneRepository.save(milestone);
     }
 
-    public void updateWeekNumbers(Long sectionId, List<MilestoneWeekNumberChange> changes) {
-        validateSectionId(sectionId);
+    public void updateWeekNumbers(
+            Long sectionId,
+            String professorId,
+            List<MilestoneWeekNumberChange> changes
+    ) {
+        lockOwnedSection(sectionId, professorId);
         if (changes == null || changes.isEmpty()) {
             throw new IllegalArgumentException("변경할 마일스톤 주차가 필요합니다.");
         }
@@ -176,12 +195,17 @@ public class MilestoneCommandService {
     private Milestone getRequiredMilestoneForUpdate(Long sectionId, Long milestoneId) {
         validateSectionId(sectionId);
         validateMilestoneId(milestoneId);
-        Milestone milestone = milestoneRepository.findByIdForUpdate(milestoneId)
-                .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
-        if (!milestone.belongsToSection(sectionId)) {
+        Milestone milestone = milestoneRepository
+                .findByIdAndSectionIdForUpdate(milestoneId, sectionId)
+                .orElse(null);
+        if (milestone != null) {
+            return milestone;
+        }
+
+        if (milestoneRepository.findById(milestoneId).isPresent()) {
             throw new MilestoneSectionMismatchException(milestoneId, sectionId);
         }
-        return milestone;
+        throw new MilestoneNotFoundException(milestoneId);
     }
 
     private void validateMilestoneId(Long milestoneId) {
@@ -205,6 +229,16 @@ public class MilestoneCommandService {
     private void validateSectionId(Long sectionId) {
         if (sectionId == null || sectionId <= 0) {
             throw new IllegalArgumentException("분반 식별자는 양수여야 합니다.");
+        }
+    }
+
+    private void lockOwnedSection(Long sectionId, String professorId) {
+        validateSectionId(sectionId);
+        if (professorId == null || professorId.isBlank()) {
+            throw new IllegalArgumentException("교수 식별자는 필수입니다.");
+        }
+        if (!sectionRepository.lockActiveByIdAndProfessorId(sectionId, professorId)) {
+            throw new MilestoneSectionAccessDeniedException();
         }
     }
 

@@ -16,6 +16,7 @@ import lombok.Getter;
 public enum MilestoneDomainExceptionCode implements ExceptionCode {
     MILESTONE_NOT_FOUND(NOT_FOUND, "해당 마일스톤을 찾을 수 없습니다."),
     MILESTONE_SECTION_FORBIDDEN(FORBIDDEN, "요청한 분반의 마일스톤이 아닙니다."),
+    MILESTONE_SECTION_ACCESS_FORBIDDEN(FORBIDDEN, "담당 분반의 마일스톤만 변경할 수 있습니다."),
     MILESTONE_WEEK_CONFLICT(CONFLICT, "같은 분반에서 마일스톤 주차를 중복할 수 없습니다."),
     INVALID_MILESTONE_REQUEST(BAD_REQUEST, "마일스톤 요청 값이 올바르지 않습니다."),
     ;
