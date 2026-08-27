@@ -30,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,7 +56,12 @@ class TeamMessageAdminFacadeTest {
     @Test
     @DisplayName("전체 조회는 담당 교수의 팀 메시지를 분반·팀·읽음 정보와 함께 응답한다")
     void getMessages_AllOwnedSections() {
-        Pageable pageable = PageRequest.of(0, 20);
+        Pageable pageable = PageRequest.of(0, 20, Sort.by("senderId"));
+        Pageable latestFirstPageable = PageRequest.of(
+            0,
+            20,
+            Sort.by(Sort.Order.desc("id"))
+        );
         Section section = section(1L, "1151", PROFESSOR_ID);
         Team team = team(10L, 1L, "A팀");
         TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
@@ -64,8 +70,8 @@ class TeamMessageAdminFacadeTest {
         given(sectionRepository.findAllByProfessorId(PROFESSOR_ID)).willReturn(List.of(detail(section)));
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
-        given(teamMessageQueryService.getMessages(List.of(100L), pageable))
-            .willReturn(new PageImpl<>(List.of(message), pageable, 1));
+        given(teamMessageQueryService.getMessages(List.of(100L), latestFirstPageable))
+            .willReturn(new PageImpl<>(List.of(message), latestFirstPageable, 1));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(3L);
 
@@ -78,6 +84,7 @@ class TeamMessageAdminFacadeTest {
             assertThat(content.message()).isEqualTo("화면설계서 확인 부탁드립니다.");
             assertThat(content.read()).isFalse();
         });
+        verify(teamMessageQueryService).getMessages(List.of(100L), latestFirstPageable);
     }
 
     @Test

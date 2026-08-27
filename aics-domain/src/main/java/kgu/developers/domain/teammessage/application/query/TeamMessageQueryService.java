@@ -6,6 +6,7 @@ import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageReadReceiptRepository;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
+import kgu.developers.domain.teammessage.domain.TeamMessageUnreadRepository;
 import kgu.developers.domain.teammessage.exception.TeamMessageNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,6 +21,7 @@ public class TeamMessageQueryService {
 
     private final TeamMessageRepository teamMessageRepository;
     private final TeamMessageReadReceiptRepository teamMessageReadReceiptRepository;
+    private final TeamMessageUnreadRepository teamMessageUnreadRepository;
 
     public TeamMessage getMessage(Long id) {
         return teamMessageRepository.findById(id)
@@ -42,14 +44,10 @@ public class TeamMessageQueryService {
     }
 
     public long countUnread(Long threadId, String userId) {
-        List<Long> messageIds = teamMessageRepository.findIdsByThreadId(threadId);
-        Set<Long> readMessageIds = teamMessageReadReceiptRepository.findReadMessageIds(userId, messageIds);
-        return messageIds.size() - readMessageIds.size();
+        return teamMessageUnreadRepository.countUnreadByThreadIdIn(List.of(threadId), userId);
     }
 
     public long countUnread(List<Long> threadIds, String userId) {
-        List<Long> messageIds = teamMessageRepository.findIdsByThreadIdIn(threadIds);
-        Set<Long> readMessageIds = teamMessageReadReceiptRepository.findReadMessageIds(userId, messageIds);
-        return messageIds.size() - readMessageIds.size();
+        return teamMessageUnreadRepository.countUnreadByThreadIdIn(threadIds, userId);
     }
 }

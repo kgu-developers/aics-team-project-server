@@ -26,6 +26,7 @@ import mock.repository.FakeSectionRepository;
 import mock.repository.FakeTeamMemberRepository;
 import mock.repository.FakeTeamMessageReadReceiptRepository;
 import mock.repository.FakeTeamMessageRepository;
+import mock.repository.FakeTeamMessageUnreadRepository;
 import mock.repository.FakeTeamRepository;
 import mock.repository.FakeTeamThreadRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,7 +67,14 @@ public class TeamMessageFacadeTest {
             new TeamThreadCommandService(fakeTeamThreadRepository),
             new TeamThreadQueryService(fakeTeamThreadRepository),
             new TeamMessageCommandService(fakeTeamMessageRepository, fakeTeamMessageReadReceiptRepository),
-            new TeamMessageQueryService(fakeTeamMessageRepository, fakeTeamMessageReadReceiptRepository),
+            new TeamMessageQueryService(
+                fakeTeamMessageRepository,
+                fakeTeamMessageReadReceiptRepository,
+                new FakeTeamMessageUnreadRepository(
+                    fakeTeamMessageRepository,
+                    fakeTeamMessageReadReceiptRepository
+                )
+            ),
             new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository)
         );
     }

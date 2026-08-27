@@ -5,6 +5,7 @@ import java.util.Optional;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
+import kgu.developers.domain.teammessage.domain.TeamMessageUnreadRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class TeamMessageRepositoryImpl implements TeamMessageRepository {
+public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMessageUnreadRepository {
 
     private final JpaTeamMessageRepository jpaTeamMessageRepository;
 
@@ -61,5 +62,13 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository {
         return jpaTeamMessageRepository.findAllByThreadIdIn(threadIds).stream()
             .map(TeamMessageJpaEntity::getId)
             .toList();
+    }
+
+    @Override
+    public long countUnreadByThreadIdIn(List<Long> threadIds, String userId) {
+        if (threadIds.isEmpty()) {
+            return 0;
+        }
+        return jpaTeamMessageRepository.countUnreadByThreadIdIn(threadIds, userId);
     }
 }

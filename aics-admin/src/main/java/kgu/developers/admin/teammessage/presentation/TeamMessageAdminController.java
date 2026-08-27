@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +29,7 @@ public interface TeamMessageAdminController {
         content = @Content(schema = @Schema(implementation = TeamMessageAdminPageResponse.class))
     )
     ResponseEntity<TeamMessageAdminPageResponse> getMessages(
-        @Parameter(description = "분반 필터") @RequestParam(required = false) Long sectionId,
+        @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
         Pageable pageable,
         Authentication authentication
     );
