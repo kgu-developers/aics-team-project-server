@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +29,7 @@ public interface MeetingRecordAdminController {
         content = @Content(schema = @Schema(implementation = MeetingRecordAdminPageResponse.class))
     )
     ResponseEntity<MeetingRecordAdminPageResponse> getMeetingRecords(
-        @Parameter(description = "분반 필터") @RequestParam(required = false) Long sectionId,
+        @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
         Pageable pageable,
         Authentication authentication
     );

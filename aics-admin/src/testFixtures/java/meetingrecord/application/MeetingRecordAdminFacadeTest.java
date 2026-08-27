@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,7 +50,8 @@ class MeetingRecordAdminFacadeTest {
     @Test
     @DisplayName("전체 조회는 담당 교수의 모든 분반 팀 회의록을 분반·팀 정보와 함께 응답한다")
     void getMeetingRecords_AllOwnedSections() {
-        Pageable pageable = PageRequest.of(0, 20);
+        Pageable pageable = PageRequest.of(0, 20, Sort.by("authorId"));
+        Pageable latestFirstPageable = latestFirst(pageable);
         Section firstSection = section(1L, "1151", PROFESSOR_ID);
         Section secondSection = section(2L, "1152", PROFESSOR_ID);
         Team firstTeam = team(10L, 1L, "A팀");
@@ -60,8 +62,8 @@ class MeetingRecordAdminFacadeTest {
             .willReturn(List.of(detail(firstSection), detail(secondSection)));
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(firstTeam));
         given(teamRepository.findAllBySectionId(2L)).willReturn(List.of(secondTeam));
-        given(meetingRecordQueryService.getMeetingRecords(List.of(10L, 20L), pageable))
-            .willReturn(new PageImpl<>(List.of(meetingRecord), pageable, 1));
+        given(meetingRecordQueryService.getMeetingRecords(List.of(10L, 20L), latestFirstPageable))
+            .willReturn(new PageImpl<>(List.of(meetingRecord), latestFirstPageable, 1));
 
         var response = meetingRecordAdminFacade.getMeetingRecords(null, pageable, PROFESSOR_ID);
 
@@ -73,23 +75,26 @@ class MeetingRecordAdminFacadeTest {
             assertThat(content.content()).isEqualTo("와이어프레임 기획 논의");
         });
         assertThat(response.pageable().totalElements()).isEqualTo(1);
+        verify(meetingRecordQueryService)
+            .getMeetingRecords(List.of(10L, 20L), latestFirstPageable);
     }
 
     @Test
     @DisplayName("분반 조회는 요청한 담당 분반의 팀만 조회한다")
     void getMeetingRecords_OwnedSection() {
         Pageable pageable = PageRequest.of(0, 20);
+        Pageable latestFirstPageable = latestFirst(pageable);
         Section section = section(1L, "1151", PROFESSOR_ID);
         Team team = team(10L, 1L, "A팀");
 
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
-        given(meetingRecordQueryService.getMeetingRecords(List.of(10L), pageable))
-            .willReturn(new PageImpl<>(List.of(), pageable, 0));
+        given(meetingRecordQueryService.getMeetingRecords(List.of(10L), latestFirstPageable))
+            .willReturn(new PageImpl<>(List.of(), latestFirstPageable, 0));
 
         meetingRecordAdminFacade.getMeetingRecords(1L, pageable, PROFESSOR_ID);
 
-        verify(meetingRecordQueryService).getMeetingRecords(List.of(10L), pageable);
+        verify(meetingRecordQueryService).getMeetingRecords(List.of(10L), latestFirstPageable);
         verify(sectionRepository, never()).findAllByProfessorId(PROFESSOR_ID);
     }
 
@@ -137,5 +142,13 @@ class MeetingRecordAdminFacadeTest {
             .content(content)
             .participants(List.of())
             .build();
+    }
+
+    private Pageable latestFirst(Pageable pageable) {
+        return PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            Sort.by(Sort.Order.desc("meetingAt"), Sort.Order.desc("id"))
+        );
     }
 }

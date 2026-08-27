@@ -15,7 +15,9 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class MeetingRecordAdminFacade {
+
+    private static final Sort LATEST_FIRST = Sort.by(
+        Sort.Order.desc("meetingAt"),
+        Sort.Order.desc("id")
+    );
 
     private final SectionRepository sectionRepository;
     private final TeamRepository teamRepository;
@@ -39,8 +46,13 @@ public class MeetingRecordAdminFacade {
             .flatMap(section -> teamRepository.findAllBySectionId(section.getId()).stream())
             .toList();
 
+        Pageable latestFirstPageable = PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            LATEST_FIRST
+        );
         Page<MeetingRecord> meetingRecords = meetingRecordQueryService.getMeetingRecords(
-            teams.stream().map(Team::getId).toList(), pageable);
+            teams.stream().map(Team::getId).toList(), latestFirstPageable);
         Map<Long, Team> teamsById = teams.stream()
             .collect(Collectors.toMap(Team::getId, Function.identity()));
         Map<Long, Section> sectionsById = sections.stream()
