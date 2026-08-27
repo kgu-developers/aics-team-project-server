@@ -6,6 +6,7 @@ import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -28,16 +29,21 @@ public class TopicVoteCommandService {
         try {
             return topicVoteRepository.save(TopicVote.create(teamId, candidateId, voterUserId));
         } catch (DataIntegrityViolationException e) {
-            Optional<TopicVote> retryVote = topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId);
-            if (retryVote.isPresent()) {
-                TopicVote vote = retryVote.get();
-                if (vote.getDeletedAt() == null) {
-                    return changeVoteCandidate(vote, candidateId);
-                }
-                return reactivateVote(vote, candidateId);
-            }
-            throw e;
+            return handleVoteConflict(teamId, candidateId, voterUserId);
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public TopicVote handleVoteConflict(Long teamId, Long candidateId, String voterUserId) {
+        Optional<TopicVote> retryVote = topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId);
+        if (retryVote.isPresent()) {
+            TopicVote vote = retryVote.get();
+            if (vote.getDeletedAt() == null) {
+                return changeVoteCandidate(vote, candidateId);
+            }
+            return reactivateVote(vote, candidateId);
+        }
+        throw new IllegalStateException("동시 투표 충돌로 인해 기존 투표를 찾을 수 없습니다");
     }
 
     public void cancelVote(Long candidateId, String voterUserId) {
