@@ -78,6 +78,7 @@ public class Project {
 
     public void completeProposal() {
         this.proposalCompletedAt = LocalDateTime.now();
+        this.approvalStatus = ApprovalStatus.APPROVED;
     }
 
     public void increaseProposalRevision() {

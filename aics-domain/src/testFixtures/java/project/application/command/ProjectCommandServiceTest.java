@@ -91,7 +91,7 @@ class ProjectCommandServiceTest {
     }
 
     @Test
-    @DisplayName("completeProposal은 프로젝트의 제안 완료 시각을 설정한다")
+    @DisplayName("completeProposal은 프로젝트의 제안 완료 시각을 설정하고 승인 상태를 APPROVED로 변경한다")
     void completeProposal() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
@@ -101,6 +101,7 @@ class ProjectCommandServiceTest {
         projectCommandService.completeProposal(10L);
 
         assertThat(project.getProposalCompletedAt()).isNotNull();
+        assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
         then(projectRepository).should().save(project);
     }
 
