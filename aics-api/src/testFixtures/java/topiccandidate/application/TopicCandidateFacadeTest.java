@@ -158,9 +158,46 @@ class TopicCandidateFacadeTest {
         verify(projectRepository).save(org.mockito.ArgumentMatchers.argThat(project ->
             project.getTeamId().equals(TEAM_ID)
                 && project.getTitle().equals(topicCandidate.getTitle())
-                && project.getTopicCandidateId().equals(topicCandidate.getId())
                 && project.getDescription().equals(topicCandidate.getDescription())
                 && project.getGoal().equals(topicCandidate.getDescription())
+        ));
+    }
+
+    @Test
+    @DisplayName("finalizeTopic은 기존 프로젝트가 있으면 제목과 설명·목표를 새 후보로 갱신한다")
+    void finalizeTopic_UpdatesExistingProjectDescriptionAndGoal() {
+        // given
+        TopicCandidate firstCandidate = candidate(1L, "첫 번째 주제", "첫 번째 설명");
+        TopicCandidate secondCandidate = candidate(2L, "두 번째 주제", "두 번째 설명");
+        Project existingProject = Project.builder()
+            .id(3L)
+            .teamId(TEAM_ID)
+            .title(firstCandidate.getTitle())
+            .description(firstCandidate.getDescription())
+            .goal(firstCandidate.getDescription())
+            .build();
+        Project updatedProject = Project.builder()
+            .id(3L)
+            .teamId(TEAM_ID)
+            .title(secondCandidate.getTitle())
+            .description(secondCandidate.getDescription())
+            .goal(secondCandidate.getDescription())
+            .build();
+        given(topicCandidateRepository.findById(secondCandidate.getId())).willReturn(java.util.Optional.of(secondCandidate));
+        given(projectRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(existingProject));
+        given(projectRepository.save(org.mockito.ArgumentMatchers.any(Project.class))).willReturn(updatedProject);
+
+        // when
+        topicCandidateFacade.finalizeTopic(
+            TEAM_ID, CURRENT_USER_ID, new TopicFinalizeRequest(secondCandidate.getId())
+        );
+
+        // then
+        verify(teamAccessValidator).validateLeaderWithTeamLock(TEAM_ID, CURRENT_USER_ID);
+        verify(projectRepository).save(org.mockito.ArgumentMatchers.argThat(project ->
+            project.getTitle().equals(secondCandidate.getTitle())
+                && project.getDescription().equals(secondCandidate.getDescription())
+                && project.getGoal().equals(secondCandidate.getDescription())
         ));
     }
 

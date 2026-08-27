@@ -81,6 +81,8 @@ public class TopicCandidateFacade {
                 null
             ));
         project.updateTitle(topicCandidate.getTitle());
+        project.updateDescription(topicCandidate.getDescription());
+        project.updateGoal(topicCandidate.getDescription());
         project.updateTopicCandidateId(topicCandidate.getId());
         Project savedProject = projectRepository.save(project);
         return TopicFinalizeResponse.of(savedProject, topicCandidate);
