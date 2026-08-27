@@ -88,21 +88,21 @@ class MilestoneServiceTest {
     }
 
     @Test
-    @DisplayName("동시 생성이 DB 주차 제약과 충돌하면 명확한 도메인 예외로 변환한다")
-    void translateConcurrentDuplicateWeekConflict() {
+    @DisplayName("동시 생성의 DB 주차 제약 충돌은 API 경계에서 변환할 수 있도록 원본 예외를 유지한다")
+    void preserveConcurrentDuplicateWeekConflict() {
         repository.failNextSaveWithDataIntegrityViolation();
 
         assertThatThrownBy(() -> createMilestone(1L, "제안서", 2))
-                .isInstanceOf(DuplicateMilestoneWeekException.class);
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
-    @DisplayName("스키마가 포함된 주차 제약 이름도 도메인 충돌 예외로 변환한다")
-    void translateSchemaQualifiedDuplicateWeekConflict() {
+    @DisplayName("스키마가 포함된 주차 제약 충돌도 API 경계에서 변환할 수 있도록 원본 예외를 유지한다")
+    void preserveSchemaQualifiedDuplicateWeekConflict() {
         repository.failNextSaveWithDataIntegrityViolation("public.uq_milestone_active_section_week");
 
         assertThatThrownBy(() -> createMilestone(1L, "제안서", 2))
-                .isInstanceOf(DuplicateMilestoneWeekException.class);
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -212,30 +212,31 @@ class MilestoneServiceTest {
     }
 
     @Test
-    @DisplayName("잠금 목록에서 누락된 마일스톤도 단건 잠금 후 주차 변경 저장 대상에 포함한다")
-    void saveFallbackMilestoneWhenUpdatingWeekNumbers() {
+    @DisplayName("분반 잠금 목록이 불완전하면 주차 변경을 중단한다")
+    void rejectIncompleteSectionLockSnapshot() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
         repository.omitFromNextSectionLockQuery(milestoneId);
 
-        commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
+        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(milestoneId, 3)
-        ));
+        )))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("누락");
 
-        assertThat(queryService.getMilestone(1L, milestoneId).getWeekNumber()).isEqualTo(3);
-        assertThat(repository.lastSavedBatchIds).containsExactly(milestoneId);
-        assertThat(repository.lastLockedMilestoneId).isEqualTo(milestoneId);
+        assertThat(queryService.getMilestone(1L, milestoneId).getWeekNumber()).isEqualTo(2);
+        assertThat(repository.lastSavedBatchIds).isEmpty();
     }
 
     @Test
-    @DisplayName("주차 변경 중 DB 중복 제약과 충돌하면 명확한 도메인 예외로 변환한다")
-    void translateConcurrentWeekNumberUpdateConflict() {
+    @DisplayName("주차 변경 중 DB 중복 제약 충돌은 API 경계에서 변환할 수 있도록 원본 예외를 유지한다")
+    void preserveConcurrentWeekNumberUpdateConflict() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
         repository.failNextSaveWithDataIntegrityViolation();
 
         assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(milestoneId, 3)
         )))
-                .isInstanceOf(DuplicateMilestoneWeekException.class);
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

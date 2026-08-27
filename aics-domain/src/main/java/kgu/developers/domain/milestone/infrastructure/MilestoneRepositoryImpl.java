@@ -1,10 +1,12 @@
 package kgu.developers.domain.milestone.infrastructure;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+
+import jakarta.persistence.EntityManager;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MilestoneRepositoryImpl implements MilestoneRepository {
 
     private final JpaMilestoneRepository jpaMilestoneRepository;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional
@@ -93,8 +96,14 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
             return Map.of();
         }
 
-        return jpaMilestoneRepository.findAllActiveByIdInForUpdate(existingIds).stream()
-                .collect(Collectors.toMap(MilestoneJpaEntity::getId, entity -> entity));
+        Map<Long, MilestoneJpaEntity> entitiesById = new HashMap<>();
+        for (Long id : existingIds) {
+            MilestoneJpaEntity entity = entityManager.find(MilestoneJpaEntity.class, id);
+            if (entity != null && entity.getDeletedAt() == null) {
+                entitiesById.put(id, entity);
+            }
+        }
+        return entitiesById;
     }
 
     private MilestoneJpaEntity entityForSave(Milestone milestone) {
@@ -102,10 +111,10 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
             return MilestoneJpaEntity.fromDomain(milestone);
         }
 
-        MilestoneJpaEntity entity = jpaMilestoneRepository
-                .findById(milestone.getId())
-                .filter(existingEntity -> existingEntity.getDeletedAt() == null)
-                .orElse(null);
+        MilestoneJpaEntity entity = entityManager.find(MilestoneJpaEntity.class, milestone.getId());
+        if (entity != null && entity.getDeletedAt() != null) {
+            entity = null;
+        }
         return updateExistingEntity(milestone, entity);
     }
 

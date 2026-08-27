@@ -14,9 +14,9 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.EntityManager;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
@@ -37,6 +37,9 @@ class MilestoneRepositoryImplTest {
 
     @Mock
     private JpaMilestoneRepository jpaMilestoneRepository;
+
+    @Mock
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("새 마일스톤은 DB 제약 위반을 호출 경계에서 확인하도록 즉시 반영한다")
@@ -65,7 +68,7 @@ class MilestoneRepositoryImplTest {
                 .build();
         given(jpaMilestoneRepository.saveAndFlush(any()))
                 .willReturn(savedEntity);
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         Milestone result = repository.save(newMilestone);
 
@@ -85,7 +88,7 @@ class MilestoneRepositoryImplTest {
                         MilestoneJpaEntity.fromDomain(first),
                         MilestoneJpaEntity.fromDomain(second)
                 ));
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         List<Milestone> result = repository.findAllBySectionIdOrderByWeekNumber(7L);
 
@@ -104,7 +107,7 @@ class MilestoneRepositoryImplTest {
                         MilestoneJpaEntity.fromDomain(first),
                         MilestoneJpaEntity.fromDomain(second)
                 ));
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         List<Milestone> result = repository
                 .findAllBySectionIdForUpdateOrderByWeekNumber(7L);
@@ -122,7 +125,7 @@ class MilestoneRepositoryImplTest {
                         MilestoneStatus.PUBLISHED
                 ))
                 .willReturn(List.of(MilestoneJpaEntity.fromDomain(milestone(1L, 1))));
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         List<Milestone> result = repository
                 .findAllBySectionIdAndStatusOrderByWeekNumber(7L, MilestoneStatus.PUBLISHED);
@@ -155,15 +158,14 @@ class MilestoneRepositoryImplTest {
                         null
                 )
         );
-        given(jpaMilestoneRepository.findById(1L))
-                .willReturn(Optional.of(existingEntity));
+        given(entityManager.find(MilestoneJpaEntity.class, 1L)).willReturn(existingEntity);
         given(jpaMilestoneRepository.save(existingEntity)).willReturn(existingEntity);
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         Milestone result = repository.save(updated);
 
         assertThat(result.getTitle()).isEqualTo("수정된 마일스톤");
-        verify(jpaMilestoneRepository).findById(1L);
+        verify(entityManager).find(MilestoneJpaEntity.class, 1L);
         verify(jpaMilestoneRepository).save(existingEntity);
         verify(jpaMilestoneRepository, never()).findActiveByIdForUpdate(anyLong());
     }
@@ -171,16 +173,14 @@ class MilestoneRepositoryImplTest {
     @Test
     @DisplayName("삭제되었거나 존재하지 않는 마일스톤은 저장으로 되살리지 않는다")
     void doesNotRecreateMissingMilestoneDuringUpdate() {
-        given(jpaMilestoneRepository.findById(1L))
-                .willReturn(Optional.empty());
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         assertThatThrownBy(() -> repository.save(milestone(1L, 1)))
                 .isInstanceOf(MilestoneNotFoundException.class)
                 .extracting("milestoneId")
                 .isEqualTo(1L);
-        verify(jpaMilestoneRepository).findById(1L);
-        verifyNoMoreInteractions(jpaMilestoneRepository);
+        verify(entityManager).find(MilestoneJpaEntity.class, 1L);
+        verifyNoMoreInteractions(jpaMilestoneRepository, entityManager);
     }
 
     @Test
@@ -188,7 +188,7 @@ class MilestoneRepositoryImplTest {
     void findsAndLocksMilestoneById() {
         given(jpaMilestoneRepository.findActiveByIdForUpdate(1L))
                 .willReturn(Optional.of(MilestoneJpaEntity.fromDomain(milestone(1L, 1))));
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         Optional<Milestone> result = repository.findByIdForUpdate(1L);
 
@@ -208,8 +208,9 @@ class MilestoneRepositoryImplTest {
                 milestone(3L, 8)
         );
         List<List<Integer>> weekNumbersAtFlush = new ArrayList<>();
-        given(jpaMilestoneRepository.findAllActiveByIdInForUpdate(List.of(1L, 2L, 3L)))
-                .willReturn(List.of(firstEntity, secondEntity, unchangedEntity));
+        given(entityManager.find(MilestoneJpaEntity.class, 1L)).willReturn(firstEntity);
+        given(entityManager.find(MilestoneJpaEntity.class, 2L)).willReturn(secondEntity);
+        given(entityManager.find(MilestoneJpaEntity.class, 3L)).willReturn(unchangedEntity);
         doAnswer(invocation -> {
             weekNumbersAtFlush.add(List.of(
                     firstEntity.getWeekNumber(),
@@ -221,13 +222,15 @@ class MilestoneRepositoryImplTest {
         given(jpaMilestoneRepository.saveAllAndFlush(
                 List.of(firstEntity, secondEntity, unchangedEntity)
         )).willReturn(List.of(firstEntity, secondEntity, unchangedEntity));
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        MilestoneRepositoryImpl repository = repository();
 
         List<Milestone> result = repository.saveAll(updates);
 
         assertThat(weekNumbersAtFlush).containsExactly(List.of(9, 10, 8));
         assertThat(result).extracting(Milestone::getWeekNumber).containsExactly(4, 2, 8);
-        verify(jpaMilestoneRepository).findAllActiveByIdInForUpdate(List.of(1L, 2L, 3L));
+        verify(entityManager).find(MilestoneJpaEntity.class, 1L);
+        verify(entityManager).find(MilestoneJpaEntity.class, 2L);
+        verify(entityManager).find(MilestoneJpaEntity.class, 3L);
         verify(jpaMilestoneRepository, never()).findActiveByIdForUpdate(anyLong());
         InOrder saveOrder = inOrder(jpaMilestoneRepository);
         saveOrder.verify(jpaMilestoneRepository).flush();
@@ -240,16 +243,16 @@ class MilestoneRepositoryImplTest {
     @DisplayName("일괄 저장 중 존재하지 않는 마일스톤은 새 엔티티로 만들지 않는다")
     void doesNotRecreateMissingMilestoneDuringBatchUpdate() {
         MilestoneJpaEntity firstEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 1));
-        given(jpaMilestoneRepository.findAllActiveByIdInForUpdate(List.of(1L, 2L)))
-                .willReturn(List.of(firstEntity));
-        MilestoneRepositoryImpl repository = new MilestoneRepositoryImpl(jpaMilestoneRepository);
+        given(entityManager.find(MilestoneJpaEntity.class, 1L)).willReturn(firstEntity);
+        MilestoneRepositoryImpl repository = repository();
 
         assertThatThrownBy(() -> repository.saveAll(List.of(milestone(1L, 3), milestone(2L, 4))))
                 .isInstanceOf(MilestoneNotFoundException.class)
                 .extracting("milestoneId")
                 .isEqualTo(2L);
-        verify(jpaMilestoneRepository).findAllActiveByIdInForUpdate(List.of(1L, 2L));
-        verifyNoMoreInteractions(jpaMilestoneRepository);
+        verify(entityManager).find(MilestoneJpaEntity.class, 1L);
+        verify(entityManager).find(MilestoneJpaEntity.class, 2L);
+        verifyNoMoreInteractions(jpaMilestoneRepository, entityManager);
     }
 
     @Test
@@ -258,15 +261,11 @@ class MilestoneRepositoryImplTest {
         Lock singleLock = JpaMilestoneRepository.class
                 .getMethod("findActiveByIdForUpdate", Long.class)
                 .getAnnotation(Lock.class);
-        Lock batchLock = JpaMilestoneRepository.class
-                .getMethod("findAllActiveByIdInForUpdate", Collection.class)
-                .getAnnotation(Lock.class);
         Lock sectionLock = JpaMilestoneRepository.class
                 .getMethod("findAllActiveBySectionIdForUpdate", Long.class)
                 .getAnnotation(Lock.class);
 
         assertThat(singleLock.value()).isEqualTo(PESSIMISTIC_WRITE);
-        assertThat(batchLock.value()).isEqualTo(PESSIMISTIC_WRITE);
         assertThat(sectionLock.value()).isEqualTo(PESSIMISTIC_WRITE);
     }
 
@@ -287,5 +286,9 @@ class MilestoneRepositoryImplTest {
                         null
                 )
         );
+    }
+
+    private MilestoneRepositoryImpl repository() {
+        return new MilestoneRepositoryImpl(jpaMilestoneRepository, entityManager);
     }
 }

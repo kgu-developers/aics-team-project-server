@@ -2,7 +2,6 @@ package kgu.developers.domain.milestone.infrastructure;
 
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
@@ -35,15 +34,6 @@ public interface JpaMilestoneRepository extends JpaRepository<MilestoneJpaEntity
             @Param("id") Long id,
             @Param("sectionId") Long sectionId
     );
-
-    @Lock(PESSIMISTIC_WRITE)
-    @Query("""
-            SELECT milestone
-            FROM MilestoneJpaEntity milestone
-            WHERE milestone.id IN :ids AND milestone.deletedAt IS NULL
-            ORDER BY milestone.id
-            """)
-    List<MilestoneJpaEntity> findAllActiveByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
     @Lock(PESSIMISTIC_WRITE)
     @Query("""

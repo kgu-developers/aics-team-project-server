@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,12 +47,7 @@ public class MilestoneCommandService {
             throw new DuplicateMilestoneWeekException();
         }
 
-        Milestone savedMilestone;
-        try {
-            savedMilestone = milestoneRepository.save(milestone);
-        } catch (DataIntegrityViolationException exception) {
-            throw DuplicateMilestoneWeekException.translate(exception);
-        }
+        Milestone savedMilestone = milestoneRepository.save(milestone);
 
         if (savedMilestone.getId() == null) {
             throw new IllegalStateException("저장된 마일스톤 식별자가 없습니다.");
@@ -134,8 +128,7 @@ public class MilestoneCommandService {
             getRequiredSectionMilestoneForUpdate(
                     sectionId,
                     change.milestoneId(),
-                    sectionMilestonesById,
-                    sectionMilestones
+                    sectionMilestonesById
             );
             finalWeekNumbersById.put(change.milestoneId(), change.weekNumber());
         }
@@ -144,28 +137,24 @@ public class MilestoneCommandService {
         for (MilestoneWeekNumberChange change : changes) {
             sectionMilestonesById.get(change.milestoneId()).changeWeekNumber(change.weekNumber());
         }
-        try {
-            milestoneRepository.saveAll(sectionMilestones);
-        } catch (DataIntegrityViolationException exception) {
-            throw DuplicateMilestoneWeekException.translate(exception);
-        }
+        milestoneRepository.saveAll(sectionMilestones);
     }
 
     private Milestone getRequiredSectionMilestoneForUpdate(
             Long sectionId,
             Long milestoneId,
-            Map<Long, Milestone> sectionMilestonesById,
-            List<Milestone> sectionMilestones
+            Map<Long, Milestone> sectionMilestonesById
     ) {
         Milestone milestone = sectionMilestonesById.get(milestoneId);
         if (milestone != null) {
             return milestone;
         }
 
-        milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
-        sectionMilestonesById.put(milestoneId, milestone);
-        sectionMilestones.add(milestone);
-        return milestone;
+        milestone = getRequiredMilestone(milestoneId);
+        if (!milestone.belongsToSection(sectionId)) {
+            throw new MilestoneSectionMismatchException(milestoneId, sectionId);
+        }
+        throw new IllegalStateException("분반 잠금 조회에서 활성 마일스톤이 누락되었습니다.");
     }
 
     private void validateUniqueWeekNumbers(Iterable<Integer> weekNumbers) {
