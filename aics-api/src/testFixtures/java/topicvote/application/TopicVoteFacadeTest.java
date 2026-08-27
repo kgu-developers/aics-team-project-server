@@ -71,6 +71,6 @@ class TopicVoteFacadeTest {
 
         // then
         verify(teamAccessValidator).validateMembership(TEAM_ID, VOTER_USER_ID);
-        verify(topicVoteCommandService).cancelVote(CANDIDATE_ID, VOTER_USER_ID);
+        verify(topicVoteCommandService).cancelVote(TEAM_ID, VOTER_USER_ID);
     }
 }

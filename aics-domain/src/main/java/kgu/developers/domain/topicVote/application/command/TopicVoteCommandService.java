@@ -46,8 +46,8 @@ public class TopicVoteCommandService {
         throw new IllegalStateException("동시 투표 충돌로 인해 기존 투표를 찾을 수 없습니다");
     }
 
-    public void cancelVote(Long candidateId, String voterUserId) {
-        topicVoteRepository.deleteByCandidateIdAndVoterUserId(candidateId, voterUserId);
+    public void cancelVote(Long teamId, String voterUserId) {
+        topicVoteRepository.deleteByTeamIdAndVoterUserId(teamId, voterUserId);
     }
 
     private TopicVote changeVoteCandidate(TopicVote existingVote, Long candidateId) {
