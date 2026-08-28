@@ -42,9 +42,8 @@ public class MeetingRecordAdminFacade {
         String professorId
     ) {
         List<Section> sections = resolveSections(sectionId, professorId);
-        List<Team> teams = sections.stream()
-            .flatMap(section -> teamRepository.findAllBySectionId(section.getId()).stream())
-            .toList();
+        List<Team> teams = teamRepository.findAllBySectionIdIn(
+            sections.stream().map(Section::getId).toList());
 
         Pageable latestFirstPageable = PageRequest.of(
             pageable.getPageNumber(),

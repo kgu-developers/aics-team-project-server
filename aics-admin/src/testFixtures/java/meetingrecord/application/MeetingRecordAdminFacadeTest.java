@@ -2,6 +2,7 @@ package meetingrecord.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -60,8 +61,8 @@ class MeetingRecordAdminFacadeTest {
 
         given(sectionRepository.findAllByProfessorId(PROFESSOR_ID))
             .willReturn(List.of(detail(firstSection), detail(secondSection)));
-        given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(firstTeam));
-        given(teamRepository.findAllBySectionId(2L)).willReturn(List.of(secondTeam));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L, 2L)))
+            .willReturn(List.of(firstTeam, secondTeam));
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L, 20L), latestFirstPageable))
             .willReturn(new PageImpl<>(List.of(meetingRecord), latestFirstPageable, 1));
 
@@ -75,6 +76,7 @@ class MeetingRecordAdminFacadeTest {
             assertThat(content.content()).isEqualTo("와이어프레임 기획 논의");
         });
         assertThat(response.pageable().totalElements()).isEqualTo(1);
+        verify(teamRepository).findAllBySectionIdIn(List.of(1L, 2L));
         verify(meetingRecordQueryService)
             .getMeetingRecords(List.of(10L, 20L), latestFirstPageable);
     }
@@ -88,7 +90,7 @@ class MeetingRecordAdminFacadeTest {
         Team team = team(10L, 1L, "A팀");
 
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
-        given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L), latestFirstPageable))
             .willReturn(new PageImpl<>(List.of(), latestFirstPageable, 0));
 
@@ -109,7 +111,7 @@ class MeetingRecordAdminFacadeTest {
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
 
-        verify(teamRepository, never()).findAllBySectionId(1L);
+        verify(teamRepository, never()).findAllBySectionIdIn(anyList());
     }
 
     private Section section(Long id, String name, String professorId) {
