@@ -12,5 +12,7 @@ public interface TeamRepository {
 
     List<Team> findAllBySectionId(Long sectionId);
 
+    List<Team> findAllBySectionIdIn(List<Long> sectionIds);
+
     void deleteById(Long id);
 }

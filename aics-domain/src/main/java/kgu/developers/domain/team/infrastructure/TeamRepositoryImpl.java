@@ -51,6 +51,17 @@ public class TeamRepositoryImpl implements TeamRepository {
     }
 
     @Override
+    public List<Team> findAllBySectionIdIn(List<Long> sectionIds) {
+        if (sectionIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamRepository.findAllBySectionIdInAndDeletedAtIsNull(sectionIds)
+                .stream()
+                .map(TeamJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public void deleteById(Long id) {
         TeamJpaEntity team = jpaTeamRepository.findByIdAndDeletedAtIsNull(id)
