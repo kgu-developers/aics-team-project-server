@@ -39,9 +39,8 @@ public class TeamMessageAdminFacade {
 
     public TeamMessageAdminPageResponse getMessages(Long sectionId, Pageable pageable, String professorId) {
         List<Section> sections = resolveSections(sectionId, professorId);
-        List<Team> teams = sections.stream()
-            .flatMap(section -> teamRepository.findAllBySectionId(section.getId()).stream())
-            .toList();
+        List<Team> teams = teamRepository.findAllBySectionIdIn(
+            sections.stream().map(Section::getId).toList());
         List<TeamThread> threads = teamThreadQueryService.getThreads(teams.stream().map(Team::getId).toList());
         List<Long> threadIds = threads.stream().map(TeamThread::getId).toList();
 
