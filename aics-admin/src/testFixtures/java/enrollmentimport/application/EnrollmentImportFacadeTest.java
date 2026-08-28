@@ -102,7 +102,7 @@ public class EnrollmentImportFacadeTest {
         // given
         MockMultipartFile file = excel(
             new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-0000-0001", ""},
-            new String[] {ENROLLED, "김철수", "kim@kyonggi.ac.kr", "010-0000-0002", "조교"},
+            new String[] {ENROLLED, "김철수", "kim@kyonggi.ac.kr", "010-0000-0002", "학생"},
             new String[] {NEWCOMER, "이영희", "lee@kyonggi.ac.kr", "010-0000-0003", ""},
             new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-0000-0001", ""},
             new String[] {"", "이름만", "", "", ""},
@@ -122,7 +122,7 @@ public class EnrollmentImportFacadeTest {
         assertThat(rows.get(0).role()).isEqualTo(Role.STUDENT);
         assertThat(rows.get(0).rowNumber()).isEqualTo(2);
         assertThat(rows.get(1).status()).isEqualTo(RowStatus.DUPLICATE);
-        assertThat(rows.get(1).role()).isEqualTo(Role.ASSISTANT);
+        assertThat(rows.get(1).role()).isEqualTo(Role.STUDENT);
         assertThat(rows.get(2).status()).isEqualTo(RowStatus.NEW_USER);  // 미가입 → 계정 생성 대상
         assertThat(rows.get(3).status()).isEqualTo(RowStatus.INVALID);   // 파일 내 중복
         assertThat(rows.get(4).status()).isEqualTo(RowStatus.INVALID);   // 학번 없음
@@ -349,9 +349,126 @@ public class EnrollmentImportFacadeTest {
             .isInstanceOf(ImportBatchAlreadyAppliedException.class);
     }
 
+    @Test
+    @DisplayName("preview는 조교가 조교 역할을 지정하면 거부한다")
+    public void preview_RejectsAssistantRoleByAssistant() throws IOException {
+        // given
+        MockMultipartFile file = excel(
+            new String[] {NEWCOMER, "이영희", "lee@kyonggi.ac.kr", "010-0000-0003", "조교"}
+        );
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT, file);
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("조교는 학생 역할만 지정할 수 있습니다.");
+    }
+
+    @Test
+    @DisplayName("preview는 조교가 학생 역할을 지정하면 허용한다")
+    public void preview_AllowsStudentRoleByAssistant() throws IOException {
+        // given
+        MockMultipartFile file = excel(
+            new String[] {NEWCOMER, "이영희", "lee@kyonggi.ac.kr", "010-0000-0003", "학생"}
+        );
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT, file);
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+    }
+
+    @Test
+    @DisplayName("preview는 관리자가 조교 역할을 지정하면 허용한다")
+    public void preview_AllowsAssistantRoleByAdmin() throws IOException {
+        // given
+        String admin = "202499998";
+        given(userRepository.findByStudentNumber(admin)).willReturn(Optional.of(
+            User.create(admin, admin + "@kyonggi.ac.kr", "관리자", "password",
+                UserGlobalRole.ADMIN, "010-0000-0000")));
+        
+        MockMultipartFile file = excel(
+            new String[] {NEWCOMER, "이영희", "lee@kyonggi.ac.kr", "010-0000-0003", "조교"}
+        );
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, admin, file);
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+    }
+
+    @Test
+    @DisplayName("preview는 담당 교수가 조교 역할을 지정하면 허용한다")
+    public void preview_AllowsAssistantRoleByProfessor() throws IOException {
+        // given
+        String professor = "202499997";
+        given(sectionRepository.existsActiveByIdAndProfessorId(SECTION_ID, professor)).willReturn(true);
+        
+        MockMultipartFile file = excel(
+            new String[] {NEWCOMER, "이영희", "lee@kyonggi.ac.kr", "010-0000-0003", "조교"}
+        );
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, professor, file);
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+    }
+
+    @Test
+    @DisplayName("apply는 조교가 조교 역할을 지정하면 건너뛴다")
+    public void apply_SkipsAssistantRoleByAssistant() {
+        // given
+        ImportBatch batch = batch(0, List.of(
+            row(2, NEWCOMER, RowStatus.VALID, Role.ASSISTANT),
+            row(3, MEMBER, RowStatus.VALID, Role.STUDENT)
+        ));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+        // when
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        // then
+        assertThat(response.applied()).isEqualTo(1);
+        assertThat(response.skipped()).isEqualTo(1);
+        verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);
+        verify(enrollmentCommandService, never()).createEnrollment(eq(SECTION_ID), eq(NEWCOMER), eq(Role.ASSISTANT));
+    }
+
+    @Test
+    @DisplayName("apply는 관리자가 조교 역할을 지정하면 허용한다")
+    public void apply_AllowsAssistantRoleByAdmin() {
+        // given
+        String admin = "202499998";
+        given(userRepository.findByStudentNumber(admin)).willReturn(Optional.of(
+            User.create(admin, admin + "@kyonggi.ac.kr", "관리자", "password",
+                UserGlobalRole.ADMIN, "010-0000-0000")));
+        
+        ImportBatch batch = batch(0, List.of(
+            row(2, NEWCOMER, RowStatus.VALID, Role.ASSISTANT)
+        ));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+        // when
+        EnrollmentImportApplyResponse response = facade.apply(1L, admin);
+
+        // then
+        assertThat(response.applied()).isEqualTo(1);
+        assertThat(response.skipped()).isZero();
+        verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.ASSISTANT);
+    }
+
     private EnrollmentImportRow row(int rowNumber, String studentNumber, RowStatus status) {
         return new EnrollmentImportRow(rowNumber, studentNumber, "이름",
             studentNumber + "@kyonggi.ac.kr", "010-0000-0000", Role.STUDENT, status, null);
+    }
+
+    private EnrollmentImportRow row(int rowNumber, String studentNumber, RowStatus status, Role role) {
+        return new EnrollmentImportRow(rowNumber, studentNumber, "이름",
+            studentNumber + "@kyonggi.ac.kr", "010-0000-0000", role, status, null);
     }
 
     private ImportBatch batch(int invalid, List<EnrollmentImportRow> rows) {

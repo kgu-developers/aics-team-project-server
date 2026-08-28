@@ -44,4 +44,14 @@ public class SectionStaffValidator {
             .filter(enrollment -> enrollment.getRole() == Role.ASSISTANT && enrollment.getStatus() == Status.ACTIVE)
             .isPresent();
     }
+
+    public boolean isAssistantOnly(Long sectionId, String studentNumber) {
+        if (isAdmin(studentNumber)) {
+            return false;
+        }
+        if (sectionRepository.existsActiveByIdAndProfessorId(sectionId, studentNumber)) {
+            return false;
+        }
+        return isAssistant(sectionId, studentNumber);
+    }
 }

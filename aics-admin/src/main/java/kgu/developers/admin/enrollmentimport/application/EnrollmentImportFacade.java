@@ -60,7 +60,7 @@ public class EnrollmentImportFacade {
         }
         sectionStaffValidator.validate(sectionId, uploaderId);
 
-        List<EnrollmentImportRow> rows = validate(sectionId, EnrollmentSheetReader.read(file));
+        List<EnrollmentImportRow> rows = validate(sectionId, EnrollmentSheetReader.read(file), uploaderId);
         EnrollmentImportSummary summary = EnrollmentImportSummary.of(rows);
 
         ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.ENROLLMENT,
@@ -78,6 +78,8 @@ public class EnrollmentImportFacade {
         }
         sectionStaffValidator.validate(batch.getSectionId(), userId);
 
+        boolean isAssistantOnly = sectionStaffValidator.isAssistantOnly(batch.getSectionId(), userId);
+
         batch.apply(LocalDateTime.now());
 
         int applied = 0;
@@ -91,6 +93,11 @@ public class EnrollmentImportFacade {
             }
             String studentNumber = row.path("studentNumber").asText();
             Role role = Role.valueOf(row.path("role").asText());
+
+            if (isAssistantOnly && role == Role.ASSISTANT) {
+                skipped++;
+                continue;
+            }
 
             Enrollment existing = enrollmentRepository
                 .findBySectionIdAndUserId(batch.getSectionId(), studentNumber).orElse(null);
@@ -118,7 +125,7 @@ public class EnrollmentImportFacade {
         return new EnrollmentImportApplyResponse(batch.getId(), applied, createdUsers, skipped);
     }
 
-    private List<EnrollmentImportRow> validate(Long sectionId, List<EnrollmentImportRow> rows) {
+    private List<EnrollmentImportRow> validate(Long sectionId, List<EnrollmentImportRow> rows, String uploaderId) {
         List<String> studentNumbers = rows.stream().map(EnrollmentImportRow::studentNumber).toList();
         Set<String> members = userRepository.findAllByStudentNumberIn(studentNumbers).stream()
             .map(User::getStudentNumber)
@@ -135,19 +142,26 @@ public class EnrollmentImportFacade {
         Map<String, Status> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .collect(Collectors.toMap(Enrollment::getUserId, Enrollment::getStatus));
 
+        boolean isAssistantOnly = sectionStaffValidator.isAssistantOnly(sectionId, uploaderId);
+
         Set<String> seenNumbers = new HashSet<>();
         Set<String> seenEmails = new HashSet<>();
         return rows.stream()
-            .map(row -> classify(row, members, everRegistered, emailOwners, everUsedEmails, enrolled, seenNumbers, seenEmails))
+            .map(row -> classify(row, members, everRegistered, emailOwners, everUsedEmails, enrolled, seenNumbers, seenEmails, isAssistantOnly))
             .toList();
     }
 
     private EnrollmentImportRow classify(EnrollmentImportRow row, Set<String> members,
         Set<String> everRegistered, Map<String, String> emailOwners, Map<String, String> everUsedEmails,
-        Map<String, Status> enrolled, Set<String> seenNumbers, Set<String> seenEmails) {
+        Map<String, Status> enrolled, Set<String> seenNumbers, Set<String> seenEmails, boolean isAssistantOnly) {
         if (row.status() == INVALID) {
             return row;
         }
+        
+        if (isAssistantOnly && row.role() == Role.ASSISTANT) {
+            return row.with(INVALID, "조교는 학생 역할만 지정할 수 있습니다.");
+        }
+        
         if (!seenNumbers.add(row.studentNumber())) {
             return row.with(INVALID, "파일 안에 중복된 학번입니다.");
         }
