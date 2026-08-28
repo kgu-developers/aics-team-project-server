@@ -2,6 +2,7 @@ package kgu.developers.domain.team.application.command;
 
 import static kgu.developers.domain.team.domain.Status.CONFIRMED;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.DuplicateTeamNameException;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -41,14 +43,22 @@ public class TeamCommandService {
     }
 
     public List<Team> finalizeTeams(Long sectionId) {
-        return teamQueryService.getTeamsBySectionId(sectionId).stream()
-                .map(team -> {
-                    if (team.getStatus() == CONFIRMED) {
-                        return team;
-                    }
-                    team.updateStatus(CONFIRMED);
-                    return teamRepository.save(team);
-                })
-                .toList();
+        List<Team> teams = new ArrayList<>(teamQueryService.getTeamsBySectionId(sectionId));
+        
+        teams.sort((t1, t2) -> Long.compare(t1.getId(), t2.getId()));
+        
+        List<Team> result = new ArrayList<>();
+        for (Team team : teams) {
+            if (team.getStatus() == CONFIRMED) {
+                result.add(team);
+                continue;
+            }
+            Team teamToFinalize = teamRepository.findById(team.getId())
+                    .orElseThrow(() -> new TeamNotFoundException());
+            teamToFinalize.validateNotConfirmed();
+            teamToFinalize.updateStatus(CONFIRMED);
+            result.add(teamRepository.save(teamToFinalize));
+        }
+        return result;
     }
 }

@@ -46,8 +46,12 @@ class TeamCommandServiceTest {
     @Test
     @DisplayName("분반의 모든 팀을 확정 상태로 저장한다")
     void finalizeTeams() {
+        Team team1 = team(1L, Status.FORMING);
+        Team team2 = team(2L, Status.FORMING);
         given(teamQueryService.getTeamsBySectionId(10L))
-                .willReturn(List.of(team(1L, Status.FORMING), team(2L, Status.FORMING)));
+                .willReturn(List.of(team1, team2));
+        given(teamRepository.findById(1L)).willReturn(java.util.Optional.of(team1));
+        given(teamRepository.findById(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         List<Team> finalized = teamCommandService.finalizeTeams(10L);
@@ -60,8 +64,11 @@ class TeamCommandServiceTest {
     @Test
     @DisplayName("이미 확정된 팀이 섞여 있어도 다시 확정할 수 있다")
     void finalizeTeamsIsIdempotent() {
+        Team team1 = team(1L, Status.CONFIRMED);
+        Team team2 = team(2L, Status.FORMING);
         given(teamQueryService.getTeamsBySectionId(10L))
-                .willReturn(List.of(team(1L, Status.CONFIRMED), team(2L, Status.FORMING)));
+                .willReturn(List.of(team1, team2));
+        given(teamRepository.findById(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         assertThat(teamCommandService.finalizeTeams(10L))
@@ -75,6 +82,7 @@ class TeamCommandServiceTest {
         Team confirmed = team(1L, Status.CONFIRMED);
         Team forming = team(2L, Status.FORMING);
         given(teamQueryService.getTeamsBySectionId(10L)).willReturn(List.of(confirmed, forming));
+        given(teamRepository.findById(2L)).willReturn(java.util.Optional.of(forming));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         List<Team> finalized = teamCommandService.finalizeTeams(10L);

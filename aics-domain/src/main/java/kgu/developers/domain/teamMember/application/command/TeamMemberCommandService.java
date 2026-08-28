@@ -16,6 +16,7 @@ import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teamMember.exception.LeaderAlreadyExistsException;
@@ -33,13 +34,26 @@ public class TeamMemberCommandService {
   private final TeamRepository teamRepository;
 
   public TeamMember updateTeamMember(TeamMember teamMember, Long targetTeamId, String projectRole, Boolean isLeader) {
-    Team currentTeam = teamQueryService.getTeamById(teamMember.getTeamId());
+    // Re-fetch current team to ensure version check
+    Team currentTeam = teamRepository.findById(teamMember.getTeamId())
+        .orElseThrow(() -> new TeamNotFoundException());
     validateUpdateAllowed(currentTeam, targetTeamId, projectRole, isLeader);
 
     boolean moved = targetTeamId != null && !targetTeamId.equals(teamMember.getTeamId());
     boolean finalLeaderStatus = isLeader == null ? teamMember.isLeader() : isLeader;
+    
     if (moved) {
-      Team targetTeam = teamQueryService.getTeamById(targetTeamId);
+      Long firstTeamId = Math.min(currentTeam.getId(), targetTeamId);
+      Long secondTeamId = Math.max(currentTeam.getId(), targetTeamId);
+      
+      Team firstTeam = teamRepository.findById(firstTeamId)
+          .orElseThrow(() -> new TeamNotFoundException());
+      Team secondTeam = teamRepository.findById(secondTeamId)
+          .orElseThrow(() -> new TeamNotFoundException());
+      
+      Team targetTeam = firstTeam.getId().equals(targetTeamId) ? firstTeam : secondTeam;
+      currentTeam = firstTeam.getId().equals(teamMember.getTeamId()) ? firstTeam : secondTeam;
+      
       targetTeam.validateNotConfirmed();
       if (!currentTeam.getSectionId().equals(targetTeam.getSectionId())) {
         throw new TeamMemberSectionMismatchException();

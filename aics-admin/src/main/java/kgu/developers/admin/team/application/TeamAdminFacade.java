@@ -7,7 +7,6 @@ import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
 import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
-import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
