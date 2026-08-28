@@ -24,103 +24,130 @@ import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 @Repository
 @RequiredArgsConstructor
 public class TeamMemberRepositoryImpl implements TeamMemberRepository {
-    private static final String TEAM_MEMBER_INDEX = "uk_team_member_team_user";
-    private static final String TEAM_LEADER_INDEX = "uk_team_member_one_leader";
+  private static final String TEAM_MEMBER_INDEX = "uk_team_member_team_user";
+  private static final String TEAM_LEADER_INDEX = "uk_team_member_one_leader";
 
-    private final JpaTeamMemberRepository jpaTeamMemberRepository;
-    private final EntityManager entityManager;
+  private final JpaTeamMemberRepository jpaTeamMemberRepository;
+  private final EntityManager entityManager;
 
-    @Override
-    @Transactional
-    public TeamMember save(TeamMember teamMember) {
-        if (teamMember.isLeader() && teamMember.getDeletedAt() == null) {
+  @Override
+  @Transactional
+  public TeamMember save(TeamMember teamMember) {
+    if (teamMember.isLeader() && teamMember.getDeletedAt() == null) {
+      validateNoOtherLeader(teamMember);
+    }
+    TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, teamMember.getTeamId());
+    UserJpaEntity user = entityManager.getReference(UserJpaEntity.class, teamMember.getUserId());
+    TeamMemberJpaEntity entity = TeamMemberJpaEntity.toEntity(teamMember, team, user);
+    try {
+      return jpaTeamMemberRepository.saveAndFlush(entity).toDomain();
+    } catch (OptimisticLockingFailureException e) {
+      throw new TeamMemberConcurrentlyModifiedException();
+    } catch (DataIntegrityViolationException e) {
+      String message = Optional.ofNullable(e.getMostSpecificCause().getMessage()).orElse("");
+      if (message.contains(TEAM_LEADER_INDEX)) {
+        throw new LeaderAlreadyExistsException();
+      }
+      if (message.contains(TEAM_MEMBER_INDEX)) {
+        throw new TeamMemberAlreadyExistsException();
+      }
+      throw e;
+    }
+  }
+
+  @Override
+  @Transactional
+  public List<TeamMember> saveAll(List<TeamMember> teamMembers) {
+    List<TeamMemberJpaEntity> entities = teamMembers.stream()
+        .map(teamMember -> {
+          if (teamMember.isLeader() && teamMember.getDeletedAt() == null) {
             validateNoOtherLeader(teamMember);
-        }
-        TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, teamMember.getTeamId());
-        UserJpaEntity user = entityManager.getReference(UserJpaEntity.class, teamMember.getUserId());
-        TeamMemberJpaEntity entity = TeamMemberJpaEntity.toEntity(teamMember, team, user);
-        try {
-            return jpaTeamMemberRepository.saveAndFlush(entity).toDomain();
-        } catch (OptimisticLockingFailureException e) {
-            throw new TeamMemberConcurrentlyModifiedException();
-        } catch (DataIntegrityViolationException e) {
-            String message = Optional.ofNullable(e.getMostSpecificCause().getMessage()).orElse("");
-            if (message.contains(TEAM_LEADER_INDEX)) {
-                throw new LeaderAlreadyExistsException();
-            }
-            if (message.contains(TEAM_MEMBER_INDEX)) {
-                throw new TeamMemberAlreadyExistsException();
-            }
-            throw e;
-        }
-    }
+          }
+          TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, teamMember.getTeamId());
+          UserJpaEntity user = entityManager.getReference(UserJpaEntity.class, teamMember.getUserId());
+          return TeamMemberJpaEntity.toEntity(teamMember, team, user);
+        })
+        .toList();
 
-    @Override
-    public List<TeamMember> saveAll(List<TeamMember> teamMembers) {
-        return teamMembers.stream()
-                .map(this::save)
-                .toList();
+    try {
+      List<TeamMemberJpaEntity> savedEntities = jpaTeamMemberRepository.saveAll(entities);
+      jpaTeamMemberRepository.flush();
+      return savedEntities.stream()
+          .map(TeamMemberJpaEntity::toDomain)
+          .toList();
+    } catch (OptimisticLockingFailureException e) {
+      throw new TeamMemberConcurrentlyModifiedException();
+    } catch (DataIntegrityViolationException e) {
+      String message = Optional.ofNullable(e.getMostSpecificCause().getMessage()).orElse("");
+      if (message.contains(TEAM_LEADER_INDEX)) {
+        throw new LeaderAlreadyExistsException();
+      }
+      if (message.contains(TEAM_MEMBER_INDEX)) {
+        throw new TeamMemberAlreadyExistsException();
+      }
+      throw e;
     }
+  }
 
-    @Override
-    public Optional<TeamMember> findById(Long id) {
-        return jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
-                .map(TeamMemberJpaEntity::toDomain);
-    }
+  @Override
+  public Optional<TeamMember> findById(Long id) {
+    return jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
+        .map(TeamMemberJpaEntity::toDomain);
+  }
 
-    @Override
-    public List<TeamMember> findAllByTeamId(Long teamId) {
-        return jpaTeamMemberRepository.findAllByTeamIdAndDeletedAtIsNull(teamId)
-                .stream()
-                .map(TeamMemberJpaEntity::toDomain)
-                .toList();
-    }
+  @Override
+  public List<TeamMember> findAllByTeamId(Long teamId) {
+    return jpaTeamMemberRepository.findAllByTeamIdAndDeletedAtIsNull(teamId)
+        .stream()
+        .map(TeamMemberJpaEntity::toDomain)
+        .toList();
+  }
 
-    @Override
-    public List<TeamMember> findAllByUserId(String userId) {
-        return jpaTeamMemberRepository.findAllByUserStudentNumberAndDeletedAtIsNull(userId)
-                .stream()
-                .map(TeamMemberJpaEntity::toDomain)
-                .toList();
-    }
+  @Override
+  public List<TeamMember> findAllByUserId(String userId) {
+    return jpaTeamMemberRepository.findAllByUserStudentNumberAndDeletedAtIsNull(userId)
+        .stream()
+        .map(TeamMemberJpaEntity::toDomain)
+        .toList();
+  }
 
-    @Override
-    public Optional<TeamMember> findByTeamIdAndUserId(Long teamId, String userId) {
-        return jpaTeamMemberRepository.findByTeamIdAndUserStudentNumberAndDeletedAtIsNull(teamId, userId)
-                .map(TeamMemberJpaEntity::toDomain);
-    }
+  @Override
+  public Optional<TeamMember> findByTeamIdAndUserId(Long teamId, String userId) {
+    return jpaTeamMemberRepository.findByTeamIdAndUserStudentNumberAndDeletedAtIsNull(teamId, userId)
+        .map(TeamMemberJpaEntity::toDomain);
+  }
 
-    @Override
-    public Optional<TeamMember> findLeaderByTeamId(Long teamId) {
-        return jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId)
-                .map(TeamMemberJpaEntity::toDomain);
-    }
+  @Override
+  public Optional<TeamMember> findLeaderByTeamId(Long teamId) {
+    return jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId)
+        .map(TeamMemberJpaEntity::toDomain);
+  }
 
-    @Override
-    public boolean existsByTeamIdAndIsLeaderTrue(Long teamId) {
-        return jpaTeamMemberRepository.existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId);
-    }
+  @Override
+  public boolean existsByTeamIdAndIsLeaderTrue(Long teamId) {
+    return jpaTeamMemberRepository.existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId);
+  }
 
-    private void validateNoOtherLeader(TeamMember teamMember) {
-        entityManager.find(TeamJpaEntity.class, teamMember.getTeamId(), PESSIMISTIC_WRITE);
-        jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamMember.getTeamId())
-                .filter(leader -> !leader.getId().equals(teamMember.getId()))
-                .ifPresent(leader -> {
-                    throw new LeaderAlreadyExistsException();
-                });
-    }
+  private void validateNoOtherLeader(TeamMember teamMember) {
+    entityManager.find(TeamJpaEntity.class, teamMember.getTeamId(), PESSIMISTIC_WRITE);
+    jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamMember.getTeamId())
+        .filter(leader -> !leader.getId().equals(teamMember.getId()))
+        .ifPresent(leader -> {
+          throw new LeaderAlreadyExistsException();
+        });
+  }
 
-    @Override
-    @Transactional
-    public void deleteById(Long id) {
-        jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(TeamMemberNotFoundException::new)
-                .delete();
-    }
+  @Override
+  @Transactional
+  public void deleteById(Long id) {
+    jpaTeamMemberRepository.findByIdAndDeletedAtIsNull(id)
+        .orElseThrow(TeamMemberNotFoundException::new)
+        .delete();
+  }
 
-    @Override
-    @Transactional
-    public void deleteAllByTeamId(Long teamId) {
-        jpaTeamMemberRepository.softDeleteAllByTeamId(teamId, LocalDateTime.now());
-    }
+  @Override
+  @Transactional
+  public void deleteAllByTeamId(Long teamId) {
+    jpaTeamMemberRepository.softDeleteAllByTeamId(teamId, LocalDateTime.now());
+  }
 }
