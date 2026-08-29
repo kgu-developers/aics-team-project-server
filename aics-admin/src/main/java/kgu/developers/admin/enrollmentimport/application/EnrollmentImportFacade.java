@@ -41,7 +41,6 @@ import kgu.developers.domain.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 @Component
-@Transactional
 @RequiredArgsConstructor
 public class EnrollmentImportFacade {
     private static final Duration PREVIEW_TTL = Duration.ofMinutes(30);
@@ -54,6 +53,7 @@ public class EnrollmentImportFacade {
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
 
+    @Transactional
     public EnrollmentImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
@@ -70,6 +70,7 @@ public class EnrollmentImportFacade {
         return new EnrollmentImportPreviewResponse(importBatchRepository.save(batch).getId(), summary, rows);
     }
 
+    @Transactional
     public EnrollmentImportApplyResponse apply(Long importId, String userId) {
         ImportBatch batch = importBatchRepository.findById(importId)
             .orElseThrow(ImportBatchNotFoundException::new);

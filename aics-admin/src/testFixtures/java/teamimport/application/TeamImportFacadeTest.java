@@ -39,6 +39,7 @@ import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.importBatch.domain.ImportBatch;
 import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
 import kgu.developers.domain.importBatch.domain.Type;
+import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
 import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsException;
 import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -400,11 +401,11 @@ public class TeamImportFacadeTest {
     // 하지만 apply 시점에는 STUDENT_A가 이미 2팀에 배정됨 (미리보기 후 변경)
     Team team2 = Team.builder().id(20L).sectionId(SECTION_ID).name("2팀").build();
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team2));
-    
+
     TeamMember existingMember = TeamMember.create(20L, STUDENT_A, false, "프론트");
     given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
         .willReturn(Optional.of(existingMember));
-    
+
     given(teamRepository.save(any())).willAnswer(invocation -> Team.builder().id(10L)
         .sectionId(SECTION_ID).name("1팀").build());
 
@@ -414,10 +415,42 @@ public class TeamImportFacadeTest {
     // then: STUDENT_A는 건너뛰고, STUDENT_B만 1팀에 추가됨
     assertThat(response.appliedMembers()).isEqualTo(1);
     assertThat(response.skipped()).isEqualTo(1);
-    
+
     ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
     verify(teamMemberRepository).save(captor.capture());
     assertThat(captor.getValue().getUserId()).isEqualTo(STUDENT_B);
+  }
+
+  @Test
+  @DisplayName("preview는 10MB를 초과하는 파일을 거부한다")
+  public void preview_RejectsLargeFile() throws IOException {
+    // given
+    MockMultipartFile largeFile = new MockMultipartFile("file", "teams.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        new byte[10 * 1024 * 1024 + 1]); // 10MB + 1 byte
+
+    // when & then
+    assertThatThrownBy(() -> facade.preview(SECTION_ID, ASSISTANT, largeFile))
+        .isInstanceOf(ImportBatchFileInvalidException.class)
+        .cause().isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("파일 크기가 10MB를 초과했습니다.");
+  }
+
+  @Test
+  @DisplayName("preview는 1000행을 초과하는 파일을 거부한다")
+  public void preview_RejectsTooManyRows() throws IOException {
+    // given
+    String[][] manyRows = new String[1001][];
+    for (int i = 0; i < 1001; i++) {
+      manyRows[i] = new String[] {String.format("%d팀", i), String.format("2021%04d", i), "학생" + i, "N", "개발"};
+    }
+    MockMultipartFile file = excel(manyRows);
+
+    // when & then
+    assertThatThrownBy(() -> facade.preview(SECTION_ID, ASSISTANT, file))
+        .isInstanceOf(ImportBatchFileInvalidException.class)
+        .cause().isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("행 수가 1000행을 초과했습니다.");
   }
 
   private TeamImportRow row(int rowNumber, String teamName, String studentNumber, boolean leader,

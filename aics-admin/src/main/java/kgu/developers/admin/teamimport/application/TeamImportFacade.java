@@ -43,7 +43,6 @@ import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import lombok.RequiredArgsConstructor;
 
 @Component
-@Transactional
 @RequiredArgsConstructor
 public class TeamImportFacade {
     private static final Duration PREVIEW_TTL = Duration.ofMinutes(30);
@@ -56,6 +55,7 @@ public class TeamImportFacade {
     private final SectionStaffValidator sectionStaffValidator;
     private final EntityManager entityManager;
 
+    @Transactional
     public TeamImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
@@ -72,6 +72,7 @@ public class TeamImportFacade {
         return new TeamImportPreviewResponse(importBatchRepository.save(batch).getId(), summary, rows);
     }
 
+    @Transactional
     public TeamImportApplyResponse apply(Long importId, String userId) {
         ImportBatch batch = importBatchRepository.findById(importId)
             .orElseThrow(ImportBatchNotFoundException::new);

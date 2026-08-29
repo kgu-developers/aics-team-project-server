@@ -23,11 +23,17 @@ import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidExcepti
 
 public final class EnrollmentSheetReader {
     private static final String SCHOOL_MAIL_DOMAIN = "@kyonggi.ac.kr";
+    private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+    private static final int MAX_ROWS = 1000;
 
     private EnrollmentSheetReader() {
     }
 
     public static List<EnrollmentImportRow> read(MultipartFile file) {
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new ImportBatchFileInvalidException("파일 크기가 10MB를 초과했습니다.");
+        }
+
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
             Row header = headerRow(sheet, "학번");
@@ -39,16 +45,21 @@ public final class EnrollmentSheetReader {
                 column(header, "역할"));
 
             List<EnrollmentImportRow> rows = new ArrayList<>();
+            int dataRowCount = 0;
             for (int i = header.getRowNum() + 1; i <= sheet.getLastRowNum(); i++) {
                 EnrollmentImportRow row = toRow(sheet.getRow(i), i + 1, columns);
                 if (row != null) {
                     rows.add(row);
+                    dataRowCount++;
+                    if (dataRowCount > MAX_ROWS) {
+                        throw new ImportBatchFileInvalidException("행 수가 " + MAX_ROWS + "행을 초과했습니다.");
+                    }
                 }
             }
             return rows;
         } catch (ImportBatchFileInvalidException e) {
             throw e;
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException e) {
             throw new ImportBatchFileInvalidException(e);
         }
     }

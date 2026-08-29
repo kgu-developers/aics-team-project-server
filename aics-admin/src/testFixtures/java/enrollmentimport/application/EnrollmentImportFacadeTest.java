@@ -47,6 +47,7 @@ import kgu.developers.domain.importBatch.domain.ImportBatch;
 import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
 import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.exception.ImportBatchAlreadyAppliedException;
+import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
 import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsException;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.domain.User;
@@ -459,6 +460,39 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.applied()).isEqualTo(1);
         assertThat(response.skipped()).isZero();
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.ASSISTANT);
+    }
+
+    @Test
+    @DisplayName("preview는 10MB를 초과하는 파일을 거부한다")
+    public void preview_RejectsLargeFile() throws IOException {
+        // given
+        MockMultipartFile largeFile = new MockMultipartFile("file", "enrollments.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            new byte[10 * 1024 * 1024 + 1]); // 10MB + 1 byte
+
+        // when & then
+        assertThatThrownBy(() -> facade.preview(SECTION_ID, ASSISTANT, largeFile))
+            .isInstanceOf(ImportBatchFileInvalidException.class)
+            .cause().isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("파일 크기가 10MB를 초과했습니다.");
+    }
+
+    @Test
+    @DisplayName("preview는 1000행을 초과하는 파일을 거부한다")
+    public void preview_RejectsTooManyRows() throws IOException {
+        // given
+        String[][] manyRows = new String[1001][];
+        for (int i = 0; i < 1001; i++) {
+            manyRows[i] = new String[] {String.format("2021%04d", i), "학생" + i,
+                String.format("2021%04d@kyonggi.ac.kr", i), "010-1234-5678", "학생"};
+        }
+        MockMultipartFile file = excel(manyRows);
+
+        // when & then
+        assertThatThrownBy(() -> facade.preview(SECTION_ID, ASSISTANT, file))
+            .isInstanceOf(ImportBatchFileInvalidException.class)
+            .cause().isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("행 수가 1000행을 초과했습니다.");
     }
 
     private EnrollmentImportRow row(int rowNumber, String studentNumber, RowStatus status) {
