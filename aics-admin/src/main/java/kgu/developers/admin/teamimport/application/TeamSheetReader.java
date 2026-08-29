@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -33,6 +34,9 @@ public final class TeamSheetReader {
         if (file.getSize() > MAX_FILE_SIZE_BYTES) {
             throw new ImportBatchFileInvalidException("파일 크기가 10MB를 초과했습니다.");
         }
+
+        ZipSecureFile.setMinInflateRatio(0.01);
+        ZipSecureFile.setMaxEntrySize(MAX_FILE_SIZE_BYTES);
 
         try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -61,6 +65,8 @@ public final class TeamSheetReader {
             throw e;
         } catch (IOException e) {
             throw new ImportBatchFileInvalidException(e);
+        } catch (Exception e) {
+            throw new ImportBatchFileInvalidException("압축 파일 처리 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
