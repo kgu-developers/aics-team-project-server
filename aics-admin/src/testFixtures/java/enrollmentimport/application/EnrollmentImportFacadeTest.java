@@ -145,6 +145,20 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("preview는 신규 가입 대상의 연락처가 비면 오류로 표시한다")
+    public void preview_RejectsNewUserWithoutPhone() throws IOException {
+        // given
+        MockMultipartFile file = excel(new String[] {NEWCOMER, "이영희", "lee@kyonggi.ac.kr", "", ""});
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT, file);
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).isEqualTo("신규 가입 대상은 연락처가 필요합니다.");
+    }
+
+    @Test
     @DisplayName("preview는 탈퇴 이력이 있는 학번을 오류로 표시한다")
     public void preview_RejectsWithdrawnUser() throws IOException {
         // given

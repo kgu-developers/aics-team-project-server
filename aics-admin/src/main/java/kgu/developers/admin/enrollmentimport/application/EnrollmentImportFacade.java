@@ -190,6 +190,9 @@ public class EnrollmentImportFacade {
         if (everUsedEmailOwner != null && !everUsedEmailOwner.equals(row.studentNumber())) {
             return row.with(INVALID, "탈퇴한 사용자가 사용했던 이메일입니다. 관리자에게 문의하세요.");
         }
+        if (row.phone().isEmpty()) {
+            return row.with(INVALID, "신규 가입 대상은 연락처가 필요합니다.");
+        }
         return row.with(NEW_USER, "가입되지 않은 학생입니다. 반영 시 계정을 만듭니다.");
     }
 }
