@@ -385,6 +385,26 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("apply는 연락처가 빈 신규 가입 행을 쓰기 직전에 건너뛴다")
+    public void apply_SkipsNewUserWithoutPhone() {
+        // given: preview에 연락처 검사가 없던 시점에 만들어진 배치
+        EnrollmentImportRow noPhone = new EnrollmentImportRow(2, NEWCOMER, "이영희",
+            NEWCOMER + "@kyonggi.ac.kr", "", Role.STUDENT, RowStatus.NEW_USER, null);
+        given(importBatchRepository.findById(1L))
+            .willReturn(Optional.of(batch(0, List.of(noPhone))));
+
+        // when
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        // then
+        assertThat(response.createdUsers()).isZero();
+        assertThat(response.applied()).isZero();
+        assertThat(response.skipped()).isEqualTo(1);
+        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), anyBoolean());
+        verify(enrollmentCommandService, never()).createEnrollment(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("apply는 미리보기 이후 등록된 학생을 건너뛴다")
     public void apply_SkipsAlreadyEnrolled() {
         // given

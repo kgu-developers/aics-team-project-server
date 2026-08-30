@@ -115,6 +115,10 @@ public class EnrollmentImportFacade {
             }
             if (newUser && userRepository.findByStudentNumber(studentNumber).isEmpty()) {
                 String phone = row.path("phone").asText();
+                if (phone.isEmpty()) {
+                    skipped++;
+                    continue;
+                }
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
                     row.path("name").asText(), phone, UserGlobalRole.USER,
                     phone, false);
