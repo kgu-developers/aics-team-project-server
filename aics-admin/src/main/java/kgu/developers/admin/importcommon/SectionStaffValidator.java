@@ -24,12 +24,21 @@ public class SectionStaffValidator {
     private final SectionRepository sectionRepository;
     private final UserRepository userRepository;
 
-    public void validate(Long sectionId, String studentNumber) {
-        if (isAdmin(studentNumber) || isAssistant(sectionId, studentNumber)
-            || sectionRepository.existsActiveByIdAndProfessorId(sectionId, studentNumber)) {
-            return;
+    public boolean validateAndIsAssistantOnly(Long sectionId, String studentNumber) {
+        if (isAdmin(studentNumber)) {
+            return false;
+        }
+        if (sectionRepository.existsActiveByIdAndProfessorId(sectionId, studentNumber)) {
+            return false;
+        }
+        if (isAssistant(sectionId, studentNumber)) {
+            return true;
         }
         throw new AccessDeniedException("해당 분반의 조교 또는 담당 교수만 명단을 업로드할 수 있습니다.");
+    }
+
+    public void validate(Long sectionId, String studentNumber) {
+        validateAndIsAssistantOnly(sectionId, studentNumber);
     }
 
     private boolean isAdmin(String studentNumber) {
@@ -43,15 +52,5 @@ public class SectionStaffValidator {
         return enrollmentRepository.findBySectionIdAndUserId(sectionId, studentNumber)
             .filter(enrollment -> enrollment.getRole() == Role.ASSISTANT && enrollment.getStatus() == Status.ACTIVE)
             .isPresent();
-    }
-
-    public boolean isAssistantOnly(Long sectionId, String studentNumber) {
-        if (isAdmin(studentNumber)) {
-            return false;
-        }
-        if (sectionRepository.existsActiveByIdAndProfessorId(sectionId, studentNumber)) {
-            return false;
-        }
-        return isAssistant(sectionId, studentNumber);
     }
 }

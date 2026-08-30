@@ -60,12 +60,12 @@ public class EnrollmentImportFacade {
 
     @Transactional
     public EnrollmentImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
-        sectionStaffValidator.validate(sectionId, uploaderId);
+        boolean isAssistantOnly = sectionStaffValidator.validateAndIsAssistantOnly(sectionId, uploaderId);
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
 
-        List<EnrollmentImportRow> rows = validate(sectionId, EnrollmentSheetReader.read(file), uploaderId);
+        List<EnrollmentImportRow> rows = validate(sectionId, EnrollmentSheetReader.read(file), isAssistantOnly);
         EnrollmentImportSummary summary = EnrollmentImportSummary.of(rows);
 
         ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.ENROLLMENT,
@@ -82,9 +82,8 @@ public class EnrollmentImportFacade {
         if (batch.getType() != Type.ENROLLMENT) {
             throw new ImportBatchNotFoundException();
         }
-        sectionStaffValidator.validate(batch.getSectionId(), userId);
-
-        boolean isAssistantOnly = sectionStaffValidator.isAssistantOnly(batch.getSectionId(), userId);
+        boolean isAssistantOnly = sectionStaffValidator
+            .validateAndIsAssistantOnly(batch.getSectionId(), userId);
         
         SectionJpaEntity section = entityManager.find(SectionJpaEntity.class, batch.getSectionId(),
             LockModeType.PESSIMISTIC_WRITE);
@@ -138,7 +137,8 @@ public class EnrollmentImportFacade {
         return new EnrollmentImportApplyResponse(batch.getId(), applied, createdUsers, skipped);
     }
 
-    private List<EnrollmentImportRow> validate(Long sectionId, List<EnrollmentImportRow> rows, String uploaderId) {
+    private List<EnrollmentImportRow> validate(Long sectionId, List<EnrollmentImportRow> rows,
+        boolean isAssistantOnly) {
         List<String> studentNumbers = rows.stream().map(EnrollmentImportRow::studentNumber).toList();
         Set<String> members = userRepository.findAllByStudentNumberIn(studentNumbers).stream()
             .map(User::getStudentNumber)
@@ -154,8 +154,6 @@ public class EnrollmentImportFacade {
             .collect(Collectors.toMap(User::getEmail, User::getStudentNumber, (a, b) -> a));
         Map<String, Status> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .collect(Collectors.toMap(Enrollment::getUserId, Enrollment::getStatus));
-
-        boolean isAssistantOnly = sectionStaffValidator.isAssistantOnly(sectionId, uploaderId);
 
         Set<String> seenNumbers = new HashSet<>();
         Set<String> seenEmails = new HashSet<>();
