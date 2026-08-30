@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+import static kgu.developers.common.exception.ConstraintViolations.violates;
+
 @Repository
 @RequiredArgsConstructor
 public class TeamRepositoryImpl implements TeamRepository {
@@ -35,7 +37,7 @@ public class TeamRepositoryImpl implements TeamRepository {
         } catch (OptimisticLockingFailureException e) {
             throw new TeamConcurrentlyModifiedException();
         } catch (DataIntegrityViolationException e) {
-            if (Optional.ofNullable(e.getMostSpecificCause().getMessage()).map(m -> m.contains(TEAM_NAME_INDEX)).orElse(false)) {
+            if (violates(e, TEAM_NAME_INDEX)) {
                 throw new DuplicateTeamNameException();
             }
             throw e;

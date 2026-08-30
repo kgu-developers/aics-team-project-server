@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 import static java.util.stream.Collectors.partitioningBy;
+import static kgu.developers.common.exception.ConstraintViolations.violates;
 
 @Repository
 @RequiredArgsConstructor
@@ -36,26 +37,7 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
   @Override
   @Transactional
   public TeamMember save(TeamMember teamMember) {
-    if (teamMember.isLeader() && teamMember.getDeletedAt() == null) {
-      validateNoOtherLeader(teamMember);
-    }
-    TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, teamMember.getTeamId());
-    UserJpaEntity user = entityManager.getReference(UserJpaEntity.class, teamMember.getUserId());
-    TeamMemberJpaEntity entity = TeamMemberJpaEntity.toEntity(teamMember, team, user);
-    try {
-      return jpaTeamMemberRepository.saveAndFlush(entity).toDomain();
-    } catch (OptimisticLockingFailureException e) {
-      throw new TeamMemberConcurrentlyModifiedException();
-    } catch (DataIntegrityViolationException e) {
-      String message = Optional.ofNullable(e.getMostSpecificCause().getMessage()).orElse("");
-      if (message.contains(TEAM_LEADER_INDEX)) {
-        throw new LeaderAlreadyExistsException();
-      }
-      if (message.contains(TEAM_MEMBER_INDEX)) {
-        throw new TeamMemberAlreadyExistsException();
-      }
-      throw e;
-    }
+    return saveBatch(List.of(teamMember)).getFirst();
   }
 
   @Override
@@ -94,11 +76,10 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     } catch (OptimisticLockingFailureException e) {
       throw new TeamMemberConcurrentlyModifiedException();
     } catch (DataIntegrityViolationException e) {
-      String message = Optional.ofNullable(e.getMostSpecificCause().getMessage()).orElse("");
-      if (message.contains(TEAM_LEADER_INDEX)) {
+      if (violates(e, TEAM_LEADER_INDEX)) {
         throw new LeaderAlreadyExistsException();
       }
-      if (message.contains(TEAM_MEMBER_INDEX)) {
+      if (violates(e, TEAM_MEMBER_INDEX)) {
         throw new TeamMemberAlreadyExistsException();
       }
       throw e;
