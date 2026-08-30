@@ -4,70 +4,32 @@ import static kgu.developers.admin.importcommon.RowStatus.INVALID;
 import static kgu.developers.admin.importcommon.RowStatus.VALID;
 import static kgu.developers.admin.importcommon.Sheets.cell;
 import static kgu.developers.admin.importcommon.Sheets.column;
-import static kgu.developers.admin.importcommon.Sheets.headerRow;
 import static kgu.developers.admin.importcommon.Sheets.tooLong;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.web.multipart.MultipartFile;
 
-import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
+import kgu.developers.admin.importcommon.Sheets;
 
 public final class TeamSheetReader {
     private static final List<String> LEADER_MARKS =
         List.of("Y", "y", "O", "o", "TRUE", "true", "1", "팀장", "리더");
-    private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-    private static final int MAX_ROWS = 1000;
 
     private TeamSheetReader() {
     }
 
     public static List<TeamImportRow> read(MultipartFile file) {
-        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new ImportBatchFileInvalidException("파일 크기가 10MB를 초과했습니다.");
-        }
-
-        ZipSecureFile.setMinInflateRatio(0.01);
-        ZipSecureFile.setMaxEntrySize(MAX_FILE_SIZE_BYTES);
-
-        try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Row header = headerRow(sheet, "학번");
+        return Sheets.read(file, "학번", header -> {
             Columns columns = new Columns(
                 column(header, "팀명", "팀", "조", "조명"),
                 column(header, "학번"),
                 column(header, "성명", "이름"),
                 column(header, "팀장", "팀장여부", "리더"),
                 column(header, "역할", "담당", "담당역할"));
-
-            List<TeamImportRow> rows = new ArrayList<>();
-            int dataRowCount = 0;
-            for (int i = header.getRowNum() + 1; i <= sheet.getLastRowNum(); i++) {
-                TeamImportRow row = toRow(sheet.getRow(i), i + 1, columns);
-                if (row != null) {
-                    rows.add(row);
-                    dataRowCount++;
-                    if (dataRowCount > MAX_ROWS) {
-                        throw new ImportBatchFileInvalidException("행 수가 " + MAX_ROWS + "행을 초과했습니다.");
-                    }
-                }
-            }
-            return rows;
-        } catch (ImportBatchFileInvalidException e) {
-            throw e;
-        } catch (IOException e) {
-            throw new ImportBatchFileInvalidException(e);
-        } catch (Exception e) {
-            throw new ImportBatchFileInvalidException("압축 파일 처리 중 오류가 발생했습니다: " + e.getMessage());
-        }
+            return (row, rowNumber) -> toRow(row, rowNumber, columns);
+        });
     }
 
     private record Columns(int teamName, int studentNumber, int name, int leader, int projectRole) {
