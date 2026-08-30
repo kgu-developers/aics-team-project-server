@@ -34,6 +34,7 @@ import kgu.developers.domain.teamMember.application.command.TeamMemberCommandSer
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teamMember.exception.LeaderAlreadyExistsException;
+import kgu.developers.domain.teamMember.exception.LeaderMoveRequiresExplicitRoleException;
 import kgu.developers.domain.teamMember.exception.TeamMemberAlreadyExistsException;
 import kgu.developers.domain.teamMember.exception.TeamMemberSectionMismatchException;
 import kgu.developers.domain.teamMember.exception.TeamMemberNotFoundException;
@@ -197,13 +198,13 @@ class TeamMemberCommandServiceTest {
         TeamMember teamMember = TeamMember.builder()
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).build();
         given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
-        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(teamMember));
         given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
 
         teamMemberCommandService.updateTeamMember(teamMember, null, null, true);
 
         assertThat(teamMember.isLeader()).isTrue();
         verify(teamMemberRepository, times(1)).save(any());
+        verify(teamMemberRepository, never()).findLeaderByTeamId(any());
     }
 
     @Test
@@ -426,23 +427,37 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
-    @DisplayName("기존 팀장을 isLeader=null로 다른 팀으로 이동할 때 대상 팀에 팀장이 있으면 예외를 던진다")
-    void rejectsMovingExistingLeaderWithNullIsLeaderIntoTeamWithLeader() {
+    @DisplayName("기존 팀장을 isLeader 없이 옮기면 팀장 유지 여부를 명시하라며 거절한다")
+    void rejectsMovingExistingLeaderWithoutExplicitIsLeader() {
         TeamMember existingLeader = TeamMember.builder()
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
                 .build();
-        TeamMember targetLeader = leaderOf(2L, 9L);
+        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+
+        assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(existingLeader, 2L, null, null))
+                .isInstanceOf(LeaderMoveRequiresExplicitRoleException.class);
+
+        assertThat(existingLeader.getTeamId()).isEqualTo(1L);
+        assertThat(existingLeader.isLeader()).isTrue();
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("isLeader=false로 옮기면 팀장직을 내려놓고 대상 팀 팀장 자리를 넘보지 않는다")
+    void movingExistingLeaderWithIsLeaderFalseDemotesAndMoves() {
+        TeamMember existingLeader = TeamMember.builder()
+                .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
+                .build();
         given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
         given(teamRepository.findById(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
         given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
-        given(teamMemberRepository.findLeaderByTeamId(2L)).willReturn(Optional.of(targetLeader));
+        given(teamMemberRepository.save(existingLeader)).willReturn(existingLeader);
 
-        assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(existingLeader, 2L, null, null))
-                .isInstanceOf(LeaderAlreadyExistsException.class);
+        teamMemberCommandService.updateTeamMember(existingLeader, 2L, null, false);
 
-        assertThat(existingLeader.getTeamId()).isEqualTo(1L);
-        assertThat(targetLeader.isLeader()).isTrue();
-        verify(teamMemberRepository, never()).save(any());
+        assertThat(existingLeader.getTeamId()).isEqualTo(2L);
+        assertThat(existingLeader.isLeader()).isFalse();
+        verify(teamMemberRepository, never()).findLeaderByTeamId(any());
     }
 
     @Test

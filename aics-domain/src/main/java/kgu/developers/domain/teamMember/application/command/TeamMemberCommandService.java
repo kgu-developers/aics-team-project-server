@@ -20,6 +20,7 @@ import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teamMember.exception.LeaderAlreadyExistsException;
+import kgu.developers.domain.teamMember.exception.LeaderMoveRequiresExplicitRoleException;
 import kgu.developers.domain.teamMember.exception.TeamMemberAlreadyExistsException;
 import kgu.developers.domain.teamMember.exception.TeamMemberNotFoundException;
 import kgu.developers.domain.teamMember.exception.TeamMemberSectionMismatchException;
@@ -40,7 +41,12 @@ public class TeamMemberCommandService {
     validateUpdateAllowed(currentTeam, targetTeamId, projectRole, isLeader);
 
     boolean moved = targetTeamId != null && !targetTeamId.equals(teamMember.getTeamId());
-    boolean finalLeaderStatus = isLeader == null ? teamMember.isLeader() : isLeader;
+    // 팀장을 옮기면 원래 팀이 팀장을 잃으므로 조용히 처리하지 않고 isLeader 를 명시하게 한다.
+    if (moved && teamMember.isLeader() && isLeader == null) {
+      throw new LeaderMoveRequiresExplicitRoleException();
+    }
+    // 팀장은 팀에 종속된 역할이라 이동만 요청하면 따라가지 않는다.
+    boolean finalLeaderStatus = isLeader != null ? isLeader : (!moved && teamMember.isLeader());
     
     if (moved) {
       Long firstTeamId = Math.min(currentTeam.getId(), targetTeamId);
@@ -70,13 +76,11 @@ public class TeamMemberCommandService {
     if (projectRole != null) {
       teamMember.updateProjectRole(projectRole);
     }
-    if (isLeader != null) {
-      if (isLeader) {
-        if (!moved) {
-          demoteCurrentLeader(teamMember);
-        }
+    if (finalLeaderStatus != teamMember.isLeader()) {
+      if (finalLeaderStatus && !moved) {
+        demoteCurrentLeader(teamMember);
       }
-      teamMember.updateIsLeader(isLeader);
+      teamMember.updateIsLeader(finalLeaderStatus);
     }
     return teamMemberRepository.save(teamMember);
   }

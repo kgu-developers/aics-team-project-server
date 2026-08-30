@@ -18,6 +18,8 @@ public enum TeamMemberDomainExceptionCode implements ExceptionCode {
     TEAM_MEMBER_NOT_FOUND(NOT_FOUND, "해당 팀원을 찾을 수 없습니다."),
     TEAM_MEMBER_CONCURRENTLY_MODIFIED(CONFLICT, "다른 요청이 먼저 팀원 정보를 변경했습니다. 다시 시도해주세요."),
     TEAM_MEMBER_SECTION_MISMATCH(BAD_REQUEST, "같은 분반의 팀으로만 옮길 수 있습니다."),
+    LEADER_MOVE_REQUIRES_EXPLICIT_ROLE(CONFLICT,
+        "팀장을 다른 팀으로 옮기려면 isLeader 를 함께 보내 팀장 유지 여부를 지정해야 합니다."),
     ;
 
     private final HttpStatus status;
