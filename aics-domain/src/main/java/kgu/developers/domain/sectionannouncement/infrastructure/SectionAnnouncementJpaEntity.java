@@ -41,6 +41,9 @@ public class SectionAnnouncementJpaEntity extends BaseTimeEntity {
     @Column(name = "published_at", nullable = false)
     private LocalDateTime publishedAt;
 
+    @Column(name = "notified_at")
+    private LocalDateTime notifiedAt;
+
     @Version
     private long version;
 
@@ -51,6 +54,7 @@ public class SectionAnnouncementJpaEntity extends BaseTimeEntity {
             .title(this.title)
             .content(this.content)
             .publishedAt(this.publishedAt)
+            .notifiedAt(this.notifiedAt)
             .version(this.version)
             .createdAt(this.getCreatedAt())
             .updatedAt(this.getUpdatedAt())
@@ -64,6 +68,7 @@ public class SectionAnnouncementJpaEntity extends BaseTimeEntity {
             .title(domain.getTitle())
             .content(domain.getContent())
             .publishedAt(domain.getPublishedAt())
+            .notifiedAt(domain.getNotifiedAt())
             .version(domain.getVersion())
             .build();
     }

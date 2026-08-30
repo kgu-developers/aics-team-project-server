@@ -39,6 +39,13 @@ public class SectionAnnouncementRepositoryImpl implements SectionAnnouncementRep
     }
 
     @Override
+    public List<SectionAnnouncement> findAllToNotify(LocalDateTime now) {
+        return jpaSectionAnnouncementRepository.findAllByPublishedAtLessThanEqualAndNotifiedAtIsNull(now).stream()
+            .map(SectionAnnouncementJpaEntity::toDomain)
+            .toList();
+    }
+
+    @Override
     public void deleteById(Long id) {
         jpaSectionAnnouncementRepository.deleteById(id);
     }

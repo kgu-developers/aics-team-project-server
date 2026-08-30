@@ -9,4 +9,6 @@ public interface JpaSectionAnnouncementRepository extends JpaRepository<SectionA
     List<SectionAnnouncementJpaEntity> findAllBySectionIdAndPublishedAtLessThanEqualOrderByPublishedAtDesc(
         Long sectionId, LocalDateTime now
     );
+
+    List<SectionAnnouncementJpaEntity> findAllByPublishedAtLessThanEqualAndNotifiedAtIsNull(LocalDateTime now);
 }

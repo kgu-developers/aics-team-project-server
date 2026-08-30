@@ -94,4 +94,28 @@ class SectionAnnouncementCommandServiceTest {
         assertThatThrownBy(() -> commandService.updateAnnouncement(id, null, null, null))
             .isInstanceOf(CustomException.class);
     }
+
+    @Test
+    @DisplayName("markNotified는 알림 발송 시각을 기록한다")
+    void markNotified_RecordsNotifiedAt() {
+        // given
+        Long id = createAnnouncement();
+        LocalDateTime notifiedAt = LocalDateTime.now();
+
+        // when
+        commandService.markNotified(id, notifiedAt);
+
+        // then
+        SectionAnnouncement notified = fakeSectionAnnouncementRepository.findById(id).orElseThrow();
+        assertThat(notified.isNotified()).isTrue();
+        assertThat(notified.getNotifiedAt()).isEqualTo(notifiedAt);
+    }
+
+    @Test
+    @DisplayName("markNotified는 존재하지 않는 공지사항이면 예외를 던진다")
+    void markNotified_NotFound_ThrowsException() {
+        // when & then
+        assertThatThrownBy(() -> commandService.markNotified(999L, LocalDateTime.now()))
+            .isInstanceOf(CustomException.class);
+    }
 }

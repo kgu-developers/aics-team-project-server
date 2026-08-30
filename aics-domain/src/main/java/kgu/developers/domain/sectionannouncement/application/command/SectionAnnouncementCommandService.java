@@ -48,6 +48,12 @@ public class SectionAnnouncementCommandService {
         sectionAnnouncementRepository.save(announcement);
     }
 
+    public void markNotified(Long id, LocalDateTime notifiedAt) {
+        SectionAnnouncement announcement = findOrThrow(id);
+        announcement.markNotified(notifiedAt);
+        sectionAnnouncementRepository.save(announcement);
+    }
+
     private SectionAnnouncement findOrThrow(Long id) {
         return sectionAnnouncementRepository.findById(id)
             .orElseThrow(SectionAnnouncementNotFoundException::new);

@@ -15,6 +15,7 @@ public class SectionAnnouncement {
     private String title;
     private String content;
     private LocalDateTime publishedAt;
+    private LocalDateTime notifiedAt;
     private long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -38,5 +39,17 @@ public class SectionAnnouncement {
 
     public void updatePublishedAt(LocalDateTime publishedAt) {
         this.publishedAt = publishedAt;
+    }
+
+    public boolean isPublishedBy(LocalDateTime now) {
+        return !this.publishedAt.isAfter(now);
+    }
+
+    public boolean isNotified() {
+        return this.notifiedAt != null;
+    }
+
+    public void markNotified(LocalDateTime notifiedAt) {
+        this.notifiedAt = notifiedAt;
     }
 }

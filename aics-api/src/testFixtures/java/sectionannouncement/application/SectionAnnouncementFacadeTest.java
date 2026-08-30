@@ -18,6 +18,7 @@ import kgu.developers.domain.notification.application.command.NotificationComman
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.sectionannouncement.application.command.SectionAnnouncementCommandService;
 import kgu.developers.domain.sectionannouncement.application.query.SectionAnnouncementQueryService;
+import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncement;
 import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakeNotificationRepository;
 import mock.repository.FakeSectionAnnouncementRepository;
@@ -35,13 +36,14 @@ public class SectionAnnouncementFacadeTest {
 
     private SectionAnnouncementFacade facade;
     private FakeNotificationRepository fakeNotificationRepository;
+    private FakeSectionAnnouncementRepository fakeSectionAnnouncementRepository;
     private Long sectionId;
 
     @BeforeEach
     public void init() {
         FakeSectionRepository fakeSectionRepository = new FakeSectionRepository();
         FakeEnrollmentRepository fakeEnrollmentRepository = new FakeEnrollmentRepository();
-        FakeSectionAnnouncementRepository fakeSectionAnnouncementRepository = new FakeSectionAnnouncementRepository();
+        fakeSectionAnnouncementRepository = new FakeSectionAnnouncementRepository();
         fakeNotificationRepository = new FakeNotificationRepository();
 
         Section section = fakeSectionRepository.save(
@@ -96,6 +98,60 @@ public class SectionAnnouncementFacadeTest {
 
         // then
         assertEquals(0, result.contents().size());
+    }
+
+    @Test
+    @DisplayName("게시일시가 미래인 공지사항은 생성 시점에 알림을 보내지 않는다")
+    public void createAnnouncement_ScheduledAnnouncement_DoesNotNotifyImmediately() {
+        // given
+        SectionAnnouncementCreateRequest scheduledRequest = SectionAnnouncementCreateRequest.builder()
+            .title("예약 공지")
+            .content("내일 공개됩니다.")
+            .publishedAt(LocalDateTime.now().plusDays(1))
+            .build();
+
+        // when
+        facade.createAnnouncement(sectionId, PROFESSOR, scheduledRequest);
+
+        // then
+        assertEquals(0, fakeNotificationRepository.findAll().size());
+    }
+
+    @Test
+    @DisplayName("publishScheduledAnnouncements는 게시 시각이 지난 예약 공지에 대해 알림을 발송한다")
+    public void publishScheduledAnnouncements_NotifiesDuePastAnnouncements() {
+        // given — 예약 공지를 만든 뒤, 게시 시각이 이미 지난 상태를 저장소에서 직접 재현
+        SectionAnnouncementResponse persisted = facade.createAnnouncement(sectionId, PROFESSOR,
+            SectionAnnouncementCreateRequest.builder()
+                .title("예약 공지")
+                .content("곧 공개됩니다.")
+                .publishedAt(LocalDateTime.now().plusDays(1))
+                .build());
+        assertEquals(0, fakeNotificationRepository.findAll().size());
+
+        SectionAnnouncement announcement = fakeSectionAnnouncementRepository.findById(persisted.id()).orElseThrow();
+        announcement.updatePublishedAt(LocalDateTime.now().minusMinutes(1));
+        fakeSectionAnnouncementRepository.save(announcement);
+
+        // when — 게시 시각이 지난 뒤 배치가 돈다고 가정
+        facade.publishScheduledAnnouncements();
+
+        // then
+        assertEquals(1, fakeNotificationRepository.findAll().size());
+    }
+
+    @Test
+    @DisplayName("publishScheduledAnnouncements는 이미 알림을 보낸 공지사항은 다시 발송하지 않는다")
+    public void publishScheduledAnnouncements_DoesNotRenotifyAlreadyNotified() {
+        // given — 즉시 게시(알림 즉시 발송) 공지
+        facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest());
+        assertEquals(1, fakeNotificationRepository.findAll().size());
+
+        // when
+        facade.publishScheduledAnnouncements();
+
+        // then
+        assertEquals(1, fakeNotificationRepository.findAll().size());
     }
 
     @Test

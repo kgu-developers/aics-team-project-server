@@ -9,7 +9,7 @@ import lombok.Builder;
 public record SectionAnnouncementUpdateRequest(
 
     @Schema(description = "제목", example = "수정된 제목")
-    @Size(max = 193)
+    @Size(max = 192)
     String title,
 
     @Schema(description = "내용", example = "수정된 내용")

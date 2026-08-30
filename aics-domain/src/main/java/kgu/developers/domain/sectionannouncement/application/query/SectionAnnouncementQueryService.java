@@ -25,4 +25,8 @@ public class SectionAnnouncementQueryService {
     public List<SectionAnnouncement> getAnnouncements(Long sectionId) {
         return sectionAnnouncementRepository.findAllPublishedBySectionId(sectionId, LocalDateTime.now());
     }
+
+    public List<SectionAnnouncement> getAnnouncementsToNotify(LocalDateTime now) {
+        return sectionAnnouncementRepository.findAllToNotify(now);
+    }
 }

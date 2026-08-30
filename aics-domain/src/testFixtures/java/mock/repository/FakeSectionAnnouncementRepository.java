@@ -25,6 +25,7 @@ public class FakeSectionAnnouncementRepository implements SectionAnnouncementRep
             .title(sectionAnnouncement.getTitle())
             .content(sectionAnnouncement.getContent())
             .publishedAt(sectionAnnouncement.getPublishedAt())
+            .notifiedAt(sectionAnnouncement.getNotifiedAt())
             .version(sectionAnnouncement.getVersion())
             .createdAt(sectionAnnouncement.getCreatedAt() != null ? sectionAnnouncement.getCreatedAt() : LocalDateTime.now())
             .updatedAt(LocalDateTime.now())
@@ -45,6 +46,14 @@ public class FakeSectionAnnouncementRepository implements SectionAnnouncementRep
             .filter(announcement -> announcement.getSectionId().equals(sectionId))
             .filter(announcement -> !announcement.getPublishedAt().isAfter(now))
             .sorted(Comparator.comparing(SectionAnnouncement::getPublishedAt).reversed())
+            .toList();
+    }
+
+    @Override
+    public List<SectionAnnouncement> findAllToNotify(LocalDateTime now) {
+        return store.values().stream()
+            .filter(announcement -> !announcement.getPublishedAt().isAfter(now))
+            .filter(announcement -> !announcement.isNotified())
             .toList();
     }
 

@@ -39,12 +39,26 @@ public class SectionAnnouncementFacade {
     public SectionAnnouncementResponse createAnnouncement(Long sectionId, String userId, SectionAnnouncementCreateRequest request) {
         validateProfessor(sectionId, userId);
 
-        LocalDateTime publishedAt = request.publishedAt() != null ? request.publishedAt() : LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime publishedAt = request.publishedAt() != null ? request.publishedAt() : now;
         Long id = sectionAnnouncementCommandService.createAnnouncement(sectionId, request.title(), request.content(), publishedAt);
 
-        broadcastToSection(sectionId, id, request.title());
+        // 예약 게시(publishedAt이 미래)면 알림은 지금 보내지 않는다 — publishScheduledAnnouncements()가 게시 시각에 대신 발송한다.
+        if (!publishedAt.isAfter(now)) {
+            broadcastToSection(sectionId, id, request.title());
+            sectionAnnouncementCommandService.markNotified(id, now);
+        }
 
         return SectionAnnouncementResponse.from(sectionAnnouncementQueryService.getAnnouncement(id));
+    }
+
+    // 예약 게시 공지 중 게시 시각이 지났지만 아직 알림을 못 받은 것들을 발송한다. SectionAnnouncementNotificationScheduler가 주기 호출.
+    public void publishScheduledAnnouncements() {
+        LocalDateTime now = LocalDateTime.now();
+        sectionAnnouncementQueryService.getAnnouncementsToNotify(now).forEach(announcement -> {
+            broadcastToSection(announcement.getSectionId(), announcement.getId(), announcement.getTitle());
+            sectionAnnouncementCommandService.markNotified(announcement.getId(), now);
+        });
     }
 
     public SectionAnnouncementResponse updateAnnouncement(Long id, String userId, SectionAnnouncementUpdateRequest request) {
