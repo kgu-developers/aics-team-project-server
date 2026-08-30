@@ -2,6 +2,7 @@ package kgu.developers.admin.teamimport.application;
 
 import static kgu.developers.admin.importcommon.RowStatus.DUPLICATE;
 import static kgu.developers.admin.importcommon.RowStatus.INVALID;
+import static kgu.developers.admin.importcommon.RowStatus.UPDATE;
 import static kgu.developers.admin.importcommon.RowStatus.VALID;
 import static kgu.developers.domain.enrollment.domain.Status.ACTIVE;
 
@@ -11,6 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -95,7 +97,9 @@ public class TeamImportFacade {
         int appliedMembers = 0;
         int skipped = 0;
         for (JsonNode row : batch.getPayload()) {
-            if (!VALID.name().equals(row.path("status").asText())) {
+            String status = row.path("status").asText();
+            boolean update = UPDATE.name().equals(status);
+            if (!update && !VALID.name().equals(status)) {
                 continue;
             }
             String teamName = row.path("teamName").asText();
@@ -114,19 +118,14 @@ public class TeamImportFacade {
                 .orElse(null);
             
             if (existingInSection != null) {
-                Long existingTeamId = existingInSection.getTeamId();
-                String existingTeamName = teamIds.entrySet().stream()
-                    .filter(entry -> entry.getValue().equals(existingTeamId))
-                    .map(Map.Entry::getKey)
-                    .findFirst()
-                    .orElse("알 수 없는 팀");
-                
-                if (existingTeamId.equals(teamIds.get(teamName))) {
+                if (!update || !existingInSection.getTeamId().equals(teamIds.get(teamName))) {
                     skipped++;
                     continue;
                 }
-                
-                skipped++;
+                existingInSection.updateIsLeader(leader);
+                existingInSection.updateProjectRole(projectRole);
+                teamMemberRepository.save(existingInSection);
+                appliedMembers++;
                 continue;
             }
 
@@ -168,25 +167,24 @@ public class TeamImportFacade {
         List<Team> teams = teamRepository.findAllBySectionId(sectionId);
         Map<Long, String> teamNames = teams.stream()
             .collect(Collectors.toMap(Team::getId, Team::getName));
-        Map<String, String> assignedTeamOf = new HashMap<>();  // 학번 -> 이미 속한 팀명
+        Map<String, TeamMember> assignedOf = new HashMap<>();  // 학번 -> 이미 속한 팀원 정보
         Set<String> teamsWithLeader = new HashSet<>();
         teamMemberRepository.findAllByTeamIdIn(teams.stream().map(Team::getId).toList()).forEach(member -> {
-            String teamName = teamNames.get(member.getTeamId());
-            assignedTeamOf.put(member.getUserId(), teamName);
+            assignedOf.put(member.getUserId(), member);
             if (member.isLeader()) {
-                teamsWithLeader.add(teamName);
+                teamsWithLeader.add(teamNames.get(member.getTeamId()));
             }
         });
 
         Set<String> seenNumbers = new HashSet<>();
         Set<String> leaderTeams = new HashSet<>(teamsWithLeader);
         return rows.stream()
-            .map(row -> classify(row, enrolled, assignedTeamOf, leaderTeams, seenNumbers))
+            .map(row -> classify(row, enrolled, assignedOf, teamNames, leaderTeams, seenNumbers))
             .toList();
     }
 
-    private TeamImportRow classify(TeamImportRow row, Set<String> enrolled, Map<String, String> assignedTeamOf,
-        Set<String> leaderTeams, Set<String> seenNumbers) {
+    private TeamImportRow classify(TeamImportRow row, Set<String> enrolled, Map<String, TeamMember> assignedOf,
+        Map<Long, String> teamNames, Set<String> leaderTeams, Set<String> seenNumbers) {
         if (row.status() == INVALID) {
             return row;
         }
@@ -196,11 +194,27 @@ public class TeamImportFacade {
         if (!enrolled.contains(row.studentNumber())) {
             return row.with(INVALID, "해당 분반에 수강 등록되지 않은 학생입니다.");
         }
-        String assigned = assignedTeamOf.get(row.studentNumber());
+        TeamMember assigned = assignedOf.get(row.studentNumber());
         if (assigned != null) {
-            return assigned.equals(row.teamName())
-                ? row.with(DUPLICATE, "이미 이 팀에 편성되어 있습니다.")
-                : row.with(INVALID, "이미 다른 팀(" + assigned + ")에 편성되어 있습니다.");
+            String assignedTeam = teamNames.get(assigned.getTeamId());
+            if (!row.teamName().equals(assignedTeam)) {
+                return row.with(INVALID, "이미 다른 팀(" + assignedTeam + ")에 편성되어 있습니다.");
+            }
+            // 빈 셀은 ""로 읽히고 DB에는 null로 들어갈 수 있어서, 둘을 같은 값으로 본다
+            if (assigned.isLeader() == row.leader()
+                && Objects.toString(assigned.getProjectRole(), "")
+                    .equals(Objects.toString(row.projectRole(), ""))) {
+                return row.with(DUPLICATE, "이미 이 팀에 편성되어 있습니다.");
+            }
+            if (row.leader() && !leaderTeams.add(row.teamName())) {
+                return row.with(INVALID, "이 팀에는 이미 팀장이 있습니다.");
+            }
+            if (!row.leader() && assigned.isLeader()) {
+                // ponytail: 팀장 해제 행이 승격 행보다 뒤에 오면 승격 쪽이 먼저 거부된다.
+                // 팀장 판정을 파일 전체 단위로 옮기면 풀리는데, 그때 가서 옮긴다.
+                leaderTeams.remove(row.teamName());
+            }
+            return row.with(UPDATE, "팀장·역할이 바뀌어 갱신 예정입니다.");
         }
         if (row.leader() && !leaderTeams.add(row.teamName())) {
             return row.with(INVALID, "이 팀에는 이미 팀장이 있습니다.");

@@ -117,7 +117,7 @@ public class TeamImportFacadeTest {
 
     // then
     assertThat(response.importId()).isEqualTo(1L);
-    assertThat(response.summary()).isEqualTo(new TeamImportSummary(6, 2, 2, 0, 4));
+    assertThat(response.summary()).isEqualTo(new TeamImportSummary(6, 2, 2, 0, 0, 4));
 
     List<TeamImportRow> rows = response.rows();
     assertThat(rows.get(0).status()).isEqualTo(RowStatus.VALID);
@@ -128,6 +128,67 @@ public class TeamImportFacadeTest {
     assertThat(rows.get(3).status()).isEqualTo(RowStatus.INVALID); // 수강 등록 안 됨
     assertThat(rows.get(4).status()).isEqualTo(RowStatus.INVALID); // 파일 내 중복 학번
     assertThat(rows.get(5).status()).isEqualTo(RowStatus.INVALID); // 팀명 없음
+  }
+
+  @Test
+  @DisplayName("preview는 같은 팀에서 팀장·역할만 바뀌면 UPDATE로 분류한다")
+  public void preview_ClassifiesAttributeChangeAsUpdate() throws IOException {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드")));
+
+    // when: 팀장으로 승격 + 역할 변경
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "Y", "프론트" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.UPDATE);
+    assertThat(response.summary().update()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("preview는 이미 팀장이 있는 팀에 다른 팀장을 세우려 하면 거부한다")
+  public void preview_RejectsLeaderPromotionWhenTeamHasLeader() throws IOException {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(
+        TeamMember.create(10L, STUDENT_A, true, ""),
+        TeamMember.create(10L, STUDENT_B, false, "")));
+
+    // when: 이미 A가 팀장인 1팀에서 B를 팀장으로 올리려 한다
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_B, "김철수", "Y", "" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+    assertThat(response.rows().get(0).message()).isEqualTo("이 팀에는 이미 팀장이 있습니다.");
+  }
+
+  @Test
+  @DisplayName("apply는 UPDATE 행의 팀장·역할을 갱신한다")
+  public void apply_UpdatesLeaderAndProjectRole() {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    TeamMember member = TeamMember.create(10L, STUDENT_A, false, "백엔드");
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
+        .willReturn(Optional.of(member));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(
+        batch(0, List.of(row(2, "1팀", STUDENT_A, true, "프론트", RowStatus.UPDATE)))));
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then
+    assertThat(response.appliedMembers()).isEqualTo(1);
+    assertThat(response.skipped()).isZero();
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().isLeader()).isTrue();
+    assertThat(captor.getValue().getProjectRole()).isEqualTo("프론트");
   }
 
   @Test
@@ -484,7 +545,7 @@ public class TeamImportFacadeTest {
         .type(Type.TEAM)
         .status(kgu.developers.domain.importBatch.domain.Status.PREVIEW)
         .payload(JsonConverter.toTree(rows))
-        .summary(JsonConverter.toTree(new TeamImportSummary(rows.size(), 1, 0, 0, invalid)))
+        .summary(JsonConverter.toTree(new TeamImportSummary(rows.size(), 1, 0, 0, 0, invalid)))
         .expiredAt(LocalDateTime.now().plusMinutes(30))
         .build();
   }
