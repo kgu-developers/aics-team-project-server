@@ -285,12 +285,28 @@ public class EnrollmentImportFacadeTest {
     @DisplayName("preview는 없는 분반이면 거부한다")
     public void preview_RejectsUnknownSection() throws IOException {
         // given
+        String admin = "202499998";
+        given(userRepository.findByStudentNumber(admin)).willReturn(Optional.of(
+            User.create(admin, admin + "@kyonggi.ac.kr", "관리자", "password",
+                UserGlobalRole.ADMIN, "010-0000-0000")));
         given(sectionRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> facade.preview(999L, ASSISTANT,
+        assertThatThrownBy(() -> facade.preview(999L, admin,
             excel(new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-0000-0001", ""})))
             .isInstanceOf(SectionNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("preview는 담당자가 아니면 분반 존재 여부를 알려주지 않는다")
+    public void preview_HidesSectionExistenceFromNonStaff() throws IOException {
+        // given
+        given(sectionRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> facade.preview(999L, MEMBER,
+            excel(new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-0000-0001", ""})))
+            .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

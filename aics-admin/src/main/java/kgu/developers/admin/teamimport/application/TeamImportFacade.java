@@ -57,10 +57,10 @@ public class TeamImportFacade {
 
     @Transactional
     public TeamImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
+        sectionStaffValidator.validate(sectionId, uploaderId);
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
-        sectionStaffValidator.validate(sectionId, uploaderId);
 
         List<TeamImportRow> rows = validate(sectionId, TeamSheetReader.read(file));
         TeamImportSummary summary = TeamImportSummary.of(rows);

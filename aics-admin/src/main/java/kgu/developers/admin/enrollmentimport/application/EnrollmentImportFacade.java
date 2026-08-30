@@ -55,10 +55,10 @@ public class EnrollmentImportFacade {
 
     @Transactional
     public EnrollmentImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
+        sectionStaffValidator.validate(sectionId, uploaderId);
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
-        sectionStaffValidator.validate(sectionId, uploaderId);
 
         List<EnrollmentImportRow> rows = validate(sectionId, EnrollmentSheetReader.read(file), uploaderId);
         EnrollmentImportSummary summary = EnrollmentImportSummary.of(rows);

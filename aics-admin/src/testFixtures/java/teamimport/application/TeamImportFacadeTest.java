@@ -49,6 +49,8 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 
 import jakarta.persistence.EntityManager;
@@ -170,12 +172,28 @@ public class TeamImportFacadeTest {
   @DisplayName("preview는 없는 분반이면 거부한다")
   public void preview_RejectsUnknownSection() throws IOException {
     // given
+    String admin = "202499998";
+    given(userRepository.findByStudentNumber(admin)).willReturn(Optional.of(
+        User.create(admin, admin + "@kyonggi.ac.kr", "관리자", "password",
+            UserGlobalRole.ADMIN, "010-0000-0000")));
     given(sectionRepository.findById(999L)).willReturn(Optional.empty());
 
     // when & then
-    assertThatThrownBy(() -> facade.preview(999L, ASSISTANT,
+    assertThatThrownBy(() -> facade.preview(999L, admin,
         excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "" })))
         .isInstanceOf(SectionNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("preview는 담당자가 아니면 분반 존재 여부를 알려주지 않는다")
+  public void preview_HidesSectionExistenceFromNonStaff() throws IOException {
+    // given
+    given(sectionRepository.findById(999L)).willReturn(Optional.empty());
+
+    // when & then
+    assertThatThrownBy(() -> facade.preview(999L, OUTSIDER,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "" })))
+        .isInstanceOf(AccessDeniedException.class);
   }
 
   @Test
