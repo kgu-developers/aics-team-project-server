@@ -13,6 +13,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +36,7 @@ import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
 import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.exception.ImportBatchNotFoundException;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.domain.User;
@@ -52,6 +56,7 @@ public class EnrollmentImportFacade {
     private final UserRepository userRepository;
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
+    private final EntityManager entityManager;
 
     @Transactional
     public EnrollmentImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
@@ -80,6 +85,8 @@ public class EnrollmentImportFacade {
         sectionStaffValidator.validate(batch.getSectionId(), userId);
 
         boolean isAssistantOnly = sectionStaffValidator.isAssistantOnly(batch.getSectionId(), userId);
+        
+        entityManager.find(SectionJpaEntity.class, batch.getSectionId(), LockModeType.PESSIMISTIC_WRITE);
 
         batch.apply(LocalDateTime.now());
 

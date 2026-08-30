@@ -54,6 +54,9 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+
 public class EnrollmentImportFacadeTest {
 
     private static final Long SECTION_ID = 1L;
@@ -68,6 +71,7 @@ public class EnrollmentImportFacadeTest {
     private UserCommandService userCommandService;
     private UserRepository userRepository;
     private SectionRepository sectionRepository;
+    private EntityManager entityManager;
     private EnrollmentImportFacade facade;
 
     @BeforeEach
@@ -78,10 +82,12 @@ public class EnrollmentImportFacadeTest {
         userCommandService = mock(UserCommandService.class);
         userRepository = mock(UserRepository.class);
         sectionRepository = mock(SectionRepository.class);
+        entityManager = mock(EntityManager.class);
         facade = new EnrollmentImportFacade(importBatchRepository, enrollmentRepository,
             enrollmentCommandService, userCommandService, userRepository,
             sectionRepository,
-            new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
+            new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository),
+            entityManager);
 
         given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
         given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
@@ -350,6 +356,22 @@ public class EnrollmentImportFacadeTest {
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.STUDENT);
         verify(enrollmentCommandService, never()).createEnrollment(eq(SECTION_ID), eq(ENROLLED), any());
+    }
+
+    @Test
+    @DisplayName("apply는 분반에 쓰기 락을 걸어 동시 반영을 직렬화한다")
+    public void apply_LocksSection() {
+        // given
+        given(importBatchRepository.findById(1L))
+            .willReturn(Optional.of(batch(0, List.of(row(2, MEMBER, RowStatus.VALID)))));
+
+        // when
+        facade.apply(1L, ASSISTANT);
+
+        // then
+        verify(entityManager).find(
+            kgu.developers.domain.section.infrastructure.SectionJpaEntity.class,
+            SECTION_ID, LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Test
