@@ -13,6 +13,7 @@ import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
+import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -43,9 +44,11 @@ public class TeamFacade {
     if (request.memberRoles() != null) {
       request.memberRoles().forEach(role -> projectRoles.put(role.studentNumber(), role.projectRole()));
     }
-    teamMemberCommandService.updateKickoffRoles(teamId, request.leaderStudentNumber(), projectRoles);
+    List<TeamMember> updatedMembers =
+        teamMemberCommandService.updateKickoffRoles(teamId, request.leaderStudentNumber(), projectRoles);
 
-    return TeamKickoffResponse.of(team, members(teamId));
+    return TeamKickoffResponse.of(team,
+        mapAll(teamMemberQueryService.withUsers(updatedMembers), TeamMemberResponse::of));
   }
 
   @Transactional

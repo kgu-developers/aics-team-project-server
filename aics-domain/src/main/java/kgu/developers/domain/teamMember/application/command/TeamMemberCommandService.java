@@ -132,7 +132,7 @@ public class TeamMemberCommandService {
         });
   }
 
-  public void updateKickoffRoles(Long teamId, String leaderStudentNumber, Map<String, String> projectRoles) {
+  public List<TeamMember> updateKickoffRoles(Long teamId, String leaderStudentNumber, Map<String, String> projectRoles) {
     teamQueryService.getTeamById(teamId).validateNotConfirmed();
 
     Map<String, TeamMember> members = teamMemberRepository.findAllByTeamId(teamId).stream()
@@ -167,8 +167,10 @@ public class TeamMemberCommandService {
         });
 
     if (!changedMembers.isEmpty()) {
-      teamMemberRepository.saveAll(changedMembers);
+      teamMemberRepository.saveAll(changedMembers)
+          .forEach(saved -> members.put(saved.getUserId(), saved));
     }
+    return List.copyOf(members.values());
   }
 
   private boolean applyChanges(TeamMember member, boolean isLeader, Map<String, String> projectRoles) {

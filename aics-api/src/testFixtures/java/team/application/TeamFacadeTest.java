@@ -94,8 +94,11 @@ class TeamFacadeTest {
     given(teamCommandService.updateKickoff(1L, "1팀", "매주 화요일 회고", "매주 목 19:00"))
         .willReturn(Team.builder().id(1L).sectionId(10L).name("1팀")
             .kickoffRule("매주 화요일 회고").meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
-    given(teamMemberQueryService.getTeamMembersWithUsers(1L))
-        .willReturn(List.of(withUser(member(1L, "202699999", true), "김철수")));
+    TeamMember updated = member(1L, "202699999", true);
+    given(teamMemberCommandService.updateKickoffRoles(1L, "202699999", Map.of("202699999", "백엔드")))
+        .willReturn(List.of(updated));
+    given(teamMemberQueryService.withUsers(List.of(updated)))
+        .willReturn(List.of(withUser(updated, "김철수")));
 
     TeamKickoffResponse response = teamFacade.updateKickoff(1L, USER, request);
 
@@ -111,7 +114,6 @@ class TeamFacadeTest {
         "1팀", null, null, "202699999", null);
     given(teamCommandService.updateKickoff(1L, "1팀", null, null))
         .willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build());
-    given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of());
 
     teamFacade.updateKickoff(1L, USER, request);
 
@@ -126,7 +128,6 @@ class TeamFacadeTest {
         List.of(new MemberRole("202699999", null), new MemberRole("202611111", "백엔드")));
     given(teamCommandService.updateKickoff(1L, "1팀", "매주 화요일 회고", "매주 목 19:00"))
         .willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build());
-    given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of());
 
     teamFacade.updateKickoff(1L, USER, request);
 

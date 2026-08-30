@@ -22,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TeamMemberQueryService {
+    private static final Comparator<TeamMember> MEMBER_ORDER =
+            Comparator.comparing(TeamMember::isLeader).reversed().thenComparing(TeamMember::getUserId);
+
     private final TeamMemberRepository teamMemberRepository;
     private final UserQueryService userQueryService;
 
@@ -32,20 +35,23 @@ public class TeamMemberQueryService {
 
     public List<TeamMember> getTeamMembersByTeamId(Long teamId) {
         return teamMemberRepository.findAllByTeamId(teamId).stream()
-                .sorted(Comparator.comparing(TeamMember::isLeader).reversed()
-                        .thenComparing(TeamMember::getUserId))
+                .sorted(MEMBER_ORDER)
                 .toList();
     }
 
     public List<TeamMemberWithUser> getTeamMembersWithUsers(Long teamId) {
-        List<TeamMember> members = getTeamMembersByTeamId(teamId);
+        return withUsers(getTeamMembersByTeamId(teamId));
+    }
 
+    /** 이미 팀원 목록을 들고 있는 호출자가 같은 조회를 반복하지 않도록 유저 결합만 따로 제공한다. */
+    public List<TeamMemberWithUser> withUsers(List<TeamMember> teamMembers) {
         Map<String, User> users = userQueryService
-                .getUsersByStudentNumbers(members.stream().map(TeamMember::getUserId).toList())
+                .getUsersByStudentNumbers(teamMembers.stream().map(TeamMember::getUserId).toList())
                 .stream()
                 .collect(toMap(User::getStudentNumber, identity()));
 
-        return members.stream()
+        return teamMembers.stream()
+                .sorted(MEMBER_ORDER)
                 .map(member -> new TeamMemberWithUser(member, users.get(member.getUserId())))
                 .toList();
     }
