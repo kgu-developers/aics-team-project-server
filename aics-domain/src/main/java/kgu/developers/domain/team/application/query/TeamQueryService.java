@@ -35,10 +35,14 @@ public class TeamQueryService {
     }
 
     public List<Team> getTeamsBySectionId(Long sectionId) {
+        validateSectionExists(sectionId);
+
+        return teamRepository.findAllBySectionId(sectionId);
+    }
+
+    public void validateSectionExists(Long sectionId) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
-
-        return teamRepository.findAllBySectionId(sectionId);
     }
 }

@@ -1,12 +1,13 @@
 package kgu.developers.domain.team.application.command;
 
 import static kgu.developers.domain.team.domain.Status.CONFIRMED;
+import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class TeamCommandService {
     private final TeamQueryService teamQueryService;
     private final TeamRepository teamRepository;
+    private final TransactionTemplate transactionTemplate;
 
     public Team updateKickoff(Long teamId, String name, String kickoffRule, String meetingSchedule) {
         Team team = teamQueryService.getTeamById(teamId);
@@ -42,23 +44,24 @@ public class TeamCommandService {
         }
     }
 
+    @Transactional(propagation = NOT_SUPPORTED)
     public List<Team> finalizeTeams(Long sectionId) {
-        List<Team> teams = new ArrayList<>(teamQueryService.getTeamsBySectionId(sectionId));
-        
-        teams.sort((t1, t2) -> Long.compare(t1.getId(), t2.getId()));
-        
-        List<Team> result = new ArrayList<>();
-        for (Team team : teams) {
-            if (team.getStatus() == CONFIRMED) {
-                result.add(team);
-                continue;
-            }
-            Team teamToFinalize = teamRepository.findById(team.getId())
-                    .orElseThrow(() -> new TeamNotFoundException());
-            teamToFinalize.validateNotConfirmed();
-            teamToFinalize.updateStatus(CONFIRMED);
-            result.add(teamRepository.save(teamToFinalize));
+        teamQueryService.validateSectionExists(sectionId);
+
+        return teamRepository.findAllBySectionId(sectionId).stream()
+                .map(Team::getId)
+                .sorted()
+                .map(teamId -> transactionTemplate.execute(status -> finalizeTeam(teamId)))
+                .toList();
+    }
+
+    private Team finalizeTeam(Long teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new TeamNotFoundException());
+        if (team.getStatus() == CONFIRMED) {
+            return team;
         }
-        return result;
+        team.updateStatus(CONFIRMED);
+        return teamRepository.save(team);
     }
 }
