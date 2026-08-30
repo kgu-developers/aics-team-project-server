@@ -145,6 +145,23 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("preview는 같은 이메일을 가진 유저가 여러 명이어도 죽지 않는다")
+    public void preview_SurvivesDuplicateEmailOwners() throws IOException {
+        // given
+        String email = "dup@kyonggi.ac.kr";
+        given(userRepository.findAllIncludingDeletedByEmailIn(any())).willReturn(List.of(
+            User.create("202400010", email, "탈퇴자1", "password", UserGlobalRole.USER, "010-0000-0010"),
+            User.create("202400011", email, "탈퇴자2", "password", UserGlobalRole.USER, "010-0000-0011")));
+
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", email, "010-0000-0003", ""}));
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+    }
+
+    @Test
     @DisplayName("preview는 신규 가입 대상의 연락처가 비면 오류로 표시한다")
     public void preview_RejectsNewUserWithoutPhone() throws IOException {
         // given

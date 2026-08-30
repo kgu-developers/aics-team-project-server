@@ -136,10 +136,10 @@ public class EnrollmentImportFacade {
             .collect(Collectors.toSet());
         Map<String, String> emailOwners = userRepository
             .findAllByEmailIn(rows.stream().map(EnrollmentImportRow::email).toList()).stream()
-            .collect(Collectors.toMap(User::getEmail, User::getStudentNumber));
+            .collect(Collectors.toMap(User::getEmail, User::getStudentNumber, (a, b) -> a));
         Map<String, String> everUsedEmails = userRepository
             .findAllIncludingDeletedByEmailIn(rows.stream().map(EnrollmentImportRow::email).toList()).stream()
-            .collect(Collectors.toMap(User::getEmail, User::getStudentNumber));
+            .collect(Collectors.toMap(User::getEmail, User::getStudentNumber, (a, b) -> a));
         Map<String, Status> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .collect(Collectors.toMap(Enrollment::getUserId, Enrollment::getStatus));
 
