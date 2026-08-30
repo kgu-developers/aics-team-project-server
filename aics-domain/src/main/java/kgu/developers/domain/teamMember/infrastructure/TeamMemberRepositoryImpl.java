@@ -16,10 +16,13 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
+import static java.util.stream.Collectors.partitioningBy;
 
 @Repository
 @RequiredArgsConstructor
@@ -58,6 +61,19 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
   @Override
   @Transactional
   public List<TeamMember> saveAll(List<TeamMember> teamMembers) {
+    Map<Boolean, List<TeamMember>> byLeader = teamMembers.stream()
+        .collect(partitioningBy(teamMember -> teamMember.isLeader() && teamMember.getDeletedAt() == null));
+
+    List<TeamMember> saved = new ArrayList<>(saveBatch(byLeader.get(false)));
+    saved.addAll(saveBatch(byLeader.get(true)));
+    return saved;
+  }
+
+  private List<TeamMember> saveBatch(List<TeamMember> teamMembers) {
+    if (teamMembers.isEmpty()) {
+      return List.of();
+    }
+
     List<TeamMemberJpaEntity> entities = teamMembers.stream()
         .map(teamMember -> {
           if (teamMember.isLeader() && teamMember.getDeletedAt() == null) {
