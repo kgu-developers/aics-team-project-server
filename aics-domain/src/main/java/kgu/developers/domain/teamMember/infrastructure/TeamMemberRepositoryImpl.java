@@ -37,7 +37,7 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
   @Override
   @Transactional
   public TeamMember save(TeamMember teamMember) {
-    return saveBatch(List.of(teamMember)).getFirst();
+    return saveBatch(List.of(teamMember)).get(0);
   }
 
   @Override
