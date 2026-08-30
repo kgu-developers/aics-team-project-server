@@ -109,6 +109,12 @@ public class TeamImportFacade {
                 continue;
             }
 
+            Long existingTeamId = teamIds.get(teamName);
+            if (leader && existingTeamId != null && hasOtherLeader(existingTeamId, studentNumber)) {
+                skipped++;
+                continue;
+            }
+
             TeamMember existingInSection = teamMemberRepository
                 .findActiveBySectionIdAndUserId(batch.getSectionId(), studentNumber)
                 .orElse(null);
@@ -148,6 +154,11 @@ public class TeamImportFacade {
         importBatchRepository.save(batch);
 
         return new TeamImportApplyResponse(batch.getId(), createdTeams, appliedMembers, skipped);
+    }
+
+    private boolean hasOtherLeader(Long teamId, String userId) {
+        return teamMemberRepository.findAllByTeamId(teamId).stream()
+            .anyMatch(member -> member.isLeader() && !member.getUserId().equals(userId));
     }
 
     private Set<String> activeEnrollments(Long sectionId) {

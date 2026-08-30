@@ -167,6 +167,30 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("apply는 preview 이후 다른 팀장이 생기면 그 행만 건너뛴다")
+  public void apply_SkipsLeaderPromotionWhenLeaderAppearedAfterPreview() {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    TeamMember target = TeamMember.create(10L, STUDENT_B, false, "프론트");
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_B))
+        .willReturn(Optional.of(target));
+    // preview 때는 없던 팀장이 apply 시점엔 존재한다
+    given(teamMemberRepository.findAllByTeamId(10L)).willReturn(List.of(
+        TeamMember.create(10L, STUDENT_A, true, "백엔드"), target));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(
+        batch(0, List.of(row(2, "1팀", STUDENT_B, true, "프론트", RowStatus.UPDATE)))));
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then
+    assertThat(response.skipped()).isEqualTo(1);
+    assertThat(response.appliedMembers()).isZero();
+    verify(teamMemberRepository, never()).save(any());
+  }
+
+  @Test
   @DisplayName("apply는 미리보기 이후 분반이 삭제됐으면 거부한다")
   public void apply_RejectsDeletedSection() {
     // given
