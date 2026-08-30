@@ -15,10 +15,9 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "team_member",
-       uniqueConstraints = {
-           @UniqueConstraint(name = "uk_team_member_team_user", columnNames = {"team_id", "user_id"})
-       })
+// uk_team_member_team_user, uk_team_member_one_leader 는 deleted_at 조건이 붙은 부분 인덱스라
+// @UniqueConstraint 로 표현할 수 없다. database/team_member.sql 참고.
+@Table(name = "team_member")
 @Builder
 @Getter
 @AllArgsConstructor
