@@ -20,6 +20,7 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
 
         TeamMember saved = TeamMember.builder()
             .id(id)
+            .version(teamMember.getVersion())
             .teamId(teamMember.getTeamId())
             .userId(teamMember.getUserId())
             .isLeader(teamMember.isLeader())
