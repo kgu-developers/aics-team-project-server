@@ -20,9 +20,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
-
 import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.admin.teamimport.presentation.response.TeamImportApplyResponse;
@@ -42,7 +39,6 @@ import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
-import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -56,7 +52,6 @@ public class TeamImportFacade {
     private final TeamMemberRepository teamMemberRepository;
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
-    private final EntityManager entityManager;
 
     @Transactional
     public TeamImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
@@ -84,12 +79,8 @@ public class TeamImportFacade {
         }
         sectionStaffValidator.validate(batch.getSectionId(), userId);
 
-        SectionJpaEntity section = entityManager.find(SectionJpaEntity.class, batch.getSectionId(),
-            LockModeType.PESSIMISTIC_WRITE);
-
-        if (section == null || section.getDeletedAt() != null) {
-            throw new SectionNotFoundException();
-        }
+        sectionRepository.findActiveByIdForUpdate(batch.getSectionId())
+            .orElseThrow(SectionNotFoundException::new);
 
         batch.apply(LocalDateTime.now());
 

@@ -42,10 +42,10 @@ import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
 import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsException;
 import kgu.developers.admin.importcommon.SectionStaffValidator;
+import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
-import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -54,8 +54,6 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 
 public class TeamImportFacadeTest {
 
@@ -72,7 +70,6 @@ public class TeamImportFacadeTest {
   private TeamMemberRepository teamMemberRepository;
   private SectionRepository sectionRepository;
   private UserRepository userRepository;
-  private EntityManager entityManager;
   private TeamImportFacade facade;
 
   @BeforeEach
@@ -83,11 +80,9 @@ public class TeamImportFacadeTest {
     teamMemberRepository = mock(TeamMemberRepository.class);
     sectionRepository = mock(SectionRepository.class);
     userRepository = mock(UserRepository.class);
-    entityManager = mock(EntityManager.class);
     facade = new TeamImportFacade(importBatchRepository, enrollmentRepository, teamRepository,
         teamMemberRepository, sectionRepository,
-        new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository),
-        entityManager);
+        new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
 
     given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
     given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
@@ -100,8 +95,8 @@ public class TeamImportFacadeTest {
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
     given(importBatchRepository.save(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 1L));
     given(teamMemberRepository.findActiveBySectionIdAndUserId(any(), any())).willReturn(Optional.empty());
-    given(entityManager.find(SectionJpaEntity.class, SECTION_ID, LockModeType.PESSIMISTIC_WRITE))
-        .willReturn(mock(SectionJpaEntity.class));
+    given(sectionRepository.findActiveByIdForUpdate(SECTION_ID))
+        .willReturn(Optional.of(mock(Section.class)));
   }
 
   @Test
@@ -175,10 +170,7 @@ public class TeamImportFacadeTest {
   @DisplayName("apply는 미리보기 이후 분반이 삭제됐으면 거부한다")
   public void apply_RejectsDeletedSection() {
     // given
-    SectionJpaEntity deleted = mock(SectionJpaEntity.class);
-    given(deleted.getDeletedAt()).willReturn(LocalDateTime.now());
-    given(entityManager.find(SectionJpaEntity.class, SECTION_ID, LockModeType.PESSIMISTIC_WRITE))
-        .willReturn(deleted);
+    given(sectionRepository.findActiveByIdForUpdate(SECTION_ID)).willReturn(Optional.empty());
     given(importBatchRepository.findById(1L)).willReturn(Optional.of(
         batch(0, List.of(row(2, "1팀", STUDENT_A, false, "", RowStatus.VALID)))));
 
