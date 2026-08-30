@@ -45,6 +45,7 @@ import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
+import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -54,6 +55,7 @@ import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 
 public class TeamImportFacadeTest {
 
@@ -98,6 +100,8 @@ public class TeamImportFacadeTest {
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
     given(importBatchRepository.save(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 1L));
     given(teamMemberRepository.findActiveBySectionIdAndUserId(any(), any())).willReturn(Optional.empty());
+    given(entityManager.find(SectionJpaEntity.class, SECTION_ID, LockModeType.PESSIMISTIC_WRITE))
+        .willReturn(mock(SectionJpaEntity.class));
   }
 
   @Test
@@ -165,6 +169,23 @@ public class TeamImportFacadeTest {
     // then
     assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
     assertThat(response.rows().get(0).message()).isEqualTo("이 팀에는 이미 팀장이 있습니다.");
+  }
+
+  @Test
+  @DisplayName("apply는 미리보기 이후 분반이 삭제됐으면 거부한다")
+  public void apply_RejectsDeletedSection() {
+    // given
+    SectionJpaEntity deleted = mock(SectionJpaEntity.class);
+    given(deleted.getDeletedAt()).willReturn(LocalDateTime.now());
+    given(entityManager.find(SectionJpaEntity.class, SECTION_ID, LockModeType.PESSIMISTIC_WRITE))
+        .willReturn(deleted);
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(
+        batch(0, List.of(row(2, "1팀", STUDENT_A, false, "", RowStatus.VALID)))));
+
+    // when & then
+    assertThatThrownBy(() -> facade.apply(1L, ASSISTANT))
+        .isInstanceOf(SectionNotFoundException.class);
+    verify(teamMemberRepository, never()).save(any());
   }
 
   @Test

@@ -86,7 +86,12 @@ public class EnrollmentImportFacade {
 
         boolean isAssistantOnly = sectionStaffValidator.isAssistantOnly(batch.getSectionId(), userId);
         
-        entityManager.find(SectionJpaEntity.class, batch.getSectionId(), LockModeType.PESSIMISTIC_WRITE);
+        SectionJpaEntity section = entityManager.find(SectionJpaEntity.class, batch.getSectionId(),
+            LockModeType.PESSIMISTIC_WRITE);
+            
+        if (section == null || section.getDeletedAt() != null) {
+            throw new SectionNotFoundException();
+        }
 
         batch.apply(LocalDateTime.now());
 
