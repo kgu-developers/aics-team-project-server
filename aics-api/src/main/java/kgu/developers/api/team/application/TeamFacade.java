@@ -1,5 +1,7 @@
 package kgu.developers.api.team.application;
 
+import static kgu.developers.domain.teamMember.domain.TeamMemberWithUser.mapAll;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,8 +55,6 @@ public class TeamFacade {
   }
 
   private List<TeamMemberResponse> members(Long teamId) {
-    return teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
-        .map(it -> TeamMemberResponse.of(it.member(), it.user()))
-        .toList();
+    return mapAll(teamMemberQueryService.getTeamMembersWithUsers(teamId), TeamMemberResponse::of);
   }
 }

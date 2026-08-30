@@ -1,5 +1,7 @@
 package kgu.developers.api.teamMember.application;
 
+import static kgu.developers.domain.teamMember.domain.TeamMemberWithUser.mapAll;
+
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactResponse;
@@ -20,8 +22,6 @@ public class TeamMemberFacade {
 		teamQueryService.validateContactVisible(teamId);
 
 		return new TeamMemberContactListResponse(
-			teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
-				.map(it -> TeamMemberContactResponse.of(it.member(), it.user()))
-				.toList());
+			mapAll(teamMemberQueryService.getTeamMembersWithUsers(teamId), TeamMemberContactResponse::of));
 	}
 }

@@ -1,5 +1,7 @@
 package kgu.developers.admin.team.application;
 
+import static kgu.developers.domain.teamMember.domain.TeamMemberWithUser.mapAll;
+
 import java.util.List;
 
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
@@ -27,8 +29,6 @@ public class TeamAdminFacade {
 	}
 
 	private List<TeamMemberAdminResponse> members(Long teamId) {
-		return teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
-			.map(it -> TeamMemberAdminResponse.of(it.member(), it.user()))
-			.toList();
+		return mapAll(teamMemberQueryService.getTeamMembersWithUsers(teamId), TeamMemberAdminResponse::of);
 	}
 }

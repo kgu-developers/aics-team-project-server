@@ -1,5 +1,8 @@
 package kgu.developers.domain.teamMember.domain;
 
+import java.util.List;
+import java.util.function.BiFunction;
+
 import kgu.developers.domain.user.domain.User;
 
 /**
@@ -8,4 +11,9 @@ import kgu.developers.domain.user.domain.User;
  * @param user 유저를 찾지 못하면 null. 학번만 있고 유저가 지워진 경우가 있어 조회 실패를 예외로 보지 않는다.
  */
 public record TeamMemberWithUser(TeamMember member, User user) {
+    public static <T> List<T> mapAll(List<TeamMemberWithUser> membersWithUsers, BiFunction<TeamMember, User, T> mapper) {
+        return membersWithUsers.stream()
+                .map(it -> mapper.apply(it.member(), it.user()))
+                .toList();
+    }
 }
