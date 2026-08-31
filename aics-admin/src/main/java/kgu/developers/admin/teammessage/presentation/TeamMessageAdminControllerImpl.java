@@ -1,5 +1,6 @@
 package kgu.developers.admin.teammessage.presentation;
 
+import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.teammessage.application.TeamMessageAdminFacade;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class TeamMessageAdminControllerImpl implements TeamMessageAdminControlle
     @Override
     @GetMapping
     public ResponseEntity<TeamMessageAdminPageResponse> getMessages(
-        @RequestParam(required = false) Long sectionId,
+        @RequestParam(required = false) @Positive Long sectionId,
         @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
         Authentication authentication
     ) {
