@@ -1,5 +1,6 @@
 package kgu.developers.admin.importcommon;
 
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidExcepti
 public final class Sheets {
     private static final int HEADER_SEARCH_LIMIT = 10;
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_TOTAL_UNCOMPRESSED_SIZE = 100 * 1024 * 1024; // 100MB
     private static final int MAX_ROWS = 1000;
 
     private Sheets() {
@@ -39,7 +41,9 @@ public final class Sheets {
         ZipSecureFile.setMinInflateRatio(0.01);
         ZipSecureFile.setMaxEntrySize(MAX_FILE_SIZE_BYTES);
 
-        try (InputStream in = file.getInputStream(); Workbook workbook = WorkbookFactory.create(in)) {
+        try (InputStream in = file.getInputStream(); 
+             CountingInputStream countingIn = new CountingInputStream(in, MAX_TOTAL_UNCOMPRESSED_SIZE);
+             Workbook workbook = WorkbookFactory.create(countingIn)) {
             Sheet sheet = workbook.getSheetAt(0);
             Row header = headerRow(sheet, requiredHeader);
             RowMapper<T> mapper = binder.apply(header);
@@ -61,6 +65,43 @@ public final class Sheets {
             throw new ImportBatchFileInvalidException(e);
         } catch (Exception e) {
             throw new ImportBatchFileInvalidException("압축 파일 처리 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    private static class CountingInputStream extends FilterInputStream {
+        private final long maxSize;
+        private long bytesRead = 0;
+
+        CountingInputStream(InputStream in, long maxSize) {
+            super(in);
+            this.maxSize = maxSize;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int b = super.read();
+            if (b != -1) {
+                bytesRead++;
+                checkLimit();
+            }
+            return b;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int result = super.read(b, off, len);
+            if (result > 0) {
+                bytesRead += result;
+                checkLimit();
+            }
+            return result;
+        }
+
+        private void checkLimit() throws IOException {
+            if (bytesRead > maxSize) {
+                throw new ImportBatchFileInvalidException(
+                    "압축 해제 총 크기가 " + maxSize / 1024 / 1024 + "MB를 초과했습니다.");
+            }
         }
     }
 
