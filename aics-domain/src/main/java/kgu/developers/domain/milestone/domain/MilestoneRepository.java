@@ -14,6 +14,8 @@ public interface MilestoneRepository {
 
     Optional<Milestone> findByIdAndSectionIdForUpdate(Long id, Long sectionId);
 
+    boolean existsBySectionIdAndWeekNumber(Long sectionId, int weekNumber);
+
     List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId);
 
     List<Milestone> findAllBySectionIdAndStatusOrderByWeekNumber(

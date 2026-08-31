@@ -16,6 +16,8 @@ public interface JpaMilestoneRepository extends JpaRepository<MilestoneJpaEntity
 
     Optional<MilestoneJpaEntity> findByIdAndSectionIdAndDeletedAtIsNull(Long id, Long sectionId);
 
+    boolean existsBySectionIdAndWeekNumberAndDeletedAtIsNull(Long sectionId, int weekNumber);
+
     @Lock(PESSIMISTIC_WRITE)
     @Query("""
             SELECT milestone

@@ -391,6 +391,13 @@ class MilestoneServiceTest {
         }
 
         @Override
+        public boolean existsBySectionIdAndWeekNumber(Long sectionId, int weekNumber) {
+            return milestones.values().stream()
+                    .anyMatch(milestone -> milestone.belongsToSection(sectionId)
+                            && milestone.getWeekNumber() == weekNumber);
+        }
+
+        @Override
         public List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId) {
             return sortedMilestones().stream()
                     .filter(milestone -> milestone.belongsToSection(sectionId))

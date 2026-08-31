@@ -38,11 +38,7 @@ public class MilestoneCommandService {
     ) {
         lockOwnedSection(sectionId, professorId);
         Milestone milestone = Milestone.create(sectionId, title, description, weekNumber, schedule);
-        boolean duplicateWeekNumber = milestoneRepository
-                .findAllBySectionIdOrderByWeekNumber(sectionId)
-                .stream()
-                .anyMatch(existingMilestone -> existingMilestone.getWeekNumber() == weekNumber);
-        if (duplicateWeekNumber) {
+        if (milestoneRepository.existsBySectionIdAndWeekNumber(sectionId, weekNumber)) {
             throw new DuplicateMilestoneWeekException();
         }
 
