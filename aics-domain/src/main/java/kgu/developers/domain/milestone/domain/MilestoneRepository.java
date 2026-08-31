@@ -6,18 +6,15 @@ import java.util.Optional;
 public interface MilestoneRepository {
     Milestone save(Milestone milestone);
 
-    /** 주차 일괄 변경 시 해당 분반의 활성 마일스톤 전체를 전달해야 한다. */
-    List<Milestone> saveAll(List<Milestone> milestones);
+    List<Milestone> saveAllWeekNumberChanges(Long sectionId, List<Milestone> milestones);
 
     Optional<Milestone> findById(Long id);
 
-    Optional<Milestone> findByIdForUpdate(Long id);
+    Optional<Milestone> findByIdAndSectionId(Long id, Long sectionId);
 
     Optional<Milestone> findByIdAndSectionIdForUpdate(Long id, Long sectionId);
 
     List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId);
-
-    List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId);
 
     List<Milestone> findAllBySectionIdAndStatusOrderByWeekNumber(
             Long sectionId,

@@ -14,13 +14,7 @@ public interface JpaMilestoneRepository extends JpaRepository<MilestoneJpaEntity
 
     Optional<MilestoneJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
-    @Lock(PESSIMISTIC_WRITE)
-    @Query("""
-            SELECT milestone
-            FROM MilestoneJpaEntity milestone
-            WHERE milestone.id = :id AND milestone.deletedAt IS NULL
-            """)
-    Optional<MilestoneJpaEntity> findActiveByIdForUpdate(@Param("id") Long id);
+    Optional<MilestoneJpaEntity> findByIdAndSectionIdAndDeletedAtIsNull(Long id, Long sectionId);
 
     @Lock(PESSIMISTIC_WRITE)
     @Query("""
@@ -35,16 +29,9 @@ public interface JpaMilestoneRepository extends JpaRepository<MilestoneJpaEntity
             @Param("sectionId") Long sectionId
     );
 
-    @Lock(PESSIMISTIC_WRITE)
-    @Query("""
-            SELECT milestone
-            FROM MilestoneJpaEntity milestone
-            WHERE milestone.sectionId = :sectionId AND milestone.deletedAt IS NULL
-            ORDER BY milestone.weekNumber, milestone.id
-            """)
-    List<MilestoneJpaEntity> findAllActiveBySectionIdForUpdate(@Param("sectionId") Long sectionId);
-
     List<MilestoneJpaEntity> findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(Long sectionId);
+
+    long countBySectionIdAndDeletedAtIsNull(Long sectionId);
 
     List<MilestoneJpaEntity> findAllBySectionIdAndStatusAndDeletedAtIsNullOrderByWeekNumberAsc(
             Long sectionId,

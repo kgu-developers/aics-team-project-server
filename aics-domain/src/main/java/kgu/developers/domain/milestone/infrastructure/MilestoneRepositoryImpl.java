@@ -10,10 +10,14 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.exception.MilestoneConcurrentlyModifiedException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+
+import static kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException.translate;
 
 @Repository
 @RequiredArgsConstructor
@@ -27,24 +31,46 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     @Transactional
     public Milestone save(Milestone milestone) {
         MilestoneJpaEntity entity = entityForSave(milestone);
-        MilestoneJpaEntity savedEntity = milestone.getId() == null
-                ? jpaMilestoneRepository.saveAndFlush(entity)
-                : jpaMilestoneRepository.save(entity);
-        return savedEntity.toDomain();
+        try {
+            return jpaMilestoneRepository.saveAndFlush(entity).toDomain();
+        } catch (DataIntegrityViolationException exception) {
+            throw translate(exception);
+        }
     }
 
     @Override
     @Transactional
-    public List<Milestone> saveAll(List<Milestone> milestones) {
+    public List<Milestone> saveAllWeekNumberChanges(Long sectionId, List<Milestone> milestones) {
+        validateFullSectionSnapshot(sectionId, milestones);
         Map<Long, MilestoneJpaEntity> existingEntities = findExistingEntities(milestones);
         validateExistingEntities(milestones, existingEntities);
-        moveWeekNumberChangesToTemporaryRange(milestones, existingEntities);
-        List<MilestoneJpaEntity> entities = milestones.stream()
-                .map(milestone -> entityForSave(milestone, existingEntities))
-                .toList();
-        return jpaMilestoneRepository.saveAllAndFlush(entities).stream()
-                .map(MilestoneJpaEntity::toDomain)
-                .toList();
+        try {
+            moveWeekNumberChangesToTemporaryRange(milestones, existingEntities);
+            List<MilestoneJpaEntity> entities = milestones.stream()
+                    .map(milestone -> entityForSave(milestone, existingEntities))
+                    .toList();
+            return jpaMilestoneRepository.saveAllAndFlush(entities).stream()
+                    .map(MilestoneJpaEntity::toDomain)
+                    .toList();
+        } catch (DataIntegrityViolationException exception) {
+            throw translate(exception);
+        }
+    }
+
+    private void validateFullSectionSnapshot(Long sectionId, List<Milestone> milestones) {
+        boolean containsAnotherSection = milestones.stream()
+                .anyMatch(milestone -> !sectionId.equals(milestone.getSectionId()));
+        long distinctMilestoneIdCount = milestones.stream()
+                .map(Milestone::getId)
+                .filter(id -> id != null)
+                .distinct()
+                .count();
+        long activeMilestoneCount = jpaMilestoneRepository.countBySectionIdAndDeletedAtIsNull(sectionId);
+        if (containsAnotherSection
+                || activeMilestoneCount != milestones.size()
+                || activeMilestoneCount != distinctMilestoneIdCount) {
+            throw new MilestoneConcurrentlyModifiedException();
+        }
     }
 
     private void validateExistingEntities(
@@ -147,9 +173,8 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     }
 
     @Override
-    @Transactional
-    public Optional<Milestone> findByIdForUpdate(Long id) {
-        return jpaMilestoneRepository.findActiveByIdForUpdate(id)
+    public Optional<Milestone> findByIdAndSectionId(Long id, Long sectionId) {
+        return jpaMilestoneRepository.findByIdAndSectionIdAndDeletedAtIsNull(id, sectionId)
                 .map(MilestoneJpaEntity::toDomain);
     }
 
@@ -164,15 +189,6 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     public List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId) {
         return jpaMilestoneRepository
                 .findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(sectionId)
-                .stream()
-                .map(MilestoneJpaEntity::toDomain)
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId) {
-        return jpaMilestoneRepository.findAllActiveBySectionIdForUpdate(sectionId)
                 .stream()
                 .map(MilestoneJpaEntity::toDomain)
                 .toList();

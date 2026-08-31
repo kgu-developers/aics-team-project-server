@@ -9,9 +9,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.access.AccessDeniedException;
 
 import kgu.developers.admin.milestone.application.MilestoneAccessValidator;
+import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,7 +30,6 @@ class MilestoneAccessValidatorTest {
                 .willReturn(false);
 
         assertThatThrownBy(() -> milestoneAccessValidator.validateSectionAccess(1L, "202012345"))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("담당 교수");
+                .isInstanceOf(MilestoneSectionAccessDeniedException.class);
     }
 }

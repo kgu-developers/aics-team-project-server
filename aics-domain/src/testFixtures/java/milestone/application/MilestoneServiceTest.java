@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,11 +16,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import kgu.developers.domain.milestone.application.command.MilestoneCommandService;
 import kgu.developers.domain.milestone.application.command.MilestoneWeekNumberChange;
@@ -33,7 +30,6 @@ import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
-import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
 import kgu.developers.domain.section.domain.SectionRepository;
 
 class MilestoneServiceTest {
@@ -85,33 +81,6 @@ class MilestoneServiceTest {
                 .isInstanceOf(MilestoneSectionAccessDeniedException.class);
 
         assertThat(queryService.getMilestones(1L, null)).isEmpty();
-    }
-
-    @Test
-    @DisplayName("동시 생성의 DB 주차 제약 충돌은 API 경계에서 변환할 수 있도록 원본 예외를 유지한다")
-    void preserveConcurrentDuplicateWeekConflict() {
-        repository.failNextSaveWithDataIntegrityViolation();
-
-        assertThatThrownBy(() -> createMilestone(1L, "제안서", 2))
-                .isInstanceOf(DataIntegrityViolationException.class);
-    }
-
-    @Test
-    @DisplayName("스키마가 포함된 주차 제약 충돌도 API 경계에서 변환할 수 있도록 원본 예외를 유지한다")
-    void preserveSchemaQualifiedDuplicateWeekConflict() {
-        repository.failNextSaveWithDataIntegrityViolation("public.uq_milestone_active_section_week");
-
-        assertThatThrownBy(() -> createMilestone(1L, "제안서", 2))
-                .isInstanceOf(DataIntegrityViolationException.class);
-    }
-
-    @Test
-    @DisplayName("주차 중복과 무관한 DB 제약 위반은 중복 주차로 오인하지 않는다")
-    void preserveUnrelatedDataIntegrityViolation() {
-        repository.failNextSaveWithDataIntegrityViolation("uq_milestone_active_section_week_backup");
-
-        assertThatThrownBy(() -> createMilestone(1L, "제안서", 2))
-                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -176,7 +145,7 @@ class MilestoneServiceTest {
                 LocalDateTime.of(2026, 9, 11, 0, 0),
                 LocalDateTime.of(2026, 9, 12, 0, 0)
         ))
-                .isInstanceOf(MilestoneSectionMismatchException.class);
+                .isInstanceOf(MilestoneNotFoundException.class);
     }
 
     @Test
@@ -212,31 +181,12 @@ class MilestoneServiceTest {
     }
 
     @Test
-    @DisplayName("분반 잠금 목록이 불완전하면 주차 변경을 중단한다")
-    void rejectIncompleteSectionLockSnapshot() {
-        Long milestoneId = createMilestone(1L, "제안서", 2);
-        repository.omitFromNextSectionLockQuery(milestoneId);
-
+    @DisplayName("존재하지 않거나 다른 분반의 마일스톤 주차 변경은 찾을 수 없음으로 응답한다")
+    void rejectMissingWeekNumberChange() {
         assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
-                new MilestoneWeekNumberChange(milestoneId, 3)
+                new MilestoneWeekNumberChange(404L, 3)
         )))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("누락");
-
-        assertThat(queryService.getMilestone(1L, milestoneId).getWeekNumber()).isEqualTo(2);
-        assertThat(repository.lastSavedBatchIds).isEmpty();
-    }
-
-    @Test
-    @DisplayName("주차 변경 중 DB 중복 제약 충돌은 API 경계에서 변환할 수 있도록 원본 예외를 유지한다")
-    void preserveConcurrentWeekNumberUpdateConflict() {
-        Long milestoneId = createMilestone(1L, "제안서", 2);
-        repository.failNextSaveWithDataIntegrityViolation();
-
-        assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
-                new MilestoneWeekNumberChange(milestoneId, 3)
-        )))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(MilestoneNotFoundException.class);
     }
 
     @Test
@@ -249,7 +199,7 @@ class MilestoneServiceTest {
                 new MilestoneWeekNumberChange(first, 5),
                 new MilestoneWeekNumberChange(otherSection, 6)
         )))
-                .isInstanceOf(MilestoneSectionMismatchException.class);
+                .isInstanceOf(MilestoneNotFoundException.class);
 
         assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(2);
     }
@@ -330,14 +280,14 @@ class MilestoneServiceTest {
         Long milestoneId = createMilestone(2L, "다른 분반 제안서", 2);
 
         assertThatThrownBy(() -> queryService.getMilestone(1L, milestoneId))
-                .isInstanceOf(MilestoneSectionMismatchException.class);
+                .isInstanceOf(MilestoneNotFoundException.class);
         assertThatThrownBy(() -> commandService.changeStatus(
                 1L,
                 PROFESSOR_ID,
                 milestoneId,
                 MilestoneStatus.PUBLISHED
         ))
-                .isInstanceOf(MilestoneSectionMismatchException.class);
+                .isInstanceOf(MilestoneNotFoundException.class);
     }
 
     @Test
@@ -367,6 +317,20 @@ class MilestoneServiceTest {
         assertThat(queryService.getMilestone(1L, milestoneId).getTitle()).isEqualTo("제안서");
     }
 
+    @Test
+    @DisplayName("존재하지 않는 마일스톤 수정은 일정 검증보다 먼저 찾을 수 없음으로 응답한다")
+    void rejectMissingUpdateBeforeScheduleValidation() {
+        assertThatThrownBy(() -> commandService.updateMilestone(
+                1L,
+                PROFESSOR_ID,
+                404L,
+                "변경된 제목",
+                null,
+                null
+        ))
+                .isInstanceOf(MilestoneNotFoundException.class);
+    }
+
     private Long createMilestone(Long sectionId, String title, int weekNumber) {
         return commandService.createMilestone(
                 sectionId,
@@ -386,23 +350,9 @@ class MilestoneServiceTest {
         private final AtomicLong sequence = new AtomicLong(1);
         private final Map<Long, Milestone> milestones = new LinkedHashMap<>();
         private List<Long> lastSavedBatchIds = List.of();
-        private String nextDataIntegrityViolationMessage;
-        private Long omittedIdFromNextSectionLockQuery;
-        private Long lastLockedMilestoneId;
 
         @Override
         public Milestone save(Milestone milestone) {
-            if (nextDataIntegrityViolationMessage != null) {
-                String message = nextDataIntegrityViolationMessage;
-                nextDataIntegrityViolationMessage = null;
-                ConstraintViolationException constraintViolationException =
-                        new ConstraintViolationException(
-                                "제약 조건 위반",
-                                new SQLException("테스트용 제약 조건 위반"),
-                                message
-                        );
-                throw new DataIntegrityViolationException("마일스톤 저장 실패", constraintViolationException);
-            }
             Milestone saved = milestone;
             if (milestone.getId() == null) {
                 saved = Milestone.restore(
@@ -420,7 +370,7 @@ class MilestoneServiceTest {
         }
 
         @Override
-        public List<Milestone> saveAll(List<Milestone> milestones) {
+        public List<Milestone> saveAllWeekNumberChanges(Long sectionId, List<Milestone> milestones) {
             lastSavedBatchIds = milestones.stream().map(Milestone::getId).toList();
             return milestones.stream().map(this::save).toList();
         }
@@ -431,14 +381,12 @@ class MilestoneServiceTest {
         }
 
         @Override
-        public Optional<Milestone> findByIdForUpdate(Long id) {
-            lastLockedMilestoneId = id;
-            return findById(id);
+        public Optional<Milestone> findByIdAndSectionId(Long id, Long sectionId) {
+            return findById(id).filter(milestone -> milestone.belongsToSection(sectionId));
         }
 
         @Override
         public Optional<Milestone> findByIdAndSectionIdForUpdate(Long id, Long sectionId) {
-            lastLockedMilestoneId = id;
             return findById(id).filter(milestone -> milestone.belongsToSection(sectionId));
         }
 
@@ -446,20 +394,6 @@ class MilestoneServiceTest {
         public List<Milestone> findAllBySectionIdOrderByWeekNumber(Long sectionId) {
             return sortedMilestones().stream()
                     .filter(milestone -> milestone.belongsToSection(sectionId))
-                    .toList();
-        }
-
-        @Override
-        public List<Milestone> findAllBySectionIdForUpdateOrderByWeekNumber(Long sectionId) {
-            List<Milestone> sectionMilestones = findAllBySectionIdOrderByWeekNumber(sectionId);
-            if (omittedIdFromNextSectionLockQuery == null) {
-                return sectionMilestones;
-            }
-
-            Long omittedId = omittedIdFromNextSectionLockQuery;
-            omittedIdFromNextSectionLockQuery = null;
-            return sectionMilestones.stream()
-                    .filter(milestone -> !milestone.getId().equals(omittedId))
                     .toList();
         }
 
@@ -480,16 +414,5 @@ class MilestoneServiceTest {
             return sorted;
         }
 
-        private void failNextSaveWithDataIntegrityViolation() {
-            failNextSaveWithDataIntegrityViolation("uq_milestone_active_section_week");
-        }
-
-        private void failNextSaveWithDataIntegrityViolation(String message) {
-            nextDataIntegrityViolationMessage = message;
-        }
-
-        private void omitFromNextSectionLockQuery(Long milestoneId) {
-            omittedIdFromNextSectionLockQuery = milestoneId;
-        }
     }
 }

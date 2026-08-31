@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import jakarta.persistence.Table;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
@@ -12,6 +14,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class MilestoneJpaEntityTest {
+
+    @Test
+    @DisplayName("같은 분반의 주차 중복을 JPA 스키마 제약으로 막는다")
+    void declaresUniqueSectionWeekConstraint() {
+        Table table = MilestoneJpaEntity.class.getAnnotation(Table.class);
+
+        assertThat(Arrays.asList(table.uniqueConstraints()))
+                .anySatisfy(constraint -> {
+                    assertThat(constraint.name()).isEqualTo("uq_milestone_active_section_week");
+                    assertThat(constraint.columnNames()).containsExactly("section_id", "week_number");
+                });
+    }
 
     @Test
     @DisplayName("마일스톤 도메인과 JPA 엔티티를 변환해도 일정 정보가 유지된다")

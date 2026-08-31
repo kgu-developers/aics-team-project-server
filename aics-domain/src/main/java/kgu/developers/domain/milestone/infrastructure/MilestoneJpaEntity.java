@@ -15,6 +15,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.milestone.domain.Milestone;
@@ -29,6 +30,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "milestone",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_milestone_active_section_week",
+                columnNames = {"section_id", "week_number"}
+        ),
         indexes = {
                 @Index(
                         name = "idx_milestone_section_status_week",

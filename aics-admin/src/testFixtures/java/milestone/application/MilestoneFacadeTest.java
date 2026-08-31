@@ -6,18 +6,15 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
@@ -35,6 +32,7 @@ import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.InvalidMilestoneRequestException;
+import kgu.developers.domain.milestone.exception.MilestoneConcurrentlyModifiedException;
 
 @ExtendWith(MockitoExtension.class)
 class MilestoneFacadeTest {
@@ -187,15 +185,15 @@ class MilestoneFacadeTest {
     }
 
     @Test
-    @DisplayName("동시에 중복된 주차를 생성하면 주차 충돌 예외로 변환한다")
-    void duplicateWeekNumberAtDatabaseBoundary() {
+    @DisplayName("도메인에서 발생한 주차 충돌 예외를 그대로 전달한다")
+    void duplicateWeekNumber() {
         MilestoneCreateRequest request = new MilestoneCreateRequest(
                 "제안서",
                 "제안서 제출",
                 2,
                 scheduleRequest()
         );
-        willThrow(dataIntegrityViolation("uq_milestone_active_section_week"))
+        willThrow(new DuplicateMilestoneWeekException())
                 .given(milestoneCommandService)
                 .createMilestone(
                         SECTION_ID,
@@ -208,54 +206,6 @@ class MilestoneFacadeTest {
 
         assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
                 .isInstanceOf(DuplicateMilestoneWeekException.class);
-    }
-
-    @Test
-    @DisplayName("스키마가 포함된 주차 제약 이름도 주차 충돌 예외로 변환한다")
-    void schemaQualifiedDuplicateWeekNumberAtDatabaseBoundary() {
-        MilestoneCreateRequest request = new MilestoneCreateRequest(
-                "제안서",
-                "제안서 제출",
-                2,
-                scheduleRequest()
-        );
-        willThrow(dataIntegrityViolation("public.uq_milestone_active_section_week"))
-                .given(milestoneCommandService)
-                .createMilestone(
-                        SECTION_ID,
-                        PROFESSOR_ID,
-                        "제안서",
-                        "제안서 제출",
-                        2,
-                        schedule()
-                );
-
-        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
-                .isInstanceOf(DuplicateMilestoneWeekException.class);
-    }
-
-    @Test
-    @DisplayName("주차 충돌과 무관한 무결성 위반은 공통 409 처리를 위해 원본 예외를 유지한다")
-    void unrelatedDataIntegrityViolationAtDatabaseBoundary() {
-        MilestoneCreateRequest request = new MilestoneCreateRequest(
-                "제안서",
-                "제안서 제출",
-                2,
-                scheduleRequest()
-        );
-        willThrow(dataIntegrityViolation("fk_milestone_section"))
-                .given(milestoneCommandService)
-                .createMilestone(
-                        SECTION_ID,
-                        PROFESSOR_ID,
-                        "제안서",
-                        "제안서 제출",
-                        2,
-                        schedule()
-                );
-
-        assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
-                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -272,6 +222,29 @@ class MilestoneFacadeTest {
                 PROFESSOR_ID,
                 List.of(new MilestoneWeekNumberChange(MILESTONE_ID, 3))
         );
+    }
+
+    @Test
+    @DisplayName("동시 주차 변경 충돌은 잘못된 사용자 요청으로 변환하지 않는다")
+    void preservesConcurrentWeekNumberChangeFailure() {
+        MilestoneWeekNumbersRequest request = new MilestoneWeekNumbersRequest(List.of(
+                new MilestoneWeekNumberItem(MILESTONE_ID, 3)
+        ));
+        MilestoneConcurrentlyModifiedException failure =
+                new MilestoneConcurrentlyModifiedException();
+        willThrow(failure)
+                .given(milestoneCommandService)
+                .updateWeekNumbers(
+                        SECTION_ID,
+                        PROFESSOR_ID,
+                        List.of(new MilestoneWeekNumberChange(MILESTONE_ID, 3))
+                );
+
+        assertThatThrownBy(() -> milestoneFacade.updateWeekNumbers(
+                SECTION_ID,
+                PROFESSOR_ID,
+                request
+        )).isSameAs(failure);
     }
 
     @Test
@@ -338,12 +311,4 @@ class MilestoneFacadeTest {
         return new MilestoneSchedule(null, DUE_AT, null, null, null, null);
     }
 
-    private DataIntegrityViolationException dataIntegrityViolation(String constraintName) {
-        ConstraintViolationException cause = new ConstraintViolationException(
-                "제약 조건 위반",
-                new SQLException("테스트용 제약 조건 위반"),
-                constraintName
-        );
-        return new DataIntegrityViolationException("마일스톤 저장 실패", cause);
-    }
 }

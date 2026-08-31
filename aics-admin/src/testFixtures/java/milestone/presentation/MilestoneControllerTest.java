@@ -38,7 +38,6 @@ import kgu.developers.common.config.CorsConfig;
 import kgu.developers.common.exception.GlobalExceptionHandler;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
-import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
@@ -353,14 +352,14 @@ class MilestoneControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    @DisplayName("다른 분반의 마일스톤 상세 요청은 403을 응답한다")
-    void anotherSectionForbidden() throws Exception {
+    @DisplayName("다른 분반의 마일스톤 상세 요청도 존재 여부를 숨기고 404를 응답한다")
+    void anotherSectionReturnsNotFound() throws Exception {
         given(milestoneFacade.getMilestone(1L, 2L))
-                .willThrow(new MilestoneSectionMismatchException(2L, 1L));
+                .willThrow(new MilestoneNotFoundException(2L));
 
         mockMvc.perform(get(MILESTONES_URL + "/2"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("MILESTONE_SECTION_FORBIDDEN"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("MILESTONE_NOT_FOUND"));
     }
 
     @Test

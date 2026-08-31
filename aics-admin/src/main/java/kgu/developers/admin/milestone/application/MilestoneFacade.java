@@ -3,7 +3,6 @@ package kgu.developers.admin.milestone.application;
 import java.util.List;
 import java.util.function.Supplier;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
@@ -20,7 +19,6 @@ import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
-import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.InvalidMilestoneRequestException;
 import lombok.RequiredArgsConstructor;
 
@@ -134,8 +132,6 @@ public class MilestoneFacade {
     private <T> T asInvalidRequest(Supplier<T> operation) {
         try {
             return operation.get();
-        } catch (DataIntegrityViolationException exception) {
-            throw DuplicateMilestoneWeekException.translate(exception);
         } catch (IllegalArgumentException exception) {
             throw new InvalidMilestoneRequestException(exception);
         }

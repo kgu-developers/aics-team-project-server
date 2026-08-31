@@ -9,7 +9,6 @@ import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
-import kgu.developers.domain.milestone.exception.MilestoneSectionMismatchException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -28,16 +27,8 @@ public class MilestoneQueryService {
 
     public Milestone getMilestone(Long sectionId, Long milestoneId) {
         validateSectionId(sectionId);
-        Milestone milestone = getRequiredMilestone(milestoneId);
-        if (!milestone.belongsToSection(sectionId)) {
-            throw new MilestoneSectionMismatchException(milestoneId, sectionId);
-        }
-        return milestone;
-    }
-
-    private Milestone getRequiredMilestone(Long milestoneId) {
         validateMilestoneId(milestoneId);
-        return milestoneRepository.findById(milestoneId)
+        return milestoneRepository.findByIdAndSectionId(milestoneId, sectionId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
     }
 
