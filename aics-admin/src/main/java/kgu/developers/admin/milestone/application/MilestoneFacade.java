@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class MilestoneFacade {
     private final MilestoneCommandService milestoneCommandService;
     private final MilestoneQueryService milestoneQueryService;
+    private final MilestoneAccessValidator milestoneAccessValidator;
 
     public MilestonePersistResponse createMilestone(
             Long sectionId,
@@ -46,14 +47,20 @@ public class MilestoneFacade {
         });
     }
 
-    public MilestoneListResponse getMilestones(Long sectionId, MilestoneStatus status) {
+    public MilestoneListResponse getMilestones(
+            Long sectionId,
+            String professorId,
+            MilestoneStatus status
+    ) {
+        milestoneAccessValidator.validateSectionAccess(sectionId, professorId);
         return asInvalidRequest(() -> {
             List<Milestone> milestones = milestoneQueryService.getMilestones(sectionId, status);
             return MilestoneListResponse.from(milestones);
         });
     }
 
-    public MilestoneResponse getMilestone(Long sectionId, Long milestoneId) {
+    public MilestoneResponse getMilestone(Long sectionId, String professorId, Long milestoneId) {
+        milestoneAccessValidator.validateSectionAccess(sectionId, professorId);
         return asInvalidRequest(() -> MilestoneResponse.from(
                 milestoneQueryService.getMilestone(sectionId, milestoneId)
         ));

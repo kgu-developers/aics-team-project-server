@@ -3,6 +3,7 @@ package milestone.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 
@@ -15,7 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
+import kgu.developers.admin.milestone.application.MilestoneAccessValidator;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
@@ -24,6 +27,7 @@ import kgu.developers.admin.milestone.presentation.request.MilestoneStatusReques
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest.MilestoneWeekNumberItem;
+import kgu.developers.admin.milestone.presentation.response.MilestoneResponse;
 import kgu.developers.domain.milestone.application.command.MilestoneCommandService;
 import kgu.developers.domain.milestone.application.command.MilestoneWeekNumberChange;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
@@ -46,6 +50,9 @@ class MilestoneFacadeTest {
 
     @Mock
     private MilestoneQueryService milestoneQueryService;
+
+    @Mock
+    private MilestoneAccessValidator milestoneAccessValidator;
 
     @InjectMocks
     private MilestoneFacade milestoneFacade;
@@ -78,8 +85,26 @@ class MilestoneFacadeTest {
         Milestone milestone = milestone();
         given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(milestone);
 
-        assertThat(milestoneFacade.getMilestone(SECTION_ID, MILESTONE_ID).title()).isEqualTo("제안서");
-        assertThat(milestoneFacade.getMilestone(SECTION_ID, MILESTONE_ID).schedule().dueAt()).isEqualTo(DUE_AT);
+        MilestoneResponse response =
+                milestoneFacade.getMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID);
+
+        assertThat(response.title()).isEqualTo("제안서");
+        assertThat(response.schedule().dueAt()).isEqualTo(DUE_AT);
+        verify(milestoneAccessValidator).validateSectionAccess(SECTION_ID, PROFESSOR_ID);
+    }
+
+    @Test
+    @DisplayName("담당 교수가 아니면 마일스톤을 조회하지 않는다")
+    void rejectQueryByAnotherProfessor() {
+        willThrow(new AccessDeniedException("담당 분반만 접근할 수 있습니다."))
+                .given(milestoneAccessValidator)
+                .validateSectionAccess(SECTION_ID, PROFESSOR_ID);
+
+        assertThatThrownBy(() ->
+                milestoneFacade.getMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .isInstanceOf(AccessDeniedException.class);
+
+        then(milestoneQueryService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -270,7 +295,7 @@ class MilestoneFacadeTest {
         given(milestoneQueryService.getMilestone(SECTION_ID, 0L))
                 .willThrow(new IllegalArgumentException("마일스톤 식별자는 양수여야 합니다."));
 
-        assertThatThrownBy(() -> milestoneFacade.getMilestone(SECTION_ID, 0L))
+        assertThatThrownBy(() -> milestoneFacade.getMilestone(SECTION_ID, PROFESSOR_ID, 0L))
                 .isInstanceOf(InvalidMilestoneRequestException.class);
     }
 

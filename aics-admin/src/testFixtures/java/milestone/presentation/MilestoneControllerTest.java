@@ -29,7 +29,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import kgu.developers.admin.config.SecurityConfig;
-import kgu.developers.admin.milestone.application.MilestoneAccessValidator;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.MilestoneControllerImpl;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
@@ -72,9 +71,6 @@ class MilestoneControllerTest {
     private MilestoneFacade milestoneFacade;
 
     @MockitoBean
-    private MilestoneAccessValidator milestoneAccessValidator;
-
-    @MockitoBean
     private TokenRevocationStore tokenRevocationStore;
 
     @Test
@@ -96,14 +92,14 @@ class MilestoneControllerTest {
     @WithMockUser(username = "202012345", roles = "ADMIN")
     @DisplayName("관리자는 분반별 마일스톤 목록을 조회할 수 있다")
     void adminCanGetMilestones() throws Exception {
-        given(milestoneFacade.getMilestones(1L, null))
+        given(milestoneFacade.getMilestones(1L, "202012345", null))
                 .willReturn(new MilestoneListResponse(List.of()));
 
         mockMvc.perform(get(MILESTONES_URL))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
 
-        verify(milestoneAccessValidator).validateSectionAccess(1L, "202012345");
+        verify(milestoneFacade).getMilestones(1L, "202012345", null);
     }
 
     @Test
@@ -111,8 +107,8 @@ class MilestoneControllerTest {
     @DisplayName("담당 교수가 아닌 관리자는 분반 마일스톤에 접근할 수 없다")
     void anotherProfessorForbidden() throws Exception {
         willThrow(new AccessDeniedException("담당 교수만 분반 마일스톤에 접근할 수 있습니다."))
-                .given(milestoneAccessValidator)
-                .validateSectionAccess(1L, "202012345");
+                .given(milestoneFacade)
+                .getMilestones(1L, "202012345", null);
 
         mockMvc.perform(get(MILESTONES_URL))
                 .andExpect(status().isForbidden())
@@ -354,7 +350,7 @@ class MilestoneControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("다른 분반의 마일스톤 상세 요청도 존재 여부를 숨기고 404를 응답한다")
     void anotherSectionReturnsNotFound() throws Exception {
-        given(milestoneFacade.getMilestone(1L, 2L))
+        given(milestoneFacade.getMilestone(1L, "user", 2L))
                 .willThrow(new MilestoneNotFoundException(2L));
 
         mockMvc.perform(get(MILESTONES_URL + "/2"))
@@ -366,7 +362,7 @@ class MilestoneControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("존재하지 않는 마일스톤 상세 요청은 404를 응답한다")
     void milestoneNotFound() throws Exception {
-        given(milestoneFacade.getMilestone(1L, 404L))
+        given(milestoneFacade.getMilestone(1L, "user", 404L))
                 .willThrow(new MilestoneNotFoundException(404L));
 
         mockMvc.perform(get(MILESTONES_URL + "/404"))

@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import kgu.developers.admin.milestone.application.MilestoneAccessValidator;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
@@ -33,7 +32,6 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/admin/oop/sections/{sectionId}/milestones")
 public class MilestoneControllerImpl implements MilestoneController {
     private final MilestoneFacade milestoneFacade;
-    private final MilestoneAccessValidator milestoneAccessValidator;
 
     @Override
     @PostMapping
@@ -53,8 +51,8 @@ public class MilestoneControllerImpl implements MilestoneController {
             @RequestParam(required = false) MilestoneStatus status,
             Authentication authentication
     ) {
-        validateSectionAccess(sectionId, authentication);
-        return ResponseEntity.ok(milestoneFacade.getMilestones(sectionId, status));
+        return ResponseEntity.ok(
+                milestoneFacade.getMilestones(sectionId, authentication.getName(), status));
     }
 
     @Override
@@ -64,8 +62,8 @@ public class MilestoneControllerImpl implements MilestoneController {
             @PathVariable Long milestoneId,
             Authentication authentication
     ) {
-        validateSectionAccess(sectionId, authentication);
-        return ResponseEntity.ok(milestoneFacade.getMilestone(sectionId, milestoneId));
+        return ResponseEntity.ok(
+                milestoneFacade.getMilestone(sectionId, authentication.getName(), milestoneId));
     }
 
     @Override
@@ -118,9 +116,5 @@ public class MilestoneControllerImpl implements MilestoneController {
     ) {
         milestoneFacade.updateWeekNumbers(sectionId, authentication.getName(), request);
         return ResponseEntity.noContent().build();
-    }
-
-    private void validateSectionAccess(Long sectionId, Authentication authentication) {
-        milestoneAccessValidator.validateSectionAccess(sectionId, authentication.getName());
     }
 }
