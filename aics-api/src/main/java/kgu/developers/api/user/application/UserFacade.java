@@ -33,7 +33,10 @@ public class UserFacade {
                 .filter(e -> e.getStatus() == Status.ACTIVE)
                 .toList();
 
-        List<SectionDetail> professorSections = sectionRepository.findAllByProfessorId(studentNumber);
+        List<SectionDetail> professorSections = List.of();
+        if (!enrollments.isEmpty()) {
+            professorSections = sectionRepository.findAllByProfessorId(studentNumber);
+        }
 
         if (enrollments.isEmpty() && professorSections.isEmpty()) {
             return UserResponse.from(user);
