@@ -1,7 +1,5 @@
 package kgu.developers.admin.evaluation.presentation;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.evaluation.application.TeamEvaluationCriterionFacade;
 import kgu.developers.admin.evaluation.presentation.request.TeamEvaluationCriterionCreateRequest;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionListResponse;
@@ -29,7 +27,7 @@ public class TeamEvaluationCriterionControllerImpl implements TeamEvaluationCrit
   @Override
   @GetMapping
   public ResponseEntity<TeamEvaluationCriterionListResponse> getCriteria(
-      @Positive @PathVariable Long sectionId,
+      @PathVariable Long sectionId,
       Authentication authentication) {
     return ResponseEntity.ok(facade.getCriteria(sectionId, authentication.getName()));
   }
@@ -37,8 +35,8 @@ public class TeamEvaluationCriterionControllerImpl implements TeamEvaluationCrit
   @Override
   @PostMapping
   public ResponseEntity<TeamEvaluationCriterionPersistResponse> createCriterion(
-      @Positive @PathVariable Long sectionId,
-      @Valid @RequestBody TeamEvaluationCriterionCreateRequest request,
+      @PathVariable Long sectionId,
+      @RequestBody TeamEvaluationCriterionCreateRequest request,
       Authentication authentication) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(facade.createCriterion(sectionId, authentication.getName(), request));
