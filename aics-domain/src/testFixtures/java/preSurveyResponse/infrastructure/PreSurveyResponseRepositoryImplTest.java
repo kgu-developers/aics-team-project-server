@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.util.List;
 import java.util.Optional;
@@ -147,8 +148,8 @@ class PreSurveyResponseRepositoryImplTest {
 	}
 
 	@Test
-	@DisplayName("중복 제출 체크를 위해 사용자와 섹션으로 기존 응답이 있는지 확인할 수 있다")
-	void checkDuplicateSubmission() {
+	@DisplayName("중복 제출 체크는 소프트 삭제된 응답을 제외한 조회에만 의존한다")
+	void checkDuplicateSubmissionExcludesSoftDeleted() {
 		PreSurveyResponseRepositoryImpl repository = new PreSurveyResponseRepositoryImpl(jpaPreSurveyResponseRepository);
 		String userId = "202012345";
 		Long sectionId = 1L;
@@ -159,5 +160,7 @@ class PreSurveyResponseRepositoryImplTest {
 		Optional<PreSurveyResponse> existing = repository.findByUserIdAndSectionId(userId, sectionId);
 
 		assertThat(existing).isEmpty();
+		verify(jpaPreSurveyResponseRepository).findByUserIdAndSectionIdAndDeletedAtIsNull(userId, sectionId);
+		verifyNoMoreInteractions(jpaPreSurveyResponseRepository);
 	}
 }
