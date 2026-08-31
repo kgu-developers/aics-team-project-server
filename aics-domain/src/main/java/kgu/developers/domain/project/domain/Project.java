@@ -29,6 +29,7 @@ public class Project {
     private String meetingStyle;  // 회의방식
 
     private LocalDateTime proposalCompletedAt;  // 제안 완료 시각
+    private Long version;  // 낙관적 잠금 버전
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;

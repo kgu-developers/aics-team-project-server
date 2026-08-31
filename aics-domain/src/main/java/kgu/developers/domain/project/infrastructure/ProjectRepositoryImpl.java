@@ -4,8 +4,10 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
+import kgu.developers.domain.project.exception.ProjectVersionConflictException;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +22,14 @@ public class ProjectRepositoryImpl implements ProjectRepository {
 
     @Override
     public Project save(Project project) {
-        TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, project.getTeamId());
-        ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
-        ProjectJpaEntity savedEntity = jpaProjectRepository.save(entity);
-        return savedEntity.toDomain();
+        try {
+            TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, project.getTeamId());
+            ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
+            ProjectJpaEntity savedEntity = jpaProjectRepository.save(entity);
+            return savedEntity.toDomain();
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new ProjectVersionConflictException();
+        }
     }
 
     @Override
@@ -57,8 +63,12 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     @Override
     @Transactional
     public void deleteById(Long id) {
-        ProjectJpaEntity project = jpaProjectRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(ProjectNotFoundException::new);
-        project.delete();
+        try {
+            ProjectJpaEntity project = jpaProjectRepository.findByIdAndDeletedAtIsNull(id)
+                    .orElseThrow(ProjectNotFoundException::new);
+            project.delete();
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new ProjectVersionConflictException();
+        }
     }
 }

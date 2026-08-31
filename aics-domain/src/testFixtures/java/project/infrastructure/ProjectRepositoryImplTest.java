@@ -72,6 +72,7 @@ class ProjectRepositoryImplTest {
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
         .meetingStyle("온라인")
+        .version(0L)
         .build();
 
     given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
@@ -104,6 +105,7 @@ class ProjectRepositoryImplTest {
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
         .meetingStyle("온라인")
+        .version(0L)
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -246,6 +248,7 @@ class ProjectRepositoryImplTest {
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
         .meetingStyle("온라인")
+        .version(0L)
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -314,5 +317,155 @@ class ProjectRepositoryImplTest {
     Optional<Project> found = repository.findIncludingDeletedByTeamId(999L);
 
     assertThat(found).isEmpty();
+  }
+
+  @Test
+  @DisplayName("save는 낙관적 잠금 충돌 시 ProjectVersionConflictException을 발생시킨다")
+  void saveOptimisticLockingFailure() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project project = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("팀 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .version(1L)
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.getReference(TeamJpaEntity.class, 1L)).willReturn(team);
+
+    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+        .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
+            ProjectJpaEntity.class, 1L));
+
+    assertThatThrownBy(() -> repository.save(project))
+        .isInstanceOf(kgu.developers.domain.project.exception.ProjectVersionConflictException.class);
+  }
+
+  @Test
+  @DisplayName("삭제 대 수정 트랜잭션: 이미 삭제된 프로젝트를 수정하려 하면 충돌 예외가 발생한다")
+  void updateAfterDeleteTransaction() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    // 트랜잭션 1: 프로젝트 삭제
+    Project projectToDelete = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("팀 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(1L)
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    ProjectJpaEntity entityToDelete = ProjectJpaEntity.toEntity(projectToDelete, team);
+
+    given(jpaProjectRepository.findByIdAndDeletedAtIsNull(1L))
+        .willReturn(Optional.of(entityToDelete));
+
+    repository.deleteById(1L);
+
+    // 트랜잭션 2: 삭제 전에 읽은 객체로 수정 시도 (낙관적 잠금 충돌)
+    Project projectToUpdate = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("수정된 제목")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(1L) // 이전 버전으로 시도
+        .build();
+
+    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+        .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
+            ProjectJpaEntity.class, 1L));
+
+    assertThatThrownBy(() -> repository.save(projectToUpdate))
+        .isInstanceOf(kgu.developers.domain.project.exception.ProjectVersionConflictException.class);
+  }
+
+  @Test
+  @DisplayName("수정 대 수정 트랜잭션: 동시에 수정 시도 시 충돌 예외가 발생한다")
+  void updateAfterUpdateTransaction() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    // 트랜잭션 1: 첫 번째 수정
+    Project projectFirstUpdate = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("첫 번째 수정")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(1L)
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.getReference(TeamJpaEntity.class, 1L)).willReturn(team);
+
+    ProjectJpaEntity updatedEntity = ProjectJpaEntity.builder()
+        .id(1L)
+        .team(team)
+        .title("첫 번째 수정")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(2L) // 버전 증가
+        .build();
+
+    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+        .willReturn(updatedEntity);
+
+    Project result = repository.save(projectFirstUpdate);
+    assertThat(result.getVersion()).isEqualTo(2L);
+
+    // 트랜잭션 2: 이전 버전으로 두 번째 수정 시도 (낙관적 잠금 충돌)
+    Project projectSecondUpdate = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("두 번째 수정")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(1L) // 이전 버전으로 시도
+        .build();
+
+    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+        .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
+            ProjectJpaEntity.class, 1L));
+
+    assertThatThrownBy(() -> repository.save(projectSecondUpdate))
+        .isInstanceOf(kgu.developers.domain.project.exception.ProjectVersionConflictException.class);
   }
 }
