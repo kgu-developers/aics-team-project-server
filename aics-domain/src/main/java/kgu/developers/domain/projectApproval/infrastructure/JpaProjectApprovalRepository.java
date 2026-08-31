@@ -15,4 +15,6 @@ public interface JpaProjectApprovalRepository extends JpaRepository<ProjectAppro
     List<ProjectApprovalJpaEntity> findAllByProjectIdAndDeletedAtIsNullOrderByUserIdAsc(Long projectId);
 
     List<ProjectApprovalJpaEntity> findAllByUserIdAndDeletedAtIsNullOrderByProjectIdAsc(String userId);
+
+    Optional<ProjectApprovalJpaEntity> findByProjectIdAndUserId(Long projectId, String userId);
 }

@@ -17,7 +17,18 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     private final JpaProjectApprovalRepository jpaProjectApprovalRepository;
 
     @Override
+    @Transactional
     public ProjectApproval save(ProjectApproval projectApproval) {
+        Optional<ProjectApprovalJpaEntity> existingEntity = jpaProjectApprovalRepository
+                .findByProjectIdAndUserId(projectApproval.getProjectId(), projectApproval.getUserId());
+
+        if (existingEntity.isPresent()) {
+            ProjectApprovalJpaEntity entity = existingEntity.get();
+            entity.setDeletedAt(null);
+            entity.setApprovedAt(projectApproval.getApprovedAt());
+            return jpaProjectApprovalRepository.save(entity).toDomain();
+        }
+
         ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.toEntity(projectApproval);
         return jpaProjectApprovalRepository.save(entity).toDomain();
     }
@@ -61,5 +72,6 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
         ProjectApprovalJpaEntity projectApproval = jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(ProjectApprovalNotFoundException::new);
         projectApproval.delete();
+        jpaProjectApprovalRepository.save(projectApproval);
     }
 }

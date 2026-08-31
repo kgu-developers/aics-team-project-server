@@ -36,6 +36,8 @@ class ProjectApprovalRepositoryImplTest {
     @DisplayName("프로젝트 동의 저장소 어댑터는 저장 결과를 도메인으로 반환한다")
     void save() {
         ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
+        given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
+                .willReturn(Optional.empty());
         given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
                 .willReturn(ProjectApprovalJpaEntity.builder()
                         .id(1L)
@@ -188,5 +190,49 @@ class ProjectApprovalRepositoryImplTest {
 
         assertThatThrownBy(() -> projectApprovalRepository.deleteById(1L))
                 .isInstanceOf(ProjectApprovalNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("deleteById 후에는 삭제된 행이 조회에서 제외된다")
+    void deleteById_ExcludesFromQueries() {
+        ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.builder()
+                .id(1L)
+                .projectId(1L)
+                .userId("20260001")
+                .approvedAt(LocalDateTime.now())
+                .build();
+        given(jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(1L))
+                .willReturn(Optional.of(entity));
+        given(jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(1L, "20260001"))
+                .willReturn(Optional.of(entity));
+
+        projectApprovalRepository.deleteById(1L);
+
+        assertThat(entity.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("재승인 시 기존 삭제된 행을 재활용한다")
+    void reapproval_RecyclesDeletedRow() {
+        LocalDateTime now = LocalDateTime.now();
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", now);
+        ProjectApprovalJpaEntity existingEntity = ProjectApprovalJpaEntity.builder()
+                .id(1L)
+                .projectId(1L)
+                .userId("20260001")
+                .approvedAt(now.minusDays(1))
+                .deletedAt(now.minusDays(1))
+                .build();
+
+        given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
+                .willReturn(Optional.of(existingEntity));
+        given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
+                .willReturn(existingEntity);
+
+        ProjectApproval saved = projectApprovalRepository.save(approval);
+
+        assertThat(saved.getId()).isEqualTo(1L);
+        assertThat(existingEntity.getDeletedAt()).isNull();
+        assertThat(existingEntity.getApprovedAt()).isEqualTo(now);
     }
 }
