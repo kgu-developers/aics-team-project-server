@@ -167,6 +167,87 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("preview는 팀장 해제 행과 승격 행의 순서가 바뀌어도 같은 결과를 낸다")
+  public void preview_ResolvesLeaderHandoverRegardlessOfRowOrder() throws IOException {
+    // given: 1팀 팀장은 A, B는 팀원이고 파일은 팀장을 A에서 B로 넘긴다
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(
+        TeamMember.create(10L, STUDENT_A, true, "백엔드"),
+        TeamMember.create(10L, STUDENT_B, false, "프론트")));
+    String[] demotion = { "1팀", STUDENT_A, "홍길동", "", "백엔드" };
+    String[] promotion = { "1팀", STUDENT_B, "김철수", "Y", "프론트" };
+
+    // when: 해제 행이 먼저 오는 파일
+    TeamImportPreviewResponse demotionFirst =
+        facade.preview(SECTION_ID, ASSISTANT, excel(demotion, promotion));
+
+    // then
+    assertThat(demotionFirst.rows()).extracting(TeamImportRow::status)
+        .containsExactly(RowStatus.UPDATE, RowStatus.UPDATE);
+
+    // when: 같은 파일에서 승격 행이 먼저 오는 경우
+    TeamImportPreviewResponse promotionFirst =
+        facade.preview(SECTION_ID, ASSISTANT, excel(promotion, demotion));
+
+    // then: 행 순서만 다를 뿐 결과는 같아야 한다
+    assertThat(promotionFirst.rows()).extracting(TeamImportRow::status)
+        .containsExactly(RowStatus.UPDATE, RowStatus.UPDATE);
+    assertThat(promotionFirst.summary()).isEqualTo(demotionFirst.summary());
+  }
+
+  @Test
+  @DisplayName("apply는 팀장 해제 행이 먼저 와도 팀장을 넘겨준다")
+  public void apply_AppliesLeaderHandoverWhenDemotionRowComesFirst() {
+    // given
+    TeamMember leader = TeamMember.create(10L, STUDENT_A, true, "백엔드");
+    TeamMember successor = TeamMember.create(10L, STUDENT_B, false, "프론트");
+    givenLeaderHandover(leader, successor, List.of(
+        row(2, "1팀", STUDENT_A, false, "백엔드", RowStatus.UPDATE),
+        row(3, "1팀", STUDENT_B, true, "프론트", RowStatus.UPDATE)));
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then
+    assertThat(response.appliedMembers()).isEqualTo(2);
+    assertThat(response.skipped()).isZero();
+    assertThat(leader.isLeader()).isFalse();
+    assertThat(successor.isLeader()).isTrue();
+  }
+
+  @Test
+  @DisplayName("apply는 팀장 승격 행이 해제 행보다 먼저 와도 팀장을 넘겨준다")
+  public void apply_AppliesLeaderHandoverWhenPromotionRowComesFirst() {
+    // given: 위 테스트와 같은 파일이지만 행 순서만 뒤집혀 있다
+    TeamMember leader = TeamMember.create(10L, STUDENT_A, true, "백엔드");
+    TeamMember successor = TeamMember.create(10L, STUDENT_B, false, "프론트");
+    givenLeaderHandover(leader, successor, List.of(
+        row(2, "1팀", STUDENT_B, true, "프론트", RowStatus.UPDATE),
+        row(3, "1팀", STUDENT_A, false, "백엔드", RowStatus.UPDATE)));
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then
+    assertThat(response.appliedMembers()).isEqualTo(2);
+    assertThat(response.skipped()).isZero();
+    assertThat(leader.isLeader()).isFalse();
+    assertThat(successor.isLeader()).isTrue();
+  }
+
+  private void givenLeaderHandover(TeamMember leader, TeamMember successor, List<TeamImportRow> rows) {
+    given(teamRepository.findAllBySectionId(SECTION_ID))
+        .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, leader.getUserId()))
+        .willReturn(Optional.of(leader));
+    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, successor.getUserId()))
+        .willReturn(Optional.of(successor));
+    given(teamMemberRepository.findAllByTeamId(10L)).willReturn(List.of(leader, successor));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, rows)));
+  }
+
+  @Test
   @DisplayName("apply는 preview 이후 다른 팀장이 생기면 그 행만 건너뛴다")
   public void apply_SkipsLeaderPromotionWhenLeaderAppearedAfterPreview() {
     // given

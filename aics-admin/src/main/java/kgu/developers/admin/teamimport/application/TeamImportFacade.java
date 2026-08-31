@@ -8,6 +8,7 @@ import static kgu.developers.domain.enrollment.domain.Status.ACTIVE;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +46,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TeamImportFacade {
     private static final Duration PREVIEW_TTL = Duration.ofMinutes(30);
+    private static final String LEADER_TAKEN = "이 팀에는 이미 팀장이 있습니다.";
 
     private final ImportBatchRepository importBatchRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -87,10 +89,63 @@ public class TeamImportFacade {
         Map<String, Long> teamIds = new HashMap<>();
         teamRepository.findAllBySectionId(batch.getSectionId())
             .forEach(team -> teamIds.put(team.getName(), team.getId()));
-        Set<String> enrolled = activeEnrollments(batch.getSectionId());
+
+        // 팀장 판정이 행 순서에 좌우되지 않도록, 반영할 행을 먼저 추린 뒤 파일 전체의 팀장 구성을 계산한다
+        List<PlannedRow> planned = new ArrayList<>();
+        int skipped = plan(batch, teamIds, planned);
+        Map<String, String> leaderOf = plannedLeaders(planned, teamIds);
 
         int createdTeams = 0;
         int appliedMembers = 0;
+        for (PlannedRow row : planned) {
+            if (row.leader() && !row.studentNumber().equals(leaderOf.get(row.teamName()))) {
+                skipped++;
+                continue;
+            }
+
+            if (row.assigned() != null) {
+                row.assigned().updateIsLeader(row.leader());
+                row.assigned().updateProjectRole(row.projectRole());
+                teamMemberRepository.save(row.assigned());
+                appliedMembers++;
+                continue;
+            }
+
+            Long teamId = teamIds.get(row.teamName());
+            if (teamId == null) {
+                teamId = teamRepository.save(
+                    Team.create(batch.getSectionId(), row.teamName(), "", "", Status.FORMING)).getId();
+                teamIds.put(row.teamName(), teamId);
+                createdTeams++;
+            }
+            TeamMember existing = teamMemberRepository
+                .findIncludingDeleted(teamId, row.studentNumber()).orElse(null);
+            if (existing != null && existing.getDeletedAt() == null) {
+                skipped++;
+                continue;
+            }
+            if (existing != null) {
+                existing.reactivate(row.leader(), row.projectRole());
+                teamMemberRepository.save(existing);
+            } else {
+                teamMemberRepository.save(
+                    TeamMember.create(teamId, row.studentNumber(), row.leader(), row.projectRole()));
+            }
+            appliedMembers++;
+        }
+        importBatchRepository.save(batch);
+
+        return new TeamImportApplyResponse(batch.getId(), createdTeams, appliedMembers, skipped);
+    }
+
+    // 반영할 행. assigned는 이미 이 분반의 팀에 속해 있어 갱신할 팀원이고, null이면 새로 편성한다
+    private record PlannedRow(String teamName, String studentNumber, boolean leader, String projectRole,
+        TeamMember assigned) {
+    }
+
+    private int plan(ImportBatch batch, Map<String, Long> teamIds, List<PlannedRow> planned) {
+        Set<String> enrolled = activeEnrollments(batch.getSectionId());
+
         int skipped = 0;
         for (JsonNode row : batch.getPayload()) {
             String status = row.path("status").asText();
@@ -101,64 +156,43 @@ public class TeamImportFacade {
             String teamName = row.path("teamName").asText();
             String studentNumber = row.path("studentNumber").asText();
 
-            boolean leader = row.path("leader").asBoolean();
-            String projectRole = row.path("projectRole").asText();
-
             if (!enrolled.contains(studentNumber)) {
                 skipped++;
                 continue;
             }
 
-            Long existingTeamId = teamIds.get(teamName);
-            if (leader && existingTeamId != null && hasOtherLeader(existingTeamId, studentNumber)) {
-                skipped++;
-                continue;
-            }
-
-            TeamMember existingInSection = teamMemberRepository
+            TeamMember assigned = teamMemberRepository
                 .findActiveBySectionIdAndUserId(batch.getSectionId(), studentNumber)
                 .orElse(null);
-            
-            if (existingInSection != null) {
-                if (!update || !existingInSection.getTeamId().equals(teamIds.get(teamName))) {
-                    skipped++;
-                    continue;
-                }
-                existingInSection.updateIsLeader(leader);
-                existingInSection.updateProjectRole(projectRole);
-                teamMemberRepository.save(existingInSection);
-                appliedMembers++;
-                continue;
-            }
-
-            Long teamId = teamIds.get(teamName);
-            if (teamId == null) {
-                teamId = teamRepository.save(
-                    Team.create(batch.getSectionId(), teamName, "", "", Status.FORMING)).getId();
-                teamIds.put(teamName, teamId);
-                createdTeams++;
-            }
-            TeamMember existing = teamMemberRepository.findIncludingDeleted(teamId, studentNumber).orElse(null);
-            if (existing != null && existing.getDeletedAt() == null) {
+            if (assigned != null && (!update || !assigned.getTeamId().equals(teamIds.get(teamName)))) {
                 skipped++;
                 continue;
             }
-            if (existing != null) {
-                existing.reactivate(leader, projectRole);
-                teamMemberRepository.save(existing);
-            } else {
-                teamMemberRepository.save(TeamMember.create(teamId, studentNumber, leader, projectRole));
-            }
-            appliedMembers++;
-        }
-        importBatchRepository.save(batch);
 
-        return new TeamImportApplyResponse(batch.getId(), createdTeams, appliedMembers, skipped);
+            planned.add(new PlannedRow(teamName, studentNumber, row.path("leader").asBoolean(),
+                row.path("projectRole").asText(), assigned));
+        }
+        return skipped;
     }
 
-    private boolean hasOtherLeader(Long teamId, String userId) {
-        return teamMemberRepository.findAllByTeamId(teamId).stream()
-            .anyMatch(member -> member.isLeader() && !member.getUserId().equals(userId));
+    private Map<String, String> plannedLeaders(List<PlannedRow> planned, Map<String, Long> teamIds) {
+        Map<String, String> leaderOf = new HashMap<>();
+        planned.stream().map(PlannedRow::teamName).distinct().forEach(teamName -> {
+            Long teamId = teamIds.get(teamName);
+            if (teamId == null) {
+                return;
+            }
+            teamMemberRepository.findAllByTeamId(teamId).stream()
+                .filter(TeamMember::isLeader)
+                .findFirst()
+                .ifPresent(leader -> leaderOf.put(teamName, leader.getUserId()));
+        });
+
+        planned.stream().filter(row -> !row.leader())
+            .forEach(row -> leaderOf.remove(row.teamName(), row.studentNumber()));
+        planned.stream().filter(PlannedRow::leader)
+            .forEach(row -> leaderOf.putIfAbsent(row.teamName(), row.studentNumber()));
+        return leaderOf;
     }
 
     private Set<String> activeEnrollments(Long sectionId) {
@@ -175,23 +209,24 @@ public class TeamImportFacade {
         Map<Long, String> teamNames = teams.stream()
             .collect(Collectors.toMap(Team::getId, Team::getName));
         Map<String, TeamMember> assignedOf = new HashMap<>();  // 학번 -> 이미 속한 팀원 정보
-        Set<String> teamsWithLeader = new HashSet<>();
+        Map<String, String> leaderOf = new HashMap<>();        // 팀명 -> 현재 팀장 학번
         teamMemberRepository.findAllByTeamIdIn(teams.stream().map(Team::getId).toList()).forEach(member -> {
             assignedOf.put(member.getUserId(), member);
             if (member.isLeader()) {
-                teamsWithLeader.add(teamNames.get(member.getTeamId()));
+                leaderOf.putIfAbsent(teamNames.get(member.getTeamId()), member.getUserId());
             }
         });
 
+        // 팀장 충돌은 행 하나만 봐서는 알 수 없으므로, 나머지 사유로 먼저 분류한 뒤 파일 전체를 놓고 판정한다
         Set<String> seenNumbers = new HashSet<>();
-        Set<String> leaderTeams = new HashSet<>(teamsWithLeader);
-        return rows.stream()
-            .map(row -> classify(row, enrolled, assignedOf, teamNames, leaderTeams, seenNumbers))
+        List<TeamImportRow> classified = rows.stream()
+            .map(row -> classify(row, enrolled, assignedOf, teamNames, seenNumbers))
             .toList();
+        return resolveLeaders(classified, leaderOf);
     }
 
     private TeamImportRow classify(TeamImportRow row, Set<String> enrolled, Map<String, TeamMember> assignedOf,
-        Map<Long, String> teamNames, Set<String> leaderTeams, Set<String> seenNumbers) {
+        Map<Long, String> teamNames, Set<String> seenNumbers) {
         if (row.status() == INVALID) {
             return row;
         }
@@ -213,19 +248,29 @@ public class TeamImportFacade {
                     .equals(Objects.toString(row.projectRole(), ""))) {
                 return row.with(DUPLICATE, "이미 이 팀에 편성되어 있습니다.");
             }
-            if (row.leader() && !leaderTeams.add(row.teamName())) {
-                return row.with(INVALID, "이 팀에는 이미 팀장이 있습니다.");
-            }
-            if (!row.leader() && assigned.isLeader()) {
-                // ponytail: 팀장 해제 행이 승격 행보다 뒤에 오면 승격 쪽이 먼저 거부된다.
-                // 팀장 판정을 파일 전체 단위로 옮기면 풀리는데, 그때 가서 옮긴다.
-                leaderTeams.remove(row.teamName());
-            }
             return row.with(UPDATE, "팀장·역할이 바뀌어 갱신 예정입니다.");
         }
-        if (row.leader() && !leaderTeams.add(row.teamName())) {
-            return row.with(INVALID, "이 팀에는 이미 팀장이 있습니다.");
-        }
         return row;
+    }
+
+    /**
+     * 파일을 모두 반영한 뒤의 팀장 구성을 계산해, 자리를 얻지 못하는 승격 행만 오류로 표시한다.
+     * 팀장 해제를 먼저 반영하므로 해제 행과 승격 행의 순서는 결과에 영향을 주지 않는다.
+     */
+    private List<TeamImportRow> resolveLeaders(List<TeamImportRow> rows, Map<String, String> currentLeaders) {
+        Map<String, String> leaderOf = new HashMap<>(currentLeaders);
+        rows.stream()
+            .filter(row -> row.status() != INVALID && !row.leader())
+            .forEach(row -> leaderOf.remove(row.teamName(), row.studentNumber()));
+
+        return rows.stream().map(row -> {
+            if (row.status() == INVALID || !row.leader()) {
+                return row;
+            }
+            String leader = leaderOf.putIfAbsent(row.teamName(), row.studentNumber());
+            return leader == null || leader.equals(row.studentNumber())
+                ? row
+                : row.with(INVALID, LEADER_TAKEN);
+        }).toList();
     }
 }
