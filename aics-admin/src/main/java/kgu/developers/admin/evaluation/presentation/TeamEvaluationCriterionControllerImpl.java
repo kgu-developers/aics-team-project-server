@@ -9,6 +9,7 @@ import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCrite
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,15 +29,18 @@ public class TeamEvaluationCriterionControllerImpl implements TeamEvaluationCrit
   @Override
   @GetMapping
   public ResponseEntity<TeamEvaluationCriterionListResponse> getCriteria(
-      @Positive @PathVariable Long sectionId) {
-    return ResponseEntity.ok(facade.getCriteria(sectionId));
+      @Positive @PathVariable Long sectionId,
+      Authentication authentication) {
+    return ResponseEntity.ok(facade.getCriteria(sectionId, authentication.getName()));
   }
 
   @Override
   @PostMapping
   public ResponseEntity<TeamEvaluationCriterionPersistResponse> createCriterion(
       @Positive @PathVariable Long sectionId,
-      @Valid @RequestBody TeamEvaluationCriterionCreateRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(facade.createCriterion(sectionId, request));
+      @Valid @RequestBody TeamEvaluationCriterionCreateRequest request,
+      Authentication authentication) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(facade.createCriterion(sectionId, authentication.getName(), request));
   }
 }
