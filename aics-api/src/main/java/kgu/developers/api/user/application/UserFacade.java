@@ -2,10 +2,9 @@ package kgu.developers.api.user.application;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import kgu.developers.api.user.presentation.request.UserUpdateRequest;
 import kgu.developers.api.user.presentation.response.UserResponse;
@@ -81,17 +80,9 @@ public class UserFacade {
                 .map(SectionResponse::from)
                 .toList();
 
-        List<SectionResponse> allSections = new java.util.ArrayList<>(enrollmentSections);
-        allSections.addAll(professorSectionResponses);
-
-        return allSections.stream()
-                .filter(distinctByKey(SectionResponse::id))
+        return Stream.concat(enrollmentSections.stream(), professorSectionResponses.stream())
+                .distinct()
                 .toList();
-    }
-
-    private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
-        Map<Object, Boolean> seen = new ConcurrentHashMap<>();
-        return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
     }
 }
 
