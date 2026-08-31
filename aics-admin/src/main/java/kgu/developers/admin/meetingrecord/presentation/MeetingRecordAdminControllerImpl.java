@@ -1,5 +1,6 @@
 package kgu.developers.admin.meetingrecord.presentation;
 
+import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.meetingrecord.application.MeetingRecordAdminFacade;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class MeetingRecordAdminControllerImpl implements MeetingRecordAdminContr
     @Override
     @GetMapping
     public ResponseEntity<MeetingRecordAdminPageResponse> getMeetingRecords(
-        @RequestParam(required = false) Long sectionId,
+        @RequestParam(required = false) @Positive Long sectionId,
         @PageableDefault(size = 20, sort = "meetingAt", direction = Sort.Direction.DESC) Pageable pageable,
         Authentication authentication
     ) {
