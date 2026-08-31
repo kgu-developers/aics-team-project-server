@@ -1,9 +1,15 @@
 package kgu.developers.api.user.application;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import kgu.developers.api.user.presentation.request.UserUpdateRequest;
 import kgu.developers.api.user.presentation.response.UserResponse;
+import kgu.developers.api.section.presentation.response.SectionResponse;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Status;
@@ -48,12 +54,44 @@ public class UserFacade {
 
         List<SectionDetail> enrollmentSectionDetails = sectionRepository.findAllByIdIn(enrollmentSectionIds);
 
-        return UserResponse.from(user, enrollments, enrollmentSectionDetails, professorSections);
+        List<SectionResponse> sections = mergeAndDeduplicateSections(
+                enrollments, enrollmentSectionDetails, professorSections);
+
+        return UserResponse.from(user, sections);
     }
 
     public void updateUserPassword(String studentNumber, UserUpdateRequest request) {
         User user = userQueryService.getUserByStudentNumber(studentNumber);
         userCommandService.updatePassword(user, request.currentPassword(), request.password());
+    }
+
+    private List<SectionResponse> mergeAndDeduplicateSections(
+            List<Enrollment> enrollments,
+            List<SectionDetail> enrollmentSectionDetails,
+            List<SectionDetail> professorSections) {
+        Map<Long, SectionDetail> enrollmentSectionMap = enrollmentSectionDetails.stream()
+                .collect(Collectors.toMap(sd -> sd.section().getId(), Function.identity()));
+
+        List<SectionResponse> enrollmentSections = enrollments.stream()
+                .filter(e -> enrollmentSectionMap.containsKey(e.getSectionId()))
+                .map(e -> SectionResponse.from(enrollmentSectionMap.get(e.getSectionId())))
+                .toList();
+
+        List<SectionResponse> professorSectionResponses = professorSections.stream()
+                .map(SectionResponse::from)
+                .toList();
+
+        List<SectionResponse> allSections = new java.util.ArrayList<>(enrollmentSections);
+        allSections.addAll(professorSectionResponses);
+
+        return allSections.stream()
+                .filter(distinctByKey(SectionResponse::id))
+                .toList();
+    }
+
+    private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
+        Map<Object, Boolean> seen = new ConcurrentHashMap<>();
+        return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
     }
 }
 
