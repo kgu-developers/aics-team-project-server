@@ -19,6 +19,13 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
 
     @Override
     public TopicCandidate save(TopicCandidate topicCandidate) {
+        if (topicCandidate.getId() == null) {
+            Optional<TopicCandidateJpaEntity> existing = jpaTopicCandidateRepository
+                    .findByTeamIdAndTitleAndDeletedAtIsNull(topicCandidate.getTeamId(), topicCandidate.getTitle());
+            if (existing.isPresent()) {
+                throw new IllegalStateException("이미 존재하는 주제 제목입니다.");
+            }
+        }
         TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(topicCandidate);
         TopicCandidateJpaEntity savedEntity = jpaTopicCandidateRepository.save(entity);
         return savedEntity.toDomain();
