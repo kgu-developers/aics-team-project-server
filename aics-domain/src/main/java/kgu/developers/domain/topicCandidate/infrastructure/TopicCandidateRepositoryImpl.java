@@ -2,7 +2,6 @@ package kgu.developers.domain.topicCandidate.infrastructure;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +41,7 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
         List<TopicCandidateJpaEntity> entities = jpaTopicCandidateRepository.findByTeamIdAndDeletedAtIsNull(teamId);
         return entities.stream()
                 .map(TopicCandidateJpaEntity::toDomain)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -50,7 +49,7 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
         List<TopicCandidateJpaEntity> entities = jpaTopicCandidateRepository.findByProposerUserIdAndDeletedAtIsNull(proposerUserId);
         return entities.stream()
                 .map(TopicCandidateJpaEntity::toDomain)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
