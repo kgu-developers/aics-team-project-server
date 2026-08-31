@@ -4,9 +4,11 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.projectApproval.exception.ProjectApprovalNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Repository
@@ -54,7 +56,10 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     }
 
     @Override
+    @Transactional
     public void deleteById(Long id) {
-        jpaProjectApprovalRepository.deleteById(id);
+        ProjectApprovalJpaEntity projectApproval = jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(ProjectApprovalNotFoundException::new);
+        projectApproval.delete();
     }
 }
