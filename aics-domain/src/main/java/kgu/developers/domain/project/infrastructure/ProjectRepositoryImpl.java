@@ -49,6 +49,12 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     }
 
     @Override
+    public Optional<Project> findIncludingDeletedByTeamId(Long teamId) {
+        return jpaProjectRepository.findByTeamId(teamId)
+                .map(ProjectJpaEntity::toDomain);
+    }
+
+    @Override
     @Transactional
     public void deleteById(Long id) {
         ProjectJpaEntity project = jpaProjectRepository.findByIdAndDeletedAtIsNull(id)

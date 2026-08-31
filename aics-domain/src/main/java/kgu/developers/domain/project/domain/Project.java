@@ -81,4 +81,16 @@ public class Project {
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
+
+    public void reactivate(String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle) {
+        this.deletedAt = null;
+        this.title = requireNonNull(title, "title");
+        this.description = requireNonNull(description, "description");
+        this.goal = requireNonNull(goal, "goal");
+        this.repositoryUrl = repositoryUrl;
+        this.externalLinks = externalLinks;
+        this.approvalStatus = requireNonNull(approvalStatus, "approvalStatus");
+        this.meetingStyle = meetingStyle;
+        this.proposalCompletedAt = null;
+    }
 }

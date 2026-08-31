@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -268,5 +269,50 @@ class ProjectRepositoryImplTest {
 
     assertThatThrownBy(() -> repository.deleteById(999L))
         .isInstanceOf(ProjectNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("findIncludingDeletedByTeamId는 팀 id로 삭제된 프로젝트를 포함하여 조회한다")
+  void findIncludingDeletedByTeamId() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project project = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("팀 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .deletedAt(LocalDateTime.now())
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(project, team)));
+
+    Optional<Project> found = repository.findIncludingDeletedByTeamId(1L);
+
+    assertThat(found).isPresent();
+    assertThat(found.get().getTitle()).isEqualTo("팀 프로젝트");
+    assertThat(found.get().getDeletedAt()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("findIncludingDeletedByTeamId는 존재하지 않는 팀 id면 빈 Optional을 반환한다")
+  void findIncludingDeletedByTeamIdNotFound() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    given(jpaProjectRepository.findByTeamId(999L))
+        .willReturn(Optional.empty());
+
+    Optional<Project> found = repository.findIncludingDeletedByTeamId(999L);
+
+    assertThat(found).isEmpty();
   }
 }

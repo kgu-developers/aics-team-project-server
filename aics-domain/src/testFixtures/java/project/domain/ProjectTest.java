@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 
@@ -232,6 +234,61 @@ class ProjectTest {
     project.delete();
 
     assertThat(project.getDeletedAt()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("reactivate는 삭제된 프로젝트를 재활성화한다")
+  void reactivate() {
+    Project project = createDefaultProject();
+    project.delete();
+
+    ObjectNode newLinks = objectMapper.createObjectNode();
+    newLinks.put("notion", "https://notion.so/new");
+
+    project.reactivate(
+        "새 제목",
+        "새 설명",
+        "새 목표",
+        "https://github.com/new/repo",
+        newLinks,
+        ApprovalStatus.APPROVED,
+        "오프라인"
+    );
+
+    assertThat(project.getDeletedAt()).isNull();
+    assertThat(project.getTitle()).isEqualTo("새 제목");
+    assertThat(project.getDescription()).isEqualTo("새 설명");
+    assertThat(project.getGoal()).isEqualTo("새 목표");
+    assertThat(project.getRepositoryUrl()).isEqualTo("https://github.com/new/repo");
+    assertThat(project.getExternalLinks()).isEqualTo(newLinks);
+    assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
+    assertThat(project.getMeetingStyle()).isEqualTo("오프라인");
+    assertThat(project.getProposalCompletedAt()).isNull();
+  }
+
+  @Test
+  @DisplayName("reactivate는 필수값이 null이면 예외를 발생시킨다")
+  void reactivateWithNullRequiredFields() {
+    Project project = createDefaultProject();
+    project.delete();
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+
+    assertThatThrownBy(() -> 
+        project.reactivate(null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인")
+    ).isInstanceOf(NullPointerException.class);
+
+    assertThatThrownBy(() -> 
+        project.reactivate("제목", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인")
+    ).isInstanceOf(NullPointerException.class);
+
+    assertThatThrownBy(() -> 
+        project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인")
+    ).isInstanceOf(NullPointerException.class);
+
+    assertThatThrownBy(() -> 
+        project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, "온라인")
+    ).isInstanceOf(NullPointerException.class);
   }
 
   @Test
