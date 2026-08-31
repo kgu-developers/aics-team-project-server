@@ -3,6 +3,7 @@ package kgu.developers.admin.evaluation.application;
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
 import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCommandService;
+import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -16,10 +17,12 @@ public class PeerEvaluationFormFacade {
 
     private final PeerEvaluationFormCommandService commandService;
     private final SectionQueryService sectionQueryService;
+    private final MilestoneQueryService milestoneQueryService;
 
     public PeerEvaluationFormPersistResponse createForm(
             Long sectionId, String professorId, PeerEvaluationFormCreateRequest request) {
         validateSectionAccess(sectionId, professorId);
+        milestoneQueryService.getMilestone(sectionId, request.milestoneId());
         Long id = commandService.createForm(
                 sectionId,
                 request.milestoneId(),
