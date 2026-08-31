@@ -58,27 +58,6 @@ public record UserResponse(
                 .build();
     }
 
-    public static UserResponse from(User user, List<Enrollment> enrollments, List<SectionDetail> sectionDetails) {
-        Map<Long, SectionDetail> sectionMap = sectionDetails.stream()
-                .collect(Collectors.toMap(sd -> sd.section().getId(), Function.identity()));
-
-        List<SectionResponse> sections = enrollments.stream()
-                .filter(e -> sectionMap.containsKey(e.getSectionId()))
-                .map(e -> SectionResponse.from(sectionMap.get(e.getSectionId())))
-                .toList();
-
-        return UserResponse.builder()
-                .studentNumber(user.getStudentNumber())
-                .email(user.getEmail())
-                .name(user.getName())
-                .globalRole(user.getGlobalRole())
-                .phone(user.getPhone())
-                .sections(sections)
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
-    }
-
     public static UserResponse from(User user, List<Enrollment> enrollments, List<SectionDetail> enrollmentSectionDetails, List<SectionDetail> professorSections) {
         Map<Long, SectionDetail> enrollmentSectionMap = enrollmentSectionDetails.stream()
                 .collect(Collectors.toMap(sd -> sd.section().getId(), Function.identity()));
