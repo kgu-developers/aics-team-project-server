@@ -33,14 +33,6 @@ public class ProjectApproval {
                 .build();
     }
 
-    public void updateProjectId(Long projectId) {
-        this.projectId = requireNonNull(projectId, "projectId");
-    }
-
-    public void updateUserId(String userId) {
-        this.userId = requireNonNull(userId, "userId");
-    }
-
     public void updateApprovedAt(LocalDateTime approvedAt) {
         this.approvedAt = requireNonNull(approvedAt, "approvedAt");
     }

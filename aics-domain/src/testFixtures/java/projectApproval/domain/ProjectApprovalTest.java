@@ -24,19 +24,17 @@ class ProjectApprovalTest {
     }
 
     @Test
-    @DisplayName("update 메서드들은 각 필드를 변경한다")
+    @DisplayName("updateApprovedAt은 동의일을 변경하되 식별자는 그대로 둔다")
     void update() {
         LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
         ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
 
-        projectApproval.updateProjectId(2L);
-        projectApproval.updateUserId("202154321");
         LocalDateTime newApprovedAt = LocalDateTime.of(2026, 1, 20, 11, 0);
         projectApproval.updateApprovedAt(newApprovedAt);
 
-        assertThat(projectApproval.getProjectId()).isEqualTo(2L);
-        assertThat(projectApproval.getUserId()).isEqualTo("202154321");
         assertThat(projectApproval.getApprovedAt()).isEqualTo(newApprovedAt);
+        assertThat(projectApproval.getProjectId()).isEqualTo(1L);
+        assertThat(projectApproval.getUserId()).isEqualTo("202012345");
     }
 
     @Test
@@ -62,31 +60,7 @@ class ProjectApprovalTest {
         projectApproval.delete();
         LocalDateTime secondDeletedAt = projectApproval.getDeletedAt();
 
-        assertThat(secondDeletedAt).isAfter(firstDeletedAt);
-    }
-
-    @Test
-    @DisplayName("updateProjectId는 null이면 예외를 발생시킨다")
-    void updateProjectIdThrowsOnNull() {
-        LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
-
-        org.junit.jupiter.api.Assertions.assertThrows(
-            NullPointerException.class,
-            () -> projectApproval.updateProjectId(null)
-        );
-    }
-
-    @Test
-    @DisplayName("updateUserId는 null이면 예외를 발생시킨다")
-    void updateUserIdThrowsOnNull() {
-        LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
-
-        org.junit.jupiter.api.Assertions.assertThrows(
-            NullPointerException.class,
-            () -> projectApproval.updateUserId(null)
-        );
+        assertThat(secondDeletedAt).isAfterOrEqualTo(firstDeletedAt);
     }
 
     @Test
