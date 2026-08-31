@@ -22,6 +22,8 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Duration;
+
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.Cookie;
 import kgu.developers.api.config.SecurityConfig;
@@ -37,15 +39,18 @@ import kgu.developers.globalutils.jwt.TokenRevocationStore;
 @WebMvcTest
 @Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class, CorsConfig.class})
 @TestPropertySource(properties = {
-    "jwt.secret_key=local-dev-jwt-secret-key-0123456789",
-    "jwt.issuer=kgudevelopers@gmail.com",
-    "cors.allowed-origins=http://localhost:5173"
+    "jwt.secret_key=" + SecurityConfigTest.SECRET_KEY,
+    "jwt.issuer=" + SecurityConfigTest.ISSUER,
+    "cors.allowed-origins=" + SecurityConfigTest.ORIGIN
 })
 class SecurityConfigTest {
 
+  static final String SECRET_KEY = "local-dev-jwt-secret-key-0123456789";
+  static final String ISSUER = "kgudevelopers@gmail.com";
+  static final String ORIGIN = "http://localhost:5173";
+
   private static final String PROTECTED_URL = "/api/v1/oop/anything";
   private static final String STUDENT_NUMBER = "202699999";
-  private static final String ORIGIN = "http://localhost:5173";
 
   @SpringBootConfiguration
   static class TestApp {
@@ -90,6 +95,16 @@ class SecurityConfigTest {
   @DisplayName("빈 accessToken 쿠키도 500이 아니라 401을 응답한다")
   void blankAccessTokenCookie() throws Exception {
     mockMvc.perform(get(PROTECTED_URL).cookie(new Cookie("accessToken", "")))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("만료된 accessToken 쿠키는 서명이 멀쩡해도 401을 응답한다")
+  void expiredAccessTokenCookie() throws Exception {
+    JwtUtil expired = new JwtUtil(SECRET_KEY, ISSUER, Duration.ofSeconds(-1), Duration.ofDays(14));
+    Cookie cookie = new Cookie("accessToken", expired.createAccessToken(STUDENT_NUMBER, "USER"));
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(cookie))
         .andExpect(status().isUnauthorized());
   }
 
@@ -153,5 +168,42 @@ class SecurityConfigTest {
             .header(HttpHeaders.ORIGIN, "http://evil.example.com")
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET"))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("잘못된 서명의 accessToken 쿠키는 401을 응답한다")
+  void invalidSignatureAccessTokenCookie() throws Exception {
+    // 다른 secret key로 서명된 토큰 생성
+    String validToken = jwtUtil.createAccessToken(STUDENT_NUMBER, "USER");
+    // 토큰의 일부를 수정하여 서명을 깨뜨림
+    String tamperedToken = validToken.substring(0, validToken.length() - 10) + "tampered";
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(new Cookie("accessToken", tamperedToken)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("refresh 토큰으로 access 요청 시도 시 401을 응답한다")
+  void refreshTokenAsAccessToken() throws Exception {
+    String refreshToken = jwtUtil.createRefreshToken(STUDENT_NUMBER);
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(new Cookie("accessToken", refreshToken)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("ROLE이 포함된 accessToken은 권한을 가진다")
+  void authenticatedWithRole() throws Exception {
+    Cookie adminTokenCookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "ADMIN"));
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(adminTokenCookie))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName("swagger-ui 경로는 인증 없이 접근 가능하다")
+  void swaggerUiAccessible() throws Exception {
+    mockMvc.perform(get("/swagger-ui/index.html"))
+        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
   }
 }
