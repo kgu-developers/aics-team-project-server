@@ -1,11 +1,16 @@
 package kgu.developers.admin.importcommon;
 
-import java.io.FilterInputStream;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.zip.ZipInputStream;
 
 import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -22,6 +27,8 @@ public final class Sheets {
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
     private static final long MAX_TOTAL_UNCOMPRESSED_SIZE = 100 * 1024 * 1024; // 100MB
     private static final int MAX_ROWS = 1000;
+    private static final int BUFFER_SIZE = 8192;
+    private static final byte[] ZIP_MAGIC = {'P', 'K', 0x03, 0x04};
 
     private Sheets() {
     }
@@ -41,67 +48,96 @@ public final class Sheets {
         ZipSecureFile.setMinInflateRatio(0.01);
         ZipSecureFile.setMaxEntrySize(MAX_FILE_SIZE_BYTES);
 
-        try (InputStream in = file.getInputStream(); 
-             CountingInputStream countingIn = new CountingInputStream(in, MAX_TOTAL_UNCOMPRESSED_SIZE);
-             Workbook workbook = WorkbookFactory.create(countingIn)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Row header = headerRow(sheet, requiredHeader);
-            RowMapper<T> mapper = binder.apply(header);
+        Path temp = null;
+        try {
+            temp = copyToTempFile(file);
+            checkUncompressedSize(temp);
 
-            List<T> rows = new ArrayList<>();
-            for (int i = header.getRowNum() + 1; i <= sheet.getLastRowNum(); i++) {
-                T row = mapper.map(sheet.getRow(i), i + 1);
-                if (row != null) {
-                    rows.add(row);
-                    if (rows.size() > MAX_ROWS) {
-                        throw new ImportBatchFileInvalidException("행 수가 " + MAX_ROWS + "행을 초과했습니다.");
+            try (Workbook workbook = WorkbookFactory.create(temp.toFile(), null, true)) {
+                Sheet sheet = workbook.getSheetAt(0);
+                Row header = headerRow(sheet, requiredHeader);
+                RowMapper<T> mapper = binder.apply(header);
+
+                List<T> rows = new ArrayList<>();
+                for (int i = header.getRowNum() + 1; i <= sheet.getLastRowNum(); i++) {
+                    T row = mapper.map(sheet.getRow(i), i + 1);
+                    if (row != null) {
+                        rows.add(row);
+                        if (rows.size() > MAX_ROWS) {
+                            throw new ImportBatchFileInvalidException("행 수가 " + MAX_ROWS + "행을 초과했습니다.");
+                        }
                     }
                 }
+                return rows;
             }
-            return rows;
         } catch (ImportBatchFileInvalidException e) {
             throw e;
         } catch (IOException e) {
             throw new ImportBatchFileInvalidException(e);
         } catch (Exception e) {
             throw new ImportBatchFileInvalidException("압축 파일 처리 중 오류가 발생했습니다: " + e.getMessage());
+        } finally {
+            deleteQuietly(temp);
         }
     }
 
-    private static class CountingInputStream extends FilterInputStream {
-        private final long maxSize;
-        private long bytesRead = 0;
+    private static Path copyToTempFile(MultipartFile file) throws IOException {
+        Path temp = Files.createTempFile("import-", ".tmp");
+        try (InputStream in = file.getInputStream(); OutputStream out = Files.newOutputStream(temp)) {
+            byte[] buffer = new byte[BUFFER_SIZE];
+            long total = 0;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_FILE_SIZE_BYTES) {
+                    throw new ImportBatchFileInvalidException(
+                        "파일 크기가 " + MAX_FILE_SIZE_BYTES / 1024 / 1024 + "MB를 초과했습니다.");
+                }
+                out.write(buffer, 0, read);
+            }
+        } catch (IOException | RuntimeException e) {
+            deleteQuietly(temp);
+            throw e;
+        }
+        return temp;
+    }
 
-        CountingInputStream(InputStream in, long maxSize) {
-            super(in);
-            this.maxSize = maxSize;
+    private static void checkUncompressedSize(Path path) throws IOException {
+        if (!isZip(path)) {
+            return;
         }
 
-        @Override
-        public int read() throws IOException {
-            int b = super.read();
-            if (b != -1) {
-                bytesRead++;
-                checkLimit();
+        byte[] buffer = new byte[BUFFER_SIZE];
+        long total = 0;
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(Files.newInputStream(path)))) {
+            while (zip.getNextEntry() != null) {
+                int read;
+                while ((read = zip.read(buffer)) != -1) {
+                    total += read;
+                    if (total > MAX_TOTAL_UNCOMPRESSED_SIZE) {
+                        throw new ImportBatchFileInvalidException("압축 해제 총 크기가 "
+                            + MAX_TOTAL_UNCOMPRESSED_SIZE / 1024 / 1024 + "MB를 초과했습니다.");
+                    }
+                }
             }
-            return b;
         }
+    }
 
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            int result = super.read(b, off, len);
-            if (result > 0) {
-                bytesRead += result;
-                checkLimit();
-            }
-            return result;
+    private static boolean isZip(Path path) throws IOException {
+        byte[] magic = new byte[ZIP_MAGIC.length];
+        try (InputStream in = Files.newInputStream(path)) {
+            return in.readNBytes(magic, 0, magic.length) == magic.length && Arrays.equals(magic, ZIP_MAGIC);
         }
+    }
 
-        private void checkLimit() throws IOException {
-            if (bytesRead > maxSize) {
-                throw new ImportBatchFileInvalidException(
-                    "압축 해제 총 크기가 " + maxSize / 1024 / 1024 + "MB를 초과했습니다.");
-            }
+    private static void deleteQuietly(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // 임시 파일 삭제 실패는 요청 처리에 영향을 주지 않는다
         }
     }
 
