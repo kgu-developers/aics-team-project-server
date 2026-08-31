@@ -20,7 +20,7 @@ public class FakeTeamMessageUnreadRepository implements TeamMessageUnreadReposit
 
     @Override
     public long countUnreadByThreadIdIn(List<Long> threadIds, String userId) {
-        List<Long> messageIds = teamMessageRepository.findIdsByThreadIdIn(threadIds);
+        List<Long> messageIds = teamMessageRepository.findMessageIdsByThreadIdIn(threadIds);
         Set<Long> readMessageIds = readReceiptRepository.findReadMessageIds(userId, messageIds);
         return messageIds.size() - readMessageIds.size();
     }

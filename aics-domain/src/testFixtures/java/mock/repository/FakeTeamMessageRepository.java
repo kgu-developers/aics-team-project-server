@@ -92,16 +92,7 @@ public class FakeTeamMessageRepository implements TeamMessageRepository {
         return Comparator.comparing(TeamMessage::getId);
     }
 
-    @Override
-    public List<Long> findIdsByThreadId(Long threadId) {
-        return store.values().stream()
-            .filter(message -> message.getThreadId().equals(threadId))
-            .map(TeamMessage::getId)
-            .toList();
-    }
-
-    @Override
-    public List<Long> findIdsByThreadIdIn(List<Long> threadIds) {
+    List<Long> findMessageIdsByThreadIdIn(List<Long> threadIds) {
         return store.values().stream()
             .filter(message -> threadIds.contains(message.getThreadId()))
             .map(TeamMessage::getId)

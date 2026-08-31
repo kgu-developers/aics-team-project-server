@@ -48,23 +48,6 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
     }
 
     @Override
-    public List<Long> findIdsByThreadId(Long threadId) {
-        return jpaTeamMessageRepository.findAllByThreadId(threadId).stream()
-            .map(TeamMessageJpaEntity::getId)
-            .toList();
-    }
-
-    @Override
-    public List<Long> findIdsByThreadIdIn(List<Long> threadIds) {
-        if (threadIds.isEmpty()) {
-            return List.of();
-        }
-        return jpaTeamMessageRepository.findAllByThreadIdIn(threadIds).stream()
-            .map(TeamMessageJpaEntity::getId)
-            .toList();
-    }
-
-    @Override
     public long countUnreadByThreadIdIn(List<Long> threadIds, String userId) {
         if (threadIds.isEmpty()) {
             return 0;

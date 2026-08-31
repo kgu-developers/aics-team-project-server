@@ -31,8 +31,4 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
         @Param("threadIds") List<Long> threadIds,
         @Param("userId") String userId
     );
-
-    List<TeamMessageJpaEntity> findAllByThreadId(Long threadId);
-
-    List<TeamMessageJpaEntity> findAllByThreadIdIn(List<Long> threadIds);
 }

@@ -16,12 +16,6 @@ public class TeamAccessValidator {
     private final TeamMemberRepository teamMemberRepository;
     private final SectionRepository sectionRepository;
 
-    public void validateMembership(Long teamId, String userId) {
-        if (teamMemberRepository.findByTeamIdAndUserId(teamId, userId).isEmpty()) {
-            throw new AccessDeniedException("해당 팀에 소속된 사용자만 접근할 수 있습니다.");
-        }
-    }
-
     public void validateMembershipOrProfessor(Long teamId, String userId) {
         if (teamMemberRepository.findByTeamIdAndUserId(teamId, userId).isPresent()) {
             return;

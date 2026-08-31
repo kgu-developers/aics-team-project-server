@@ -1,16 +1,20 @@
 package teammessage.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import jakarta.validation.ConstraintViolationException;
 import kgu.developers.admin.teammessage.application.TeamMessageAdminFacade;
+import kgu.developers.admin.teammessage.presentation.TeamMessageAdminController;
 import kgu.developers.admin.teammessage.presentation.TeamMessageAdminControllerImpl;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminResponse;
@@ -24,10 +28,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 @ExtendWith(MockitoExtension.class)
 class TeamMessageAdminControllerTest {
@@ -67,6 +74,26 @@ class TeamMessageAdminControllerTest {
         assertThat(pageable.getPageSize()).isEqualTo(20);
         assertThat(pageable.getSort().getOrderFor("id")).isNotNull();
         assertThat(pageable.getSort().getOrderFor("id").isDescending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("GET /messages는 0 이하의 분반 식별자를 거부한다")
+    void getMessages_WithInvalidSectionId() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        MethodValidationPostProcessor processor = new MethodValidationPostProcessor();
+        processor.setValidator(validator);
+        processor.setProxyTargetClass(true);
+        processor.afterPropertiesSet();
+        TeamMessageAdminController controller = (TeamMessageAdminController) processor.postProcessAfterInitialization(
+            new TeamMessageAdminControllerImpl(teamMessageAdminFacade), "teamMessageAdminController");
+
+        assertThatThrownBy(() -> controller.getMessages(
+            -1L,
+            PageRequest.of(0, 20),
+            new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .isInstanceOf(ConstraintViolationException.class);
+        verifyNoInteractions(teamMessageAdminFacade);
     }
 
     private TeamMessageAdminPageResponse response() {
