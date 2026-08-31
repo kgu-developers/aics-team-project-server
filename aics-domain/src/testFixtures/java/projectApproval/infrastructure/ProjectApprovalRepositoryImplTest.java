@@ -203,8 +203,6 @@ class ProjectApprovalRepositoryImplTest {
                 .build();
         given(jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(1L))
                 .willReturn(Optional.of(entity));
-        given(jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(1L, "20260001"))
-                .willReturn(Optional.of(entity));
 
         projectApprovalRepository.deleteById(1L);
 
@@ -221,8 +219,8 @@ class ProjectApprovalRepositoryImplTest {
                 .projectId(1L)
                 .userId("20260001")
                 .approvedAt(now.minusDays(1))
-                .deletedAt(now.minusDays(1))
                 .build();
+        existingEntity.setDeletedAt(now.minusDays(1));
 
         given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
                 .willReturn(Optional.of(existingEntity));
