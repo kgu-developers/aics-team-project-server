@@ -5,9 +5,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
+import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Repository
@@ -45,7 +47,10 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     }
 
     @Override
+    @Transactional
     public void deleteById(Long id) {
-        jpaTopicCandidateRepository.deleteById(id);
+        TopicCandidateJpaEntity entity = jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(TopicCandidateNotFoundException::new);
+        entity.delete();
     }
 }
