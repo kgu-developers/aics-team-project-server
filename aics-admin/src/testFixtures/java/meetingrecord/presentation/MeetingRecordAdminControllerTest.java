@@ -1,16 +1,20 @@
 package meetingrecord.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import jakarta.validation.ConstraintViolationException;
 import kgu.developers.admin.meetingrecord.application.MeetingRecordAdminFacade;
+import kgu.developers.admin.meetingrecord.presentation.MeetingRecordAdminController;
 import kgu.developers.admin.meetingrecord.presentation.MeetingRecordAdminControllerImpl;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminResponse;
@@ -24,10 +28,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingRecordAdminControllerTest {
@@ -67,6 +74,28 @@ class MeetingRecordAdminControllerTest {
         assertThat(pageable.getPageSize()).isEqualTo(20);
         assertThat(pageable.getSort().getOrderFor("meetingAt")).isNotNull();
         assertThat(pageable.getSort().getOrderFor("meetingAt").isDescending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("GET /meeting-records는 0 이하의 분반 식별자를 거부한다")
+    void getMeetingRecords_WithInvalidSectionId() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        MethodValidationPostProcessor processor = new MethodValidationPostProcessor();
+        processor.setValidator(validator);
+        processor.setProxyTargetClass(true);
+        processor.afterPropertiesSet();
+        MeetingRecordAdminController controller =
+            (MeetingRecordAdminController) processor.postProcessAfterInitialization(
+                new MeetingRecordAdminControllerImpl(meetingRecordAdminFacade),
+                "meetingRecordAdminController");
+
+        assertThatThrownBy(() -> controller.getMeetingRecords(
+            -1L,
+            PageRequest.of(0, 20),
+            new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .isInstanceOf(ConstraintViolationException.class);
+        verifyNoInteractions(meetingRecordAdminFacade);
     }
 
     private MeetingRecordAdminPageResponse response() {
