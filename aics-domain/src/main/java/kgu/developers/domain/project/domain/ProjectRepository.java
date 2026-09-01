@@ -6,6 +6,8 @@ import java.util.Optional;
 public interface ProjectRepository {
     Project save(Project project);
 
+    void lockTeam(Long teamId);
+
     Optional<Project> findById(Long id);
 
     Optional<Project> findByIdForUpdate(Long id);

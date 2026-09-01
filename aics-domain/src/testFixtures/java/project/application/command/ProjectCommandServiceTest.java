@@ -145,6 +145,19 @@ class ProjectCommandServiceTest {
         then(projectRepository).should(org.mockito.Mockito.never()).save(project);
     }
 
+    @Test
+    @DisplayName("saveProject는 조회 전에 팀 행을 잠가 최초 등록 경합을 막는다")
+    void saveProject_locksTeamBeforeLookup() throws Exception {
+        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of());
+        given(projectRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        saveProject();
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(projectRepository);
+        inOrder.verify(projectRepository).lockTeam(1L);
+        inOrder.verify(projectRepository).findAllByTeamIdIncludingDeletedForUpdate(1L);
+    }
+
     private Project saveProject() throws Exception {
         return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
             "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));

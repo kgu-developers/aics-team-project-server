@@ -1,6 +1,7 @@
 package kgu.developers.domain.project.infrastructure;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
@@ -24,6 +25,11 @@ public class ProjectRepositoryImpl implements ProjectRepository {
         ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
         ProjectJpaEntity savedEntity = jpaProjectRepository.save(entity);
         return savedEntity.toDomain();
+    }
+
+    @Override
+    public void lockTeam(Long teamId) {
+        entityManager.find(TeamJpaEntity.class, teamId, LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Override

@@ -30,6 +30,8 @@ public class ProjectCommandService {
         String repositoryUrl,
         JsonNode externalLinks
     ) {
+        projectRepository.lockTeam(teamId);
+
         return projectRepository.findAllByTeamIdIncludingDeletedForUpdate(teamId).stream()
             .findFirst()
             .map(project -> project.getDeletedAt() == null
