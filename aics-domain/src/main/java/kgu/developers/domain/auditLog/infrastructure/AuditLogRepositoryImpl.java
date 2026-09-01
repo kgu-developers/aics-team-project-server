@@ -66,7 +66,7 @@ public class AuditLogRepositoryImpl implements AuditLogRepository {
 	@Override
 	public void deleteById(Long id) {
 		if (id != null) {
-			jpaAuditLogRepository.deleteById(id);
+			findById(id).ifPresent(AuditLog::delete);
 		}
 	}
 }
