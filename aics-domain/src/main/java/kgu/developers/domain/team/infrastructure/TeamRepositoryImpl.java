@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 import static kgu.developers.common.exception.ConstraintViolations.violates;
 import static kgu.developers.common.exception.OptimisticLocks.translate;
 
@@ -68,6 +69,10 @@ public class TeamRepositoryImpl implements TeamRepository {
 
     @Override
     public boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id) {
+        // 분반 행을 먼저 잠가서, 같은 분반에 팀명이 동시에 중복 등록되는 경쟁 상태를 막는다.
+        // DB 유니크 인덱스(uk_team_section_name)는 database/team.sql로만 관리돼 환경마다
+        // 실제로 적용됐는지 보장할 수 없어 이 애플리케이션 락이 최종 방어선이다.
+        entityManager.find(SectionJpaEntity.class, sectionId, PESSIMISTIC_WRITE);
         return jpaTeamRepository.existsBySectionIdAndNameAndIdNotAndDeletedAtIsNull(sectionId, name, id);
     }
 
