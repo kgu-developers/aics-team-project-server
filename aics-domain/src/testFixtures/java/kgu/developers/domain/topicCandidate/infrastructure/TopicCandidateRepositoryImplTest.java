@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
+import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateTitleException;
 import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
@@ -118,125 +120,6 @@ class TopicCandidateRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("새 주제 후보 저장 시 같은 팀의 활성 주제 제목이 있으면 예외를 발생한다")
-    void saveThrowsExceptionWhenActiveTitleExists() {
-        TopicCandidate existing = TopicCandidate.builder()
-                .id(1L)
-                .teamId(100L)
-                .proposerUserId("20230001")
-                .title("중복 제목")
-                .description("설명")
-                .createdAt(LocalDateTime.now())
-                .deletedAt(null)
-                .build();
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "중복 제목"))
-                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(existing)));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
-        TopicCandidate newCandidate = TopicCandidate.create(100L, "20230002", "중복 제목", "새 설명");
-
-        assertThatThrownBy(() -> repository.save(newCandidate))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("이미 존재하는 주제 제목입니다");
-    }
-
-    @Test
-    @DisplayName("새 주제 후보 저장 시 같은 팀의 삭제된 주제 제목이 있으면 저장을 허용한다")
-    void saveAllowsReusingDeletedTitle() {
-        LocalDateTime deletedAt = LocalDateTime.now();
-        TopicCandidate deleted = TopicCandidate.builder()
-                .id(1L)
-                .teamId(100L)
-                .proposerUserId("20230001")
-                .title("삭제된 제목")
-                .description("설명")
-                .createdAt(LocalDateTime.now())
-                .deletedAt(deletedAt)
-                .build();
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "삭제된 제목"))
-                .willReturn(Optional.empty());
-        TopicCandidate saved = TopicCandidate.builder()
-                .id(2L)
-                .teamId(100L)
-                .proposerUserId("20230002")
-                .title("삭제된 제목")
-                .description("새 설명")
-                .createdAt(LocalDateTime.now())
-                .deletedAt(null)
-                .build();
-        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
-                .willReturn(TopicCandidateJpaEntity.toEntity(saved));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
-        TopicCandidate newCandidate = TopicCandidate.create(100L, "20230002", "삭제된 제목", "새 설명");
-
-        TopicCandidate result = repository.save(newCandidate);
-
-        assertThat(result.getId()).isEqualTo(2L);
-        assertThat(result.getTitle()).isEqualTo("삭제된 제목");
-        ArgumentCaptor<TopicCandidateJpaEntity> captor = ArgumentCaptor.forClass(TopicCandidateJpaEntity.class);
-        verify(jpaTopicCandidateRepository).save(captor.capture());
-        assertThat(captor.getValue().getTeamId()).isEqualTo(100L);
-    }
-
-    @Test
-    @DisplayName("새 주제 후보 저장 시 같은 팀에 중복 제목이 없으면 저장한다")
-    void saveWhenNoDuplicateTitle() {
-        TopicCandidate newCandidate = TopicCandidate.create(100L, "20230001", "새 제목", "설명");
-        TopicCandidate saved = TopicCandidate.builder()
-                .id(1L)
-                .teamId(100L)
-                .proposerUserId("20230001")
-                .title("새 제목")
-                .description("설명")
-                .createdAt(LocalDateTime.now())
-                .deletedAt(null)
-                .build();
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "새 제목"))
-                .willReturn(Optional.empty());
-        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
-                .willReturn(TopicCandidateJpaEntity.toEntity(saved));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
-
-        TopicCandidate result = repository.save(newCandidate);
-
-        assertThat(result.getId()).isEqualTo(1L);
-        assertThat(result.getTitle()).isEqualTo("새 제목");
-        ArgumentCaptor<TopicCandidateJpaEntity> captor = ArgumentCaptor.forClass(TopicCandidateJpaEntity.class);
-        verify(jpaTopicCandidateRepository).save(captor.capture());
-        assertThat(captor.getValue().getTeamId()).isEqualTo(100L);
-    }
-
-    @Test
-    @DisplayName("기존 주제 후보 수정은 제목 중복 검사를 하지 않는다")
-    void saveUpdateSkipsDuplicateCheck() {
-        TopicCandidate existing = TopicCandidate.builder()
-                .id(1L)
-                .teamId(100L)
-                .proposerUserId("20230001")
-                .title("기존 제목")
-                .description("설명")
-                .createdAt(LocalDateTime.now())
-                .deletedAt(null)
-                .build();
-        TopicCandidate updated = TopicCandidate.builder()
-                .id(1L)
-                .teamId(100L)
-                .proposerUserId("20230001")
-                .title("수정된 제목")
-                .description("수정된 설명")
-                .createdAt(LocalDateTime.now())
-                .deletedAt(null)
-                .build();
-        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
-                .willReturn(TopicCandidateJpaEntity.toEntity(updated));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
-
-        TopicCandidate result = repository.save(updated);
-
-        assertThat(result.getTitle()).isEqualTo("수정된 제목");
-        verify(jpaTopicCandidateRepository).save(any(TopicCandidateJpaEntity.class));
-    }
-
-    @Test
     @DisplayName("주제 후보 삭제는 소프트 삭제를 수행한다")
     void deleteByIdPerformsSoftDelete() {
         TopicCandidate active = TopicCandidate.builder()
@@ -267,5 +150,69 @@ class TopicCandidateRepositoryImplTest {
 
         assertThatThrownBy(() -> repository.deleteById(1L))
                 .isInstanceOf(TopicCandidateNotFoundException.class);
+    }
+
+    private TopicCandidate candidate(Long id, String title) {
+        return TopicCandidate.builder()
+                .id(id)
+                .teamId(100L)
+                .proposerUserId("20230001")
+                .title(title)
+                .description("설명")
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("save는 같은 팀에 살아있는 같은 제목이 있으면 거절한다")
+    void saveRejectsDuplicateActiveTitle() {
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "중복 제목"))
+                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(candidate(1L, "중복 제목"))));
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+
+        assertThatThrownBy(() -> repository.save(TopicCandidate.create(100L, "20230002", "중복 제목", "설명")))
+                .isInstanceOf(DuplicateTopicCandidateTitleException.class);
+
+        verify(jpaTopicCandidateRepository, never()).save(any(TopicCandidateJpaEntity.class));
+    }
+
+    @Test
+    @DisplayName("save는 제목 수정도 검사한다. 예전에는 신규 등록만 검사해서 그냥 통과했다")
+    void saveChecksTitleOnUpdateToo() {
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "남의 제목"))
+                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(candidate(1L, "남의 제목"))));
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+
+        assertThatThrownBy(() -> repository.save(candidate(2L, "남의 제목")))
+                .isInstanceOf(DuplicateTopicCandidateTitleException.class);
+    }
+
+    @Test
+    @DisplayName("save는 자기 제목을 그대로 둔 수정을 중복으로 보지 않는다")
+    void saveAllowsKeepingOwnTitle() {
+        TopicCandidate mine = candidate(1L, "내 제목");
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "내 제목"))
+                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(mine)));
+        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
+                .willReturn(TopicCandidateJpaEntity.toEntity(mine));
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+
+        assertThat(repository.save(mine).getId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("save는 소프트 삭제된 제목이면 같은 팀에서 다시 쓸 수 있다")
+    void saveAllowsReusingDeletedTitle() {
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "삭제된 제목"))
+                .willReturn(Optional.empty());
+        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
+                .willReturn(TopicCandidateJpaEntity.toEntity(candidate(2L, "삭제된 제목")));
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+
+        TopicCandidate result = repository.save(
+                TopicCandidate.create(100L, "20230002", "삭제된 제목", "새 설명"));
+
+        assertThat(result.getId()).isEqualTo(2L);
+        assertThat(result.getTitle()).isEqualTo("삭제된 제목");
     }
 }
