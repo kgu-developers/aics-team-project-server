@@ -37,15 +37,15 @@ public class TopicCandidate {
     }
 
     public void updateTeamId(Long teamId) {
-        this.teamId = teamId;
+        this.teamId = requireNonNull(teamId, "teamId");
     }
 
     public void updateTitle(String title) {
-        this.title = title;
+        this.title = requireNonNull(title, "title");
     }
 
     public void updateDescription(String description) {
-        this.description = description;
+        this.description = requireNonNull(description, "description");
     }
 
     public void delete() {

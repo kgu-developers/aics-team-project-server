@@ -67,6 +67,22 @@ class TopicCandidateTest {
     }
 
     @Test
+    @DisplayName("update 메서드들은 null이 전달되면 예외를 발생시킨다")
+    void updateWithNull() {
+        TopicCandidate topicCandidate = TopicCandidate.create(100L, "20230001", "AI 기반 스마트 홈 시스템", "IoT 센서와 머신러닝을 활용한 스마트 홈 자동화 시스템");
+
+        assertThatThrownBy(() -> topicCandidate.updateTeamId(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("teamId");
+        assertThatThrownBy(() -> topicCandidate.updateTitle(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("title");
+        assertThatThrownBy(() -> topicCandidate.updateDescription(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("description");
+    }
+
+    @Test
     @DisplayName("delete는 삭제 시각을 기록한다")
     void delete() {
         TopicCandidate topicCandidate = TopicCandidate.create(100L, "20230001", "AI 기반 스마트 홈 시스템", "IoT 센서와 머신러닝을 활용한 스마트 홈 자동화 시스템");
