@@ -34,11 +34,11 @@ public class TopicVote {
     }
 
     public void updateCandidateId(Long candidateId) {
-        this.candidateId = candidateId;
+        this.candidateId = requireNonNull(candidateId, "candidateId");
     }
 
     public void updateVoterUserId(String voterUserId) {
-        this.voterUserId = voterUserId;
+        this.voterUserId = requireNonNull(voterUserId, "voterUserId");
     }
 
     public void reactivate(Long candidateId) {
