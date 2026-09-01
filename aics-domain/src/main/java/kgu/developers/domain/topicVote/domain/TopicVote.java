@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 public class TopicVote {
     private Long id;
 
+    private Long teamId;  // 팀 식별자. 1인 1표의 범위다.
     private Long candidateId;  // 후보 식별자
     private String voterUserId;  // 투표자 학번
 
@@ -24,8 +25,9 @@ public class TopicVote {
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
-    public static TopicVote create(Long candidateId, String voterUserId) {
+    public static TopicVote create(Long teamId, Long candidateId, String voterUserId) {
         return TopicVote.builder()
+                .teamId(requireNonNull(teamId, "teamId"))
                 .candidateId(requireNonNull(candidateId, "candidateId"))
                 .voterUserId(requireNonNull(voterUserId, "voterUserId"))
                 .build();
@@ -37,6 +39,11 @@ public class TopicVote {
 
     public void updateVoterUserId(String voterUserId) {
         this.voterUserId = voterUserId;
+    }
+
+    public void reactivate(Long candidateId) {
+        this.deletedAt = null;
+        this.candidateId = requireNonNull(candidateId, "candidateId");
     }
 
     public void delete() {

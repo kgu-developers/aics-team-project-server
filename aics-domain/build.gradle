@@ -14,6 +14,11 @@ dependencies {
     testFixturesImplementation project(':aics-common')
     testFixturesImplementation project(':aics-infra')
     testFixturesImplementation project(':aics-global-utils')
+
+    testFixturesImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testFixturesImplementation 'org.testcontainers:junit-jupiter'
+    testFixturesImplementation 'org.testcontainers:postgresql'
+    testFixturesRuntimeOnly 'org.postgresql:postgresql'
 }
 
 apply from: "../gradle/jacoco.gradle"

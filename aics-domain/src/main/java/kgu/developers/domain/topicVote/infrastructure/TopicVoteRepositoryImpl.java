@@ -37,8 +37,14 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     }
 
     @Override
-    public Optional<TopicVote> findByCandidateIdAndVoterUserId(Long candidateId, String voterUserId) {
-        return jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(candidateId, voterUserId)
+    public Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId) {
+        return jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
+                .map(TopicVoteJpaEntity::toDomain);
+    }
+
+    @Override
+    public Optional<TopicVote> findIncludingDeleted(Long teamId, String voterUserId) {
+        return jpaTopicVoteRepository.findByTeamIdAndVoterUserId(teamId, voterUserId)
                 .map(TopicVoteJpaEntity::toDomain);
     }
 
@@ -52,8 +58,8 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
 
     @Override
     @Transactional
-    public void deleteByCandidateIdAndVoterUserId(Long candidateId, String voterUserId) {
-        TopicVoteJpaEntity entity = jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(candidateId, voterUserId)
+    public void deleteByTeamIdAndVoterUserId(Long teamId, String voterUserId) {
+        TopicVoteJpaEntity entity = jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
                 .orElseThrow(TopicVoteNotFoundException::new);
         entity.delete();
     }

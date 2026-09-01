@@ -10,9 +10,11 @@ public interface TopicVoteRepository {
 
     List<TopicVote> findAllByCandidateId(Long candidateId);
 
-    Optional<TopicVote> findByCandidateIdAndVoterUserId(Long candidateId, String voterUserId);
+    Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId);
+
+    Optional<TopicVote> findIncludingDeleted(Long teamId, String voterUserId);
 
     void deleteById(Long id);
 
-    void deleteByCandidateIdAndVoterUserId(Long candidateId, String voterUserId);
+    void deleteByTeamIdAndVoterUserId(Long teamId, String voterUserId);
 }

@@ -17,6 +17,7 @@ class TopicVoteJpaEntityTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 9, 0);
         TopicVote origin = TopicVote.builder()
                 .id(1L)
+                .teamId(1L)
                 .candidateId(10L)
                 .voterUserId("20230001")
                 .createdAt(createdAt)
@@ -26,6 +27,7 @@ class TopicVoteJpaEntityTest {
         TopicVote restored = entity.toDomain();
 
         assertThat(restored.getId()).isEqualTo(origin.getId());
+        assertThat(restored.getTeamId()).isEqualTo(origin.getTeamId());
         assertThat(restored.getCandidateId()).isEqualTo(origin.getCandidateId());
         assertThat(restored.getVoterUserId()).isEqualTo(origin.getVoterUserId());
         assertThat(restored.getCreatedAt()).isEqualTo(createdAt);
@@ -38,6 +40,7 @@ class TopicVoteJpaEntityTest {
         LocalDateTime deletedAt = LocalDateTime.of(2026, 5, 1, 12, 0);
         TopicVote topicVote = TopicVote.builder()
                 .id(1L)
+                .teamId(1L)
                 .candidateId(10L)
                 .voterUserId("20230001")
                 .deletedAt(deletedAt)
