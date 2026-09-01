@@ -1,6 +1,7 @@
 package auditLog.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -17,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 import kgu.developers.domain.auditLog.infrastructure.AuditLogJpaEntity;
 import kgu.developers.domain.auditLog.infrastructure.AuditLogRepositoryImpl;
 import kgu.developers.domain.auditLog.infrastructure.JpaAuditLogRepository;
@@ -103,11 +105,23 @@ class AuditLogRepositoryImplTest {
 	}
 
 	@Test
-	@DisplayName("deleteById는 jpaAuditLogRepository의 deleteById를 호출한다")
+	@DisplayName("deleteById는 조회한 엔티티에 deleted_at을 채운다")
 	void deleteById() {
+		AuditLogJpaEntity entity = sampleEntity();
+		given(jpaAuditLogRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(entity));
+
 		auditLogRepositoryImpl.deleteById(1L);
 
-		verify(jpaAuditLogRepository).deleteById(1L);
+		assertThat(entity.getDeletedAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("deleteById는 없는 id면 AuditLogNotFoundException(404)을 던진다")
+	void deleteByIdNotFound() {
+		assertThatThrownBy(() -> auditLogRepositoryImpl.deleteById(99L))
+				.isInstanceOf(AuditLogNotFoundException.class);
+		assertThatThrownBy(() -> auditLogRepositoryImpl.deleteById(null))
+				.isInstanceOf(AuditLogNotFoundException.class);
 	}
 
 	@Test

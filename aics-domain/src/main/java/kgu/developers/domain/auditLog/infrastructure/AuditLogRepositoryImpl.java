@@ -4,9 +4,11 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.auditLog.domain.AuditLog;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
+import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Repository
@@ -64,9 +66,10 @@ public class AuditLogRepositoryImpl implements AuditLogRepository {
 	}
 
 	@Override
+	@Transactional
 	public void deleteById(Long id) {
-		if (id != null) {
-			findById(id).ifPresent(AuditLog::delete);
-		}
+		jpaAuditLogRepository.findByIdAndDeletedAtIsNull(id)
+				.orElseThrow(AuditLogNotFoundException::new)
+				.delete();
 	}
 }

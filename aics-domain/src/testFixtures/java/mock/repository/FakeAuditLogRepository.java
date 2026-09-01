@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import kgu.developers.domain.auditLog.domain.AuditLog;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
+import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 
 public class FakeAuditLogRepository implements AuditLogRepository {
 
@@ -83,9 +84,9 @@ public class FakeAuditLogRepository implements AuditLogRepository {
 
 	@Override
 	public void deleteById(Long id) {
-		if (id != null) {
-			store.remove(id);
-		}
+		findById(id)
+				.orElseThrow(AuditLogNotFoundException::new)
+				.delete();
 	}
 
 	public void clear() {
