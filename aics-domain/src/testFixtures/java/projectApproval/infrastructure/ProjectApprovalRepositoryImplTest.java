@@ -1,13 +1,11 @@
 package projectApproval.infrastructure;
 
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
-import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import kgu.developers.domain.projectApproval.exception.ProjectApprovalNotFoundException;
 import kgu.developers.domain.projectApproval.infrastructure.JpaProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalJpaEntity;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalRepositoryImpl;
 import org.junit.jupiter.api.DisplayName;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -38,9 +36,7 @@ class ProjectApprovalRepositoryImplTest {
     @DisplayName("프로젝트 동의 저장소 어댑터는 저장 결과를 도메인으로 반환한다")
     void save() {
         ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
-        given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
-                .willReturn(Optional.empty());
-        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
+        given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
                 .willReturn(ProjectApprovalJpaEntity.builder()
                         .id(1L)
                         .projectId(1L)
@@ -52,9 +48,33 @@ class ProjectApprovalRepositoryImplTest {
 
         assertThat(saved.getId()).isEqualTo(1L);
         ArgumentCaptor<ProjectApprovalJpaEntity> captor = ArgumentCaptor.forClass(ProjectApprovalJpaEntity.class);
-        verify(jpaProjectApprovalRepository).saveAndFlush(captor.capture());
+        verify(jpaProjectApprovalRepository).save(captor.capture());
         assertThat(captor.getValue().getProjectId()).isEqualTo(1L);
         assertThat(captor.getValue().getUserId()).isEqualTo("20260001");
+    }
+
+    @Test
+    @DisplayName("save는 도메인의 deletedAt을 그대로 반영해 재활성화를 저장한다")
+    void saveAppliesReactivatedDomain() {
+        LocalDateTime now = LocalDateTime.now();
+        ProjectApproval approval = ProjectApproval.builder()
+                .id(1L)
+                .projectId(1L)
+                .userId("20260001")
+                .approvedAt(now.minusDays(1))
+                .deletedAt(now.minusDays(1))
+                .build();
+        approval.reactivate(now);
+        given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        projectApprovalRepository.save(approval);
+
+        ArgumentCaptor<ProjectApprovalJpaEntity> captor = ArgumentCaptor.forClass(ProjectApprovalJpaEntity.class);
+        verify(jpaProjectApprovalRepository).save(captor.capture());
+        assertThat(captor.getValue().getId()).isEqualTo(1L);
+        assertThat(captor.getValue().getDeletedAt()).isNull();
+        assertThat(captor.getValue().getApprovedAt()).isEqualTo(now);
     }
 
     @Test
@@ -212,40 +232,22 @@ class ProjectApprovalRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("재승인 시 기존 삭제된 행을 재활용한다")
-    void reapproval_RecyclesDeletedRow() {
-        LocalDateTime now = LocalDateTime.now();
-        ProjectApproval approval = ProjectApproval.create(1L, "20260001", now);
-        ProjectApprovalJpaEntity existingEntity = ProjectApprovalJpaEntity.builder()
+    @DisplayName("findIncludingDeleted는 삭제된 동의도 함께 조회한다")
+    void findIncludingDeleted() {
+        LocalDateTime deletedAt = LocalDateTime.now().minusDays(1);
+        ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.builder()
                 .id(1L)
                 .projectId(1L)
                 .userId("20260001")
-                .approvedAt(now.minusDays(1))
+                .approvedAt(deletedAt)
                 .build();
-        existingEntity.setDeletedAt(now.minusDays(1));
-
+        entity.setDeletedAt(deletedAt);
         given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
-                .willReturn(Optional.of(existingEntity));
-        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
-                .willReturn(existingEntity);
+                .willReturn(Optional.of(entity));
 
-        ProjectApproval saved = projectApprovalRepository.save(approval);
+        Optional<ProjectApproval> found = projectApprovalRepository.findIncludingDeleted(1L, "20260001");
 
-        assertThat(saved.getId()).isEqualTo(1L);
-        assertThat(existingEntity.getDeletedAt()).isNull();
-        assertThat(existingEntity.getApprovedAt()).isEqualTo(now);
-    }
-
-    @Test
-    @DisplayName("save는 조회와 INSERT 사이에 끼어든 동시 동의를 DuplicateProjectApprovalException 으로 바꾼다")
-    void saveMapsConstraintViolationToDuplicate() {
-        ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
-        given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
-                .willReturn(Optional.empty());
-        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
-                .willThrow(new DataIntegrityViolationException("uk_project_approval_project_user"));
-
-        assertThatThrownBy(() -> projectApprovalRepository.save(approval))
-                .isInstanceOf(DuplicateProjectApprovalException.class);
+        assertThat(found).isPresent();
+        assertThat(found.get().getDeletedAt()).isEqualTo(deletedAt);
     }
 }

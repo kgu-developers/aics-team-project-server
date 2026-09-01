@@ -3,13 +3,11 @@ package kgu.developers.domain.projectApproval.infrastructure;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
-import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import kgu.developers.domain.projectApproval.exception.ProjectApprovalNotFoundException;
 import lombok.RequiredArgsConstructor;
 
@@ -19,23 +17,9 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     private final JpaProjectApprovalRepository jpaProjectApprovalRepository;
 
     @Override
-    @Transactional
     public ProjectApproval save(ProjectApproval projectApproval) {
-        Optional<ProjectApprovalJpaEntity> existingEntity = jpaProjectApprovalRepository
-                .findByProjectIdAndUserId(projectApproval.getProjectId(), projectApproval.getUserId());
-
-        if (existingEntity.isPresent()) {
-            ProjectApprovalJpaEntity entity = existingEntity.get();
-            entity.reactivate(projectApproval.getApprovedAt());
-            return jpaProjectApprovalRepository.saveAndFlush(entity).toDomain();
-        }
-
-        try {
-            ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.toEntity(projectApproval);
-            return jpaProjectApprovalRepository.saveAndFlush(entity).toDomain();
-        } catch (DataIntegrityViolationException e) {
-            throw new DuplicateProjectApprovalException();
-        }
+        ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.toEntity(projectApproval);
+        return jpaProjectApprovalRepository.save(entity).toDomain();
     }
 
     @Override
@@ -52,6 +36,12 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     @Override
     public Optional<ProjectApproval> findByProjectIdAndUserId(Long projectId, String userId) {
         return jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(projectId, userId)
+            .map(ProjectApprovalJpaEntity::toDomain);
+    }
+
+    @Override
+    public Optional<ProjectApproval> findIncludingDeleted(Long projectId, String userId) {
+        return jpaProjectApprovalRepository.findByProjectIdAndUserId(projectId, userId)
             .map(ProjectApprovalJpaEntity::toDomain);
     }
 
@@ -77,6 +67,5 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
         ProjectApprovalJpaEntity projectApproval = jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(ProjectApprovalNotFoundException::new);
         projectApproval.delete();
-        jpaProjectApprovalRepository.saveAndFlush(projectApproval);
     }
 }

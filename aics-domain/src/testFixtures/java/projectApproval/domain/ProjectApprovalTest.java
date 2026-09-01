@@ -74,4 +74,18 @@ class ProjectApprovalTest {
             () -> projectApproval.updateApprovedAt(null)
         );
     }
+
+    @Test
+    @DisplayName("reactivate는 삭제 시각을 지우고 동의일을 갱신한다")
+    void reactivate() {
+        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345",
+            LocalDateTime.of(2026, 1, 15, 10, 0));
+        projectApproval.delete();
+
+        LocalDateTime newApprovedAt = LocalDateTime.of(2026, 3, 1, 9, 0);
+        projectApproval.reactivate(newApprovedAt);
+
+        assertThat(projectApproval.getDeletedAt()).isNull();
+        assertThat(projectApproval.getApprovedAt()).isEqualTo(newApprovedAt);
+    }
 }

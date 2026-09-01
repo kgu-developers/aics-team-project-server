@@ -12,6 +12,8 @@ public interface ProjectApprovalRepository {
 
     Optional<ProjectApproval> findByProjectIdAndUserId(Long projectId, String userId);
 
+    Optional<ProjectApproval> findIncludingDeleted(Long projectId, String userId);
+
     List<ProjectApproval> findAllByProjectId(Long projectId);
 
     List<ProjectApproval> findAllByUserId(String userId);

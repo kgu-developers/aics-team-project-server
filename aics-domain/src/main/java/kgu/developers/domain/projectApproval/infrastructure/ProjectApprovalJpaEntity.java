@@ -34,11 +34,6 @@ public class ProjectApprovalJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private LocalDateTime approvedAt;
 
-    public void reactivate(LocalDateTime approvedAt) {
-        setDeletedAt(null);
-        this.approvedAt = approvedAt;
-    }
-
     public ProjectApproval toDomain() {
         return ProjectApproval.builder()
             .id(id)

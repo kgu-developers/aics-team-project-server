@@ -40,4 +40,9 @@ public class ProjectApproval {
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
+
+    public void reactivate(LocalDateTime approvedAt) {
+        this.deletedAt = null;
+        this.approvedAt = requireNonNull(approvedAt, "approvedAt");
+    }
 }
