@@ -25,12 +25,13 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     @Override
     public Project save(Project project) {
         try {
-            TeamJpaEntity team = entityManager.getReference(TeamJpaEntity.class, project.getTeamId());
+            TeamJpaEntity team = entityManager.find(TeamJpaEntity.class, project.getTeamId());
+            if (team == null) {
+                throw new TeamNotFoundException();
+            }
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
             ProjectJpaEntity savedEntity = jpaProjectRepository.save(entity);
             return savedEntity.toDomain();
-        } catch (EntityNotFoundException e) {
-            throw new TeamNotFoundException();
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new ProjectVersionConflictException();
         }
