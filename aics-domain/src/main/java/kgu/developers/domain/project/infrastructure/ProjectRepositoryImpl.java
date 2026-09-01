@@ -29,7 +29,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
                 throw new TeamNotFoundException();
             }
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
-            ProjectJpaEntity savedEntity = jpaProjectRepository.save(entity);
+            ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
             return savedEntity.toDomain();
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new ProjectVersionConflictException();
@@ -71,7 +71,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             ProjectJpaEntity project = jpaProjectRepository.findByIdAndDeletedAtIsNull(id)
                     .orElseThrow(ProjectNotFoundException::new);
             project.delete();
-            jpaProjectRepository.save(project);
+            jpaProjectRepository.saveAndFlush(project);
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new ProjectVersionConflictException();
         }

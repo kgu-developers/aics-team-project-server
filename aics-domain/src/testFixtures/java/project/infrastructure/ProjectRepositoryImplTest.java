@@ -76,7 +76,7 @@ class ProjectRepositoryImplTest {
         .version(0L)
         .build();
 
-    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willReturn(ProjectJpaEntity.toEntity(savedProject, team));
 
     Project result = repository.save(project);
@@ -84,7 +84,7 @@ class ProjectRepositoryImplTest {
     assertThat(result.getId()).isEqualTo(1L);
     assertThat(result.getTitle()).isEqualTo("팀 프로젝트");
     ArgumentCaptor<ProjectJpaEntity> captor = ArgumentCaptor.forClass(ProjectJpaEntity.class);
-    verify(jpaProjectRepository).save(captor.capture());
+    verify(jpaProjectRepository).saveAndFlush(captor.capture());
     assertThat(captor.getValue().getTeam().getId()).isEqualTo(1L);
   }
 
@@ -138,7 +138,7 @@ class ProjectRepositoryImplTest {
 
     assertThatThrownBy(() -> repository.save(project))
         .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
-    verify(jpaProjectRepository, never()).save(any(ProjectJpaEntity.class));
+    verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
   }
 
   @Test
@@ -397,7 +397,7 @@ class ProjectRepositoryImplTest {
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
     given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
 
-    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
             ProjectJpaEntity.class, 1L));
 
@@ -450,7 +450,7 @@ class ProjectRepositoryImplTest {
         .version(1L) // 이전 버전으로 시도
         .build();
 
-    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
             ProjectJpaEntity.class, 1L));
 
@@ -496,7 +496,7 @@ class ProjectRepositoryImplTest {
         .version(2L) // 버전 증가
         .build();
 
-    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willReturn(updatedEntity);
 
     Project result = repository.save(projectFirstUpdate);
@@ -516,7 +516,7 @@ class ProjectRepositoryImplTest {
         .version(1L) // 이전 버전으로 시도
         .build();
 
-    given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
             ProjectJpaEntity.class, 1L));
 
