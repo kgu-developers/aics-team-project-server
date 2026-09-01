@@ -20,7 +20,7 @@ public interface AuditLogController {
             summary = "팀 변경 이력 조회 API",
             description = """
                     Description : 해당 팀을 대상으로 기록된 AuditLog를 최신순으로 조회합니다.
-                    Assignee : 최태양
+                    Assignee : 담당자명
                     """
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TeamHistoryPageResponse.class)))
@@ -34,7 +34,7 @@ public interface AuditLogController {
             summary = "팀원 활동 요약 조회 API",
             description = """
                     Description : 팀원별 마지막 로그인과 마지막 활동만 요약하여 조회합니다.
-                    Assignee : 최태양
+                    Assignee : 담당자명
                     """
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TeamActivitySummaryResponse.class)))
