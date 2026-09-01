@@ -169,7 +169,7 @@ class ProjectRepositoryImplTest {
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
 
-    given(jpaProjectRepository.findAllByIdInAndDeletedAtIsNull(List.of(1L, 2L)))
+    given(jpaProjectRepository.findAllByIdInAndDeletedAtIsNullOrderByIdAsc(List.of(1L, 2L)))
         .willReturn(List.of(
             ProjectJpaEntity.toEntity(project1, team),
             ProjectJpaEntity.toEntity(project2, team)

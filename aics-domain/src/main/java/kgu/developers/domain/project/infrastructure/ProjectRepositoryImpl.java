@@ -40,7 +40,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
 
     @Override
     public List<Project> findAllById(List<Long> ids) {
-        return jpaProjectRepository.findAllByIdInAndDeletedAtIsNull(ids)
+        return jpaProjectRepository.findAllByIdInAndDeletedAtIsNullOrderByIdAsc(ids)
                 .stream()
                 .map(ProjectJpaEntity::toDomain)
                 .toList();

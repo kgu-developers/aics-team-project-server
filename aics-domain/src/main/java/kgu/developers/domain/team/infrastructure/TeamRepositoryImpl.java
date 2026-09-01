@@ -36,7 +36,7 @@ public class TeamRepositoryImpl implements TeamRepository {
 
     @Override
     public List<Team> findAllById(List<Long> ids) {
-        return jpaTeamRepository.findAllByIdInAndDeletedAtIsNull(ids)
+        return jpaTeamRepository.findAllByIdInAndDeletedAtIsNullOrderByIdAsc(ids)
                 .stream()
                 .map(TeamJpaEntity::toDomain)
                 .toList();
