@@ -22,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 import kgu.developers.domain.auditLog.infrastructure.AuditLogJpaEntity;
 import kgu.developers.domain.auditLog.infrastructure.AuditLogRepositoryImpl;
@@ -42,7 +43,7 @@ class AuditLogRepositoryImplTest {
 				.actorId("202012345")
 				.sectionId(10L)
 				.eventType("CREATE")
-				.targetType(100L)
+				.targetType(TargetType.TEAM.getCode())
 				.targetId(5L)
 				.metadata("{}")
 				.build();
@@ -51,7 +52,7 @@ class AuditLogRepositoryImplTest {
 	@Test
 	@DisplayName("save는 전달받은 AuditLog를 엔티티로 변환하여 저장 후 도메인 객체로 반환한다")
 	void save() {
-		AuditLog auditLog = AuditLog.create("202012345", 10L, "CREATE", 100L, 5L, JsonConverter.parse("{}"));
+		AuditLog auditLog = AuditLog.create("202012345", 10L, "CREATE", TargetType.TEAM, 5L, JsonConverter.parse("{}"));
 		given(jpaAuditLogRepository.save(any())).willReturn(sampleEntity());
 
 		AuditLog saved = auditLogRepositoryImpl.save(auditLog);

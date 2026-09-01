@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogMetadataInvalidException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -58,7 +59,7 @@ public class AuditLogJpaEntity extends BaseTimeEntity {
 				.actorId(actorId)
 				.sectionId(sectionId)
 				.eventType(eventType)
-				.targetType(targetType)
+				.targetType(TargetType.fromCode(targetType))
 				.targetId(targetId)
 				.metadata(metadata != null && !metadata.isBlank()
 						? JsonConverter.parse(metadata, AuditLogMetadataInvalidException::new)
@@ -75,7 +76,7 @@ public class AuditLogJpaEntity extends BaseTimeEntity {
 				.actorId(auditLog.getActorId())
 				.sectionId(auditLog.getSectionId())
 				.eventType(auditLog.getEventType())
-				.targetType(auditLog.getTargetType())
+				.targetType(auditLog.getTargetType().getCode())
 				.targetId(auditLog.getTargetId())
 				.metadata(auditLog.getMetadata() != null ? auditLog.getMetadata().toString() : "{}")
 				.build();
