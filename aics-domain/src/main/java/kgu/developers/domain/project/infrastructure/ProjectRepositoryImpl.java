@@ -25,7 +25,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     public Project save(Project project) {
         try {
             TeamJpaEntity team = entityManager.find(TeamJpaEntity.class, project.getTeamId());
-            if (team == null) {
+            if (team == null || team.getDeletedAt() != null) {
                 throw new TeamNotFoundException();
             }
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);

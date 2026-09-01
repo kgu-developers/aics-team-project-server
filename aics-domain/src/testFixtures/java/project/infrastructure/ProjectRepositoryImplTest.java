@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
@@ -110,6 +111,34 @@ class ProjectRepositoryImplTest {
 
     assertThatThrownBy(() -> repository.save(project))
         .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("save는 소프트 삭제된 팀이면 TeamNotFoundException을 발생시킨다")
+  void saveWithDeletedTeam() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project project = Project.create(
+        1L,
+        "팀 프로젝트",
+        "프로젝트 설명",
+        "프로젝트 목표",
+        "https://github.com/example/repo",
+        externalLinks,
+        ApprovalStatus.DRAFT,
+        "온라인"
+    );
+
+    TeamJpaEntity deletedTeam = TeamJpaEntity.builder().id(1L).build();
+    deletedTeam.delete();
+    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(deletedTeam);
+
+    assertThatThrownBy(() -> repository.save(project))
+        .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
+    verify(jpaProjectRepository, never()).save(any(ProjectJpaEntity.class));
   }
 
   @Test
