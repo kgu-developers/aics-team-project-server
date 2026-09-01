@@ -33,8 +33,6 @@ public interface JpaMilestoneRepository extends JpaRepository<MilestoneJpaEntity
 
     List<MilestoneJpaEntity> findAllBySectionIdAndDeletedAtIsNullOrderByWeekNumberAsc(Long sectionId);
 
-    long countBySectionIdAndDeletedAtIsNull(Long sectionId);
-
     List<MilestoneJpaEntity> findAllBySectionIdAndStatusAndDeletedAtIsNullOrderByWeekNumberAsc(
             Long sectionId,
             MilestoneStatus status

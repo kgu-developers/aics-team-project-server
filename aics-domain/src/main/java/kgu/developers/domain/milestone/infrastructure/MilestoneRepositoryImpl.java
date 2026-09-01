@@ -1,15 +1,12 @@
 package kgu.developers.domain.milestone.infrastructure;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
-import kgu.developers.domain.milestone.exception.MilestoneConcurrentlyModifiedException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -33,70 +30,21 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     @Override
     @Transactional
     public List<Milestone> saveAllWeekNumberChanges(Long sectionId, List<Milestone> milestones) {
-        validateFullSectionSnapshot(sectionId, milestones);
-        Map<Long, MilestoneJpaEntity> existingEntities = findExistingEntities(milestones);
-        validateExistingEntities(milestones, existingEntities);
-        List<MilestoneJpaEntity> changedEntities = milestones.stream()
-                .filter(milestone -> hasWeekNumberChanged(milestone, existingEntities))
-                .map(milestone -> entityForSave(milestone, existingEntities))
-                .toList();
-        if (!changedEntities.isEmpty()) {
-            jpaMilestoneRepository.saveAllAndFlush(changedEntities);
+        if (milestones.isEmpty()) {
+            return milestones;
         }
-        return milestones;
-    }
-
-    private void validateFullSectionSnapshot(Long sectionId, List<Milestone> milestones) {
-        boolean containsAnotherSection = milestones.stream()
-                .anyMatch(milestone -> !sectionId.equals(milestone.getSectionId()));
-        long distinctMilestoneIdCount = milestones.stream()
-                .map(Milestone::getId)
-                .filter(id -> id != null)
-                .distinct()
-                .count();
-        long activeMilestoneCount = jpaMilestoneRepository.countBySectionIdAndDeletedAtIsNull(sectionId);
-        if (containsAnotherSection
-                || activeMilestoneCount != milestones.size()
-                || activeMilestoneCount != distinctMilestoneIdCount) {
-            throw new MilestoneConcurrentlyModifiedException();
-        }
-    }
-
-    private void validateExistingEntities(
-            List<Milestone> milestones,
-            Map<Long, MilestoneJpaEntity> existingEntities
-    ) {
         for (Milestone milestone : milestones) {
-            if (milestone.getId() != null && !existingEntities.containsKey(milestone.getId())) {
+            if (!sectionId.equals(milestone.getSectionId())) {
                 throw new MilestoneNotFoundException(milestone.getId());
             }
-        }
-    }
-
-    private boolean hasWeekNumberChanged(
-            Milestone milestone,
-            Map<Long, MilestoneJpaEntity> existingEntities
-    ) {
-        MilestoneJpaEntity entity = existingEntities.get(milestone.getId());
-        return entity != null && entity.getWeekNumber() != milestone.getWeekNumber();
-    }
-
-    private Map<Long, MilestoneJpaEntity> findExistingEntities(List<Milestone> milestones) {
-        List<Long> existingIds = milestones.stream()
-                .map(Milestone::getId)
-                .filter(id -> id != null)
-                .toList();
-        if (existingIds.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<Long, MilestoneJpaEntity> entitiesById = new HashMap<>();
-        for (MilestoneJpaEntity entity : jpaMilestoneRepository.findAllById(existingIds)) {
-            if (entity.getDeletedAt() == null) {
-                entitiesById.put(entity.getId(), entity);
+            MilestoneJpaEntity entity = entityManager.find(MilestoneJpaEntity.class, milestone.getId());
+            if (entity == null || entity.getDeletedAt() != null) {
+                throw new MilestoneNotFoundException(milestone.getId());
             }
+            entity.updateFromDomain(milestone);
         }
-        return entitiesById;
+        entityManager.flush();
+        return milestones;
     }
 
     private MilestoneJpaEntity entityForSave(Milestone milestone) {
@@ -109,17 +57,6 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
             entity = null;
         }
         return updateExistingEntity(milestone, entity);
-    }
-
-    private MilestoneJpaEntity entityForSave(
-            Milestone milestone,
-            Map<Long, MilestoneJpaEntity> existingEntities
-    ) {
-        if (milestone.getId() == null) {
-            return MilestoneJpaEntity.fromDomain(milestone);
-        }
-
-        return updateExistingEntity(milestone, existingEntities.get(milestone.getId()));
     }
 
     private MilestoneJpaEntity updateExistingEntity(

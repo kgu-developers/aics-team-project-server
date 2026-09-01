@@ -105,10 +105,8 @@ public class MilestoneCommandService {
         List<Milestone> sectionMilestones = new ArrayList<>(milestoneRepository
                 .findAllBySectionIdOrderByWeekNumber(sectionId));
         Map<Long, Milestone> sectionMilestonesById = new HashMap<>();
-        Map<Long, Integer> finalWeekNumbersById = new HashMap<>();
         for (Milestone milestone : sectionMilestones) {
             sectionMilestonesById.put(milestone.getId(), milestone);
-            finalWeekNumbersById.put(milestone.getId(), milestone.getWeekNumber());
         }
 
         Set<Long> requestedIds = new HashSet<>();
@@ -122,14 +120,21 @@ public class MilestoneCommandService {
 
             validateMilestoneId(change.milestoneId());
             getRequiredSectionMilestone(change.milestoneId(), sectionMilestonesById);
-            finalWeekNumbersById.put(change.milestoneId(), change.weekNumber());
         }
 
-        validateUniqueWeekNumbers(finalWeekNumbersById.values());
+        validateUniqueWeekNumbers(sectionMilestones, changes);
+        List<Milestone> changedMilestones = new ArrayList<>();
         for (MilestoneWeekNumberChange change : changes) {
-            sectionMilestonesById.get(change.milestoneId()).changeWeekNumber(change.weekNumber());
+            Milestone milestone = sectionMilestonesById.get(change.milestoneId());
+            if (milestone.getWeekNumber() == change.weekNumber()) {
+                continue;
+            }
+            milestone.changeWeekNumber(change.weekNumber());
+            changedMilestones.add(milestone);
         }
-        milestoneRepository.saveAllWeekNumberChanges(sectionId, sectionMilestones);
+        if (!changedMilestones.isEmpty()) {
+            milestoneRepository.saveAllWeekNumberChanges(sectionId, changedMilestones);
+        }
     }
 
     private Milestone getRequiredSectionMilestone(
@@ -143,13 +148,28 @@ public class MilestoneCommandService {
         return milestone;
     }
 
-    private void validateUniqueWeekNumbers(Iterable<Integer> weekNumbers) {
+    private void validateUniqueWeekNumbers(
+            List<Milestone> sectionMilestones,
+            List<MilestoneWeekNumberChange> changes
+    ) {
         Set<Integer> uniqueWeekNumbers = new HashSet<>();
-        for (Integer weekNumber : weekNumbers) {
+        for (Milestone milestone : sectionMilestones) {
+            int weekNumber = finalWeekNumber(milestone, changes);
             if (!uniqueWeekNumbers.add(weekNumber)) {
-                throw new IllegalArgumentException("같은 분반에서 주차를 중복할 수 없습니다.");
+                throw new DuplicateMilestoneWeekException();
             }
         }
+    }
+
+    private int finalWeekNumber(
+            Milestone milestone,
+            List<MilestoneWeekNumberChange> changes
+    ) {
+        return changes.stream()
+                .filter(change -> milestone.getId().equals(change.milestoneId()))
+                .map(MilestoneWeekNumberChange::weekNumber)
+                .findFirst()
+                .orElse(milestone.getWeekNumber());
     }
 
     private Milestone getRequiredMilestoneForUpdate(Long sectionId, Long milestoneId) {

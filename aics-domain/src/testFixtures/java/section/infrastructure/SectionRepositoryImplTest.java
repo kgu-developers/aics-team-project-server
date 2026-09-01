@@ -1,6 +1,5 @@
 package section.infrastructure;
 
-import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -34,17 +33,18 @@ class SectionRepositoryImplTest {
     private UserJpaEntity professor;
 
     @Test
-    @DisplayName("교수 정보가 없는 분반을 잠금 조회해도 소유 분반으로 판단하지 않는다")
-    void returnsFalseWhenLockedSectionHasNoProfessor() {
-        given(entityManager.find(SectionJpaEntity.class, 7L, PESSIMISTIC_WRITE))
-                .willReturn(section);
-        given(section.getProfessor()).willReturn(null);
+    @DisplayName("담당 교수가 아닌 분반은 잠금 대상에서 제외한다")
+    void excludesAnotherProfessorsSectionFromLockQuery() {
+        given(jpaSectionRepository
+                .findByIdAndProfessorStudentNumberAndDeletedAtIsNull(7L, "20260001"))
+                .willReturn(Optional.empty());
         SectionRepositoryImpl repository = repository();
 
         boolean owned = repository.lockActiveByIdAndProfessorId(7L, "20260001");
 
         assertThat(owned).isFalse();
-        verify(entityManager).find(SectionJpaEntity.class, 7L, PESSIMISTIC_WRITE);
+        verify(jpaSectionRepository)
+                .findByIdAndProfessorStudentNumberAndDeletedAtIsNull(7L, "20260001");
     }
 
     @Test
@@ -52,8 +52,9 @@ class SectionRepositoryImplTest {
     void usesSameOwnershipRuleForReadAndLock() {
         given(jpaSectionRepository.findByIdAndDeletedAtIsNull(7L))
                 .willReturn(Optional.of(section));
-        given(entityManager.find(SectionJpaEntity.class, 7L, PESSIMISTIC_WRITE))
-                .willReturn(section);
+        given(jpaSectionRepository
+                .findByIdAndProfessorStudentNumberAndDeletedAtIsNull(7L, "20260001"))
+                .willReturn(Optional.of(section));
         given(section.getProfessor()).willReturn(professor);
         given(professor.getStudentNumber()).willReturn("20260001");
         SectionRepositoryImpl repository = repository();

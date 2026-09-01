@@ -177,7 +177,7 @@ class MilestoneServiceTest {
 
         assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(3);
         assertThat(queryService.getMilestone(1L, second).getWeekNumber()).isEqualTo(6);
-        assertThat(repository.lastSavedBatchIds).containsExactly(first, second, unchanged);
+        assertThat(repository.lastSavedBatchIds).containsExactly(first, second);
     }
 
     @Test
@@ -229,8 +229,7 @@ class MilestoneServiceTest {
                 new MilestoneWeekNumberChange(first, 5),
                 new MilestoneWeekNumberChange(second, 5)
         )))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("중복");
+                .isInstanceOf(DuplicateMilestoneWeekException.class);
 
         assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(2);
         assertThat(queryService.getMilestone(1L, second).getWeekNumber()).isEqualTo(4);
@@ -245,8 +244,7 @@ class MilestoneServiceTest {
         assertThatThrownBy(() -> commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(first, 4)
         )))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("중복");
+                .isInstanceOf(DuplicateMilestoneWeekException.class);
 
         assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(2);
         assertThat(queryService.getMilestone(1L, unchanged).getWeekNumber()).isEqualTo(4);

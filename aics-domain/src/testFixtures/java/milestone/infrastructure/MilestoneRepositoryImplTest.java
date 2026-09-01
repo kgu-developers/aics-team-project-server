@@ -15,7 +15,6 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
-import kgu.developers.domain.milestone.exception.MilestoneConcurrentlyModifiedException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.infrastructure.JpaMilestoneRepository;
 import kgu.developers.domain.milestone.infrastructure.MilestoneJpaEntity;
@@ -186,36 +185,35 @@ class MilestoneRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("주차 맞교환은 기존 엔티티를 한 번에 조회하고 변경된 행만 저장한다")
+    @DisplayName("주차 맞교환은 영속성 컨텍스트의 기존 엔티티만 변경하고 반영한다")
     void savesOnlyChangedRowsForSwappedWeekNumbers() {
         MilestoneJpaEntity firstEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 2));
         MilestoneJpaEntity secondEntity = MilestoneJpaEntity.fromDomain(milestone(2L, 4));
-        MilestoneJpaEntity unchangedEntity = MilestoneJpaEntity.fromDomain(milestone(3L, 8));
         List<Milestone> updates = List.of(
                 milestone(1L, 4),
-                milestone(2L, 2),
-                milestone(3L, 8)
+                milestone(2L, 2)
         );
-        given(jpaMilestoneRepository.countBySectionIdAndDeletedAtIsNull(7L)).willReturn(3L);
-        given(jpaMilestoneRepository.findAllById(List.of(1L, 2L, 3L)))
-                .willReturn(List.of(firstEntity, secondEntity, unchangedEntity));
+        given(entityManager.find(MilestoneJpaEntity.class, 1L)).willReturn(firstEntity);
+        given(entityManager.find(MilestoneJpaEntity.class, 2L)).willReturn(secondEntity);
         MilestoneRepositoryImpl repository = repository();
 
         List<Milestone> result = repository.saveAllWeekNumberChanges(7L, updates);
 
-        assertThat(result).extracting(Milestone::getWeekNumber).containsExactly(4, 2, 8);
-        verify(jpaMilestoneRepository).findAllById(List.of(1L, 2L, 3L));
-        verify(jpaMilestoneRepository).saveAllAndFlush(List.of(firstEntity, secondEntity));
-        verify(jpaMilestoneRepository, never()).flush();
+        assertThat(result).extracting(Milestone::getWeekNumber).containsExactly(4, 2);
+        assertThat(firstEntity.getWeekNumber()).isEqualTo(4);
+        assertThat(secondEntity.getWeekNumber()).isEqualTo(2);
+        verify(entityManager).find(MilestoneJpaEntity.class, 1L);
+        verify(entityManager).find(MilestoneJpaEntity.class, 2L);
+        verify(entityManager).flush();
+        verifyNoMoreInteractions(jpaMilestoneRepository, entityManager);
     }
 
     @Test
     @DisplayName("일괄 저장 중 존재하지 않는 마일스톤은 새 엔티티로 만들지 않는다")
     void doesNotRecreateMissingMilestoneDuringBatchUpdate() {
         MilestoneJpaEntity firstEntity = MilestoneJpaEntity.fromDomain(milestone(1L, 1));
-        given(jpaMilestoneRepository.countBySectionIdAndDeletedAtIsNull(7L)).willReturn(2L);
-        given(jpaMilestoneRepository.findAllById(List.of(1L, 2L)))
-                .willReturn(List.of(firstEntity));
+        given(entityManager.find(MilestoneJpaEntity.class, 1L)).willReturn(firstEntity);
+        given(entityManager.find(MilestoneJpaEntity.class, 2L)).willReturn(null);
         MilestoneRepositoryImpl repository = repository();
 
         assertThatThrownBy(() -> repository.saveAllWeekNumberChanges(
@@ -225,39 +223,20 @@ class MilestoneRepositoryImplTest {
                 .isInstanceOf(MilestoneNotFoundException.class)
                 .extracting("milestoneId")
                 .isEqualTo(2L);
-        verify(jpaMilestoneRepository).findAllById(List.of(1L, 2L));
-        verify(jpaMilestoneRepository).countBySectionIdAndDeletedAtIsNull(7L);
+        verify(entityManager).find(MilestoneJpaEntity.class, 1L);
+        verify(entityManager).find(MilestoneJpaEntity.class, 2L);
         verifyNoMoreInteractions(jpaMilestoneRepository, entityManager);
     }
 
     @Test
-    @DisplayName("분반의 활성 마일스톤 전체가 아니면 주차 일괄 변경을 거부한다")
-    void rejectsIncompleteSectionSnapshot() {
-        given(jpaMilestoneRepository.countBySectionIdAndDeletedAtIsNull(7L)).willReturn(3L);
+    @DisplayName("변경할 마일스톤이 없으면 영속성 컨텍스트를 조회하지 않는다")
+    void skipsEmptyWeekNumberChanges() {
         MilestoneRepositoryImpl repository = repository();
 
-        assertThatThrownBy(() -> repository.saveAllWeekNumberChanges(
-                7L,
-                List.of(milestone(1L, 2), milestone(2L, 1))
-        ))
-                .isInstanceOf(MilestoneConcurrentlyModifiedException.class);
-        verify(jpaMilestoneRepository).countBySectionIdAndDeletedAtIsNull(7L);
-        verifyNoMoreInteractions(jpaMilestoneRepository);
-    }
+        List<Milestone> result = repository.saveAllWeekNumberChanges(7L, List.of());
 
-    @Test
-    @DisplayName("중복 식별자로 일부 마일스톤을 누락한 일괄 변경을 거부한다")
-    void rejectsDuplicateIdsInSectionSnapshot() {
-        given(jpaMilestoneRepository.countBySectionIdAndDeletedAtIsNull(7L)).willReturn(2L);
-        MilestoneRepositoryImpl repository = repository();
-
-        assertThatThrownBy(() -> repository.saveAllWeekNumberChanges(
-                7L,
-                List.of(milestone(1L, 2), milestone(1L, 1))
-        ))
-                .isInstanceOf(MilestoneConcurrentlyModifiedException.class);
-        verify(jpaMilestoneRepository).countBySectionIdAndDeletedAtIsNull(7L);
-        verifyNoMoreInteractions(jpaMilestoneRepository);
+        assertThat(result).isEmpty();
+        verifyNoMoreInteractions(jpaMilestoneRepository, entityManager);
     }
 
     @Test
