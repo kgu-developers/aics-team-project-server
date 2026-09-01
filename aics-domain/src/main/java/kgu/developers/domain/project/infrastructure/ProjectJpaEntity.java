@@ -52,7 +52,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     private String repositoryUrl;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "JSON")
+    @Column(columnDefinition = "jsonb")
     private JsonNode externalLinks;
 
     @Enumerated(STRING)
