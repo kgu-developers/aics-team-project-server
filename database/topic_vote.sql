@@ -12,12 +12,12 @@ CREATE TABLE IF NOT EXISTS topic_vote (
     PRIMARY KEY (id),
     -- 팀 안에서 한 사람은 한 표. 후보가 아니라 팀이 1인 1표의 범위이므로 team_id 로 묶는다.
     -- (candidate_id, voter_user_id) 로 묶으면 한 사람이 여러 후보에 동시 투표할 수 있어 의도를 못 지킨다.
-    -- TopicVoteCommandService.vote 의 존재 확인 후 저장은 check-then-act 이라 동시 요청을 막지 못하므로,
-    -- 중복 차단의 최종 근거는 이 제약이다.
-    -- 위반 시 DataIntegrityViolationException 이 GlobalExceptionHandler 에서 409 로 매핑된다.
+    -- TopicVoteCommandService.vote 는 이 제약을 충돌 지점으로 삼는 ON CONFLICT 업서트다.
+    -- 즉 중복 차단의 근거이자 동시 요청 직렬화의 근거가 이 제약이다.
+    -- (JpaTopicVoteRepository.upsert 참고. 애플리케이션에서 조회 후 저장하면 동시 최초 투표를 놓친다.)
     --
     -- deleted_at 을 무시하는 일반 유니크 제약인데도 재투표가 막히지 않는 이유는,
-    -- vote 가 소프트 삭제된 이력을 찾으면 INSERT 대신 그 행을 재활성화하기 때문이다.
+    -- 충돌 시 INSERT 대신 그 행의 deleted_at 을 지워 되살리기 때문이다.
     -- 투표 변경도 새 행이 아니라 같은 행의 candidate_id 갱신이다.
     -- 즉 (team_id, voter_user_id) 당 행은 영원히 하나이고, 그래서 부분 인덱스가 필요 없다.
     -- 이 불변식이 깨지면(재활성화를 걷어내면) 제약도 함께 바꿔야 한다. enrollment.sql 과 동일한 규약이다.

@@ -28,7 +28,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -173,7 +172,7 @@ class TopicVoteRepositoryPostgresTest {
     }
 
     @Test
-    @DisplayName("동시 최초 투표: 존재 확인이 check-then-act 이므로 진 쪽은 제약 위반이고, 활성 행은 하나만 남는다")
+    @DisplayName("동시 최초 투표: 업서트라 모두 성공하고, 활성 행은 하나만 남는다")
     void concurrentFirstVoteKeepsSingleActiveRow() throws Exception {
         int threads = 8;
         CyclicBarrier barrier = new CyclicBarrier(threads);
@@ -187,18 +186,11 @@ class TopicVoteRepositoryPostgresTest {
         List<Future<TopicVote>> results = pool.invokeAll(tasks);
         pool.shutdown();
 
-        int succeeded = 0;
         for (Future<TopicVote> result : results) {
-            try {
-                assertThat(result.get().getCandidateId()).isEqualTo(CANDIDATE_A);
-                succeeded++;
-            } catch (ExecutionException e) {
-                // 중복 차단의 최종 근거는 유니크 제약이다. database/topic_vote.sql 참고.
-                assertThat(e.getCause()).isInstanceOf(DataIntegrityViolationException.class);
-            }
+            assertThat(result.get().getCandidateId()).isEqualTo(CANDIDATE_A);
+            assertThat(result.get().getId()).isEqualTo(results.get(0).get().getId());
         }
 
-        assertThat(succeeded).isGreaterThanOrEqualTo(1);
         assertThat(activeVotesOf(VOTER)).isEqualTo(1);
         assertThat(jpaTopicVoteRepository.findAll()).hasSize(1);
     }

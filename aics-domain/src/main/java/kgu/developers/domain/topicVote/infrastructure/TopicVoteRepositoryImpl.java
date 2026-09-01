@@ -43,9 +43,13 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     }
 
     @Override
-    public Optional<TopicVote> findIncludingDeleted(Long teamId, String voterUserId) {
-        return jpaTopicVoteRepository.findByTeamIdAndVoterUserId(teamId, voterUserId)
-                .map(TopicVoteJpaEntity::toDomain);
+    @Transactional
+    public TopicVote upsert(TopicVote topicVote) {
+        jpaTopicVoteRepository.upsert(topicVote.getTeamId(), topicVote.getCandidateId(), topicVote.getVoterUserId());
+        return jpaTopicVoteRepository
+                .findByTeamIdAndVoterUserIdAndDeletedAtIsNull(topicVote.getTeamId(), topicVote.getVoterUserId())
+                .map(TopicVoteJpaEntity::toDomain)
+                .orElseThrow(TopicVoteNotFoundException::new);
     }
 
     @Override

@@ -12,7 +12,7 @@ public interface TopicVoteRepository {
 
     Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId);
 
-    Optional<TopicVote> findIncludingDeleted(Long teamId, String voterUserId);
+    TopicVote upsert(TopicVote topicVote);
 
     void deleteById(Long id);
 

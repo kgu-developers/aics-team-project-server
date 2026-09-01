@@ -14,20 +14,7 @@ public class TopicVoteCommandService {
   private final TopicVoteRepository topicVoteRepository;
 
   public TopicVote vote(Long teamId, Long candidateId, String voterUserId) {
-    TopicVote existing = topicVoteRepository.findIncludingDeleted(teamId, voterUserId).orElse(null);
-    if (existing != null) {
-      if (existing.getDeletedAt() != null) {
-        existing.reactivate(candidateId);
-        return topicVoteRepository.save(existing);
-      }
-      if (existing.getCandidateId().equals(candidateId)) {
-        return existing;
-      }
-      existing.updateCandidateId(candidateId);
-      return topicVoteRepository.save(existing);
-    }
-
-    return topicVoteRepository.save(TopicVote.create(teamId, candidateId, voterUserId));
+    return topicVoteRepository.upsert(TopicVote.create(teamId, candidateId, voterUserId));
   }
 
   public void cancelVote(Long teamId, String voterUserId) {
