@@ -17,6 +17,7 @@ import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +40,7 @@ public class UserFacade {
                 .toList();
 
         List<SectionDetail> professorSections = List.of();
-        if (!enrollments.isEmpty()) {
+        if (user.getGlobalRole() == UserGlobalRole.ADMIN) {
             professorSections = sectionRepository.findAllByProfessorId(studentNumber);
         }
 
@@ -85,4 +86,3 @@ public class UserFacade {
                 .toList();
     }
 }
-

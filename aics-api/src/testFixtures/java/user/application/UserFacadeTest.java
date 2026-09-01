@@ -2,6 +2,7 @@ package user.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -51,8 +52,11 @@ class UserFacadeTest {
     @InjectMocks
     private UserFacade userFacade;
 
-    private final User user = User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "encoded",
+    private final User student = User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "encoded",
             UserGlobalRole.USER, "010-1234-6789");
+
+    private final User professor = User.create(STUDENT_NUMBER, "professor@kyonggi.ac.kr", "김교수", "encoded",
+            UserGlobalRole.ADMIN, "010-9876-5432");
 
     private final Course course = Course.builder()
             .id(1L)
@@ -74,7 +78,7 @@ class UserFacadeTest {
                 .contactVisibleFrom(LocalDateTime.of(2026, 3, 2, 0, 0))
                 .contactVisibleUntil(LocalDateTime.of(2026, 6, 20, 18, 0))
                 .build();
-        return new SectionDetail(section, course, user);
+        return new SectionDetail(section, course, professor);
     }
 
     private Enrollment activeEnrollment(Long sectionId) {
@@ -82,9 +86,9 @@ class UserFacadeTest {
     }
 
     @Test
-    @DisplayName("수강생이자 담당교수인 분반은 한 번만 내려간다")
+    @DisplayName("수강 분반과 담당 분반이 겹치면 한 번만 내려간다")
     void getMeDeduplicatesSectionBelongingToBothSources() {
-        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
         given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(activeEnrollment(1L)));
         given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
         given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L)));
@@ -100,7 +104,7 @@ class UserFacadeTest {
     @Test
     @DisplayName("수강 분반과 담당 분반이 다르면 둘 다 내려간다")
     void getMeKeepsDistinctSections() {
-        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
         given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(activeEnrollment(1L)));
         given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(2L)));
         given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L)));
@@ -115,12 +119,28 @@ class UserFacadeTest {
     @Test
     @DisplayName("탈퇴한 수강 내역만 있으면 소속 분반은 비어 있다")
     void getMeIgnoresWithdrawnEnrollments() {
-        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
         given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER))
                 .willReturn(List.of(Enrollment.create(1L, STUDENT_NUMBER, Role.STUDENT, Status.WITHDRAWN)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
         assertThat(response.sections()).isEmpty();
+        verifyNoInteractions(sectionRepository);
+    }
+
+    @Test
+    @DisplayName("활성 수강 내역이 없는 교수도 담당 분반을 조회한다")
+    void getMeIncludesProfessorSectionsWithoutEnrollments() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
+        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
+        given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections())
+                .singleElement()
+                .extracting(SectionResponse::id)
+                .isEqualTo(1L);
     }
 }
