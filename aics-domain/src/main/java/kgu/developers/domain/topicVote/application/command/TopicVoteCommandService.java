@@ -3,6 +3,9 @@ package kgu.developers.domain.topicVote.application.command;
 import java.util.Optional;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
+import kgu.developers.domain.topicVote.exception.TopicVoteCandidateChangedException;
+import kgu.developers.domain.topicVote.exception.TopicVoteConflictException;
+import kgu.developers.domain.topicVote.exception.TopicVoteNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -42,20 +45,21 @@ public class TopicVoteCommandService {
             }
             return reactivateVote(vote, candidateId);
         }
-        throw new IllegalStateException("동시 투표 충돌로 인해 기존 투표를 찾을 수 없습니다");
+        throw new TopicVoteConflictException();
     }
 
     @Transactional
     public void cancelVote(Long teamId, Long candidateId, String voterUserId) {
         Optional<TopicVote> vote = topicVoteRepository.findByCandidateIdAndVoterUserIdWithLock(candidateId, voterUserId);
-        if (vote.isPresent()) {
-            TopicVote existingVote = vote.get();
-            if (!existingVote.getCandidateId().equals(candidateId)) {
-                throw new IllegalStateException("투표 후보가 변경되어 취소할 수 없습니다");
-            }
-            existingVote.delete();
-            topicVoteRepository.save(existingVote);
+        if (vote.isEmpty()) {
+            throw new TopicVoteNotFoundException();
         }
+        TopicVote existingVote = vote.get();
+        if (!existingVote.getCandidateId().equals(candidateId)) {
+            throw new TopicVoteCandidateChangedException();
+        }
+        existingVote.delete();
+        topicVoteRepository.save(existingVote);
     }
 
     private TopicVote changeVoteCandidate(TopicVote existingVote, Long candidateId) {
