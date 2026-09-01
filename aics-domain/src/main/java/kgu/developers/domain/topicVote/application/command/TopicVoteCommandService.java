@@ -6,7 +6,6 @@ import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -33,7 +32,7 @@ public class TopicVoteCommandService {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public TopicVote handleVoteConflict(Long teamId, Long candidateId, String voterUserId) {
         Optional<TopicVote> retryVote = topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId);
         if (retryVote.isPresent()) {
