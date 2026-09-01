@@ -60,7 +60,7 @@ class ProjectRepositoryImplTest {
     );
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.getReference(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
 
     Project savedProject = Project.builder()
         .id(1L)
@@ -106,8 +106,7 @@ class ProjectRepositoryImplTest {
         "온라인"
     );
 
-    given(entityManager.getReference(TeamJpaEntity.class, 999L))
-        .willThrow(new jakarta.persistence.EntityNotFoundException("Team not found"));
+    given(entityManager.find(TeamJpaEntity.class, 999L)).willReturn(null);
 
     assertThatThrownBy(() -> repository.save(project))
         .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
@@ -367,7 +366,7 @@ class ProjectRepositoryImplTest {
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.getReference(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
 
     given(jpaProjectRepository.save(any(ProjectJpaEntity.class)))
         .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
@@ -400,6 +399,7 @@ class ProjectRepositoryImplTest {
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
     ProjectJpaEntity entityToDelete = ProjectJpaEntity.toEntity(projectToDelete, team);
 
     given(jpaProjectRepository.findByIdAndDeletedAtIsNull(1L))
@@ -452,7 +452,7 @@ class ProjectRepositoryImplTest {
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.getReference(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
 
     ProjectJpaEntity updatedEntity = ProjectJpaEntity.builder()
         .id(1L)
