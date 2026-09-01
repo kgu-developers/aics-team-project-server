@@ -62,7 +62,7 @@ public class TopicCandidateJpaEntity extends BaseTimeEntity {
                 .description(topicCandidate.getDescription())
                 .build();
         entity.createdAt = topicCandidate.getCreatedAt();
-        entity.setDeletedAt(topicCandidate.getDeletedAt());
+        entity.deletedAt = topicCandidate.getDeletedAt();
         return entity;
     }
 }
