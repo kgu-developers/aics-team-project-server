@@ -1,10 +1,12 @@
 package kgu.developers.domain.project.infrastructure;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.project.exception.ProjectVersionConflictException;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -27,6 +29,8 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
             ProjectJpaEntity savedEntity = jpaProjectRepository.save(entity);
             return savedEntity.toDomain();
+        } catch (EntityNotFoundException e) {
+            throw new TeamNotFoundException();
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new ProjectVersionConflictException();
         }

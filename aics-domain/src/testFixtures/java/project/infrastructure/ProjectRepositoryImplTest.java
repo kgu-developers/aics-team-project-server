@@ -88,6 +88,32 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
+  @DisplayName("save는 존재하지 않는 팀이면 TeamNotFoundException을 발생시킨다")
+  void saveWithNonExistentTeam() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project project = Project.create(
+        999L,
+        "팀 프로젝트",
+        "프로젝트 설명",
+        "프로젝트 목표",
+        "https://github.com/example/repo",
+        externalLinks,
+        ApprovalStatus.DRAFT,
+        "온라인"
+    );
+
+    given(entityManager.getReference(TeamJpaEntity.class, 999L))
+        .willThrow(new jakarta.persistence.EntityNotFoundException("Team not found"));
+
+    assertThatThrownBy(() -> repository.save(project))
+        .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
+  }
+
+  @Test
   @DisplayName("findById는 id로 삭제되지 않은 프로젝트를 조회한다")
   void findById() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
