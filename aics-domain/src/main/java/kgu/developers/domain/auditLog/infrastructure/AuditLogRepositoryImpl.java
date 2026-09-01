@@ -1,8 +1,9 @@
 package kgu.developers.domain.auditLog.infrastructure;
 
-import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,36 +34,30 @@ public class AuditLogRepositoryImpl implements AuditLogRepository {
 	}
 
 	@Override
-	public List<AuditLog> findAllBySectionId(Long sectionId) {
+	public Page<AuditLog> findAllBySectionId(Long sectionId, Pageable pageable) {
 		if (sectionId == null) {
-			return List.of();
+			return Page.empty(pageable);
 		}
-		return jpaAuditLogRepository.findAllBySectionIdAndDeletedAtIsNullOrderByCreatedAtDesc(sectionId)
-				.stream()
-				.map(AuditLogJpaEntity::toDomain)
-				.toList();
+		return jpaAuditLogRepository.findAllBySectionIdAndDeletedAtIsNull(sectionId, pageable)
+				.map(AuditLogJpaEntity::toDomain);
 	}
 
 	@Override
-	public List<AuditLog> findAllByActorId(String actorId) {
+	public Page<AuditLog> findAllByActorId(String actorId, Pageable pageable) {
 		if (actorId == null || actorId.isBlank()) {
-			return List.of();
+			return Page.empty(pageable);
 		}
-		return jpaAuditLogRepository.findAllByActorIdAndDeletedAtIsNullOrderByCreatedAtDesc(actorId)
-				.stream()
-				.map(AuditLogJpaEntity::toDomain)
-				.toList();
+		return jpaAuditLogRepository.findAllByActorIdAndDeletedAtIsNull(actorId, pageable)
+				.map(AuditLogJpaEntity::toDomain);
 	}
 
 	@Override
-	public List<AuditLog> findAllByEventType(String eventType) {
+	public Page<AuditLog> findAllByEventType(String eventType, Pageable pageable) {
 		if (eventType == null || eventType.isBlank()) {
-			return List.of();
+			return Page.empty(pageable);
 		}
-		return jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNullOrderByCreatedAtDesc(eventType)
-				.stream()
-				.map(AuditLogJpaEntity::toDomain)
-				.toList();
+		return jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNull(eventType, pageable)
+				.map(AuditLogJpaEntity::toDomain);
 	}
 
 	@Override

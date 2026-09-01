@@ -1,17 +1,18 @@
 package kgu.developers.domain.auditLog.infrastructure;
 
-import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JpaAuditLogRepository extends JpaRepository<AuditLogJpaEntity, Long> {
 
 	Optional<AuditLogJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
-	List<AuditLogJpaEntity> findAllBySectionIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long sectionId);
+	Page<AuditLogJpaEntity> findAllBySectionIdAndDeletedAtIsNull(Long sectionId, Pageable pageable);
 
-	List<AuditLogJpaEntity> findAllByActorIdAndDeletedAtIsNullOrderByCreatedAtDesc(String actorId);
+	Page<AuditLogJpaEntity> findAllByActorIdAndDeletedAtIsNull(String actorId, Pageable pageable);
 
-	List<AuditLogJpaEntity> findAllByEventTypeAndDeletedAtIsNullOrderByCreatedAtDesc(String eventType);
+	Page<AuditLogJpaEntity> findAllByEventTypeAndDeletedAtIsNull(String eventType, Pageable pageable);
 }

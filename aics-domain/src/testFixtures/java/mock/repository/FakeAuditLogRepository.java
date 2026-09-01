@@ -7,6 +7,10 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import kgu.developers.domain.auditLog.domain.AuditLog;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
@@ -47,39 +51,51 @@ public class FakeAuditLogRepository implements AuditLogRepository {
 	}
 
 	@Override
-	public List<AuditLog> findAllBySectionId(Long sectionId) {
+	public Page<AuditLog> findAllBySectionId(Long sectionId, Pageable pageable) {
 		if (sectionId == null) {
-			return List.of();
+			return Page.empty(pageable);
 		}
-		return store.values().stream()
+		List<AuditLog> filtered = store.values().stream()
 				.filter(log -> log.getDeletedAt() == null)
 				.filter(log -> sectionId.equals(log.getSectionId()))
 				.sorted(Comparator.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
+		return paginate(filtered, pageable);
 	}
 
 	@Override
-	public List<AuditLog> findAllByActorId(String actorId) {
+	public Page<AuditLog> findAllByActorId(String actorId, Pageable pageable) {
 		if (actorId == null || actorId.isBlank()) {
-			return List.of();
+			return Page.empty(pageable);
 		}
-		return store.values().stream()
+		List<AuditLog> filtered = store.values().stream()
 				.filter(log -> log.getDeletedAt() == null)
 				.filter(log -> actorId.equals(log.getActorId()))
 				.sorted(Comparator.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
+		return paginate(filtered, pageable);
 	}
 
 	@Override
-	public List<AuditLog> findAllByEventType(String eventType) {
+	public Page<AuditLog> findAllByEventType(String eventType, Pageable pageable) {
 		if (eventType == null || eventType.isBlank()) {
-			return List.of();
+			return Page.empty(pageable);
 		}
-		return store.values().stream()
+		List<AuditLog> filtered = store.values().stream()
 				.filter(log -> log.getDeletedAt() == null)
 				.filter(log -> eventType.equals(log.getEventType()))
 				.sorted(Comparator.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
+		return paginate(filtered, pageable);
+	}
+
+	private Page<AuditLog> paginate(List<AuditLog> items, Pageable pageable) {
+		int start = (int) pageable.getOffset();
+		int end = Math.min(start + pageable.getPageSize(), items.size());
+		if (start >= items.size()) {
+			return new PageImpl<>(List.of(), pageable, items.size());
+		}
+		return new PageImpl<>(items.subList(start, end), pageable, items.size());
 	}
 
 	@Override

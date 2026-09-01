@@ -15,6 +15,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
@@ -71,37 +75,40 @@ class AuditLogRepositoryImplTest {
 	@Test
 	@DisplayName("findAllBySectionId는 특정 분반의 감사 로그 목록을 조회한다")
 	void findAllBySectionId() {
-		given(jpaAuditLogRepository.findAllBySectionIdAndDeletedAtIsNullOrderByCreatedAtDesc(10L))
-				.willReturn(List.of(sampleEntity()));
+		Pageable pageable = PageRequest.of(0, 10);
+		given(jpaAuditLogRepository.findAllBySectionIdAndDeletedAtIsNull(10L, pageable))
+				.willReturn(new PageImpl<>(List.of(sampleEntity()), pageable, 1));
 
-		List<AuditLog> result = auditLogRepositoryImpl.findAllBySectionId(10L);
+		Page<AuditLog> result = auditLogRepositoryImpl.findAllBySectionId(10L, pageable);
 
-		assertThat(result).hasSize(1);
-		assertThat(result.get(0).getSectionId()).isEqualTo(10L);
+		assertThat(result.getTotalElements()).isEqualTo(1);
+		assertThat(result.getContent().get(0).getSectionId()).isEqualTo(10L);
 	}
 
 	@Test
 	@DisplayName("findAllByActorId는 특정 행위자의 감사 로그 목록을 조회한다")
 	void findAllByActorId() {
-		given(jpaAuditLogRepository.findAllByActorIdAndDeletedAtIsNullOrderByCreatedAtDesc("202012345"))
-				.willReturn(List.of(sampleEntity()));
+		Pageable pageable = PageRequest.of(0, 10);
+		given(jpaAuditLogRepository.findAllByActorIdAndDeletedAtIsNull("202012345", pageable))
+				.willReturn(new PageImpl<>(List.of(sampleEntity()), pageable, 1));
 
-		List<AuditLog> result = auditLogRepositoryImpl.findAllByActorId("202012345");
+		Page<AuditLog> result = auditLogRepositoryImpl.findAllByActorId("202012345", pageable);
 
-		assertThat(result).hasSize(1);
-		assertThat(result.get(0).getActorId()).isEqualTo("202012345");
+		assertThat(result.getTotalElements()).isEqualTo(1);
+		assertThat(result.getContent().get(0).getActorId()).isEqualTo("202012345");
 	}
 
 	@Test
 	@DisplayName("findAllByEventType은 특정 이벤트 유형의 감사 로그 목록을 조회한다")
 	void findAllByEventType() {
-		given(jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNullOrderByCreatedAtDesc("CREATE"))
-				.willReturn(List.of(sampleEntity()));
+		Pageable pageable = PageRequest.of(0, 10);
+		given(jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNull("CREATE", pageable))
+				.willReturn(new PageImpl<>(List.of(sampleEntity()), pageable, 1));
 
-		List<AuditLog> result = auditLogRepositoryImpl.findAllByEventType("CREATE");
+		Page<AuditLog> result = auditLogRepositoryImpl.findAllByEventType("CREATE", pageable);
 
-		assertThat(result).hasSize(1);
-		assertThat(result.get(0).getEventType()).isEqualTo("CREATE");
+		assertThat(result.getTotalElements()).isEqualTo(1);
+		assertThat(result.getContent().get(0).getEventType()).isEqualTo("CREATE");
 	}
 
 	@Test
@@ -127,11 +134,12 @@ class AuditLogRepositoryImplTest {
 	@Test
 	@DisplayName("null 또는 빈 인자로 조회 시 빈 결과를 반환하고 DB 조회를 건너뛴다")
 	void nullOrBlankArgumentsReturnEmpty() {
+		Pageable pageable = PageRequest.of(0, 10);
 		assertThat(auditLogRepositoryImpl.findById(null)).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllBySectionId(null)).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllByActorId(null)).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllByActorId(" ")).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllByEventType(null)).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllByEventType(" ")).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllBySectionId(null, pageable)).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByActorId(null, pageable)).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByActorId(" ", pageable)).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByEventType(null, pageable)).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByEventType(" ", pageable)).isEmpty();
 	}
 }

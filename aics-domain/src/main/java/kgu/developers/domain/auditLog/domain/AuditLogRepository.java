@@ -1,7 +1,9 @@
 package kgu.developers.domain.auditLog.domain;
 
-import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface AuditLogRepository {
 
@@ -9,11 +11,11 @@ public interface AuditLogRepository {
 
 	Optional<AuditLog> findById(Long id);
 
-	List<AuditLog> findAllBySectionId(Long sectionId);
+	Page<AuditLog> findAllBySectionId(Long sectionId, Pageable pageable);
 
-	List<AuditLog> findAllByActorId(String actorId);
+	Page<AuditLog> findAllByActorId(String actorId, Pageable pageable);
 
-	List<AuditLog> findAllByEventType(String eventType);
+	Page<AuditLog> findAllByEventType(String eventType, Pageable pageable);
 
 	void deleteById(Long id);
 }
