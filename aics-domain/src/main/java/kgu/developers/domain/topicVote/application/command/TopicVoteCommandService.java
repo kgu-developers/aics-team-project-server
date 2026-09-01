@@ -46,8 +46,8 @@ public class TopicVoteCommandService {
     }
 
     @Transactional
-    public void cancelVote(Long teamId, String voterUserId) {
-        topicVoteRepository.deleteByTeamIdAndVoterUserId(teamId, voterUserId);
+    public void cancelVote(Long teamId, Long candidateId, String voterUserId) {
+        topicVoteRepository.deleteByCandidateIdAndVoterUserId(candidateId, voterUserId);
     }
 
     private TopicVote changeVoteCandidate(TopicVote existingVote, Long candidateId) {

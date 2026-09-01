@@ -85,4 +85,11 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
         jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
                 .ifPresent(TopicVoteJpaEntity::delete);
     }
+
+    @Override
+    @Transactional
+    public void deleteByCandidateIdAndVoterUserId(Long candidateId, String voterUserId) {
+        jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(candidateId, voterUserId)
+                .ifPresent(TopicVoteJpaEntity::delete);
+    }
 }

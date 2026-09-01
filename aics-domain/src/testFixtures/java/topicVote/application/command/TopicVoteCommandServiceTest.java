@@ -77,10 +77,23 @@ class TopicVoteCommandServiceTest {
     @DisplayName("cancelVote는 팀과 투표자 기준으로 투표를 취소한다")
     void cancelVote_DeletesVote() {
         // when
-        topicVoteCommandService.cancelVote(TEAM_ID, VOTER_USER_ID);
+        topicVoteCommandService.cancelVote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
 
         // then
-        verify(topicVoteRepository).deleteByTeamIdAndVoterUserId(TEAM_ID, VOTER_USER_ID);
+        verify(topicVoteRepository).deleteByCandidateIdAndVoterUserId(CANDIDATE_ID, VOTER_USER_ID);
+    }
+
+    @Test
+    @DisplayName("cancelVote는 후보 ID가 다르면 해당 후보의 투표만 취소한다")
+    void cancelVote_DeletesOnlySpecificCandidateVote() {
+        // given
+        Long differentCandidateId = 2L;
+
+        // when
+        topicVoteCommandService.cancelVote(TEAM_ID, differentCandidateId, VOTER_USER_ID);
+
+        // then
+        verify(topicVoteRepository).deleteByCandidateIdAndVoterUserId(differentCandidateId, VOTER_USER_ID);
     }
 
     @Test

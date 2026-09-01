@@ -33,6 +33,6 @@ public class TopicVoteFacade {
         TopicCandidate topicCandidate = topicCandidateRepository.findById(candidateId)
             .orElseThrow(TopicCandidateNotFoundException::new);
         teamAccessValidator.validateMembership(topicCandidate.getTeamId(), voterUserId);
-        topicVoteCommandService.cancelVote(topicCandidate.getTeamId(), voterUserId);
+        topicVoteCommandService.cancelVote(topicCandidate.getTeamId(), candidateId, voterUserId);
     }
 }

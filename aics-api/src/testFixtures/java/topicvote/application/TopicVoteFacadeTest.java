@@ -71,6 +71,23 @@ class TopicVoteFacadeTest {
 
         // then
         verify(teamAccessValidator).validateMembership(TEAM_ID, VOTER_USER_ID);
-        verify(topicVoteCommandService).cancelVote(TEAM_ID, VOTER_USER_ID);
+        verify(topicVoteCommandService).cancelVote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
+    }
+
+    @Test
+    @DisplayName("cancelVote는 다른 후보의 투표 취소 요청 시 해당 후보만 취소한다")
+    void cancelVote_CancelsOnlySpecificCandidateVote() {
+        // given
+        Long differentCandidateId = 2L;
+        given(topicCandidateRepository.findById(differentCandidateId)).willReturn(Optional.of(
+            TopicCandidate.builder().id(differentCandidateId).teamId(TEAM_ID).build()
+        ));
+
+        // when
+        topicVoteFacade.cancelVote(differentCandidateId, VOTER_USER_ID);
+
+        // then
+        verify(teamAccessValidator).validateMembership(TEAM_ID, VOTER_USER_ID);
+        verify(topicVoteCommandService).cancelVote(TEAM_ID, differentCandidateId, VOTER_USER_ID);
     }
 }
