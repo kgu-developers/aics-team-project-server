@@ -118,8 +118,8 @@ class PreSurveyResponseRepositoryImplTest {
 	}
 
 	@Test
-	@DisplayName("중복 제출 체크는 소프트 삭제된 응답을 제외한 조회에만 의존한다")
-	void checkDuplicateSubmissionExcludesSoftDeleted() {
+	@DisplayName("사용자·섹션 조회는 응답이 없으면 다른 조회 없이 빈 값만 반환한다")
+	void findByUserIdAndSectionId_ReturnsEmptyWithoutExtraQueries() {
 		given(jpaPreSurveyResponseRepository.findByUserIdAndSectionIdAndDeletedAtIsNull(USER_ID, SECTION_ID))
 				.willReturn(Optional.empty());
 
