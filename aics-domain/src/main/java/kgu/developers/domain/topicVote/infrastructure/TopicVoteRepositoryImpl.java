@@ -72,6 +72,12 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     }
 
     @Override
+    public Optional<TopicVote> findByCandidateIdAndVoterUserIdWithLock(Long candidateId, String voterUserId) {
+        return jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdWithLock(candidateId, voterUserId)
+                .map(TopicVoteJpaEntity::toDomain);
+    }
+
+    @Override
     @Transactional
     public void deleteById(Long id) {
         TopicVoteJpaEntity entity = jpaTopicVoteRepository.findByIdAndDeletedAtIsNull(id)

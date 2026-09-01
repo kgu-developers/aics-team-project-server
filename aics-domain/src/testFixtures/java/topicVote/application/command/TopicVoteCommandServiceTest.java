@@ -76,11 +76,19 @@ class TopicVoteCommandServiceTest {
     @Test
     @DisplayName("cancelVote는 팀과 투표자 기준으로 투표를 취소한다")
     void cancelVote_DeletesVote() {
+        // given
+        TopicVote existingVote = TopicVote.builder()
+            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
+        given(topicVoteRepository.findByCandidateIdAndVoterUserIdWithLock(CANDIDATE_ID, VOTER_USER_ID))
+            .willReturn(Optional.of(existingVote));
+        given(topicVoteRepository.save(any(TopicVote.class))).willReturn(existingVote);
+
         // when
         topicVoteCommandService.cancelVote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
 
         // then
-        verify(topicVoteRepository).deleteByCandidateIdAndVoterUserId(CANDIDATE_ID, VOTER_USER_ID);
+        assertThat(existingVote.getDeletedAt()).isNotNull();
+        verify(topicVoteRepository).save(existingVote);
     }
 
     @Test
@@ -88,12 +96,18 @@ class TopicVoteCommandServiceTest {
     void cancelVote_DeletesOnlySpecificCandidateVote() {
         // given
         Long differentCandidateId = 2L;
+        TopicVote existingVote = TopicVote.builder()
+            .id(1L).teamId(TEAM_ID).candidateId(differentCandidateId).voterUserId(VOTER_USER_ID).build();
+        given(topicVoteRepository.findByCandidateIdAndVoterUserIdWithLock(differentCandidateId, VOTER_USER_ID))
+            .willReturn(Optional.of(existingVote));
+        given(topicVoteRepository.save(any(TopicVote.class))).willReturn(existingVote);
 
         // when
         topicVoteCommandService.cancelVote(TEAM_ID, differentCandidateId, VOTER_USER_ID);
 
         // then
-        verify(topicVoteRepository).deleteByCandidateIdAndVoterUserId(differentCandidateId, VOTER_USER_ID);
+        assertThat(existingVote.getDeletedAt()).isNotNull();
+        verify(topicVoteRepository).save(existingVote);
     }
 
     @Test

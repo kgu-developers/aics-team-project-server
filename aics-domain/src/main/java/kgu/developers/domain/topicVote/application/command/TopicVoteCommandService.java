@@ -47,7 +47,15 @@ public class TopicVoteCommandService {
 
     @Transactional
     public void cancelVote(Long teamId, Long candidateId, String voterUserId) {
-        topicVoteRepository.deleteByCandidateIdAndVoterUserId(candidateId, voterUserId);
+        Optional<TopicVote> vote = topicVoteRepository.findByCandidateIdAndVoterUserIdWithLock(candidateId, voterUserId);
+        if (vote.isPresent()) {
+            TopicVote existingVote = vote.get();
+            if (!existingVote.getCandidateId().equals(candidateId)) {
+                throw new IllegalStateException("투표 후보가 변경되어 취소할 수 없습니다");
+            }
+            existingVote.delete();
+            topicVoteRepository.save(existingVote);
+        }
     }
 
     private TopicVote changeVoteCandidate(TopicVote existingVote, Long candidateId) {

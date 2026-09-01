@@ -25,4 +25,8 @@ public interface JpaTopicVoteRepository extends JpaRepository<TopicVoteJpaEntity
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tv FROM TopicVoteJpaEntity tv WHERE tv.teamId = :teamId AND tv.voterUserId = :voterUserId")
     Optional<TopicVoteJpaEntity> findByTeamIdAndVoterUserIdWithLock(@Param("teamId") Long teamId, @Param("voterUserId") String voterUserId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT tv FROM TopicVoteJpaEntity tv WHERE tv.candidateId = :candidateId AND tv.voterUserId = :voterUserId AND tv.deletedAt IS NULL")
+    Optional<TopicVoteJpaEntity> findByCandidateIdAndVoterUserIdWithLock(@Param("candidateId") Long candidateId, @Param("voterUserId") String voterUserId);
 }
