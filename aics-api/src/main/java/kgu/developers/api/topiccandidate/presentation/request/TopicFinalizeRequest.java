@@ -3,6 +3,7 @@ package kgu.developers.api.topiccandidate.presentation.request;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -14,7 +15,7 @@ public record TopicFinalizeRequest(
     Long candidateId,
 
     @Schema(description = "프로젝트 목표", example = "AI 기반 학습 도우미 개발", requiredMode = REQUIRED)
-    @NotNull
+    @NotBlank
     String goal
 ) {
 }

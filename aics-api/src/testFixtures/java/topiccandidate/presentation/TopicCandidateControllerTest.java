@@ -26,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 @ExtendWith(MockitoExtension.class)
 class TopicCandidateControllerTest {
@@ -40,7 +41,12 @@ class TopicCandidateControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new TopicCandidateControllerImpl(topicCandidateFacade)).build();
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        
+        mockMvc = MockMvcBuilders.standaloneSetup(new TopicCandidateControllerImpl(topicCandidateFacade))
+            .setValidator(validator)
+            .build();
     }
 
     @Test
@@ -105,6 +111,26 @@ class TopicCandidateControllerTest {
             .andExpect(jsonPath("$.title").value("AI 기반 학습 도우미"));
 
         verify(topicCandidateFacade).finalizeTopic(TEAM_ID, USER_ID, request);
+    }
+
+    @Test
+    @DisplayName("PATCH /teams/{teamId}/topic-finalize는 빈 goal 값일 경우 400을 반환한다")
+    void finalizeTopic_EmptyGoal_Returns400() throws Exception {
+        mockMvc.perform(patch("/api/v1/teams/{teamId}/topic-finalize", TEAM_ID)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"candidateId\":1,\"goal\":\"\"}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PATCH /teams/{teamId}/topic-finalize는 공백만 있는 goal 값일 경우 400을 반환한다")
+    void finalizeTopic_WhitespaceGoal_Returns400() throws Exception {
+        mockMvc.perform(patch("/api/v1/teams/{teamId}/topic-finalize", TEAM_ID)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"candidateId\":1,\"goal\":\"   \"}"))
+            .andExpect(status().isBadRequest());
     }
 
     private TopicCandidateListResponse response() {
