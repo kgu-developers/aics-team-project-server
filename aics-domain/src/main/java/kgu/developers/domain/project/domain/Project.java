@@ -84,6 +84,9 @@ public class Project {
     }
 
     public void reactivate(String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle) {
+        if (this.deletedAt == null) {
+            throw new IllegalStateException("삭제되지 않은 프로젝트는 복구할 수 없습니다.");
+        }
         requireNonNull(title, "title");
         requireNonNull(description, "description");
         requireNonNull(goal, "goal");

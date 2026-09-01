@@ -292,6 +292,27 @@ class ProjectTest {
   }
 
   @Test
+  @DisplayName("reactivate는 삭제되지 않은 프로젝트면 예외를 발생시키고 기존 값을 유지한다")
+  void reactivateActiveProject() {
+    Project project = createDefaultProject();
+    project.completeProposal();
+
+    LocalDateTime proposalCompletedAt = project.getProposalCompletedAt();
+    String title = project.getTitle();
+
+    ObjectNode newLinks = objectMapper.createObjectNode();
+    newLinks.put("notion", "https://notion.so/new");
+
+    assertThatThrownBy(() ->
+        project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
+            newLinks, ApprovalStatus.APPROVED, "오프라인")
+    ).isInstanceOf(IllegalStateException.class);
+
+    assertThat(project.getTitle()).isEqualTo(title);
+    assertThat(project.getProposalCompletedAt()).isEqualTo(proposalCompletedAt);
+  }
+
+  @Test
   @DisplayName("reactivate가 실패하면 삭제 상태와 기존 값이 그대로 유지된다")
   void reactivateFailureLeavesStateUnchanged() {
     Project project = createDefaultProject();
