@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 class TopicCandidateCommandServiceTest {
 
@@ -76,5 +77,36 @@ class TopicCandidateCommandServiceTest {
         )).isInstanceOf(DuplicateTopicCandidateException.class);
 
         verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
+    }
+
+    @Test
+    @DisplayName("createTopicCandidate는 동시 요청 시 제약 조건 위반을 중복 예외로 변환한다")
+    void createTopicCandidate_ConvertsConstraintViolationToDuplicateException() {
+        given(topicCandidateRepository.existsByTeamIdAndProposerUserId(TEAM_ID, PROPOSER_USER_ID)).willReturn(false);
+        
+        DataIntegrityViolationException constraintViolation = new DataIntegrityViolationException(
+            "duplicate key value violates unique constraint \"uk_team_proposer\""
+        );
+        given(topicCandidateRepository.save(any(TopicCandidate.class))).willThrow(constraintViolation);
+
+        assertThatThrownBy(() -> topicCandidateCommandService.createTopicCandidate(
+            TEAM_ID, PROPOSER_USER_ID, TITLE, DESCRIPTION
+        )).isInstanceOf(DuplicateTopicCandidateException.class);
+    }
+
+    @Test
+    @DisplayName("createTopicCandidate는 다른 제약 조건 위반은 원본 예외를 다시 던진다")
+    void createTopicCandidate_RethrowsNonMatchingConstraintViolation() {
+        given(topicCandidateRepository.existsByTeamIdAndProposerUserId(TEAM_ID, PROPOSER_USER_ID)).willReturn(false);
+        
+        DataIntegrityViolationException otherConstraintViolation = new DataIntegrityViolationException(
+            "duplicate key value violates unique constraint \"uk_team_title\""
+        );
+        given(topicCandidateRepository.save(any(TopicCandidate.class))).willThrow(otherConstraintViolation);
+
+        assertThatThrownBy(() -> topicCandidateCommandService.createTopicCandidate(
+            TEAM_ID, PROPOSER_USER_ID, TITLE, DESCRIPTION
+        )).isInstanceOf(DataIntegrityViolationException.class)
+            .hasMessageContaining("uk_team_title");
     }
 }
