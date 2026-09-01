@@ -21,7 +21,7 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     public TopicCandidate save(TopicCandidate topicCandidate) {
         jpaTopicCandidateRepository
                 .findByTeamIdAndTitleAndDeletedAtIsNull(topicCandidate.getTeamId(), topicCandidate.getTitle())
-                .filter(found -> !found.getId().equals(topicCandidate.getId()))
+                .filter(found -> topicCandidate.getId() == null || !found.getId().equals(topicCandidate.getId()))
                 .ifPresent(found -> {
                     throw new DuplicateTopicCandidateTitleException();
                 });
