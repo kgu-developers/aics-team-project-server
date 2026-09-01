@@ -7,6 +7,7 @@ import static kgu.developers.admin.importcommon.RowStatus.VALID;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -85,6 +87,17 @@ public class EnrollmentImportFacade {
 
         batch.apply(LocalDateTime.now());
 
+        // validate() 처럼 분반의 등록정보와 대상 학번들의 계정을 한 번에 불러와,
+        // 행마다 따로 조회하지 않고 이 맵/집합에서 찾도록 한다
+        Map<String, Enrollment> enrollmentByStudent = enrollmentRepository.findAllBySectionId(batch.getSectionId())
+            .stream()
+            .collect(Collectors.toMap(Enrollment::getUserId, e -> e));
+        List<String> studentNumbers = new ArrayList<>();
+        batch.getPayload().forEach(row -> studentNumbers.add(row.path("studentNumber").asText()));
+        Set<String> existingUsers = new HashSet<>(userRepository.findAllByStudentNumberIn(studentNumbers).stream()
+            .map(User::getStudentNumber)
+            .toList());
+
         int applied = 0;
         int createdUsers = 0;
         int skipped = 0;
@@ -92,6 +105,9 @@ public class EnrollmentImportFacade {
             String status = row.path("status").asText();
             boolean newUser = NEW_USER.name().equals(status);
             if (!newUser && !VALID.name().equals(status)) {
+                if (DUPLICATE.name().equals(status)) {
+                    skipped++;
+                }
                 continue;
             }
             String studentNumber = row.path("studentNumber").asText();
@@ -102,8 +118,7 @@ public class EnrollmentImportFacade {
                 continue;
             }
 
-            Enrollment existing = enrollmentRepository
-                .findBySectionIdAndUserId(batch.getSectionId(), studentNumber).orElse(null);
+            Enrollment existing = enrollmentByStudent.get(studentNumber);
             if (existing != null) {
                 if (existing.getStatus() == Status.ACTIVE) {
                     skipped++;
@@ -113,7 +128,7 @@ public class EnrollmentImportFacade {
                 applied++;
                 continue;
             }
-            if (newUser && userRepository.findByStudentNumber(studentNumber).isEmpty()) {
+            if (newUser && !existingUsers.contains(studentNumber)) {
                 String phone = row.path("phone").asText();
                 if (phone.isEmpty()) {
                     skipped++;
@@ -122,10 +137,17 @@ public class EnrollmentImportFacade {
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
                     row.path("name").asText(), phone, UserGlobalRole.USER,
                     phone, false);
+                existingUsers.add(studentNumber);
                 createdUsers++;
             }
-            enrollmentCommandService.createEnrollment(batch.getSectionId(), studentNumber, role);
-            applied++;
+            // preview 이후 계정이 탈퇴(소프트삭제)됐을 수 있다 — 이 한 행만 건너뛰고
+            // 이미 반영된 다른 행들은 롤백시키지 않는다.
+            try {
+                enrollmentCommandService.createEnrollment(batch.getSectionId(), studentNumber, role);
+                applied++;
+            } catch (UserNotFoundException e) {
+                skipped++;
+            }
         }
         importBatchRepository.save(batch);
 

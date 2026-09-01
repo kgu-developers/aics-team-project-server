@@ -27,6 +27,7 @@ public final class Sheets {
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
     private static final long MAX_TOTAL_UNCOMPRESSED_SIZE = 100 * 1024 * 1024; // 100MB
     private static final int MAX_ROWS = 1000;
+    private static final int SPARSE_ROW_MARGIN = 10; // 서식만 있는 빈 행을 감안한 여유 배수
     private static final int BUFFER_SIZE = 8192;
     private static final byte[] ZIP_MAGIC = {'P', 'K', 0x03, 0x04};
 
@@ -57,6 +58,14 @@ public final class Sheets {
                 Sheet sheet = workbook.getSheetAt(0);
                 Row header = headerRow(sheet, requiredHeader);
                 RowMapper<T> mapper = binder.apply(header);
+
+                // getLastRowNum()은 시트에서 가장 멀리 떨어진 셀의 행 번호라, 맨 아래 근처
+                // 한 칸에만 서식이 남아있는 파일이면 실제 데이터가 몇 줄 안 돼도 이 값이
+                // 수십만까지 뛸 수 있다. MAX_ROWS는 "채워진 행"만 세므로 그 경우를 못 막아서,
+                // 훑을 물리적 행 범위 자체를 먼저 제한한다.
+                if (sheet.getLastRowNum() - header.getRowNum() > MAX_ROWS * SPARSE_ROW_MARGIN) {
+                    throw new ImportBatchFileInvalidException("행 범위가 너무 넓습니다.");
+                }
 
                 List<T> rows = new ArrayList<>();
                 for (int i = header.getRowNum() + 1; i <= sheet.getLastRowNum(); i++) {

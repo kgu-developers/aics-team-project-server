@@ -9,6 +9,7 @@ import static kgu.developers.domain.enrollment.domain.Status.ACTIVE;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -86,18 +87,37 @@ public class TeamImportFacade {
 
         batch.apply(LocalDateTime.now());
 
+        List<Team> teams = teamRepository.findAllBySectionId(batch.getSectionId());
         Map<String, Long> teamIds = new HashMap<>();
-        teamRepository.findAllBySectionId(batch.getSectionId())
-            .forEach(team -> teamIds.put(team.getName(), team.getId()));
+        teams.forEach(team -> teamIds.put(team.getName(), team.getId()));
+
+        // validate() 처럼 분반의 모든 팀원을 한 번에 불러와, plan()/plannedLeaders() 가
+        // 행/팀마다 따로 조회하지 않고 이 맵에서 찾도록 한다
+        List<TeamMember> existingMembers = teamMemberRepository.findAllByTeamIdIn(
+            teams.stream().map(Team::getId).toList());
+        Map<String, TeamMember> activeAssignedOf = existingMembers.stream()
+            .filter(member -> member.getDeletedAt() == null)
+            .collect(Collectors.toMap(TeamMember::getUserId, member -> member, (a, b) -> a));
+        Map<Long, String> currentLeaderByTeamId = existingMembers.stream()
+            .filter(member -> member.getDeletedAt() == null && member.isLeader())
+            .collect(Collectors.toMap(TeamMember::getTeamId, TeamMember::getUserId, (a, b) -> a));
 
         // 팀장 판정이 행 순서에 좌우되지 않도록, 반영할 행을 먼저 추린 뒤 파일 전체의 팀장 구성을 계산한다
         List<PlannedRow> planned = new ArrayList<>();
-        int skipped = plan(batch, teamIds, planned);
-        Map<String, String> leaderOf = plannedLeaders(planned, teamIds);
+        int skipped = plan(batch, teamIds, activeAssignedOf, planned);
+        Map<String, String> leaderOf = plannedLeaders(planned, teamIds, currentLeaderByTeamId);
 
         int createdTeams = 0;
         int appliedMembers = 0;
-        for (PlannedRow row : planned) {
+        // leaderOf 는 파일 전체를 놓고 "최종적으로 누가 팀장이어야 하는가"를 옳게 계산하지만,
+        // DB 반영은 한 행씩 순서대로 저장되고 TeamMemberRepositoryImpl.save() 가 저장 시점의
+        // 실제 DB 상태로 팀장 중복을 검사한다. 승격 행이 해제 행보다 먼저 저장되면 그 순간
+        // 팀에 팀장이 둘이 되어 LeaderAlreadyExistsException 이 나므로, 해제(leader=false)
+        // 행을 전부 먼저 반영한 뒤에 승격(leader=true) 행을 반영한다.
+        List<PlannedRow> orderedByLeaderLast = planned.stream()
+            .sorted(Comparator.comparing(PlannedRow::leader))
+            .toList();
+        for (PlannedRow row : orderedByLeaderLast) {
             if (row.leader() && !row.studentNumber().equals(leaderOf.get(row.teamName()))) {
                 skipped++;
                 continue;
@@ -143,7 +163,8 @@ public class TeamImportFacade {
         TeamMember assigned) {
     }
 
-    private int plan(ImportBatch batch, Map<String, Long> teamIds, List<PlannedRow> planned) {
+    private int plan(ImportBatch batch, Map<String, Long> teamIds, Map<String, TeamMember> activeAssignedOf,
+        List<PlannedRow> planned) {
         Set<String> enrolled = activeEnrollments(batch.getSectionId());
 
         int skipped = 0;
@@ -151,6 +172,9 @@ public class TeamImportFacade {
             String status = row.path("status").asText();
             boolean update = UPDATE.name().equals(status);
             if (!update && !VALID.name().equals(status)) {
+                if (DUPLICATE.name().equals(status)) {
+                    skipped++;
+                }
                 continue;
             }
             String teamName = row.path("teamName").asText();
@@ -161,9 +185,7 @@ public class TeamImportFacade {
                 continue;
             }
 
-            TeamMember assigned = teamMemberRepository
-                .findActiveBySectionIdAndUserId(batch.getSectionId(), studentNumber)
-                .orElse(null);
+            TeamMember assigned = activeAssignedOf.get(studentNumber);
             if (assigned != null && (!update || !assigned.getTeamId().equals(teamIds.get(teamName)))) {
                 skipped++;
                 continue;
@@ -175,17 +197,15 @@ public class TeamImportFacade {
         return skipped;
     }
 
-    private Map<String, String> plannedLeaders(List<PlannedRow> planned, Map<String, Long> teamIds) {
+    private Map<String, String> plannedLeaders(List<PlannedRow> planned, Map<String, Long> teamIds,
+        Map<Long, String> currentLeaderByTeamId) {
         Map<String, String> leaderOf = new HashMap<>();
         planned.stream().map(PlannedRow::teamName).distinct().forEach(teamName -> {
             Long teamId = teamIds.get(teamName);
-            if (teamId == null) {
-                return;
+            String currentLeader = teamId == null ? null : currentLeaderByTeamId.get(teamId);
+            if (currentLeader != null) {
+                leaderOf.put(teamName, currentLeader);
             }
-            teamMemberRepository.findAllByTeamId(teamId).stream()
-                .filter(TeamMember::isLeader)
-                .findFirst()
-                .ifPresent(leader -> leaderOf.put(teamName, leader.getUserId()));
         });
 
         planned.stream().filter(row -> !row.leader())

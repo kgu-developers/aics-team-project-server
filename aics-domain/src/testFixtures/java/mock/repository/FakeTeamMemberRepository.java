@@ -23,6 +23,12 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
         this.sectionIdByTeamId = new ConcurrentHashMap<>(sectionIdByTeamId);
     }
 
+    // 무인자 생성자로 만든 뒤에도 findActiveBySectionIdAndUserId 를 쓰려면 이걸로
+    // team-section 매핑을 등록해야 한다 — 등록 안 하면 그 메서드는 항상 empty를 반환한다.
+    public void assignTeamToSection(Long teamId, Long sectionId) {
+        sectionIdByTeamId.put(teamId, sectionId);
+    }
+
     @Override
     public TeamMember save(TeamMember teamMember) {
         Long id = teamMember.getId() != null ? teamMember.getId() : sequence.incrementAndGet();

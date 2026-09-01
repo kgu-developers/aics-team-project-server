@@ -63,6 +63,7 @@ public class EnrollmentImportFacadeTest {
     private static final String MEMBER = "202400002";
     private static final String ENROLLED = "202400003";
     private static final String NEWCOMER = "202499999";
+    private static final String ENROLLED_BUT_NOT_YET = "202400004";
 
     private ImportBatchRepository importBatchRepository;
     private EnrollmentRepository enrollmentRepository;
@@ -252,8 +253,8 @@ public class EnrollmentImportFacadeTest {
         // given
         ImportBatch batch = batch(0, List.of(row(2, MEMBER, RowStatus.VALID)));
         given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
-        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, MEMBER)).willReturn(
-            Optional.of(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.WITHDRAWN)));
+        given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
+            Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.WITHDRAWN)));
 
         // when
         EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
@@ -347,13 +348,34 @@ public class EnrollmentImportFacadeTest {
         // then
         assertThat(response.applied()).isEqualTo(2);
         assertThat(response.createdUsers()).isEqualTo(1);
-        assertThat(response.skipped()).isZero();
+        // ENROLLED 행은 DUPLICATE라 반영되지 않고, skipped 필드("이미 등록되어 건너뛴 수")에 잡혀야 한다
+        assertThat(response.skipped()).isEqualTo(1);
         verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "010-0000-0000",
             UserGlobalRole.USER, "010-0000-0000", false);
         verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.STUDENT);
         verify(enrollmentCommandService, never()).createEnrollment(eq(SECTION_ID), eq(ENROLLED), any());
+    }
+
+    @Test
+    @DisplayName("apply는 preview 이후 계정이 탈퇴한 학생은 그 행만 건너뛰고 나머지는 반영한다")
+    public void apply_SkipsRowWhenUserWithdrawnAfterPreview() {
+        // given: preview 때는 존재했던 MEMBER 계정이 apply 시점엔 탈퇴해 createEnrollment가 실패한다
+        ImportBatch batch = batch(0, List.of(
+            row(2, MEMBER, RowStatus.VALID),
+            row(3, ENROLLED_BUT_NOT_YET, RowStatus.VALID)));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+        given(enrollmentCommandService.createEnrollment(SECTION_ID, MEMBER, Role.STUDENT))
+            .willThrow(new kgu.developers.domain.user.exception.UserNotFoundException());
+
+        // when
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        // then: MEMBER 행만 건너뛰고, 트랜잭션 전체가 롤백되지 않고 나머지 행은 반영된다
+        assertThat(response.applied()).isEqualTo(1);
+        assertThat(response.skipped()).isEqualTo(1);
+        verify(enrollmentCommandService).createEnrollment(SECTION_ID, ENROLLED_BUT_NOT_YET, Role.STUDENT);
     }
 
     @Test
@@ -410,8 +432,8 @@ public class EnrollmentImportFacadeTest {
         // given
         ImportBatch batch = batch(0, List.of(row(2, MEMBER, RowStatus.VALID)));
         given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
-        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, MEMBER)).willReturn(
-            Optional.of(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE)));
+        given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
+            Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE)));
 
         // when
         EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);

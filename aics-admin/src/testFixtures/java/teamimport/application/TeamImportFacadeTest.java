@@ -94,7 +94,6 @@ public class TeamImportFacadeTest {
         Enrollment.create(SECTION_ID, STUDENT_C, Role.STUDENT, Status.ACTIVE)));
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
     given(importBatchRepository.save(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 1L));
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(any(), any())).willReturn(Optional.empty());
     given(sectionRepository.findActiveByIdForUpdate(SECTION_ID))
         .willReturn(Optional.of(mock(Section.class)));
   }
@@ -234,16 +233,19 @@ public class TeamImportFacadeTest {
     assertThat(response.skipped()).isZero();
     assertThat(leader.isLeader()).isFalse();
     assertThat(successor.isLeader()).isTrue();
+
+    // 파일에는 승격 행이 먼저 있었지만, DB 저장은 해제(leader) 먼저 → 승격(successor) 순으로
+    // 나가야 한다. 그렇지 않으면 실제 TeamMemberRepositoryImpl.save()에서 그 순간 팀장이
+    // 둘이 되어 LeaderAlreadyExistsException이 났을 것이다.
+    org.mockito.InOrder order = org.mockito.Mockito.inOrder(teamMemberRepository);
+    order.verify(teamMemberRepository).save(leader);
+    order.verify(teamMemberRepository).save(successor);
   }
 
   private void givenLeaderHandover(TeamMember leader, TeamMember successor, List<TeamImportRow> rows) {
     given(teamRepository.findAllBySectionId(SECTION_ID))
         .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, leader.getUserId()))
-        .willReturn(Optional.of(leader));
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, successor.getUserId()))
-        .willReturn(Optional.of(successor));
-    given(teamMemberRepository.findAllByTeamId(10L)).willReturn(List.of(leader, successor));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(leader, successor));
     given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, rows)));
   }
 
@@ -254,10 +256,8 @@ public class TeamImportFacadeTest {
     Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
     TeamMember target = TeamMember.create(10L, STUDENT_B, false, "프론트");
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_B))
-        .willReturn(Optional.of(target));
     // preview 때는 없던 팀장이 apply 시점엔 존재한다
-    given(teamMemberRepository.findAllByTeamId(10L)).willReturn(List.of(
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(
         TeamMember.create(10L, STUDENT_A, true, "백엔드"), target));
     given(importBatchRepository.findById(1L)).willReturn(Optional.of(
         batch(0, List.of(row(2, "1팀", STUDENT_B, true, "프론트", RowStatus.UPDATE)))));
@@ -292,8 +292,7 @@ public class TeamImportFacadeTest {
     Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
     TeamMember member = TeamMember.create(10L, STUDENT_A, false, "백엔드");
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
-        .willReturn(Optional.of(member));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(member));
     given(importBatchRepository.findById(1L)).willReturn(Optional.of(
         batch(0, List.of(row(2, "1팀", STUDENT_A, true, "프론트", RowStatus.UPDATE)))));
 
@@ -398,11 +397,13 @@ public class TeamImportFacadeTest {
     assertThat(response.appliedMembers()).isEqualTo(3);
     assertThat(response.skipped()).isZero();
 
+    // 팀장 승격 행은 해제/일반 행보다 뒤에 반영되므로(동시성 보호), 저장 순서가 아니라
+    // 최종적으로 저장된 값들의 집합만 확인한다
     ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
     verify(teamMemberRepository, org.mockito.Mockito.times(3)).save(captor.capture());
     assertThat(captor.getAllValues()).extracting(TeamMember::getTeamId, TeamMember::getUserId,
         TeamMember::isLeader, TeamMember::getProjectRole)
-        .containsExactly(
+        .containsExactlyInAnyOrder(
             org.assertj.core.groups.Tuple.tuple(10L, STUDENT_A, true, "백엔드"),
             org.assertj.core.groups.Tuple.tuple(10L, STUDENT_B, false, ""),
             org.assertj.core.groups.Tuple.tuple(20L, STUDENT_C, false, ""));
@@ -533,9 +534,8 @@ public class TeamImportFacadeTest {
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team2));
     
     TeamMember existingMember = TeamMember.create(20L, STUDENT_A, false, "백엔드");
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
-        .willReturn(Optional.of(existingMember));
-    
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(20L))).willReturn(List.of(existingMember));
+
     ImportBatch batch = batch(0, List.of(
         row(2, "1팀", STUDENT_A, true, "프론트", RowStatus.VALID),
         row(3, "1팀", STUDENT_B, false, "", RowStatus.VALID)));
@@ -549,7 +549,7 @@ public class TeamImportFacadeTest {
     // then: STUDENT_A는 건너뛰고, STUDENT_B만 추가됨
     assertThat(response.appliedMembers()).isEqualTo(1);
     assertThat(response.skipped()).isEqualTo(1);
-    
+
     ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
     verify(teamMemberRepository).save(captor.capture());
     assertThat(captor.getValue().getUserId()).isEqualTo(STUDENT_B);
@@ -561,11 +561,10 @@ public class TeamImportFacadeTest {
     // given: STUDENT_A가 이미 1팀에 속해 있는 상황
     Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
-    
+
     TeamMember existingMember = TeamMember.create(10L, STUDENT_A, false, "백엔드");
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
-        .willReturn(Optional.of(existingMember));
-    
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(existingMember));
+
     ImportBatch batch = batch(0, List.of(
         row(2, "1팀", STUDENT_A, true, "프론트", RowStatus.VALID),
         row(3, "1팀", STUDENT_B, false, "", RowStatus.VALID)));
@@ -600,8 +599,7 @@ public class TeamImportFacadeTest {
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team2));
 
     TeamMember existingMember = TeamMember.create(20L, STUDENT_A, false, "프론트");
-    given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, STUDENT_A))
-        .willReturn(Optional.of(existingMember));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(20L))).willReturn(List.of(existingMember));
 
     given(teamRepository.save(any())).willAnswer(invocation -> Team.builder().id(10L)
         .sectionId(SECTION_ID).name("1팀").build());
