@@ -11,6 +11,10 @@ public record TopicFinalizeRequest(
     @Schema(description = "최종 확정할 주제 후보 식별자", example = "1", requiredMode = REQUIRED)
     @NotNull
     @Positive
-    Long candidateId
+    Long candidateId,
+
+    @Schema(description = "프로젝트 목표", example = "AI 기반 학습 도우미 개발", requiredMode = REQUIRED)
+    @NotNull
+    String goal
 ) {
 }

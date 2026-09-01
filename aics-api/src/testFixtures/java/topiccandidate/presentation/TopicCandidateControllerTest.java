@@ -90,7 +90,7 @@ class TopicCandidateControllerTest {
     @DisplayName("PATCH /teams/{teamId}/topic-finalize는 팀장의 최종 주제를 확정한다")
     void finalizeTopic_FinalizesTopic() throws Exception {
         // given
-        TopicFinalizeRequest request = new TopicFinalizeRequest(1L);
+        TopicFinalizeRequest request = new TopicFinalizeRequest(1L, "AI 기반 학습 도우미 개발");
         given(topicCandidateFacade.finalizeTopic(TEAM_ID, USER_ID, request))
             .willReturn(new TopicFinalizeResponse(2L, 1L, "AI 기반 학습 도우미"));
 
@@ -98,7 +98,7 @@ class TopicCandidateControllerTest {
         mockMvc.perform(patch("/api/v1/teams/{teamId}/topic-finalize", TEAM_ID)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"candidateId\":1}"))
+                .content("{\"candidateId\":1,\"goal\":\"AI 기반 학습 도우미 개발\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.projectId").value(2L))
             .andExpect(jsonPath("$.candidateId").value(1L))

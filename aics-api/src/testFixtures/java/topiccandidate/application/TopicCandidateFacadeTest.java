@@ -147,7 +147,7 @@ class TopicCandidateFacadeTest {
 
         // when
         TopicFinalizeResponse result = topicCandidateFacade.finalizeTopic(
-            TEAM_ID, CURRENT_USER_ID, new TopicFinalizeRequest(topicCandidate.getId())
+            TEAM_ID, CURRENT_USER_ID, new TopicFinalizeRequest(topicCandidate.getId(), "AI 기반 학습 도우미 개발")
         );
 
         // then
@@ -159,7 +159,7 @@ class TopicCandidateFacadeTest {
             project.getTeamId().equals(TEAM_ID)
                 && project.getTitle().equals(topicCandidate.getTitle())
                 && project.getDescription().equals(topicCandidate.getDescription())
-                && project.getGoal().equals(topicCandidate.getDescription())
+                && project.getGoal().equals("AI 기반 학습 도우미 개발")
         ));
     }
 
@@ -189,7 +189,7 @@ class TopicCandidateFacadeTest {
 
         // when
         topicCandidateFacade.finalizeTopic(
-            TEAM_ID, CURRENT_USER_ID, new TopicFinalizeRequest(secondCandidate.getId())
+            TEAM_ID, CURRENT_USER_ID, new TopicFinalizeRequest(secondCandidate.getId(), "팀 프로젝트 관리 시스템")
         );
 
         // then
@@ -197,7 +197,7 @@ class TopicCandidateFacadeTest {
         verify(projectRepository).save(org.mockito.ArgumentMatchers.argThat(project ->
             project.getTitle().equals(secondCandidate.getTitle())
                 && project.getDescription().equals(secondCandidate.getDescription())
-                && project.getGoal().equals(secondCandidate.getDescription())
+                && project.getGoal().equals("팀 프로젝트 관리 시스템")
         ));
     }
 

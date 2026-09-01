@@ -74,7 +74,7 @@ public class TopicCandidateFacade {
                 teamId,
                 topicCandidate.getTitle(),
                 topicCandidate.getDescription(),
-                topicCandidate.getDescription(),
+                request.goal(),
                 null,
                 null,
                 ApprovalStatus.DRAFT,
@@ -82,7 +82,7 @@ public class TopicCandidateFacade {
             ));
         project.updateTitle(topicCandidate.getTitle());
         project.updateDescription(topicCandidate.getDescription());
-        project.updateGoal(topicCandidate.getDescription());
+        project.updateGoal(request.goal());
         project.updateTopicCandidateId(topicCandidate.getId());
         Project savedProject = projectRepository.save(project);
         return TopicFinalizeResponse.of(savedProject, topicCandidate);
