@@ -37,9 +37,7 @@ public class TeamCommandService {
     }
 
     private void validateNameNotTaken(Team team, String name) {
-        boolean taken = teamRepository.findAllBySectionId(team.getSectionId()).stream()
-                .anyMatch(other -> !other.getId().equals(team.getId()) && other.getName().equals(name));
-        if (taken) {
+        if (teamRepository.existsBySectionIdAndNameAndIdNot(team.getSectionId(), name, team.getId())) {
             throw new DuplicateTeamNameException();
         }
     }

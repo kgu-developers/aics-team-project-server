@@ -127,7 +127,6 @@ class TeamCommandServiceTest {
     void updateKickoff() {
         Team team = team(1L, Status.FORMING);
         given(teamQueryService.getTeamById(1L)).willReturn(team);
-        given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(team));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         Team updated = teamCommandService.updateKickoff(
@@ -154,8 +153,7 @@ class TeamCommandServiceTest {
     void rejectsDuplicateName() {
         Team team = team(1L, Status.FORMING);
         given(teamQueryService.getTeamById(1L)).willReturn(team);
-        given(teamRepository.findAllBySectionId(10L))
-                .willReturn(List.of(team, team(2L, Status.FORMING)));
+        given(teamRepository.existsBySectionIdAndNameAndIdNot(10L, "2팀", 1L)).willReturn(true);
 
         assertThatThrownBy(() -> teamCommandService.updateKickoff(1L, "2팀", "k", "m"))
                 .isInstanceOf(DuplicateTeamNameException.class);
@@ -169,8 +167,6 @@ class TeamCommandServiceTest {
     void keepingOwnNameIsNotDuplicate() {
         Team team = team(1L, Status.FORMING);
         given(teamQueryService.getTeamById(1L)).willReturn(team);
-        given(teamRepository.findAllBySectionId(10L))
-                .willReturn(List.of(team, team(2L, Status.FORMING)));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         assertThat(teamCommandService.updateKickoff(1L, "1팀", "k", "m").getName())

@@ -136,6 +136,24 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
+    @DisplayName("킥오프에서 이미 팀장으로 지정된 팀원은 자기 자신을 기존 팀장으로 오인하지 않고 확정할 수 있다")
+    void claimLeaderAllowsSelfWhenAlreadyDesignatedLeader() {
+        TeamMember member = TeamMember.builder()
+                .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
+                .build();
+        Team team = team(1L, Status.FORMING);
+        given(teamQueryService.getTeamById(1L)).willReturn(team);
+        given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
+        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(member));
+        given(teamMemberRepository.save(member)).willReturn(member);
+
+        TeamMember claimed = teamMemberCommandService.claimLeader(1L, "202699999");
+
+        assertThat(claimed.isLeader()).isTrue();
+        assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
+    }
+
+    @Test
     @DisplayName("이미 팀장이 있으면 팀장 자진 선언은 409 예외를 던진다")
     void rejectsLeaderClaimWhenLeaderAlreadyExists() {
         TeamMember member = teamMember();
@@ -232,6 +250,19 @@ class TeamMemberCommandServiceTest {
 
         assertThat(teamMember.getProjectRole()).isEqualTo("백엔드");
         verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("확정된 팀이어도 변경할 필드가 없는 빈 PATCH는 거부하지 않는다")
+    void allowsEmptyUpdateOnConfirmedTeam() {
+        TeamMember teamMember = teamMember();
+        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
+        given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
+
+        teamMemberCommandService.updateTeamMember(teamMember, null, null, null);
+
+        assertThat(teamMember.getProjectRole()).isEqualTo("백엔드");
+        assertThat(teamMember.isLeader()).isFalse();
     }
 
     @Test

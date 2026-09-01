@@ -12,5 +12,7 @@ public interface TeamRepository {
 
     List<Team> findAllBySectionId(Long sectionId);
 
+    boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id);
+
     void deleteById(Long id);
 }

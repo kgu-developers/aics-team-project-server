@@ -11,7 +11,6 @@ import kgu.developers.domain.teamMember.exception.TeamMemberNotFoundException;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +23,7 @@ import java.util.Optional;
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 import static java.util.stream.Collectors.partitioningBy;
 import static kgu.developers.common.exception.ConstraintViolations.violates;
+import static kgu.developers.common.exception.OptimisticLocks.translate;
 
 @Repository
 @RequiredArgsConstructor
@@ -68,13 +68,13 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
         .toList();
 
     try {
-      List<TeamMemberJpaEntity> savedEntities = jpaTeamMemberRepository.saveAll(entities);
-      jpaTeamMemberRepository.flush();
-      return savedEntities.stream()
-          .map(TeamMemberJpaEntity::toDomain)
-          .toList();
-    } catch (OptimisticLockingFailureException e) {
-      throw new TeamMemberConcurrentlyModifiedException();
+      return translate(() -> {
+        List<TeamMemberJpaEntity> savedEntities = jpaTeamMemberRepository.saveAll(entities);
+        jpaTeamMemberRepository.flush();
+        return savedEntities.stream()
+            .map(TeamMemberJpaEntity::toDomain)
+            .toList();
+      }, TeamMemberConcurrentlyModifiedException::new);
     } catch (DataIntegrityViolationException e) {
       if (violates(e, TEAM_LEADER_INDEX)) {
         throw new LeaderAlreadyExistsException();

@@ -10,7 +10,6 @@ import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static kgu.developers.common.exception.ConstraintViolations.violates;
+import static kgu.developers.common.exception.OptimisticLocks.translate;
 
 @Repository
 @RequiredArgsConstructor
@@ -33,9 +33,9 @@ public class TeamRepositoryImpl implements TeamRepository {
         SectionJpaEntity section = entityManager.getReference(SectionJpaEntity.class, team.getSectionId());
         TeamJpaEntity entity = TeamJpaEntity.toEntity(team, section);
         try {
-            return jpaTeamRepository.saveAndFlush(entity).toDomain();
-        } catch (OptimisticLockingFailureException e) {
-            throw new TeamConcurrentlyModifiedException();
+            return translate(
+                    () -> jpaTeamRepository.saveAndFlush(entity).toDomain(),
+                    TeamConcurrentlyModifiedException::new);
         } catch (DataIntegrityViolationException e) {
             if (violates(e, TEAM_NAME_INDEX)) {
                 throw new DuplicateTeamNameException();
@@ -64,6 +64,11 @@ public class TeamRepositoryImpl implements TeamRepository {
                 .stream()
                 .map(TeamJpaEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id) {
+        return jpaTeamRepository.existsBySectionIdAndNameAndIdNotAndDeletedAtIsNull(sectionId, name, id);
     }
 
     @Override

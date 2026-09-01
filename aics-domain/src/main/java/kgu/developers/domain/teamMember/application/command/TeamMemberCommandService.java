@@ -49,17 +49,9 @@ public class TeamMemberCommandService {
     boolean finalLeaderStatus = isLeader != null ? isLeader : (!moved && teamMember.isLeader());
     
     if (moved) {
-      Long firstTeamId = Math.min(currentTeam.getId(), targetTeamId);
-      Long secondTeamId = Math.max(currentTeam.getId(), targetTeamId);
-      
-      Team firstTeam = teamRepository.findById(firstTeamId)
+      Team targetTeam = teamRepository.findById(targetTeamId)
           .orElseThrow(() -> new TeamNotFoundException());
-      Team secondTeam = teamRepository.findById(secondTeamId)
-          .orElseThrow(() -> new TeamNotFoundException());
-      
-      Team targetTeam = firstTeam.getId().equals(targetTeamId) ? firstTeam : secondTeam;
-      currentTeam = firstTeam.getId().equals(teamMember.getTeamId()) ? firstTeam : secondTeam;
-      
+
       targetTeam.validateNotConfirmed();
       if (!currentTeam.getSectionId().equals(targetTeam.getSectionId())) {
         throw new TeamMemberSectionMismatchException();
@@ -90,10 +82,7 @@ public class TeamMemberCommandService {
     team.validateNotConfirmed();
     TeamMember member = teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
         .orElseThrow(TeamMemberNotFoundException::new);
-    teamMemberRepository.findLeaderByTeamId(teamId)
-        .ifPresent(leader -> {
-          throw new LeaderAlreadyExistsException();
-        });
+    validateNoLeaderInTeam(teamId, member.getId());
 
     member.updateIsLeader(true);
     TeamMember claimed = teamMemberRepository.save(member);
@@ -107,8 +96,9 @@ public class TeamMemberCommandService {
     if (currentTeam.getStatus() != Status.CONFIRMED) {
       return;
     }
-    // 확정 이후에는 교수용 PATCH의 팀장 재배정만 허용한다.
-    if (targetTeamId == null && projectRole == null && isLeader != null) {
+    // 확정 이후에는 팀 이동·역할 변경만 막는다. 값이 없는 필드는 변경하지 않으므로
+    // 빈 PATCH나 교수용 팀장 재배정(isLeader만 지정)은 통과시킨다.
+    if (targetTeamId == null && projectRole == null) {
       return;
     }
     currentTeam.validateNotConfirmed();
