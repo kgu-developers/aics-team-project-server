@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import static kgu.developers.domain.user.domain.UserGlobalRole.ADMIN;
 import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
+import java.time.LocalDateTime;
+
 import kgu.developers.domain.user.domain.User;
 
 class UserTest {
@@ -65,5 +67,16 @@ class UserTest {
     user.delete();
 
     assertThat(user.getDeletedAt()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("recordLogin은 전달받은 시각을 마지막 로그인 시각으로 기록한다")
+  void recordLogin() {
+    User user = user();
+    LocalDateTime loggedInAt = LocalDateTime.of(2026, 9, 1, 10, 30);
+
+    user.recordLogin(loggedInAt);
+
+    assertThat(user.getLastLoginAt()).isEqualTo(loggedInAt);
   }
 }
