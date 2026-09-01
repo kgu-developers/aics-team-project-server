@@ -8,6 +8,8 @@ public interface TeamRepository {
 
     Optional<Team> findById(Long id);
 
+    Optional<Team> findByIdForUpdate(Long id);
+
     List<Team> findAllById(List<Long> ids);
 
     List<Team> findAllBySectionId(Long sectionId);

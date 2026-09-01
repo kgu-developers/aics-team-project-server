@@ -52,6 +52,12 @@ public class TeamRepositoryImpl implements TeamRepository {
     }
 
     @Override
+    public Optional<Team> findByIdForUpdate(Long id) {
+        return jpaTeamRepository.findByIdForUpdate(id)
+                .map(TeamJpaEntity::toDomain);
+    }
+
+    @Override
     public List<Team> findAllById(List<Long> ids) {
         return jpaTeamRepository.findAllByIdInAndDeletedAtIsNull(ids)
                 .stream()

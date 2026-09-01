@@ -54,7 +54,9 @@ public class TeamCommandService {
     }
 
     private Team finalizeTeam(Long teamId) {
-        Team team = teamRepository.findById(teamId)
+        // updateTeamMember 와 같은 Team 행을 잠가서, 확정 처리 중에 그 팀의
+        // 팀원 정보가 바뀌는 경쟁 상태를 막는다(sunzx0428 리뷰 08-27 2번).
+        Team team = teamRepository.findByIdForUpdate(teamId)
                 .orElseThrow(() -> new TeamNotFoundException());
         if (team.getStatus() == CONFIRMED) {
             return team;

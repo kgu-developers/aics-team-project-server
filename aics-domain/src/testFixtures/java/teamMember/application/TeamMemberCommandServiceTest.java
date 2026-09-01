@@ -76,8 +76,8 @@ class TeamMemberCommandServiceTest {
     @DisplayName("targetTeamId가 있으면 팀을 옮긴다")
     void moveToAnotherTeam() {
         TeamMember teamMember = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
         given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
         given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
 
@@ -91,8 +91,8 @@ class TeamMemberCommandServiceTest {
     @DisplayName("옮길 팀에 이미 소속된 학생이면 예외를 던진다")
     void moveToTeamAlreadyJoined() {
         TeamMember teamMember = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
         given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999"))
                 .willReturn(Optional.of(teamMember()));
 
@@ -107,7 +107,7 @@ class TeamMemberCommandServiceTest {
     @DisplayName("null인 필드는 변경하지 않는다")
     void partialUpdateKeepsNullFields() {
         TeamMember teamMember = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
         given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
 
         teamMemberCommandService.updateTeamMember(teamMember, null, null, true);
@@ -183,7 +183,7 @@ class TeamMemberCommandServiceTest {
     @DisplayName("현재 팀과 같은 targetTeamId면 중복 조회 없이 역할만 바꾼다")
     void sameTeamIdSkipsDuplicateCheck() {
         TeamMember teamMember = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
         given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
 
         teamMemberCommandService.updateTeamMember(teamMember, 1L, "프론트엔드", null);
@@ -198,7 +198,7 @@ class TeamMemberCommandServiceTest {
         TeamMember teamMember = teamMember();
         TeamMember currentLeader = TeamMember.builder()
                 .id(2L).teamId(1L).userId("202611111").isLeader(true).build();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(currentLeader));
         given(teamMemberRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -215,7 +215,7 @@ class TeamMemberCommandServiceTest {
     void promotingSameLeaderKeepsLeadership() {
         TeamMember teamMember = TeamMember.builder()
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).build();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
         given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
 
         teamMemberCommandService.updateTeamMember(teamMember, null, null, true);
@@ -230,7 +230,7 @@ class TeamMemberCommandServiceTest {
     void demotingLeaderTouchesNobodyElse() {
         TeamMember teamMember = TeamMember.builder()
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).build();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
         given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
 
         teamMemberCommandService.updateTeamMember(teamMember, null, null, false);
@@ -243,7 +243,7 @@ class TeamMemberCommandServiceTest {
     @DisplayName("확정된 팀의 팀원은 수정할 수 없다")
     void rejectsUpdateOnConfirmedTeam() {
         TeamMember teamMember = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
 
         assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(teamMember, null, "프론트엔드", null))
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
@@ -256,7 +256,7 @@ class TeamMemberCommandServiceTest {
     @DisplayName("확정된 팀이어도 변경할 필드가 없는 빈 PATCH는 거부하지 않는다")
     void allowsEmptyUpdateOnConfirmedTeam() {
         TeamMember teamMember = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
         given(teamMemberRepository.save(teamMember)).willReturn(teamMember);
 
         teamMemberCommandService.updateTeamMember(teamMember, null, null, null);
@@ -270,7 +270,7 @@ class TeamMemberCommandServiceTest {
     void allowsLeaderReassignmentOnConfirmedTeam() {
         TeamMember member = teamMember();
         TeamMember currentLeader = leaderOf(1L, 2L);
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(currentLeader));
         given(teamMemberRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -286,8 +286,8 @@ class TeamMemberCommandServiceTest {
     @DisplayName("확정된 팀으로는 팀원을 옮길 수 없다")
     void rejectsMoveToConfirmedTeam() {
         TeamMember teamMember = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team(2L, Status.CONFIRMED)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team(2L, Status.CONFIRMED)));
 
         assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(teamMember, 2L, null, null))
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
@@ -413,8 +413,8 @@ class TeamMemberCommandServiceTest {
     @DisplayName("다른 분반의 팀으로는 옮길 수 없다")
     void rejectsMoveToOtherSection() {
         TeamMember member = teamMember();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING, 10L)));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team(2L, Status.FORMING, 99L)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING, 10L)));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team(2L, Status.FORMING, 99L)));
 
         assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(member, 2L, null, null))
                 .isInstanceOf(TeamMemberSectionMismatchException.class);
@@ -428,8 +428,8 @@ class TeamMemberCommandServiceTest {
     void rejectsMovingLeaderIntoTeamWithLeader() {
         TeamMember member = teamMember();
         TeamMember targetLeader = leaderOf(2L, 9L);
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
         given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
         given(teamMemberRepository.findLeaderByTeamId(2L)).willReturn(Optional.of(targetLeader));
 
@@ -446,7 +446,7 @@ class TeamMemberCommandServiceTest {
     void demotesLeaderWithinSameTeam() {
         TeamMember member = teamMember();
         TeamMember currentLeader = leaderOf(1L, 9L);
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(currentLeader));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamMemberRepository).save(any());
 
@@ -463,7 +463,6 @@ class TeamMemberCommandServiceTest {
         TeamMember existingLeader = TeamMember.builder()
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
                 .build();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
 
         assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(existingLeader, 2L, null, null))
                 .isInstanceOf(LeaderMoveRequiresExplicitRoleException.class);
@@ -479,8 +478,8 @@ class TeamMemberCommandServiceTest {
         TeamMember existingLeader = TeamMember.builder()
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
                 .build();
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.FORMING)));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
         given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
         given(teamMemberRepository.save(existingLeader)).willReturn(existingLeader);
 
@@ -498,8 +497,8 @@ class TeamMemberCommandServiceTest {
         Team team1v1 = Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).version(1L).build();
         Team team2v1 = Team.builder().id(2L).sectionId(10L).name("2팀").status(Status.FORMING).version(1L).build();
         
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team1v1));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team2v1));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team1v1));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team2v1));
         given(teamMemberRepository.findByTeamIdAndUserId(2L, "202699999")).willReturn(Optional.empty());
         
         teamMemberCommandService.updateTeamMember(teamMember, 2L, null, null);
@@ -507,8 +506,8 @@ class TeamMemberCommandServiceTest {
         Team team1v2 = Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).version(2L).build();
         Team team2v2 = Team.builder().id(2L).sectionId(10L).name("2팀").status(Status.FORMING).version(2L).build();
         
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team1v2));
-        given(teamRepository.findById(2L)).willReturn(Optional.of(team2v2));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team1v2));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team2v2));
         
         teamMemberCommandService.updateTeamMember(teamMember, 1L, null, null);
         
@@ -521,7 +520,7 @@ class TeamMemberCommandServiceTest {
         TeamMember member = teamMember();
         Team confirmedTeam = team(1L, Status.CONFIRMED);
         
-        given(teamRepository.findById(1L)).willReturn(Optional.of(confirmedTeam));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(confirmedTeam));
         
         assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(member, null, "프론트엔드", null))
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
@@ -562,7 +561,7 @@ class TeamMemberCommandServiceTest {
         executor.submit(() -> {
             try {
                 Thread.sleep(10);
-                given(teamRepository.findById(1L)).willReturn(Optional.of(confirmedTeam));
+                given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(confirmedTeam));
                 teamMemberCommandService.updateTeamMember(member, null, "프론트엔드", null);
                 successCount.incrementAndGet();
             } catch (Exception e) {

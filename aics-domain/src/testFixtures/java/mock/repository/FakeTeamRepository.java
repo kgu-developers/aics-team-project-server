@@ -40,6 +40,11 @@ public class FakeTeamRepository implements TeamRepository {
     }
 
     @Override
+    public Optional<Team> findByIdForUpdate(Long id) {
+        return Optional.ofNullable(store.get(id));
+    }
+
+    @Override
     public List<Team> findAllById(List<Long> ids) {
         return store.values().stream()
             .filter(team -> ids.contains(team.getId()))

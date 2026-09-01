@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,7 +16,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
+import kgu.developers.domain.team.domain.Status;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.infrastructure.JpaTeamRepository;
+import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.team.infrastructure.TeamRepositoryImpl;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 
@@ -45,5 +50,23 @@ class TeamRepositoryImplTest {
 
     assertThat(exists).isFalse();
     verify(entityManager).find(SectionJpaEntity.class, SECTION_ID, PESSIMISTIC_WRITE);
+  }
+
+  @Test
+  @DisplayName("findByIdForUpdate는 잠금 쿼리로 팀을 조회한다")
+  void findByIdForUpdate_DelegatesToLockingQuery() {
+    TeamJpaEntity entity = TeamJpaEntity.builder()
+        .id(1L)
+        .section(SectionJpaEntity.builder().id(SECTION_ID).build())
+        .name("1팀")
+        .status(Status.FORMING)
+        .build();
+    given(jpaTeamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(entity));
+
+    Optional<Team> found = teamRepositoryImpl.findByIdForUpdate(1L);
+
+    assertThat(found).isPresent();
+    assertThat(found.get().getId()).isEqualTo(1L);
+    verify(jpaTeamRepository).findByIdForUpdate(1L);
   }
 }

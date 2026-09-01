@@ -35,23 +35,37 @@ public class TeamMemberCommandService {
   private final TeamRepository teamRepository;
 
   public TeamMember updateTeamMember(TeamMember teamMember, Long targetTeamId, String projectRole, Boolean isLeader) {
-    // Re-fetch current team to ensure version check
-    Team currentTeam = teamRepository.findById(teamMember.getTeamId())
-        .orElseThrow(() -> new TeamNotFoundException());
-    validateUpdateAllowed(currentTeam, targetTeamId, projectRole, isLeader);
-
     boolean moved = targetTeamId != null && !targetTeamId.equals(teamMember.getTeamId());
     // 팀장을 옮기면 원래 팀이 팀장을 잃으므로 조용히 처리하지 않고 isLeader 를 명시하게 한다.
+    // DB 조회 없이 판단 가능하므로 잠금을 걸기 전에 먼저 걸러낸다.
     if (moved && teamMember.isLeader() && isLeader == null) {
       throw new LeaderMoveRequiresExplicitRoleException();
     }
+
+    // finalizeTeam 과 같은 Team 행을 잠가서, "상태 확인 → 팀원 저장" 사이에 팀이
+    // 확정되는 경쟁 상태를 막는다(sunzx0428 리뷰 08-27 2번). moved 인 경우 두 팀을
+    // 모두 잠그되, 서로 반대 방향으로 옮기는 요청끼리 데드락 나지 않게 ID 오름차순으로 잠근다.
+    Team currentTeam;
+    Team targetTeam = null;
+    if (moved) {
+      Long firstId = Math.min(teamMember.getTeamId(), targetTeamId);
+      Long secondId = Math.max(teamMember.getTeamId(), targetTeamId);
+      Team first = teamRepository.findByIdForUpdate(firstId)
+          .orElseThrow(() -> new TeamNotFoundException());
+      Team second = teamRepository.findByIdForUpdate(secondId)
+          .orElseThrow(() -> new TeamNotFoundException());
+      currentTeam = first.getId().equals(teamMember.getTeamId()) ? first : second;
+      targetTeam = first.getId().equals(targetTeamId) ? first : second;
+    } else {
+      currentTeam = teamRepository.findByIdForUpdate(teamMember.getTeamId())
+          .orElseThrow(() -> new TeamNotFoundException());
+    }
+    validateUpdateAllowed(currentTeam, targetTeamId, projectRole, isLeader);
+
     // 팀장은 팀에 종속된 역할이라 이동만 요청하면 따라가지 않는다.
     boolean finalLeaderStatus = isLeader != null ? isLeader : (!moved && teamMember.isLeader());
-    
-    if (moved) {
-      Team targetTeam = teamRepository.findById(targetTeamId)
-          .orElseThrow(() -> new TeamNotFoundException());
 
+    if (moved) {
       targetTeam.validateNotConfirmed();
       if (!currentTeam.getSectionId().equals(targetTeam.getSectionId())) {
         throw new TeamMemberSectionMismatchException();

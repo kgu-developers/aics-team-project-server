@@ -62,8 +62,8 @@ class TeamCommandServiceTest {
         Team team2 = team(2L, Status.FORMING);
         runEachTeamTransactionInline();
         given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(team1, team2));
-        given(teamRepository.findById(1L)).willReturn(java.util.Optional.of(team1));
-        given(teamRepository.findById(2L)).willReturn(java.util.Optional.of(team2));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(java.util.Optional.of(team1));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         List<Team> finalized = teamCommandService.finalizeTeams(10L);
@@ -81,8 +81,8 @@ class TeamCommandServiceTest {
         Team team2 = team(2L, Status.FORMING);
         runEachTeamTransactionInline();
         given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(team1, team2));
-        given(teamRepository.findById(1L)).willReturn(java.util.Optional.of(team1));
-        given(teamRepository.findById(2L)).willReturn(java.util.Optional.of(team2));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(java.util.Optional.of(team1));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         assertThat(teamCommandService.finalizeTeams(10L))
@@ -97,8 +97,8 @@ class TeamCommandServiceTest {
         Team forming = team(2L, Status.FORMING);
         runEachTeamTransactionInline();
         given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(confirmed, forming));
-        given(teamRepository.findById(1L)).willReturn(java.util.Optional.of(confirmed));
-        given(teamRepository.findById(2L)).willReturn(java.util.Optional.of(forming));
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(java.util.Optional.of(confirmed));
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(forming));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
         List<Team> finalized = teamCommandService.finalizeTeams(10L);
