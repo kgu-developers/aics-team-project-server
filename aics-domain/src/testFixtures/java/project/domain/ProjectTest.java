@@ -286,9 +286,36 @@ class ProjectTest {
         project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인")
     ).isInstanceOf(NullPointerException.class);
 
-    assertThatThrownBy(() -> 
+    assertThatThrownBy(() ->
         project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, "온라인")
     ).isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  @DisplayName("reactivate가 실패하면 삭제 상태와 기존 값이 그대로 유지된다")
+  void reactivateFailureLeavesStateUnchanged() {
+    Project project = createDefaultProject();
+    project.delete();
+
+    LocalDateTime deletedAt = project.getDeletedAt();
+    String title = project.getTitle();
+    String description = project.getDescription();
+    String goal = project.getGoal();
+    ApprovalStatus approvalStatus = project.getApprovalStatus();
+
+    ObjectNode newLinks = objectMapper.createObjectNode();
+    newLinks.put("notion", "https://notion.so/new");
+
+    assertThatThrownBy(() ->
+        project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
+            newLinks, null, "오프라인")
+    ).isInstanceOf(NullPointerException.class);
+
+    assertThat(project.getTitle()).isEqualTo(title);
+    assertThat(project.getDescription()).isEqualTo(description);
+    assertThat(project.getGoal()).isEqualTo(goal);
+    assertThat(project.getApprovalStatus()).isEqualTo(approvalStatus);
+    assertThat(project.getDeletedAt()).isEqualTo(deletedAt);
   }
 
   @Test

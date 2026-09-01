@@ -84,14 +84,19 @@ public class Project {
     }
 
     public void reactivate(String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle) {
-        this.deletedAt = null;
-        this.title = requireNonNull(title, "title");
-        this.description = requireNonNull(description, "description");
-        this.goal = requireNonNull(goal, "goal");
+        requireNonNull(title, "title");
+        requireNonNull(description, "description");
+        requireNonNull(goal, "goal");
+        requireNonNull(approvalStatus, "approvalStatus");
+
+        this.title = title;
+        this.description = description;
+        this.goal = goal;
         this.repositoryUrl = repositoryUrl;
         this.externalLinks = externalLinks;
-        this.approvalStatus = requireNonNull(approvalStatus, "approvalStatus");
+        this.approvalStatus = approvalStatus;
         this.meetingStyle = meetingStyle;
         this.proposalCompletedAt = null;
+        this.deletedAt = null;
     }
 }
