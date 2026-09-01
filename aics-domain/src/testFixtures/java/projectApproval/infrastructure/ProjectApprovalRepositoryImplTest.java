@@ -1,11 +1,13 @@
 package projectApproval.infrastructure;
 
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
+import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import kgu.developers.domain.projectApproval.exception.ProjectApprovalNotFoundException;
 import kgu.developers.domain.projectApproval.infrastructure.JpaProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalJpaEntity;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalRepositoryImpl;
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -38,7 +40,7 @@ class ProjectApprovalRepositoryImplTest {
         ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
         given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
                 .willReturn(Optional.empty());
-        given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
                 .willReturn(ProjectApprovalJpaEntity.builder()
                         .id(1L)
                         .projectId(1L)
@@ -50,7 +52,7 @@ class ProjectApprovalRepositoryImplTest {
 
         assertThat(saved.getId()).isEqualTo(1L);
         ArgumentCaptor<ProjectApprovalJpaEntity> captor = ArgumentCaptor.forClass(ProjectApprovalJpaEntity.class);
-        verify(jpaProjectApprovalRepository).save(captor.capture());
+        verify(jpaProjectApprovalRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getProjectId()).isEqualTo(1L);
         assertThat(captor.getValue().getUserId()).isEqualTo("20260001");
     }
@@ -224,7 +226,7 @@ class ProjectApprovalRepositoryImplTest {
 
         given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
                 .willReturn(Optional.of(existingEntity));
-        given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
                 .willReturn(existingEntity);
 
         ProjectApproval saved = projectApprovalRepository.save(approval);
@@ -232,5 +234,18 @@ class ProjectApprovalRepositoryImplTest {
         assertThat(saved.getId()).isEqualTo(1L);
         assertThat(existingEntity.getDeletedAt()).isNull();
         assertThat(existingEntity.getApprovedAt()).isEqualTo(now);
+    }
+
+    @Test
+    @DisplayName("save는 조회와 INSERT 사이에 끼어든 동시 동의를 DuplicateProjectApprovalException 으로 바꾼다")
+    void saveMapsConstraintViolationToDuplicate() {
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
+        given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
+                .willReturn(Optional.empty());
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
+                .willThrow(new DataIntegrityViolationException("uk_project_approval_project_user"));
+
+        assertThatThrownBy(() -> projectApprovalRepository.save(approval))
+                .isInstanceOf(DuplicateProjectApprovalException.class);
     }
 }

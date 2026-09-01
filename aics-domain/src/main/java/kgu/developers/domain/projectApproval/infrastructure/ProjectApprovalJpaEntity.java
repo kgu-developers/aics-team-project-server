@@ -7,7 +7,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.LocalDateTime;
 
@@ -19,7 +18,6 @@ import static lombok.AccessLevel.PROTECTED;
     "project_id", "user_id" }))
 @Builder
 @Getter
-@Setter
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class ProjectApprovalJpaEntity extends BaseTimeEntity {
@@ -35,6 +33,11 @@ public class ProjectApprovalJpaEntity extends BaseTimeEntity {
 
     @Column(nullable = false)
     private LocalDateTime approvedAt;
+
+    public void reactivate(LocalDateTime approvedAt) {
+        setDeletedAt(null);
+        this.approvedAt = approvedAt;
+    }
 
     public ProjectApproval toDomain() {
         return ProjectApproval.builder()
