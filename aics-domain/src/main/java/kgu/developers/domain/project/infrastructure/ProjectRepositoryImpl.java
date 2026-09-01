@@ -67,6 +67,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             ProjectJpaEntity project = jpaProjectRepository.findByIdAndDeletedAtIsNull(id)
                     .orElseThrow(ProjectNotFoundException::new);
             project.delete();
+            jpaProjectRepository.save(project);
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new ProjectVersionConflictException();
         }

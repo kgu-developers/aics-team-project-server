@@ -92,4 +92,31 @@ class ProjectJpaEntityTest {
     assertThat(domain.getCreatedAt()).isEqualTo(createdAt);
     assertThat(domain.getUpdatedAt()).isNull();
   }
+
+  @Test
+  @DisplayName("toEntity는 새 프로젝트(id가 null)인 경우 createdAt을 수동으로 설정하지 않는다")
+  void toEntityForNewProjectDoesNotSetCreatedAt() {
+    LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 9, 0);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project project = Project.builder()
+        .id(null)
+        .teamId(2L)
+        .title("팀 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .createdAt(createdAt)
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(2L).build();
+    ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
+
+    assertThat(entity.getCreatedAt()).isNull();
+  }
 }
