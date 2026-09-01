@@ -23,6 +23,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     private final EntityManager entityManager;
 
     @Override
+    @Transactional
     public Project save(Project project) {
         try {
             TeamJpaEntity team = entityManager.find(TeamJpaEntity.class, project.getTeamId());
