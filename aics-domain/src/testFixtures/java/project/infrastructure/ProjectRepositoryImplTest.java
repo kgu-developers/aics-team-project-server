@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.exception.ProjectAlreadyExistsException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.project.infrastructure.JpaProjectRepository;
 import kgu.developers.domain.project.infrastructure.ProjectJpaEntity;
@@ -138,6 +139,47 @@ class ProjectRepositoryImplTest {
 
     assertThatThrownBy(() -> repository.save(project))
         .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
+    verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
+  }
+
+  @Test
+  @DisplayName("save는 팀에 활성 프로젝트가 이미 있으면 ProjectAlreadyExistsException을 발생시킨다")
+  void saveWithExistingActiveProject() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project project = Project.create(
+        1L,
+        "팀 프로젝트",
+        "프로젝트 설명",
+        "프로젝트 목표",
+        "https://github.com/example/repo",
+        externalLinks,
+        ApprovalStatus.DRAFT,
+        "온라인"
+    );
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
+
+    Project existing = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("기존 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .build();
+    given(jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(1L))
+        .willReturn(List.of(ProjectJpaEntity.toEntity(existing, team)));
+
+    assertThatThrownBy(() -> repository.save(project))
+        .isInstanceOf(ProjectAlreadyExistsException.class);
     verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
   }
 

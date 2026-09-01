@@ -3,6 +3,7 @@ package kgu.developers.domain.project.infrastructure;
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.exception.ProjectAlreadyExistsException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.project.exception.ProjectVersionConflictException;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
@@ -27,6 +28,10 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             TeamJpaEntity team = entityManager.find(TeamJpaEntity.class, project.getTeamId());
             if (team == null || team.getDeletedAt() != null) {
                 throw new TeamNotFoundException();
+            }
+            if (project.getId() == null
+                    && !jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(project.getTeamId()).isEmpty()) {
+                throw new ProjectAlreadyExistsException();
             }
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
             ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
