@@ -1,5 +1,6 @@
 package kgu.developers.domain.auditLog.infrastructure;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.auditLog.domain.AuditLog;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
+import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 import lombok.RequiredArgsConstructor;
 
@@ -58,6 +60,29 @@ public class AuditLogRepositoryImpl implements AuditLogRepository {
 		}
 		return jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNull(eventType, pageable)
 				.map(AuditLogJpaEntity::toDomain);
+	}
+
+	@Override
+	public Page<AuditLog> findAllByTeam(Long sectionId, Long teamId, Pageable pageable) {
+		if (sectionId == null || teamId == null) {
+			return Page.empty(pageable);
+		}
+		return jpaAuditLogRepository
+				.findAllBySectionIdAndTargetTypeAndTargetIdAndDeletedAtIsNull(
+						sectionId, TargetType.TEAM.getCode(), teamId, pageable)
+				.map(AuditLogJpaEntity::toDomain);
+	}
+
+	@Override
+	public List<AuditLog> findAllBySectionIdAndActorIdIn(Long sectionId, List<String> actorIds) {
+		if (sectionId == null || actorIds == null || actorIds.isEmpty()) {
+			return List.of();
+		}
+		return jpaAuditLogRepository
+				.findAllBySectionIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(sectionId, actorIds)
+				.stream()
+				.map(AuditLogJpaEntity::toDomain)
+				.toList();
 	}
 
 	@Override

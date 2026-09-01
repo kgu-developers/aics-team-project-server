@@ -9,6 +9,7 @@ import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -23,5 +24,10 @@ public class TeamQueryService {
             throw new SectionNotFoundException();
         }
         return teamRepository.findAllBySectionId(sectionId);
+    }
+
+    public Team getTeamById(Long id) {
+        return teamRepository.findById(id)
+                .orElseThrow(TeamNotFoundException::new);
     }
 }

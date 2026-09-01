@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 
 import kgu.developers.domain.auditLog.domain.AuditLog;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
+import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 
 public class FakeAuditLogRepository implements AuditLogRepository {
@@ -87,6 +88,42 @@ public class FakeAuditLogRepository implements AuditLogRepository {
 				.sorted(Comparator.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
 		return paginate(filtered, pageable);
+	}
+
+	@Override
+	public Page<AuditLog> findAllByTeam(Long sectionId, Long teamId, Pageable pageable) {
+		if (sectionId == null || teamId == null) {
+			return Page.empty(pageable);
+		}
+		List<AuditLog> filtered = activeLogs()
+				.filter(log -> sectionId.equals(log.getSectionId()))
+				.filter(log -> TargetType.TEAM == log.getTargetType())
+				.filter(log -> teamId.equals(log.getTargetId()))
+				.sorted(newestFirst())
+				.toList();
+		return paginate(filtered, pageable);
+	}
+
+	@Override
+	public List<AuditLog> findAllBySectionIdAndActorIdIn(Long sectionId, List<String> actorIds) {
+		if (sectionId == null || actorIds == null || actorIds.isEmpty()) {
+			return List.of();
+		}
+		return activeLogs()
+				.filter(log -> sectionId.equals(log.getSectionId()))
+				.filter(log -> actorIds.contains(log.getActorId()))
+				.sorted(newestFirst())
+				.toList();
+	}
+
+	private java.util.stream.Stream<AuditLog> activeLogs() {
+		return store.values().stream().filter(log -> log.getDeletedAt() == null);
+	}
+
+	private Comparator<AuditLog> newestFirst() {
+		return Comparator
+				.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+				.thenComparing(AuditLog::getId, Comparator.nullsLast(Comparator.reverseOrder()));
 	}
 
 	private Page<AuditLog> paginate(List<AuditLog> items, Pageable pageable) {

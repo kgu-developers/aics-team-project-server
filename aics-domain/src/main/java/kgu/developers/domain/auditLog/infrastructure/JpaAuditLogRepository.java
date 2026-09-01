@@ -1,5 +1,6 @@
 package kgu.developers.domain.auditLog.infrastructure;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -15,4 +16,10 @@ public interface JpaAuditLogRepository extends JpaRepository<AuditLogJpaEntity, 
 	Page<AuditLogJpaEntity> findAllByActorIdAndDeletedAtIsNull(String actorId, Pageable pageable);
 
 	Page<AuditLogJpaEntity> findAllByEventTypeAndDeletedAtIsNull(String eventType, Pageable pageable);
+
+	Page<AuditLogJpaEntity> findAllBySectionIdAndTargetTypeAndTargetIdAndDeletedAtIsNull(
+			Long sectionId, Long targetType, Long targetId, Pageable pageable);
+
+	List<AuditLogJpaEntity> findAllBySectionIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+			Long sectionId, List<String> actorIds);
 }
