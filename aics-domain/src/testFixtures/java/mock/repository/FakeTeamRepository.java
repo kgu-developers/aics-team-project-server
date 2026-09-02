@@ -24,6 +24,7 @@ public class FakeTeamRepository implements TeamRepository {
             .kickoffRule(team.getKickoffRule())
             .meetingSchedule(team.getMeetingSchedule())
             .status(team.getStatus())
+            .version(team.getVersion())
             .createdAt(team.getCreatedAt())
             .updatedAt(team.getUpdatedAt())
             .deletedAt(team.getDeletedAt())
@@ -35,6 +36,11 @@ public class FakeTeamRepository implements TeamRepository {
 
     @Override
     public Optional<Team> findById(Long id) {
+        return Optional.ofNullable(store.get(id));
+    }
+
+    @Override
+    public Optional<Team> findByIdForUpdate(Long id) {
         return Optional.ofNullable(store.get(id));
     }
 
@@ -58,6 +64,14 @@ public class FakeTeamRepository implements TeamRepository {
             .filter(team -> sectionIds.contains(team.getSectionId()))
             .filter(team -> team.getDeletedAt() == null)
             .toList();
+    }
+
+    @Override
+    public boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id) {
+        return store.values().stream()
+            .anyMatch(team -> team.getSectionId().equals(sectionId)
+                && team.getName().equals(name)
+                && !team.getId().equals(id));
     }
 
     @Override

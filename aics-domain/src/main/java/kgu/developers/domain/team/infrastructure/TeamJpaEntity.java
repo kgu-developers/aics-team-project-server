@@ -16,6 +16,8 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
+// uk_team_section_name 은 deleted_at 조건이 붙은 부분 인덱스라 @UniqueConstraint 로 표현할 수 없다.
+// database/team.sql 참고.
 @Table(name = "team")
 @Builder
 @Getter
@@ -25,6 +27,9 @@ public class TeamJpaEntity extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
 
     @ManyToOne(fetch = LAZY, optional = false)
     @JoinColumn(name = "section_id", nullable = false,
@@ -47,6 +52,7 @@ public class TeamJpaEntity extends BaseTimeEntity {
     public Team toDomain() {
         return Team.builder()
                 .id(id)
+                .version(version)
                 .sectionId(section.getId())
                 .name(name)
                 .kickoffRule(kickoffRule)
@@ -61,6 +67,7 @@ public class TeamJpaEntity extends BaseTimeEntity {
     public static TeamJpaEntity toEntity(Team team, SectionJpaEntity section) {
         TeamJpaEntity  entity = TeamJpaEntity.builder()
                 .id(team.getId())
+                .version(team.getVersion())
                 .section(section)
                 .name(team.getName())
                 .kickoffRule(team.getKickoffRule())

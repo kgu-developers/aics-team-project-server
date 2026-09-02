@@ -64,6 +64,23 @@ public class SectionRepositoryImpl implements SectionRepository {
 
     @Override
     public boolean existsActiveByIdAndProfessorId(Long id, String professorId) {
-        return jpaSectionRepository.existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(id, professorId);
+        return jpaSectionRepository.findByIdAndDeletedAtIsNull(id)
+                .filter(section -> isOwnedByProfessor(section, professorId))
+                .isPresent();
+    }
+
+    @Override
+    public boolean lockActiveByIdAndProfessorId(Long id, String professorId) {
+        return jpaSectionRepository
+                .findByIdAndProfessorStudentNumberAndDeletedAtIsNull(id, professorId)
+                .isPresent();
+    }
+
+    private boolean isOwnedByProfessor(SectionJpaEntity section, String professorId) {
+        return section != null
+                && section.getDeletedAt() == null
+                && section.getProfessor() != null
+                && professorId != null
+                && professorId.equals(section.getProfessor().getStudentNumber());
     }
 }
