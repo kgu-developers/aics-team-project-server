@@ -8,7 +8,6 @@ import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.user.domain.User;
-import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -32,16 +31,16 @@ public class UserQueryService {
     }
 
     public LoginRole getUserRole(User user) {
-        UserGlobalRole globalRole = user.getGlobalRole();
-        if (globalRole != UserGlobalRole.USER) {
-            return LoginRole.valueOf(globalRole.name());
-        }
-
-        boolean assistant = enrollmentRepository.findAllByUserId(user.getStudentNumber()).stream()
-                .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
-                .map(Enrollment::getRole)
-                .anyMatch(role -> role == Role.ASSISTANT);
-        return assistant ? LoginRole.ASSISTANT : LoginRole.STUDENT;
+        return switch (user.getGlobalRole()) {
+            case ADMIN -> LoginRole.ADMIN;
+            case USER -> {
+                boolean assistant = enrollmentRepository.findAllByUserId(user.getStudentNumber()).stream()
+                        .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
+                        .map(Enrollment::getRole)
+                        .anyMatch(role -> role == Role.ASSISTANT);
+                yield assistant ? LoginRole.ASSISTANT : LoginRole.STUDENT;
+            }
+        };
     }
 
     public LoginRole getUserRoleByStudentNumber(String studentNumber) {
