@@ -32,7 +32,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
             .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/admin-docs/**", "/admin-api-docs/**").permitAll()
-            .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+            .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "ASSISTANT")
             .anyRequest().authenticated())
         .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))
         .addFilterBefore(jwtCookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
