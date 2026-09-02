@@ -61,4 +61,8 @@ public class Enrollment {
   public boolean isActiveStudent() {
     return this.status == Status.ACTIVE && this.role == Role.STUDENT;
   }
+
+  public boolean isActiveAssistant() {
+    return this.status == Status.ACTIVE && this.role == Role.ASSISTANT;
+  }
 }

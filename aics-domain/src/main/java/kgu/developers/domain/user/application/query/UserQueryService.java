@@ -5,8 +5,6 @@ import java.util.List;
 import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
-import kgu.developers.domain.enrollment.domain.Role;
-import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.UserNotFoundException;
@@ -35,9 +33,7 @@ public class UserQueryService {
             case ADMIN -> LoginRole.ADMIN;
             case USER -> {
                 boolean assistant = enrollmentRepository.findAllByUserId(user.getStudentNumber()).stream()
-                        .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
-                        .map(Enrollment::getRole)
-                        .anyMatch(role -> role == Role.ASSISTANT);
+                        .anyMatch(Enrollment::isActiveAssistant);
                 yield assistant ? LoginRole.ASSISTANT : LoginRole.STUDENT;
             }
         };
