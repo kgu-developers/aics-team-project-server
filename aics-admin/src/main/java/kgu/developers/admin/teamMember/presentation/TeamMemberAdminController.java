@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.teamMember.presentation.request.TeamMemberUpdateRequest;
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -42,6 +43,7 @@ public interface TeamMemberAdminController {
 		@Parameter(
 			description = "팀원 수정 request 객체 입니다.",
 			required = true
-		) @Valid @RequestBody TeamMemberUpdateRequest request
+		) @Valid @RequestBody TeamMemberUpdateRequest request,
+		@Parameter(hidden = true) Authentication authentication
 	);
 }

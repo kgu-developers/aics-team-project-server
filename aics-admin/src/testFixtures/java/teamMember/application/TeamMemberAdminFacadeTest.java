@@ -2,6 +2,8 @@ package teamMember.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import kgu.developers.admin.teamMember.application.TeamMemberAdminFacade;
 import kgu.developers.admin.teamMember.presentation.request.TeamMemberUpdateRequest;
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
+import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
+import kgu.developers.domain.team.application.query.TeamQueryService;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -34,12 +40,22 @@ class TeamMemberAdminFacadeTest {
   @Mock
   private UserQueryService userQueryService;
 
+  @Mock
+  private TeamQueryService teamQueryService;
+
+  @Mock
+  private AuditLogCommandService auditLogCommandService;
+
   @InjectMocks
   private TeamMemberAdminFacade teamMemberAdminFacade;
 
   private TeamMember member() {
     return TeamMember.builder()
         .id(1L).teamId(1L).userId("202699999").isLeader(false).projectRole("백엔드").build();
+  }
+
+  private Team team(Long id) {
+    return Team.builder().id(id).sectionId(10L).name(id + "팀").build();
   }
 
   @Test
@@ -51,17 +67,29 @@ class TeamMemberAdminFacadeTest {
     TeamMemberUpdateRequest request = new TeamMemberUpdateRequest(2L, "프론트엔드", true);
 
     given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(found);
+    given(teamQueryService.getTeamById(1L)).willReturn(team(1L));
+    given(teamQueryService.getTeamById(2L)).willReturn(team(2L));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(found), List.of());
+    given(teamMemberQueryService.getTeamMembersByTeamId(2L))
+        .willReturn(List.of(), List.of(updated));
     given(teamMemberCommandService.updateTeamMember(found, 2L, "프론트엔드", true)).willReturn(updated);
     given(userQueryService.getUsersByStudentNumbers(List.of("202699999"))).willReturn(
         List.of(User.builder().studentNumber("202699999").name("김철수").build()));
 
-    TeamMemberAdminResponse response = teamMemberAdminFacade.updateTeamMember(1L, "202699999", request);
+    TeamMemberAdminResponse response = teamMemberAdminFacade.updateTeamMember(
+        1L, "202699999", request, "admin001");
 
     assertThat(response.id()).isEqualTo(1L);
     assertThat(response.studentNumber()).isEqualTo("202699999");
     assertThat(response.name()).isEqualTo("김철수");
     assertThat(response.isLeader()).isTrue();
     assertThat(response.projectRole()).isEqualTo("프론트엔드");
+    verify(auditLogCommandService, times(2)).recordTeamChange(
+        org.mockito.ArgumentMatchers.eq("admin001"), org.mockito.ArgumentMatchers.eq(10L),
+        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_UPDATED),
+        org.mockito.ArgumentMatchers.argThat(metadata ->
+            "TEAM_MEMBER_UPDATED".equals(metadata.path("changeType").asText())));
   }
 
   @Test
@@ -71,11 +99,14 @@ class TeamMemberAdminFacadeTest {
     TeamMemberUpdateRequest request = new TeamMemberUpdateRequest(null, "프론트엔드", null);
 
     given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(found);
+    given(teamQueryService.getTeamById(1L)).willReturn(team(1L));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(found), List.of(found));
     given(teamMemberCommandService.updateTeamMember(found, null, "프론트엔드", null)).willReturn(found);
     given(userQueryService.getUsersByStudentNumbers(List.of("202699999"))).willReturn(
         List.of(User.builder().studentNumber("202699999").name("김철수").build()));
 
-    teamMemberAdminFacade.updateTeamMember(1L, "202699999", request);
+    teamMemberAdminFacade.updateTeamMember(1L, "202699999", request, "admin001");
 
     verify(teamMemberCommandService).updateTeamMember(found, null, "프론트엔드", null);
   }
@@ -86,12 +117,20 @@ class TeamMemberAdminFacadeTest {
     TeamMemberUpdateRequest request = new TeamMemberUpdateRequest(null, "프론트엔드", null);
     TeamMember found = member();
     given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(found);
+    given(teamQueryService.getTeamById(1L)).willReturn(team(1L));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(found), List.of(found));
     given(teamMemberCommandService.updateTeamMember(found, null, "프론트엔드", null)).willReturn(found);
     given(userQueryService.getUsersByStudentNumbers(List.of("202699999"))).willReturn(List.of());
 
-    TeamMemberAdminResponse response = teamMemberAdminFacade.updateTeamMember(1L, "202699999", request);
+    TeamMemberAdminResponse response = teamMemberAdminFacade.updateTeamMember(
+        1L, "202699999", request, "admin001");
 
     assertThat(response.studentNumber()).isEqualTo("202699999");
     assertThat(response.name()).isNull();
+    verify(auditLogCommandService, never()).recordTeamChange(
+        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any());
   }
 }
