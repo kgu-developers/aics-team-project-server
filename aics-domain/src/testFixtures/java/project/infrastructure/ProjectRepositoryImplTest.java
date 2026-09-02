@@ -177,12 +177,73 @@ class ProjectRepositoryImplTest {
         .approvalStatus(ApprovalStatus.APPROVED)
         .meetingStyle("온라인")
         .build();
-    given(jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(1L))
-        .willReturn(List.of(ProjectJpaEntity.toEntity(existing, team)));
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(existing, team)));
 
     assertThatThrownBy(() -> repository.save(project))
         .isInstanceOf(ProjectAlreadyExistsException.class);
     verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
+  }
+
+  @Test
+  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있으면 재활성화한다")
+  void saveReactivatesSoftDeletedProject() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project newProject = Project.create(
+        1L,
+        "새 프로젝트",
+        "새 설명",
+        "새 목표",
+        "https://github.com/example/new-repo",
+        externalLinks,
+        ApprovalStatus.DRAFT,
+        "온라인"
+    );
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    Project deletedProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("삭제된 프로젝트")
+        .description("설명")
+        .goal("목표")
+        .repositoryUrl("https://github.com/example/old-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("오프라인")
+        .deletedAt(LocalDateTime.now())
+        .build();
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
+
+    Project reactivated = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("새 프로젝트")
+        .description("새 설명")
+        .goal("새 목표")
+        .repositoryUrl("https://github.com/example/new-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .deletedAt(null)
+        .proposalCompletedAt(null)
+        .build();
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
+        .willReturn(ProjectJpaEntity.toEntity(reactivated, team));
+
+    Project result = repository.save(newProject);
+
+    assertThat(result.getId()).isEqualTo(1L);
+    assertThat(result.getTitle()).isEqualTo("새 프로젝트");
+    assertThat(result.getDeletedAt()).isNull();
+    assertThat(result.getProposalCompletedAt()).isNull();
   }
 
   @Test
@@ -214,8 +275,8 @@ class ProjectRepositoryImplTest {
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
         .build();
-    given(jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(1L))
-        .willReturn(List.of(ProjectJpaEntity.toEntity(other, team)));
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(other, team)));
 
     assertThatThrownBy(() -> repository.save(reactivated))
         .isInstanceOf(ProjectAlreadyExistsException.class);
@@ -241,8 +302,8 @@ class ProjectRepositoryImplTest {
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
     given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
-    given(jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(1L))
-        .willReturn(List.of(ProjectJpaEntity.toEntity(project, team)));
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(project, team)));
     given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willReturn(ProjectJpaEntity.toEntity(project, team));
 

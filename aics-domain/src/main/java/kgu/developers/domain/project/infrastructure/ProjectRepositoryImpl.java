@@ -33,11 +33,22 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             if (team == null || team.getDeletedAt() != null) {
                 throw new TeamNotFoundException();
             }
-            if (project.getDeletedAt() == null
-                    && jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(project.getTeamId()).stream()
-                    .anyMatch(existing -> !existing.getId().equals(project.getId()))) {
-                throw new ProjectAlreadyExistsException();
+
+            Project existing = findIncludingDeletedByTeamId(project.getTeamId()).orElse(null);
+            if (existing != null) {
+                if (existing.getDeletedAt() == null) {
+                    if (!existing.getId().equals(project.getId())) {
+                        throw new ProjectAlreadyExistsException();
+                    }
+                } else {
+                    existing.reactivate(project.getTitle(), project.getDescription(), project.getGoal(),
+                            project.getRepositoryUrl(), project.getExternalLinks(), project.getApprovalStatus(), project.getMeetingStyle());
+                    ProjectJpaEntity entity = ProjectJpaEntity.toEntity(existing, team);
+                    ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
+                    return savedEntity.toDomain();
+                }
             }
+
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
             ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
             return savedEntity.toDomain();
