@@ -20,7 +20,10 @@ import static lombok.AccessLevel.PROTECTED;
 @Entity
 @Table(
 		name = "\"pre_survey_response\"",
-		indexes = @Index(name = "idx_pre_survey_response_section", columnList = "section_id, deleted_at")
+		indexes = {
+				@Index(name = "idx_pre_survey_response_section", columnList = "section_id, deleted_at"),
+				@Index(name = "idx_pre_survey_response_user_section", columnList = "user_id, section_id, deleted_at")
+		}
 )
 @Builder
 @Getter

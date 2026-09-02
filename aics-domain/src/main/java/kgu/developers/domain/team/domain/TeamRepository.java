@@ -8,11 +8,15 @@ public interface TeamRepository {
 
     Optional<Team> findById(Long id);
 
+    Optional<Team> findByIdForUpdate(Long id);
+
     List<Team> findAllById(List<Long> ids);
 
     List<Team> findAllBySectionId(Long sectionId);
 
     List<Team> findAllBySectionIdIn(List<Long> sectionIds);
+
+    boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id);
 
     void deleteById(Long id);
 }
