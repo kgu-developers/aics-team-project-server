@@ -35,8 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 public class TeamMessageFacadeTest {
 
     private static final String USER_A = "202412345";
@@ -63,6 +61,10 @@ public class TeamMessageFacadeTest {
         fakeTeamMemberRepository.save(TeamMember.create(2L, USER_A, false, "기록자"));
         fakeTeamMemberRepository.save(TeamMember.create(99L, USER_A, false, "기록자"));
 
+        fakeTeamRepository.save(team(1L));
+        fakeTeamRepository.save(team(2L));
+        fakeTeamRepository.save(team(99L));
+
         teamMessageFacade = new TeamMessageFacade(
             new TeamThreadCommandService(fakeTeamThreadRepository),
             new TeamThreadQueryService(fakeTeamThreadRepository),
@@ -82,6 +84,17 @@ public class TeamMessageFacadeTest {
     private TeamMessageCreateRequest createRequest(String message) {
         return TeamMessageCreateRequest.builder()
             .message(message)
+            .build();
+    }
+
+    private Team team(Long id) {
+        return Team.builder()
+            .id(id)
+            .sectionId(1L)
+            .name("A팀")
+            .kickoffRule("규칙")
+            .meetingSchedule("매주 월요일")
+            .status(Status.CONFIRMED)
             .build();
     }
 
