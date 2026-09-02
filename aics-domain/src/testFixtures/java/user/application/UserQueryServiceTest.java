@@ -58,14 +58,14 @@ class UserQueryServiceTest {
   }
 
   @Test
-  @DisplayName("활성 수강 중 조교가 하나라도 있으면 ADMIN을 반환한다")
+  @DisplayName("활성 수강 중 조교가 하나라도 있으면 ASSISTANT를 반환한다")
   void assistantRole() {
     givenUser(USER);
     given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(
         enrollment(1L, Role.STUDENT, Status.ACTIVE),
         enrollment(2L, Role.ASSISTANT, Status.ACTIVE)));
 
-    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.ADMIN);
+    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.ASSISTANT);
   }
 
   @Test

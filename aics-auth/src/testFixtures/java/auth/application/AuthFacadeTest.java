@@ -225,6 +225,8 @@ class AuthFacadeTest {
 
     assertThatThrownBy(() -> userFacade.login(new LoginRequest(STUDENT_NUMBER, "wrong-password")))
         .isInstanceOf(InvalidCredentialsException.class);
+
+    verify(refreshTokenStore, never()).save(any(), any());
   }
 
   @Test
@@ -234,5 +236,22 @@ class AuthFacadeTest {
 
     assertThatThrownBy(() -> userFacade.login(new LoginRequest("000000000", PASSWORD)))
         .isInstanceOf(InvalidCredentialsException.class);
+
+    verify(refreshTokenStore, never()).save(any(), any());
+  }
+
+  @Test
+  @DisplayName("login은 역할 조회가 실패하면 refreshToken을 저장하지 않는다")
+  void loginWithFailingRoleLookup() {
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
+    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER))
+        .willThrow(new UserNotFoundException());
+
+    assertThatThrownBy(() -> userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD)))
+        .isInstanceOf(UserNotFoundException.class);
+
+    // 역할 조회를 토큰 발급보다 먼저 해야 실패했을 때 저장된 토큰이 남지 않는다
+    verify(refreshTokenStore, never()).save(any(), any());
   }
 }
