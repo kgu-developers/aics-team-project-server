@@ -11,5 +11,7 @@ public interface MeetingActionRepository {
 
     List<MeetingAction> findAllByMeetingRecordId(Long meetingRecordId);
 
+    List<MeetingAction> findAllByTeamId(Long teamId, MeetingActionStatus status);
+
     void deleteById(Long id);
 }

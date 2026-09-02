@@ -15,8 +15,9 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "team_member", uniqueConstraints =
-    @UniqueConstraint(name = "uk_team_member_team_user", columnNames = {"team_id", "user_id"}))
+// uk_team_member_team_user, uk_team_member_one_leader 는 deleted_at 조건이 붙은 부분 인덱스라
+// @UniqueConstraint 로 표현할 수 없다. database/team_member.sql 참고.
+@Table(name = "team_member")
 @Builder
 @Getter
 @AllArgsConstructor
@@ -25,6 +26,9 @@ public class TeamMemberJpaEntity extends BaseTimeEntity {
   @Id
   @GeneratedValue(strategy = IDENTITY)
   private Long id;
+
+  @Version
+  private Long version;
 
   @ManyToOne(fetch = LAZY, optional = false)
   @JoinColumn(name = "team_id", nullable = false, foreignKey = @ForeignKey(name = "fk_team_member_team"))
@@ -43,6 +47,7 @@ public class TeamMemberJpaEntity extends BaseTimeEntity {
   public TeamMember toDomain() {
     return TeamMember.builder()
         .id(id)
+        .version(version)
         .teamId(team.getId())
         .userId(user.getStudentNumber())
         .isLeader(isLeader)
@@ -56,6 +61,7 @@ public class TeamMemberJpaEntity extends BaseTimeEntity {
   public static TeamMemberJpaEntity toEntity(TeamMember teamMember, TeamJpaEntity team, UserJpaEntity user) {
     TeamMemberJpaEntity entity = TeamMemberJpaEntity.builder()
         .id(teamMember.getId())
+        .version(teamMember.getVersion())
         .team(team)
         .user(user)
         .isLeader(teamMember.isLeader())

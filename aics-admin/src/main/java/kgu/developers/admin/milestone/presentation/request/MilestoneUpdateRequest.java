@@ -1,0 +1,25 @@
+package kgu.developers.admin.milestone.presentation.request;
+
+import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+public record MilestoneUpdateRequest(
+        @Schema(description = "마일스톤 제목", example = "프로젝트 제안서", requiredMode = REQUIRED)
+        @NotBlank
+        @Size(max = 100)
+        String title,
+
+        @Schema(description = "마일스톤 설명", example = "팀 프로젝트 제안서를 제출합니다.")
+        String description,
+
+        @Schema(description = "마일스톤 일정", requiredMode = REQUIRED)
+        @Valid
+        @NotNull
+        MilestoneScheduleRequest schedule
+) {
+}

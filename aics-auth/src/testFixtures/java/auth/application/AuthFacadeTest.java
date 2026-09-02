@@ -21,6 +21,7 @@ import kgu.developers.auth.api.application.AuthFacade;
 import kgu.developers.auth.api.application.RefreshTokenStore;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
+import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
@@ -50,6 +51,9 @@ class AuthFacadeTest {
   @Mock
   private TokenRevocationStore tokenRevocationStore;
 
+  @Mock
+  private UserCommandService userCommandService;
+
   @InjectMocks
   private AuthFacade userFacade;
 
@@ -72,6 +76,7 @@ class AuthFacadeTest {
 
     assertThat(response.accessToken()).isEqualTo("access-token");
     assertThat(response.refreshToken()).isEqualTo("refresh-token");
+    verify(userCommandService).recordLogin(any(User.class));
     verify(refreshTokenStore).save(STUDENT_NUMBER, "refresh-token");
   }
 
@@ -220,6 +225,8 @@ class AuthFacadeTest {
 
     assertThatThrownBy(() -> userFacade.login(new LoginRequest(STUDENT_NUMBER, "wrong-password")))
         .isInstanceOf(InvalidCredentialsException.class);
+
+    verify(userCommandService, never()).recordLogin(any(User.class));
   }
 
   @Test
