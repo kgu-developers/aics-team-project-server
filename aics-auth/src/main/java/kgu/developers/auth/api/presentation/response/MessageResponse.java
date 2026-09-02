@@ -15,7 +15,7 @@ public record MessageResponse(
         @Schema(description = "응답 메시지", requiredMode = REQUIRED)
         String message,
 
-        @Schema(description = "역할 (로그인 응답에만 포함)")
+        @Schema(description = "역할 (로그인 응답에만 포함)", allowableValues = {"ADMIN", "STUDENT", "AISSTANT"})
         LoginRole role
 ) {
     public static MessageResponse of(String message) {

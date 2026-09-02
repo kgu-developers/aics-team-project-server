@@ -17,6 +17,7 @@ public interface AuthController {
 	@Operation(summary = "로그인 API", description = """
 			- Description : 이 API는 학번과 비밀번호로 로그인합니다.
 			- accessToken, refreshToken은 응답 본문이 아니라 HttpOnly 쿠키로 내려갑니다.
+			- role은 STUDENT|ADMIN|ASSISTANT 중 하나입니다.
 		""")
 	@ApiResponse(
 		responseCode = "200",
