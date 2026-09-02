@@ -242,6 +242,16 @@ class ProjectApprovalRepositoryImplTest {
         projectApprovalRepository.deleteById(1L);
 
         assertThat(entity.getDeletedAt()).isNotNull();
+
+        given(jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(1L, "20260001"))
+                .willReturn(Optional.empty());
+        Optional<ProjectApproval> found = projectApprovalRepository.findByProjectIdAndUserId(1L, "20260001");
+        assertThat(found).isEmpty();
+
+        given(jpaProjectApprovalRepository.findAllByProjectIdAndDeletedAtIsNullOrderByUserIdAsc(1L))
+                .willReturn(List.of());
+        List<ProjectApproval> approvals = projectApprovalRepository.findAllByProjectId(1L);
+        assertThat(approvals).isEmpty();
     }
 
     @Test
