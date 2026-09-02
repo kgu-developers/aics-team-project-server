@@ -66,7 +66,7 @@ class AuthFacadeTest {
   void login() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
-    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.STUDENT);
+    given(userQueryService.getUserRole(user())).willReturn((LoginRole) LoginRole.STUDENT);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 
@@ -83,7 +83,7 @@ class AuthFacadeTest {
   void loginWithAssistantRole() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
-    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ASSISTANT);
+    given(userQueryService.getUserRole(user())).willReturn((LoginRole) LoginRole.ASSISTANT);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ASSISTANT")).willReturn("access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 
@@ -100,7 +100,7 @@ class AuthFacadeTest {
   void loginWithAdminRole() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
-    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ADMIN);
+    given(userQueryService.getUserRole(user())).willReturn((LoginRole) LoginRole.ADMIN);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ADMIN")).willReturn("access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 
@@ -117,7 +117,7 @@ class AuthFacadeTest {
   void refresh() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
-    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.STUDENT);
+    given(userQueryService.getUserRole(user())).willReturn((LoginRole) LoginRole.STUDENT);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("new-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
@@ -135,7 +135,7 @@ class AuthFacadeTest {
   void refreshWithAssistantRole() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
-    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ASSISTANT);
+    given(userQueryService.getUserRole(user())).willReturn((LoginRole) LoginRole.ASSISTANT);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ASSISTANT")).willReturn("new-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
@@ -153,7 +153,7 @@ class AuthFacadeTest {
   void refreshWithAdminRole() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
-    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ADMIN);
+    given(userQueryService.getUserRole(user())).willReturn((LoginRole) LoginRole.ADMIN);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ADMIN")).willReturn("new-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
@@ -311,15 +311,14 @@ class AuthFacadeTest {
   }
 
   @Test
-  @DisplayName("login은 역할 조회가 실패하면 refreshToken을 저장하지 않는다")
+  @DisplayName("login은 역할 조회 시 예외가 발생하면 refreshToken을 저장하지 않는다")
   void loginWithFailingRoleLookup() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
-    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER))
-        .willThrow(new UserNotFoundException());
+    given(userQueryService.getUserRole(user())).willThrow(new RuntimeException());
 
     assertThatThrownBy(() -> userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD)))
-        .isInstanceOf(UserNotFoundException.class);
+        .isInstanceOf(RuntimeException.class);
 
     // 역할 조회를 토큰 발급보다 먼저 해야 실패했을 때 저장된 토큰이 남지 않는다
     verify(refreshTokenStore, never()).save(any(), any());

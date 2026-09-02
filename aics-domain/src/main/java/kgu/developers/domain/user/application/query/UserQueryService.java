@@ -31,16 +31,20 @@ public class UserQueryService {
                 .orElseThrow(UserNotFoundException::new);
     }
 
-    public LoginRole getUserRoleByStudentNumber(String studentNumber) {
-        UserGlobalRole globalRole = getUserByStudentNumber(studentNumber).getGlobalRole();
+    public LoginRole getUserRole(User user) {
+        UserGlobalRole globalRole = user.getGlobalRole();
         if (globalRole != UserGlobalRole.USER) {
             return LoginRole.valueOf(globalRole.name());
         }
 
-        boolean assistant = enrollmentRepository.findAllByUserId(studentNumber).stream()
+        boolean assistant = enrollmentRepository.findAllByUserId(user.getStudentNumber()).stream()
                 .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
                 .map(Enrollment::getRole)
                 .anyMatch(role -> role == Role.ASSISTANT);
         return assistant ? LoginRole.ASSISTANT : LoginRole.STUDENT;
+    }
+
+    public LoginRole getUserRoleByStudentNumber(String studentNumber) {
+        return getUserRole(getUserByStudentNumber(studentNumber));
     }
 }

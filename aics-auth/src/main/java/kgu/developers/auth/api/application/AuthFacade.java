@@ -30,7 +30,7 @@ public class AuthFacade {
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
-        LoginRole role = userQueryService.getUserRoleByStudentNumber(user.getStudentNumber());
+        LoginRole role = userQueryService.getUserRole(user);
         return issue(user, role);
     }
 
@@ -47,7 +47,7 @@ public class AuthFacade {
         }
 
         User user = findForRefresh(studentNumber);
-        LoginRole role = userQueryService.getUserRoleByStudentNumber(studentNumber);
+        LoginRole role = userQueryService.getUserRole(user);
         String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
 
         if (!rotate(studentNumber, refreshToken, newRefreshToken)) {

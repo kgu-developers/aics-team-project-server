@@ -39,10 +39,11 @@ class UserQueryServiceTest {
   @InjectMocks
   private UserQueryService queryService;
 
-  private void givenUser(UserGlobalRole globalRole) {
-    given(userRepository.findByStudentNumber(STUDENT_NUMBER)).willReturn(Optional.of(
-        User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", globalRole,
-            "010-1234-6789")));
+  private User givenUser(UserGlobalRole globalRole) {
+    User user = User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", globalRole,
+            "010-1234-6789");
+    given(userRepository.findByStudentNumber(STUDENT_NUMBER)).willReturn(Optional.of(user));
+    return user;
   }
 
   private Enrollment enrollment(Long sectionId, Role role, Status status) {
@@ -52,39 +53,43 @@ class UserQueryServiceTest {
   @Test
   @DisplayName("ADMIN은 수강 정보를 보지 않고 ADMIN을 반환한다")
   void adminRole() {
-    givenUser(ADMIN);
+    User user = givenUser(ADMIN);
 
+    assertThat(queryService.getUserRole(user)).isEqualTo(LoginRole.ADMIN);
     assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.ADMIN);
   }
 
   @Test
   @DisplayName("활성 수강 중 조교가 하나라도 있으면 ASSISTANT를 반환한다")
   void assistantRole() {
-    givenUser(USER);
+    User user = givenUser(USER);
     given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(
         enrollment(1L, Role.STUDENT, Status.ACTIVE),
         enrollment(2L, Role.ASSISTANT, Status.ACTIVE)));
 
+    assertThat(queryService.getUserRole(user)).isEqualTo(LoginRole.ASSISTANT);
     assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.ASSISTANT);
   }
 
   @Test
   @DisplayName("탈퇴한 조교 수강 정보는 무시하고 STUDENT를 반환한다")
   void withdrawnAssistantIsIgnored() {
-    givenUser(USER);
+    User user = givenUser(USER);
     given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(
         enrollment(1L, Role.STUDENT, Status.ACTIVE),
         enrollment(2L, Role.ASSISTANT, Status.WITHDRAWN)));
 
+    assertThat(queryService.getUserRole(user)).isEqualTo(LoginRole.STUDENT);
     assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.STUDENT);
   }
 
   @Test
   @DisplayName("수강 정보가 없으면 STUDENT를 반환한다")
   void noEnrollment() {
-    givenUser(USER);
+    User user = givenUser(USER);
     given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
 
+    assertThat(queryService.getUserRole(user)).isEqualTo(LoginRole.STUDENT);
     assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.STUDENT);
   }
 }
