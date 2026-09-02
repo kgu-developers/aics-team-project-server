@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
@@ -17,9 +19,13 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class ProjectApprovalCommandService {
     private final ProjectApprovalRepository projectApprovalRepository;
+    private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
     public Long createProjectApproval(Long projectId, String userId, LocalDateTime approvedAt) {
+        if (projectRepository.findById(projectId).isEmpty()) {
+            throw new ProjectNotFoundException();
+        }
         if (userRepository.findByStudentNumber(userId).isEmpty()) {
             throw new UserNotFoundException();
         }
