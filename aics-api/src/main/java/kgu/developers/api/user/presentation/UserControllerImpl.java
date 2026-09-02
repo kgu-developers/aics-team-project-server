@@ -45,4 +45,3 @@ public class UserControllerImpl implements UserController {
     return ResponseEntity.ok("Password changed successfully");
   }
 }
-
