@@ -38,7 +38,7 @@ public class AuthControllerImpl implements AuthController {
             @Valid @RequestBody LoginRequest request) {
         LoginResponse loginResponse = userFacade.login(request);
         return withTokenCookies(loginResponse,
-                MessageResponse.of("Login successfully", loginResponse.role()));
+                MessageResponse.of("Login Successfully", loginResponse.role()));
     }
 
     @Override
@@ -47,7 +47,7 @@ public class AuthControllerImpl implements AuthController {
             @CookieValue(name = REFRESH_TOKEN, required = false) String refreshToken) {
         LoginResponse loginResponse = userFacade.refresh(refreshToken);
         return withTokenCookies(loginResponse,
-                MessageResponse.of("Refresh successfully", loginResponse.role()));
+                MessageResponse.of("Refresh Successfully", loginResponse.role()));
     }
 
     @Override
@@ -58,7 +58,7 @@ public class AuthControllerImpl implements AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, expiredCookie(ACCESS_TOKEN).toString())
                 .header(HttpHeaders.SET_COOKIE, expiredCookie(REFRESH_TOKEN).toString())
-                .body(MessageResponse.of("Logout successfully"));
+                .body(MessageResponse.of("Logout Successfully"));
     }
 
     private ResponseCookie expiredCookie(String name) {
