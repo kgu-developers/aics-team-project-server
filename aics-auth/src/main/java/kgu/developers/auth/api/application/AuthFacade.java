@@ -30,11 +30,8 @@ public class AuthFacade {
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
-        return issue(user);
-    }
-
-    public LoginRole getUserRole(String studentNumber) {
-        return userQueryService.getUserRoleByStudentNumber(studentNumber);
+        LoginRole role = userQueryService.getUserRoleByStudentNumber(user.getStudentNumber());
+        return issue(user, role);
     }
 
     public LoginResponse refresh(String refreshToken) {
@@ -50,13 +47,14 @@ public class AuthFacade {
         }
 
         User user = findForRefresh(studentNumber);
+        LoginRole role = userQueryService.getUserRoleByStudentNumber(studentNumber);
         String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
 
         if (!rotate(studentNumber, refreshToken, newRefreshToken)) {
             throw new InvalidTokenException();
         }
 
-        return tokens(user, newRefreshToken);
+        return tokens(user, newRefreshToken, role);
     }
 
     // 쿠키가 없거나 깨졌으면 지울 것도 없다. 로그아웃 자체는 성공시킨다.
@@ -82,16 +80,17 @@ public class AuthFacade {
         }
     }
 
-    private LoginResponse issue(User user) {
+    private LoginResponse issue(User user, LoginRole role) {
         String refreshToken = jwtUtil.createRefreshToken(user.getStudentNumber());
         refreshTokenStore.save(user.getStudentNumber(), refreshToken);
-        return tokens(user, refreshToken);
+        return tokens(user, refreshToken, role);
     }
 
-    private LoginResponse tokens(User user, String refreshToken) {
+    private LoginResponse tokens(User user, String refreshToken, LoginRole role) {
         return LoginResponse.of(
                 jwtUtil.createAccessToken(user.getStudentNumber(), user.getGlobalRole().name()),
-                refreshToken);
+                refreshToken,
+                role);
     }
 
     private User findForRefresh(String studentNumber) {

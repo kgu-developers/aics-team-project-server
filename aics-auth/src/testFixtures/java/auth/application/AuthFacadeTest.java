@@ -21,6 +21,7 @@ import kgu.developers.auth.api.application.AuthFacade;
 import kgu.developers.auth.api.application.RefreshTokenStore;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
@@ -65,6 +66,7 @@ class AuthFacadeTest {
   void login() {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
+    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.STUDENT);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "USER")).willReturn("access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 
@@ -72,6 +74,7 @@ class AuthFacadeTest {
 
     assertThat(response.accessToken()).isEqualTo("access-token");
     assertThat(response.refreshToken()).isEqualTo("refresh-token");
+    assertThat(response.role()).isEqualTo(LoginRole.STUDENT);
     verify(refreshTokenStore).save(STUDENT_NUMBER, "refresh-token");
   }
 
@@ -80,6 +83,7 @@ class AuthFacadeTest {
   void refresh() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.STUDENT);
     given(jwtUtil.createAccessToken(STUDENT_NUMBER, "USER")).willReturn("new-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
@@ -89,6 +93,7 @@ class AuthFacadeTest {
 
     assertThat(response.accessToken()).isEqualTo("new-access-token");
     assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+    assertThat(response.role()).isEqualTo(LoginRole.STUDENT);
   }
 
   @Test

@@ -36,15 +36,18 @@ public class AuthControllerImpl implements AuthController {
     @PostMapping("/login")
     public ResponseEntity<MessageResponse> login(
             @Valid @RequestBody LoginRequest request) {
-        return withTokenCookies(userFacade.login(request),
-                MessageResponse.of("Login successfully", userFacade.getUserRole(request.studentNumber())));
+        LoginResponse loginResponse = userFacade.login(request);
+        return withTokenCookies(loginResponse,
+                MessageResponse.of("Login successfully", loginResponse.role()));
     }
 
     @Override
     @PostMapping("/refresh")
     public ResponseEntity<MessageResponse> refresh(
             @CookieValue(name = REFRESH_TOKEN, required = false) String refreshToken) {
-        return withTokenCookies(userFacade.refresh(refreshToken), MessageResponse.of("Refresh successfully"));
+        LoginResponse loginResponse = userFacade.refresh(refreshToken);
+        return withTokenCookies(loginResponse,
+                MessageResponse.of("Refresh successfully", loginResponse.role()));
     }
 
     @Override

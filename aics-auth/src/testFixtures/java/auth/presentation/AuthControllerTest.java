@@ -50,10 +50,9 @@ class AuthControllerTest {
 
   private MvcResult login() throws Exception {
     given(authFacade.login(new LoginRequest("202699999", "12345678")))
-        .willReturn(LoginResponse.of("access-token", "refresh-token"));
+        .willReturn(LoginResponse.of("access-token", "refresh-token", LoginRole.STUDENT));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
-    given(authFacade.getUserRole("202699999")).willReturn(LoginRole.STUDENT);
 
     return mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(BODY))
         .andExpect(status().isOk())
@@ -89,7 +88,7 @@ class AuthControllerTest {
   @DisplayName("refresh는 refreshToken 쿠키를 읽어 새 토큰 쿠키를 내려준다")
   void refreshReadsRefreshTokenCookie() throws Exception {
     given(authFacade.refresh("old-refresh-token"))
-        .willReturn(LoginResponse.of("new-access-token", "new-refresh-token"));
+        .willReturn(LoginResponse.of("new-access-token", "new-refresh-token", LoginRole.STUDENT));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
 
@@ -98,7 +97,7 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andReturn();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Refresh successfully\"}");
+    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Refresh successfully\",\"role\":\"STUDENT\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .anyMatch(c -> c.startsWith("accessToken=new-access-token"))
         .anyMatch(c -> c.startsWith("refreshToken=new-refresh-token"))
@@ -108,7 +107,7 @@ class AuthControllerTest {
   @Test
   @DisplayName("refresh는 쿠키가 없어도 파사드까지 도달한다 (null 처리는 파사드 책임)")
   void refreshWithoutCookie() throws Exception {
-    given(authFacade.refresh(null)).willReturn(LoginResponse.of("a", "r"));
+    given(authFacade.refresh(null)).willReturn(LoginResponse.of("a", "r", LoginRole.STUDENT));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
 
