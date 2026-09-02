@@ -34,10 +34,11 @@ public interface AuthController {
 			- Description : 이 API는 refreshToken 쿠키로 accessToken, refreshToken을 재발급합니다.
 			- refreshToken은 요청 본문이 아니라 HttpOnly 쿠키에서 읽습니다.
 			- 재발급된 토큰도 Set-Cookie로 내려가며, refreshToken도 함께 교체됩니다.
+			- role은 STUDENT|ADMIN|ASSISTANT 중 하나입니다.
 		""")
 	@ApiResponse(
 		responseCode = "200",
-		description = "본문은 {\"message\": \"Refresh successfully\"}, 토큰은 Set-Cookie(HttpOnly)로 재발급")
+		description = "본문은 {\"message\": \"Refresh successfully\", \"role\": \"STUDENT|ADMIN|ASSISTANT\"}, 토큰은 Set-Cookie(HttpOnly)로 재발급")
 	@ApiResponse(responseCode = "401", description = "refreshToken이 없거나 유효하지 않습니다.")
 	ResponseEntity<MessageResponse> refresh(
 		@Parameter(

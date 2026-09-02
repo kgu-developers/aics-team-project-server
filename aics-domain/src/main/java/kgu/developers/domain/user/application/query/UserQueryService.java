@@ -41,6 +41,6 @@ public class UserQueryService {
                 .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
                 .map(Enrollment::getRole)
                 .anyMatch(role -> role == Role.ASSISTANT);
-        return assistant ? LoginRole.ADMIN : LoginRole.STUDENT;
+        return assistant ? LoginRole.ASSISTANT : LoginRole.STUDENT;
     }
 }
