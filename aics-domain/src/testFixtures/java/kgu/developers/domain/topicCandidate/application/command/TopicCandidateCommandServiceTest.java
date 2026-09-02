@@ -65,7 +65,7 @@ class TopicCandidateCommandServiceTest {
         given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "남의 제목"))
                 .willReturn(Optional.of(candidate(1L, "남의 제목")));
 
-        assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(2L, "남의 제목", null))
+        assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(2L, 100L, "남의 제목", null))
                 .isInstanceOf(DuplicateTopicCandidateTitleException.class);
 
         verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
@@ -79,7 +79,7 @@ class TopicCandidateCommandServiceTest {
         given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "내 제목"))
                 .willReturn(Optional.of(mine));
 
-        topicCandidateCommandService.updateTopicCandidate(1L, "내 제목", "새 설명");
+        topicCandidateCommandService.updateTopicCandidate(1L, 100L, "내 제목", "새 설명");
 
         assertThat(mine.getDescription()).isEqualTo("새 설명");
         verify(topicCandidateRepository).save(mine);
@@ -90,7 +90,7 @@ class TopicCandidateCommandServiceTest {
     void updateThrowsWhenNotFound() {
         given(topicCandidateRepository.findById(1L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(1L, "제목", null))
+        assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(1L, 100L, "제목", null))
                 .isInstanceOf(TopicCandidateNotFoundException.class);
     }
 
