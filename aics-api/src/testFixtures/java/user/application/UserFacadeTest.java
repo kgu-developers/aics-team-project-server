@@ -19,13 +19,9 @@ import kgu.developers.api.user.presentation.response.UserResponse;
 import kgu.developers.domain.course.domain.Course;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
-import kgu.developers.domain.enrollment.domain.Enrollment;
-import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
-import kgu.developers.domain.enrollment.domain.Role;
-import kgu.developers.domain.enrollment.domain.Status;
+import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
-import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
@@ -45,10 +41,7 @@ class UserFacadeTest {
     private UserQueryService userQueryService;
 
     @Mock
-    private EnrollmentRepository enrollmentRepository;
-
-    @Mock
-    private SectionRepository sectionRepository;
+    private SectionQueryService sectionQueryService;
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
@@ -89,17 +82,12 @@ class UserFacadeTest {
         return new SectionDetail(section, course, professor);
     }
 
-    private Enrollment activeEnrollment(Long sectionId) {
-        return Enrollment.create(sectionId, STUDENT_NUMBER, Role.STUDENT, Status.ACTIVE);
-    }
-
     @Test
     @DisplayName("수강 분반과 담당 분반이 겹치면 한 번만 내려간다")
     void getMeDeduplicatesSectionBelongingToBothSources() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
-        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(activeEnrollment(1L)));
-        given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L, 41)));
-        given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L, 40)));
+        given(sectionQueryService.getSectionsByStudentNumber(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L, 40)));
+        given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L, 41)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
@@ -115,9 +103,8 @@ class UserFacadeTest {
     @DisplayName("수강 분반과 담당 분반이 다르면 둘 다 내려간다")
     void getMeKeepsDistinctSections() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
-        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(activeEnrollment(1L)));
-        given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(2L)));
-        given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getSectionsByStudentNumber(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(2L)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
@@ -127,11 +114,9 @@ class UserFacadeTest {
     }
 
     @Test
-    @DisplayName("탈퇴한 수강 내역만 있으면 소속 분반은 비어 있다")
-    void getMeIgnoresWithdrawnEnrollments() {
+    @DisplayName("수강 분반과 담당 분반이 없으면 소속 분반은 비어 있다")
+    void getMeReturnsEmptySections() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
-        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER))
-                .willReturn(List.of(Enrollment.create(1L, STUDENT_NUMBER, Role.STUDENT, Status.WITHDRAWN)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
@@ -142,8 +127,7 @@ class UserFacadeTest {
     @DisplayName("전역 역할과 무관하게 실제 담당 분반을 조회한다")
     void getMeIncludesProfessorSectionsWithoutEnrollments() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
-        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
-        given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
@@ -157,7 +141,6 @@ class UserFacadeTest {
     @DisplayName("수강 내역이 없어도 팀에 속하면 teamId가 내려간다")
     void getMeReturnsTeamIdWithoutEnrollments() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
-        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
         given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
                 .willReturn(List.of(TeamMember.create(7L, STUDENT_NUMBER, true, null)));
 
@@ -171,8 +154,7 @@ class UserFacadeTest {
     @DisplayName("팀에 속하면 teamId가 내려가고, 속하지 않으면 null이다")
     void getMeReturnsTeamId() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
-        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(activeEnrollment(1L)));
-        given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getSectionsByStudentNumber(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
         given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
                 .willReturn(List.of(TeamMember.create(7L, STUDENT_NUMBER, true, null)))
                 .willReturn(List.of());
@@ -185,7 +167,6 @@ class UserFacadeTest {
     @DisplayName("여러 팀에 속하면 조회 순서와 무관하게 가장 최근 팀이 내려간다")
     void getMeReturnsLatestTeamIdWhenUserBelongsToMultipleTeams() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
-        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
         given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
                 .willReturn(List.of(
                         TeamMember.create(3L, STUDENT_NUMBER, false, null),

@@ -1,20 +1,14 @@
 package kgu.developers.api.user.application;
 
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
+import kgu.developers.api.section.presentation.response.SectionResponse;
 import kgu.developers.api.user.presentation.request.UserUpdateRequest;
 import kgu.developers.api.user.presentation.response.UserResponse;
-import kgu.developers.api.section.presentation.response.SectionResponse;
-import kgu.developers.domain.enrollment.domain.Enrollment;
-import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
-import kgu.developers.domain.enrollment.domain.Status;
+import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.SectionDetail;
-import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
@@ -29,38 +23,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserFacade {
     private final UserCommandService userCommandService;
     private final UserQueryService userQueryService;
-    private final EnrollmentRepository enrollmentRepository;
-    private final SectionRepository sectionRepository;
+    private final SectionQueryService sectionQueryService;
     private final TeamMemberRepository teamMemberRepository;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String studentNumber) {
         User user = userQueryService.getUserByStudentNumber(studentNumber);
 
-        List<Enrollment> enrollments = enrollmentRepository.findAllByUserId(studentNumber)
-                .stream()
-                .filter(e -> e.getStatus() == Status.ACTIVE)
-                .toList();
-
         Long teamId = teamMemberRepository.findAllByUserId(studentNumber).stream()
                 .map(TeamMember::getTeamId)
-                .max(Comparator.naturalOrder())
+                .max(Long::compareTo)
                 .orElse(null);
 
-        List<SectionDetail> professorSections = sectionRepository.findAllByProfessorId(studentNumber);
-
-        if (enrollments.isEmpty() && professorSections.isEmpty()) {
-            return UserResponse.from(user, List.of(), teamId);
-        }
-
-        List<Long> enrollmentSectionIds = enrollments.stream()
-                .map(Enrollment::getSectionId)
-                .toList();
-
-        List<SectionDetail> enrollmentSectionDetails = sectionRepository.findAllByIdIn(enrollmentSectionIds);
-
-        List<SectionResponse> sections = mergeAndDeduplicateSections(
-                enrollments, enrollmentSectionDetails, professorSections);
+        List<SectionDetail> enrollmentSections = sectionQueryService.getSectionsByStudentNumber(studentNumber);
+        List<SectionDetail> professorSections = sectionQueryService.getSectionsByProfessorId(studentNumber);
+        List<SectionResponse> sections = mergeAndDeduplicateSections(enrollmentSections, professorSections);
 
         return UserResponse.from(user, sections, teamId);
     }
@@ -71,24 +48,15 @@ public class UserFacade {
     }
 
     private List<SectionResponse> mergeAndDeduplicateSections(
-            List<Enrollment> enrollments,
-            List<SectionDetail> enrollmentSectionDetails,
+            List<SectionDetail> enrollmentSections,
             List<SectionDetail> professorSections) {
-        Map<Long, SectionDetail> enrollmentSectionMap = enrollmentSectionDetails.stream()
-                .collect(Collectors.toMap(sd -> sd.section().getId(), Function.identity()));
-
-        List<SectionResponse> enrollmentSections = enrollments.stream()
-                .filter(e -> enrollmentSectionMap.containsKey(e.getSectionId()))
-                .map(e -> SectionResponse.from(enrollmentSectionMap.get(e.getSectionId())))
-                .toList();
-
-        List<SectionResponse> professorSectionResponses = professorSections.stream()
-                .map(SectionResponse::from)
-                .toList();
-
         Map<Long, SectionResponse> sectionsById = new LinkedHashMap<>();
-        enrollmentSections.forEach(section -> sectionsById.putIfAbsent(section.id(), section));
-        professorSectionResponses.forEach(section -> sectionsById.putIfAbsent(section.id(), section));
+        enrollmentSections.stream()
+                .map(SectionResponse::from)
+                .forEach(section -> sectionsById.putIfAbsent(section.id(), section));
+        professorSections.stream()
+                .map(SectionResponse::from)
+                .forEach(section -> sectionsById.putIfAbsent(section.id(), section));
         return List.copyOf(sectionsById.values());
     }
 }
