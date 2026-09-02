@@ -46,4 +46,15 @@ public class SubmissionArtifact {
                 .content(content)
                 .build();
     }
+
+    // 브라우저에서 CheerpJ로 실행 가능한 JAR을 가리키는 URL. LINK와 저장 형태(url 컬럼)는
+    // 같지만 타입은 CHEERPJ_RUN으로 구분해서 유지한다.
+    public static SubmissionArtifact cheerpjRun(Long versionId, Long requiredArtifactId, String url) {
+        return SubmissionArtifact.builder()
+                .versionId(versionId)
+                .requiredArtifactId(requiredArtifactId)
+                .type(ArtifactType.CHEERPJ_RUN)
+                .url(url)
+                .build();
+    }
 }

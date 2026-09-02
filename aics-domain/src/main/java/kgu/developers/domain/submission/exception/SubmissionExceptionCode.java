@@ -20,7 +20,9 @@ public enum SubmissionExceptionCode implements ExceptionCode {
     SUBMISSION_REQUIRED_ARTIFACT_MISMATCH(HttpStatus.BAD_REQUEST, "이 마일스톤의 필수 산출물 구성과 맞지 않습니다."),
     SUBMISSION_ARTIFACT_COUNT_MISMATCH(HttpStatus.BAD_REQUEST, "파일 개수와 산출물 식별자 개수가 다릅니다."),
     SUBMISSION_INVALID_ARTIFACT_TYPE(HttpStatus.BAD_REQUEST, "파일 타입 산출물은 artifacts가 아니라 files로 보내야 합니다."),
-    SUBMISSION_INVALID_PRESENTATION_ORDER(HttpStatus.BAD_REQUEST, "발표순서는 분반의 모든 팀을 중복 없이 양수로 지정해야 합니다.");
+    SUBMISSION_INVALID_PRESENTATION_ORDER(HttpStatus.BAD_REQUEST, "발표순서는 분반의 모든 팀을 중복 없이 양수로 지정해야 합니다."),
+    SUBMISSION_MILESTONE_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, "발표(PRESENTATION) 마일스톤에서만 사용할 수 있습니다."),
+    SUBMISSION_PRESENTATION_IMAGE_OWNERSHIP_INVALID(HttpStatus.BAD_REQUEST, "화면 이미지는 우리 팀이 업로드한 파일만 지정할 수 있습니다.");
 
     private final HttpStatus status;
     private final String message;

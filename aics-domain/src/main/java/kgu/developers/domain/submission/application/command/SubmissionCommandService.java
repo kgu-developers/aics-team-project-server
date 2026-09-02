@@ -231,9 +231,7 @@ public class SubmissionCommandService {
             if (required == null || !required.getType().name().equals(input.type().name())) {
                 throw new SubmissionRequiredArtifactMismatchException();
             }
-            if (input.type() == ArtifactType.FILE) {
-                validateFile(required, input.file());
-            }
+            validatePayload(required, input);
             submittedRequiredIds.add(required.getId());
         }
 
@@ -241,6 +239,22 @@ public class SubmissionCommandService {
                 .filter(RequiredArtifact::isRequired)
                 .anyMatch(required -> !submittedRequiredIds.contains(required.getId()));
         if (missingRequired) {
+            throw new SubmissionRequiredArtifactMismatchException();
+        }
+    }
+
+    // FILE은 파일 자체(용량/확장자)를, LINK/CHEERPJ_RUN은 url을, TEXT는 본문을 검증한다.
+    // 타입만 맞고 실제 내용이 비어있는 입력이 필수 산출물 체크를 조용히 통과하는 것을 막는다.
+    private void validatePayload(RequiredArtifact required, SubmissionArtifactInput input) {
+        switch (input.type()) {
+            case FILE -> validateFile(required, input.file());
+            case LINK, CHEERPJ_RUN -> validateNotBlank(input.url());
+            case TEXT -> validateNotBlank(input.content());
+        }
+    }
+
+    private void validateNotBlank(String value) {
+        if (value == null || value.isBlank()) {
             throw new SubmissionRequiredArtifactMismatchException();
         }
     }
@@ -283,6 +297,9 @@ public class SubmissionCommandService {
         }
         if (input.type() == ArtifactType.LINK) {
             return SubmissionArtifact.link(versionId, input.requiredArtifactId(), input.url());
+        }
+        if (input.type() == ArtifactType.CHEERPJ_RUN) {
+            return SubmissionArtifact.cheerpjRun(versionId, input.requiredArtifactId(), input.url());
         }
         return SubmissionArtifact.text(versionId, input.requiredArtifactId(), input.content());
     }

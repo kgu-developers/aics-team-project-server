@@ -40,7 +40,14 @@ public class SubmissionQueryService {
                 .orElseGet(() -> submissionRepository.save(Submission.create(teamId, milestoneId)));
     }
 
+    // 완료(COMPLETED) 처리된 제출은 공식 기간이 남아있어도 재제출을 막는다 — 재오픈되면
+    // 상태가 REVISION_REQUESTED로 바뀌므로 이 가드에 안 걸리고 정상적으로 다시 열린다.
+    // (교수 재오픈 전까지 COMPLETED가 SUBMITTED로 되돌아가며 completedAt/completedBy가
+    // 모순되게 남는 문제 방지, sunzx0428 PR #87 3차 리뷰 2번 항목)
     public boolean canSubmitNow(Submission submission) {
+        if (submission.isCompleted()) {
+            return false;
+        }
         Milestone milestone = getMilestone(submission.getMilestoneId());
         if (withinOwnWindow(milestone)) {
             return true;

@@ -238,6 +238,46 @@ class SubmissionCommandServiceTest {
     }
 
     @Test
+    @DisplayName("CHEERPJ_RUN 아티팩트는 타입이 TEXT로 바뀌지 않고 URL이 그대로 저장된다")
+    void submitVersion_SavesCheerpjRunArtifact() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+
+        SubmissionVersion version = submissionCommandService.submitVersion(
+                submission.getId(), USER_ID, "CheerpJ 실행 링크 제출", null,
+                List.of(new SubmissionArtifactInput(null, ArtifactType.CHEERPJ_RUN, null, "https://cheerpj.example/run", null)));
+
+        SubmissionArtifact artifact = submissionArtifactRepository.findAllByVersionId(version.getId()).get(0);
+        assertThat(artifact.getType()).isEqualTo(ArtifactType.CHEERPJ_RUN);
+        assertThat(artifact.getUrl()).isEqualTo("https://cheerpj.example/run");
+    }
+
+    @Test
+    @DisplayName("필수 산출물이 LINK인데 URL이 비어있으면 제출이 거부된다")
+    void submitVersion_RejectsBlankUrlForRequiredLink() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+        RequiredArtifact linkArtifact = requiredArtifactRepository.save(RequiredArtifact.create(
+                MILESTONE_ID, RequiredArtifactType.LINK, "발표자료 링크", true, null, null));
+
+        assertThatThrownBy(() -> submissionCommandService.submitVersion(
+                submission.getId(), USER_ID, "빈 URL 제출", null,
+                List.of(new SubmissionArtifactInput(linkArtifact.getId(), ArtifactType.LINK, null, "  ", null))))
+                .isInstanceOf(SubmissionRequiredArtifactMismatchException.class);
+    }
+
+    @Test
+    @DisplayName("필수 산출물이 TEXT인데 본문이 비어있으면 제출이 거부된다")
+    void submitVersion_RejectsBlankContentForRequiredText() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+        RequiredArtifact textArtifact = requiredArtifactRepository.save(RequiredArtifact.create(
+                MILESTONE_ID, RequiredArtifactType.TEXT, "변경 내용", true, null, null));
+
+        assertThatThrownBy(() -> submissionCommandService.submitVersion(
+                submission.getId(), USER_ID, "빈 본문 제출", null,
+                List.of(new SubmissionArtifactInput(textArtifact.getId(), ArtifactType.TEXT, null, null, null))))
+                .isInstanceOf(SubmissionRequiredArtifactMismatchException.class);
+    }
+
+    @Test
     @DisplayName("필수 산출물을 빠뜨리면 제출이 거부된다")
     void submitVersion_RejectsWhenRequiredArtifactMissing() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));

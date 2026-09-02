@@ -72,6 +72,16 @@ class SubmissionQueryServiceTest {
     }
 
     @Test
+    @DisplayName("완료된 제출은 공식 기간이 남아있어도 재오픈 전까지 제출할 수 없다(마일스톤 조회조차 필요 없다)")
+    void canSubmitNow_FalseWhenAlreadyCompleted() {
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+        submission.complete("202699999");
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isFalse();
+    }
+
+    @Test
     @DisplayName("마감·지각제출기간·수정기간을 전부 지나면 제출할 수 없다")
     void canSubmitNow_FalseAfterAllWindowsClosed() {
         LocalDateTime past = LocalDateTime.now().minusDays(1);

@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
@@ -34,6 +36,7 @@ import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.fileobject.exception.FileObjectNotFoundException;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.presentationcontent.application.command.PresentationContentCommandService;
 import kgu.developers.domain.presentationcontent.domain.PresentationContent;
@@ -54,6 +57,8 @@ import kgu.developers.domain.submission.exception.SubmissionArtifactCountMismatc
 import kgu.developers.domain.submission.exception.SubmissionInvalidArtifactTypeException;
 import kgu.developers.domain.submission.exception.SubmissionInvalidPresentationOrderException;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
+import kgu.developers.domain.submission.exception.SubmissionMilestoneTypeMismatchException;
+import kgu.developers.domain.submission.exception.SubmissionPresentationImageOwnershipException;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
@@ -90,19 +95,19 @@ public class SubmissionFacade {
 
     public SubmissionResponse getSubmission(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateTeamMembership(submission.getTeamId(), userId);
+        validateActiveTeamMembership(submission, userId);
         return toResponse(submission);
     }
 
     public SubmissionVersionListResponse getVersions(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateTeamMembership(submission.getTeamId(), userId);
+        validateActiveTeamMembership(submission, userId);
         return SubmissionVersionListResponse.from(submissionVersionRepository.findAllBySubmissionId(submissionId));
     }
 
     public SubmissionVersionDetailResponse getVersion(Long submissionId, int version, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateTeamMembership(submission.getTeamId(), userId);
+        validateActiveTeamMembership(submission, userId);
 
         SubmissionVersion submissionVersion = submissionVersionRepository
                 .findBySubmissionIdAndVersion(submissionId, version)
@@ -155,7 +160,7 @@ public class SubmissionFacade {
 
     public SubmissionMemberConfirmationListResponse getMemberConfirmations(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateTeamMembership(submission.getTeamId(), userId);
+        validateActiveTeamMembership(submission, userId);
         return SubmissionMemberConfirmationListResponse.from(
                 submissionMemberConfirmationRepository.findAllBySubmissionId(submissionId));
     }
@@ -186,21 +191,26 @@ public class SubmissionFacade {
     }
 
     // 발표 공개자료는 다른 팀도 상시 열람 가능(PRD 그대로) — 로그인만 하면 되고 팀 소속 검증은 안 한다.
+    // 단, 대상 마일스톤이 실제로 발표(PRESENTATION) 타입인지는 확인한다.
     public PresentationContentResponse getPresentationContent(Long submissionId, String userId) {
-        submissionQueryService.getSubmission(submissionId);
+        Submission submission = submissionQueryService.getSubmission(submissionId);
+        validatePresentationMilestone(submission.getMilestoneId());
         return PresentationContentResponse.from(presentationContentRepository.findBySubmissionId(submissionId).orElse(null));
     }
 
     public PresentationContentResponse updatePresentationContent(Long submissionId, String userId, PresentationContentRequest request) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
+        validatePresentationMilestone(submission.getMilestoneId());
         validateActiveTeamMembership(submission, userId);
         validateNotLockedByAnother(submissionId, userId);
+        validateScreenImagesOwnedByTeam(submission.getTeamId(), request.screens());
         PresentationContent content = presentationContentCommandService.upsert(
                 submissionId, request.introText(), request.features(), request.screens(), request.youtubeUrl());
         return PresentationContentResponse.from(content);
     }
 
     public MilestonePresentationsResponse getMilestonePresentations(Long milestoneId, String userId) {
+        validatePresentationMilestone(milestoneId);
         List<Submission> submissions = submissionQueryService.getSubmissionsOrderedForPresentation(milestoneId);
         List<Long> submissionIds = submissions.stream().map(Submission::getId).toList();
         Map<Long, PresentationContent> contentBySubmissionId = presentationContentRepository
@@ -216,6 +226,9 @@ public class SubmissionFacade {
     public void assignPresentationOrder(Long milestoneId, String professorId, PresentationOrderRequest request) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
+        if (milestone.getType() != MilestoneType.PRESENTATION) {
+            throw new SubmissionMilestoneTypeMismatchException();
+        }
         if (!sectionQueryService.isActiveSectionOwnedByProfessor(milestone.getSectionId(), professorId)) {
             throw new SubmissionAccessDeniedException();
         }
@@ -277,6 +290,36 @@ public class SubmissionFacade {
                 .orElse(false);
         if (!activeStudent) {
             throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 접근할 수 있습니다.");
+        }
+    }
+
+    // 발표자료 관련 API는 그 마일스톤이 실제로 PRESENTATION 타입일 때만 의미가 있다.
+    // 다른 타입 마일스톤의 submissionId/milestoneId로 잘못 호출되는 것을 막는다.
+    private void validatePresentationMilestone(Long milestoneId) {
+        Milestone milestone = milestoneRepository.findById(milestoneId)
+                .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
+        if (milestone.getType() != MilestoneType.PRESENTATION) {
+            throw new SubmissionMilestoneTypeMismatchException();
+        }
+    }
+
+    // screens는 형식이 자유로운 JSON([{imageFileId, caption}, ...])이라 그 안의 imageFileId가
+    // 실제로 존재하고 우리 팀이 업로드한 파일인지는 여기서 별도로 검증해야 한다 — 남의 팀
+    // 파일 id를 그대로 가져와 발표자료에 노출시키는 것을 막는다.
+    private void validateScreenImagesOwnedByTeam(Long teamId, JsonNode screens) {
+        if (screens == null || !screens.isArray()) {
+            return;
+        }
+        for (JsonNode screen : screens) {
+            JsonNode imageFileIdNode = screen.get("imageFileId");
+            if (imageFileIdNode == null || imageFileIdNode.isNull()) {
+                continue;
+            }
+            FileObject fileObject = fileObjectRepository.findById(imageFileIdNode.asLong())
+                    .orElseThrow(FileObjectNotFoundException::new);
+            if (teamMemberRepository.findByTeamIdAndUserId(teamId, fileObject.getUploadedBy()).isEmpty()) {
+                throw new SubmissionPresentationImageOwnershipException();
+            }
         }
     }
 
