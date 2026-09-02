@@ -33,8 +33,9 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             if (team == null || team.getDeletedAt() != null) {
                 throw new TeamNotFoundException();
             }
-            if (project.getId() == null
-                    && !jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(project.getTeamId()).isEmpty()) {
+            if (project.getDeletedAt() == null
+                    && jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(project.getTeamId()).stream()
+                    .anyMatch(existing -> !existing.getId().equals(project.getId()))) {
                 throw new ProjectAlreadyExistsException();
             }
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);

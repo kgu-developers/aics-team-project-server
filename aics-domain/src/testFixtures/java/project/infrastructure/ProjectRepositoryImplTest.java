@@ -186,6 +186,73 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
+  @DisplayName("save는 복구된 프로젝트라도 팀에 다른 활성 프로젝트가 있으면 ProjectAlreadyExistsException을 발생시킨다")
+  void saveReactivatedProjectWithAnotherActiveProject() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+
+    Project reactivated = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("복구된 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    Project other = Project.builder()
+        .id(2L)
+        .teamId(1L)
+        .title("다른 활성 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .build();
+    given(jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(1L))
+        .willReturn(List.of(ProjectJpaEntity.toEntity(other, team)));
+
+    assertThatThrownBy(() -> repository.save(reactivated))
+        .isInstanceOf(ProjectAlreadyExistsException.class);
+    verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
+  }
+
+  @Test
+  @DisplayName("save는 활성 프로젝트를 수정할 때 자기 자신을 중복으로 보지 않는다")
+  void saveExistingActiveProjectDoesNotConflictWithItself() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+
+    Project project = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("수정된 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+    given(jpaProjectRepository.findAllByTeamIdAndDeletedAtIsNull(1L))
+        .willReturn(List.of(ProjectJpaEntity.toEntity(project, team)));
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
+        .willReturn(ProjectJpaEntity.toEntity(project, team));
+
+    Project result = repository.save(project);
+
+    assertThat(result.getId()).isEqualTo(1L);
+    assertThat(result.getTitle()).isEqualTo("수정된 프로젝트");
+  }
+
+  @Test
   @DisplayName("findById는 id로 삭제되지 않은 프로젝트를 조회한다")
   void findById() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
