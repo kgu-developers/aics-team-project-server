@@ -36,43 +36,11 @@ class TopicVoteTest {
     }
 
     @Test
-    @DisplayName("candidateId를 수정할 수 있다")
-    void updateCandidateId() {
-        TopicVote topicVote = TopicVote.create(1L, 10L, "20230001");
-
-        topicVote.updateCandidateId(2L);
-
-        assertThat(topicVote.getCandidateId()).isEqualTo(2L);
-    }
-
-    @Test
-    @DisplayName("voterUserId를 수정할 수 있다")
-    void updateVoterUserId() {
-        TopicVote topicVote = TopicVote.create(1L, 10L, "20230001");
-
-        topicVote.updateVoterUserId("20230002");
-
-        assertThat(topicVote.getVoterUserId()).isEqualTo("20230002");
-    }
-
-    @Test
     @DisplayName("teamId가 null이면 NullPointerException이 발생한다")
     void createTopicVoteWithNullTeamId() {
         assertThatThrownBy(() -> TopicVote.create(null, 10L, "20230001"))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("teamId");
-    }
-
-    @Test
-    @DisplayName("reactivate 호출 시 삭제 표시가 지워지고 후보가 갱신된다")
-    void reactivateTopicVote() {
-        TopicVote topicVote = TopicVote.create(1L, 10L, "20230001");
-        topicVote.delete();
-
-        topicVote.reactivate(20L);
-
-        assertThat(topicVote.getDeletedAt()).isNull();
-        assertThat(topicVote.getCandidateId()).isEqualTo(20L);
     }
 
     @Test

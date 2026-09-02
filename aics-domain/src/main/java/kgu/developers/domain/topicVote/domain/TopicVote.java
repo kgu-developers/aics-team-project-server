@@ -35,20 +35,9 @@ public class TopicVote {
                 .build();
     }
 
-    public void updateCandidateId(Long candidateId) {
-        this.candidateId = requireNonNull(candidateId, "candidateId");
-    }
-
-    public void updateVoterUserId(String voterUserId) {
-        this.voterUserId = requireNonNull(voterUserId, "voterUserId");
-    }
-
-    public void reactivate(Long candidateId) {
-        this.deletedAt = null;
-        this.candidateId = requireNonNull(candidateId, "candidateId");
-    }
-
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
+
+    // 후보 변경/재투표는 도메인 수정자가 아니라 TopicVoteRepository.upsert 로만 한다.
 }
