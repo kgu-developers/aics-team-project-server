@@ -2,6 +2,8 @@ package kgu.developers.api.user.presentation;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -17,8 +19,15 @@ public interface UserController {
 
 	@Operation(summary = "내 정보 조회 API", description = """
 			- Description : 로그인한 사용자의 정보와 소속 분반 목록을 조회합니다.
-		""")
-	@ApiResponse(responseCode = "200")
+			- globalRole : ADMIN 또는 USER
+			- sections[].semester : SPRING, SUMMER, FALL, WINTER
+			- sections[].status : DRAFT, ACTIVE, ARCHIVED
+			""")
+	@ApiResponse(
+		responseCode = "200",
+		description = "조회 성공",
+		content = @Content(schema = @Schema(implementation = UserResponse.class))
+	)
 	ResponseEntity<UserResponse> getMe();
 
 	@Operation(summary = "비밀번호 변경 API", description = """
@@ -37,4 +46,3 @@ public interface UserController {
 		) @Valid @RequestBody UserUpdateRequest request
 	);
 }
-
