@@ -20,6 +20,7 @@ import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -89,6 +90,13 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
     @Column(name = "evaluation_closes_at")
     private LocalDateTime evaluationClosesAt;
 
+    // B3가 "이 마일스톤이 최종보고서/발표용인지" 구분하려고 추가한 컬럼(태양님 확인 필요).
+    // 기존 빌더 호출부가 안 깨지게 기본값을 GENERAL로 둔다.
+    @Builder.Default
+    @Enumerated(STRING)
+    @Column(nullable = false, length = 16)
+    private MilestoneType type = MilestoneType.GENERAL;
+
     public static MilestoneJpaEntity fromDomain(Milestone milestone) {
         MilestoneSchedule schedule = milestone.getSchedule();
         return MilestoneJpaEntity.builder()
@@ -104,6 +112,7 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
                 .revisionUntil(schedule.revisionUntil())
                 .evaluationOpensAt(schedule.evaluationOpensAt())
                 .evaluationClosesAt(schedule.evaluationClosesAt())
+                .type(milestone.getType())
                 .build();
     }
 
@@ -126,6 +135,7 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
         revisionUntil = schedule.revisionUntil();
         evaluationOpensAt = schedule.evaluationOpensAt();
         evaluationClosesAt = schedule.evaluationClosesAt();
+        type = milestone.getType();
     }
 
     public Milestone toDomain() {
@@ -143,7 +153,8 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
                         revisionUntil,
                         evaluationOpensAt,
                         evaluationClosesAt
-                )
+                ),
+                type
         );
     }
 }

@@ -13,6 +13,12 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
 
     private final Map<Long, TeamMember> store = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(0);
+    private final Map<Long, Long> sectionIdByTeamId = new ConcurrentHashMap<>();
+
+    // findActiveBySectionIdAndUserId 를 쓰려면 이걸로 team-section 매핑을 등록해야 한다.
+    public void assignTeamToSection(Long teamId, Long sectionId) {
+        sectionIdByTeamId.put(teamId, sectionId);
+    }
 
     @Override
     public TeamMember save(TeamMember teamMember) {
@@ -61,6 +67,15 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
             .filter(teamMember -> teamMember.getDeletedAt() == null)
             .filter(teamMember -> teamMember.getTeamId().equals(teamId))
             .filter(teamMember -> teamMember.getUserId().equals(userId))
+            .findFirst();
+    }
+
+    @Override
+    public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
+        return store.values().stream()
+            .filter(teamMember -> teamMember.getDeletedAt() == null)
+            .filter(teamMember -> teamMember.getUserId().equals(userId))
+            .filter(teamMember -> sectionId.equals(sectionIdByTeamId.get(teamMember.getTeamId())))
             .findFirst();
     }
 

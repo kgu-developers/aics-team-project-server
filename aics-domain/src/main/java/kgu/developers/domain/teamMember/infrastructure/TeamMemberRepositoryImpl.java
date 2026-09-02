@@ -65,6 +65,12 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
     }
 
     @Override
+    public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
+        return jpaTeamMemberRepository.findByTeam_Section_IdAndUserStudentNumberAndDeletedAtIsNull(sectionId, userId)
+                .map(TeamMemberJpaEntity::toDomain);
+    }
+
+    @Override
     public Optional<TeamMember> findLeaderByTeamId(Long teamId) {
         return jpaTeamMemberRepository.findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId)
                 .map(TeamMemberJpaEntity::toDomain);
