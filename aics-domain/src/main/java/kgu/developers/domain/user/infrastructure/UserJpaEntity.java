@@ -1,5 +1,7 @@
 package kgu.developers.domain.user.infrastructure;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.user.domain.User;
@@ -39,6 +41,8 @@ public class UserJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private String phone;
 
+    private LocalDateTime lastLoginAt;
+
     public User toDomain() {
         return User.builder()
                 .studentNumber(studentNumber)
@@ -47,6 +51,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .password(password)
                 .globalRole(globalRole)
                 .phone(phone)
+                .lastLoginAt(lastLoginAt)
                 .createdAt(getCreatedAt())
                 .updatedAt(getUpdatedAt())
                 .deletedAt(getDeletedAt())
@@ -61,6 +66,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .password(user.getPassword())
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
+                .lastLoginAt(user.getLastLoginAt())
                 .build();
         entity.setDeletedAt(user.getDeletedAt());
         return entity;

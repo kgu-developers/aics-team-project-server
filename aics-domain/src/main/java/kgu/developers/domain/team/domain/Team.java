@@ -1,5 +1,6 @@
 package kgu.developers.domain.team.domain;
 
+import kgu.developers.domain.team.exception.TeamAlreadyConfirmedException;
 import lombok.*;
 
 import static lombok.AccessLevel.PROTECTED;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = PROTECTED)
 public class Team {
     private Long id;
+    private Long version;  // 낙관적 락 버전 (신규는 null)
 
     private Long sectionId;  // 분반 식별자
 
@@ -53,6 +55,12 @@ public class Team {
 
     public void updateStatus(Status status) {
         this.status = status;
+    }
+
+    public void validateNotConfirmed() {
+        if (status == Status.CONFIRMED) {
+            throw new TeamAlreadyConfirmedException();
+        }
     }
 
     public void delete() {

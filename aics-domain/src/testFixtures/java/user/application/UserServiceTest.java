@@ -221,4 +221,15 @@ class UserServiceTest {
     verify(userRepository).save(user);
     verify(refreshTokenRepository).deleteById("202699999");
   }
+
+  @Test
+  @DisplayName("recordLogin은 마지막 로그인 시각을 기록한 뒤 저장한다")
+  void recordLogin() {
+    User user = user();
+
+    commandService.recordLogin(user);
+
+    assertThat(user.getLastLoginAt()).isNotNull();
+    verify(userRepository).save(user);
+  }
 }

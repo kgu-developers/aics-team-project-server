@@ -1,5 +1,7 @@
 package kgu.developers.domain.user.application.command;
 
+import java.time.LocalDateTime;
+
 import kgu.developers.domain.auth.infrastructure.JpaRefreshTokenRepository;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
@@ -70,6 +72,11 @@ public class UserCommandService {
         user.delete();
         userRepository.save(user);
         revokeTokens(user);
+    }
+
+    public void recordLogin(User user) {
+        user.recordLogin(LocalDateTime.now());
+        userRepository.save(user);
     }
 
     private void revokeTokens(User user) {

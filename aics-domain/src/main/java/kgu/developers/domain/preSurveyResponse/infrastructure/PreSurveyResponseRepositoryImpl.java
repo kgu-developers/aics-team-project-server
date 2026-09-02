@@ -17,7 +17,7 @@ public class PreSurveyResponseRepositoryImpl implements PreSurveyResponseReposit
 	@Override
 	public PreSurveyResponse save(PreSurveyResponse response) {
 		PreSurveyResponseJpaEntity entity = PreSurveyResponseJpaEntity.toEntity(response);
-		return jpaPreSurveyResponseRepository.save(entity).toDomain();
+		return jpaPreSurveyResponseRepository.saveAndFlush(entity).toDomain();
 	}
 
 	@Override
@@ -28,7 +28,7 @@ public class PreSurveyResponseRepositoryImpl implements PreSurveyResponseReposit
 
 	@Override
 	public Optional<PreSurveyResponse> findByUserIdAndSectionId(String userId, Long sectionId) {
-		return jpaPreSurveyResponseRepository.findByUserIdAndSectionIdAndDeletedAtIsNull(userId, sectionId)
+		return jpaPreSurveyResponseRepository.findFirstByUserIdAndSectionIdAndDeletedAtIsNullOrderByIdDesc(userId, sectionId)
 				.map(PreSurveyResponseJpaEntity::toDomain);
 	}
 

@@ -67,7 +67,6 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ISSUER: ${JWT_ISSUER}
       FILE_SECRET_KEY: ${FILE_SECRET_KEY}
-      SPRINGDOC_SWAGGERUI_PATH: /admin-docs
       SPRINGDOC_APIDOCS_PATH: /admin-api-docs
     depends_on:
       - postgres
@@ -89,7 +88,6 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ISSUER: ${JWT_ISSUER}
       FILE_SECRET_KEY: ${FILE_SECRET_KEY}
-      SPRINGDOC_SWAGGERUI_PATH: /auth-docs
       SPRINGDOC_APIDOCS_PATH: /auth-api-docs
     depends_on:
       - postgres

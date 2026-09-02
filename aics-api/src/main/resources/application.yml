@@ -1,5 +1,6 @@
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -39,6 +40,13 @@ springdoc:
     enabled: false
     operations-sorter: alpha
     tags-sorter: alpha
+    urls:
+      - name: API (aics-api)
+        url: /v3/api-docs
+      - name: Admin (aics-admin)
+        url: /admin-api-docs
+      - name: Auth (aics-auth)
+        url: /auth-api-docs
   api-docs:
     enabled: false
 
