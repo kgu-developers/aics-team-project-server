@@ -1,7 +1,7 @@
 package kgu.developers.auth.api.application;
 
 import kgu.developers.auth.api.presentation.response.LoginResponse;
-import kgu.developers.domain.user.application.command.UserCommandService;
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.exception.InvalidCredentialsException;
@@ -24,15 +24,14 @@ public class AuthFacade {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenStore refreshTokenStore;
     private final TokenRevocationStore tokenRevocationStore;
-    private final UserCommandService userCommandService;
 
     public LoginResponse login(LoginRequest request) {
         User user = findForLogin(request.studentNumber());
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
-        userCommandService.recordLogin(user);
-        return issue(user);
+        LoginRole role = userQueryService.getUserRole(user);
+        return issue(user, role);
     }
 
     public LoginResponse refresh(String refreshToken) {
@@ -48,13 +47,14 @@ public class AuthFacade {
         }
 
         User user = findForRefresh(studentNumber);
+        LoginRole role = userQueryService.getUserRole(user);
         String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
 
         if (!rotate(studentNumber, refreshToken, newRefreshToken)) {
             throw new InvalidTokenException();
         }
 
-        return tokens(user, newRefreshToken);
+        return tokens(user, newRefreshToken, role);
     }
 
     // 쿠키가 없거나 깨졌으면 지울 것도 없다. 로그아웃 자체는 성공시킨다.
@@ -80,29 +80,30 @@ public class AuthFacade {
         }
     }
 
-    private LoginResponse issue(User user) {
+    private LoginResponse issue(User user, LoginRole role) {
         String refreshToken = jwtUtil.createRefreshToken(user.getStudentNumber());
         refreshTokenStore.save(user.getStudentNumber(), refreshToken);
-        return tokens(user, refreshToken);
+        return tokens(user, refreshToken, role);
     }
 
-    private LoginResponse tokens(User user, String refreshToken) {
+    private LoginResponse tokens(User user, String refreshToken, LoginRole role) {
         return LoginResponse.of(
-                jwtUtil.createAccessToken(user.getStudentNumber(), user.getGlobalRole().name()),
-                refreshToken);
+                jwtUtil.createAccessToken(user.getStudentNumber(), role.name()),
+                refreshToken,
+                role);
     }
 
-    private User findForRefresh(String student_number) {
+    private User findForRefresh(String studentNumber) {
         try {
-            return userQueryService.getUserByStudentNumber(student_number);
+            return userQueryService.getUserByStudentNumber(studentNumber);
         } catch (UserNotFoundException e) {
             throw new InvalidTokenException();
         }
     }
 
-    private User findForLogin(String student_number) {
+    private User findForLogin(String studentNumber) {
         try {
-            return userQueryService.getUserByStudentNumber(student_number);
+            return userQueryService.getUserByStudentNumber(studentNumber);
         } catch (UserNotFoundException e) {
             throw new InvalidCredentialsException();
         }

@@ -25,6 +25,7 @@ import kgu.developers.auth.api.application.AuthFacade;
 import kgu.developers.auth.api.presentation.AuthControllerImpl;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.globalutils.jwt.JwtUtil;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,7 +50,7 @@ class AuthControllerTest {
 
   private MvcResult login() throws Exception {
     given(authFacade.login(new LoginRequest("202699999", "12345678")))
-        .willReturn(LoginResponse.of("access-token", "refresh-token"));
+        .willReturn(LoginResponse.of("access-token", "refresh-token", LoginRole.STUDENT));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
 
@@ -59,11 +60,12 @@ class AuthControllerTest {
   }
 
   @Test
-  @DisplayName("로그인 성공 시 본문은 Login Successfully이고 토큰은 Set-Cookie로 내려간다")
+  @DisplayName("로그인 성공 시 본문은 message와 role이고 토큰은 Set-Cookie로 내려간다")
   void loginSetsCookiesNotBody() throws Exception {
     MvcResult result = login();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Login Successfully");
+    assertThat(result.getResponse().getContentAsString())
+        .isEqualTo("{\"message\":\"Login Successfully\",\"role\":\"STUDENT\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .anyMatch(c -> c.startsWith("accessToken=access-token"))
         .anyMatch(c -> c.startsWith("refreshToken=refresh-token"));
@@ -86,7 +88,7 @@ class AuthControllerTest {
   @DisplayName("refresh는 refreshToken 쿠키를 읽어 새 토큰 쿠키를 내려준다")
   void refreshReadsRefreshTokenCookie() throws Exception {
     given(authFacade.refresh("old-refresh-token"))
-        .willReturn(LoginResponse.of("new-access-token", "new-refresh-token"));
+        .willReturn(LoginResponse.of("new-access-token", "new-refresh-token", LoginRole.STUDENT));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
 
@@ -95,7 +97,7 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andReturn();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Refresh Successfully");
+    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Refresh Successfully\",\"role\":\"STUDENT\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .anyMatch(c -> c.startsWith("accessToken=new-access-token"))
         .anyMatch(c -> c.startsWith("refreshToken=new-refresh-token"))
@@ -105,7 +107,7 @@ class AuthControllerTest {
   @Test
   @DisplayName("refresh는 쿠키가 없어도 파사드까지 도달한다 (null 처리는 파사드 책임)")
   void refreshWithoutCookie() throws Exception {
-    given(authFacade.refresh(null)).willReturn(LoginResponse.of("a", "r"));
+    given(authFacade.refresh(null)).willReturn(LoginResponse.of("a", "r", LoginRole.STUDENT));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
 
@@ -120,7 +122,7 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andReturn();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Logout Successfully");
+    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Logout Successfully\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .hasSize(2)
         .allMatch(c -> c.contains("Max-Age=0"))
