@@ -65,7 +65,7 @@ class AuthControllerTest {
     MvcResult result = login();
 
     assertThat(result.getResponse().getContentAsString())
-        .isEqualTo("{\"message\":\"Login successfully\",\"role\":\"STUDENT\"}");
+        .isEqualTo("{\"message\":\"Login Successfully\",\"role\":\"STUDENT\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .anyMatch(c -> c.startsWith("accessToken=access-token"))
         .anyMatch(c -> c.startsWith("refreshToken=refresh-token"));
@@ -97,7 +97,7 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andReturn();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Refresh successfully\",\"role\":\"STUDENT\"}");
+    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Refresh Successfully\",\"role\":\"STUDENT\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .anyMatch(c -> c.startsWith("accessToken=new-access-token"))
         .anyMatch(c -> c.startsWith("refreshToken=new-refresh-token"))
@@ -122,7 +122,7 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andReturn();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Logout successfully\"}");
+    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Logout Successfully\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .hasSize(2)
         .allMatch(c -> c.contains("Max-Age=0"))
