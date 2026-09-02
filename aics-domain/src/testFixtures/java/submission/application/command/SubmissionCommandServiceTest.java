@@ -419,6 +419,23 @@ class SubmissionCommandServiceTest {
     }
 
     @Test
+    @DisplayName("최종보고서 완료 게이트는 활성 조교도 확인 대상에서 뺀다(활성 STUDENT만 대상)")
+    void completeSubmission_ExcludesActiveAssistant() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
+        teamMemberRepository.save(TeamMember.create(TEAM_ID, "202611111", false, "조교"));
+        enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
+        enrollmentRepository.save(Enrollment.create(SECTION_ID, "202611111", Role.ASSISTANT, Status.ACTIVE));
+        submissionCommandService.submitVersion(submission.getId(), USER_ID, "최종보고서 제출", null, List.of());
+
+        // 조교(202611111)는 확인을 아예 안 했지만, 활성 STUDENT(USER_ID)만 확인하면 게이트를 통과해야 한다.
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, true, true, null);
+
+        assertThat(catchThrowable(
+                () -> submissionCommandService.completeSubmission(submission.getId(), USER_ID))).isNull();
+    }
+
+    @Test
     @DisplayName("완료되지 않은 제출은 재오픈할 수 없다")
     void reopenSubmission_RejectsWhenNotCompleted() {
         assertThatThrownBy(() -> submissionCommandService.reopenSubmission(

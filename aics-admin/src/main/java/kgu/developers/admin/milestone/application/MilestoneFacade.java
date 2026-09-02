@@ -41,7 +41,8 @@ public class MilestoneFacade {
                     request.title(),
                     request.description(),
                     request.weekNumber(),
-                    toSchedule(request.schedule())
+                    toSchedule(request.schedule()),
+                    request.type()
             );
             return MilestonePersistResponse.of(milestoneId);
         });
@@ -78,7 +79,8 @@ public class MilestoneFacade {
                 milestoneId,
                 request.title(),
                 request.description(),
-                toSchedule(request.schedule())
+                toSchedule(request.schedule()),
+                request.type()
         ));
     }
 

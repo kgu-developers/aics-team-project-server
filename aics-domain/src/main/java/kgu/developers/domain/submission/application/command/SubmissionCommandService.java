@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
-import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.feedback.domain.RequiredArtifact;
 import kgu.developers.domain.feedback.domain.RequiredArtifactRepository;
 import kgu.developers.domain.fileobject.domain.FileObject;
@@ -145,7 +145,7 @@ public class SubmissionCommandService {
                 .collect(Collectors.toMap(SubmissionMemberConfirmation::getUserId, c -> c));
 
         boolean allActiveMembersConfirmed = members.stream()
-                .filter(member -> isActiveEnrollment(milestone.getSectionId(), member.getUserId()))
+                .filter(member -> isActiveStudent(milestone.getSectionId(), member.getUserId()))
                 .allMatch(member -> {
                     SubmissionMemberConfirmation confirmation = confirmationsByUserId.get(member.getUserId());
                     return confirmation != null
@@ -158,9 +158,10 @@ public class SubmissionCommandService {
         }
     }
 
-    private boolean isActiveEnrollment(Long sectionId, String userId) {
+    // 활성 조교(ASSISTANT)는 확인 대상이 아니다 — 최종보고서 확인은 활성 STUDENT만 대상으로 한다(팀 합의).
+    private boolean isActiveStudent(Long sectionId, String userId) {
         return enrollmentRepository.findBySectionIdAndUserId(sectionId, userId)
-                .map(enrollment -> enrollment.getStatus() == Status.ACTIVE)
+                .map(Enrollment::isActiveStudent)
                 .orElse(false);
     }
 

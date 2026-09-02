@@ -169,7 +169,7 @@ public class SubmissionFacade {
 
     public SubmissionResponse completeSubmission(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateLeader(submission.getTeamId(), userId);
+        validateLeader(submission, userId);
         submissionCommandService.completeSubmission(submissionId, userId);
         return toResponse(submissionQueryService.getSubmission(submissionId));
     }
@@ -230,8 +230,11 @@ public class SubmissionFacade {
         submissionCommandService.assignPresentationOrders(milestoneId, orderByTeamId);
     }
 
-    private void validateLeader(Long teamId, String userId) {
-        TeamMember member = teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
+    // 탈퇴했거나 조교로 전환된 기존 팀장이 계속 완료 처리할 수 있던 구멍을 막기 위해,
+    // 팀장 여부뿐 아니라 지금도 그 분반의 활성 학생인지까지 같이 확인한다.
+    private void validateLeader(Submission submission, String userId) {
+        validateActiveTeamMembership(submission, userId);
+        TeamMember member = teamMemberRepository.findByTeamIdAndUserId(submission.getTeamId(), userId)
                 .orElseThrow(SubmissionAccessDeniedException::new);
         if (!member.isLeader()) {
             throw new SubmissionLeaderOnlyException();

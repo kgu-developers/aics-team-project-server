@@ -223,6 +223,19 @@ class SubmissionFacadeTest {
     }
 
     @Test
+    @DisplayName("탈퇴했거나 조교로 전환된 기존 팀장은 완료 처리를 할 수 없다")
+    void completeSubmission_RejectsLeaderWithoutActiveStudentEnrollment() {
+        String withdrawnLeader = "202677778";
+        teamMemberRepository.save(TeamMember.create(TEAM_ID, withdrawnLeader, true, "탈퇴한 팀장"));
+        // 활성 STUDENT enrollment를 일부러 안 심어둠(탈퇴했거나 조교로 전환된 상황을 흉내).
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        assertThatThrownBy(() -> submissionFacade.completeSubmission(submission.getId(), withdrawnLeader))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("아직 제출한 적 없으면 팀장이어도 완료 처리할 수 없다")
     void completeSubmission_RejectsWhenNotYetSubmitted() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));

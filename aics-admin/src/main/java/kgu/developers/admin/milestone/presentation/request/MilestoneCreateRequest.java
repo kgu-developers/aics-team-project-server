@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 
 public record MilestoneCreateRequest(
         @Schema(description = "마일스톤 제목", example = "프로젝트 제안서", requiredMode = REQUIRED)
@@ -25,6 +26,10 @@ public record MilestoneCreateRequest(
         @Schema(description = "마일스톤 일정", requiredMode = REQUIRED)
         @Valid
         @NotNull
-        MilestoneScheduleRequest schedule
+        MilestoneScheduleRequest schedule,
+
+        @Schema(description = "마일스톤 유형(안 보내면 GENERAL). 최종보고서 완료게이트 등 B3 로직이 이 값으로 동작한다.",
+                example = "GENERAL")
+        MilestoneType type
 ) {
 }
