@@ -33,6 +33,7 @@ import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.InvalidContactVisiblePeriodException;
+import kgu.developers.domain.section.exception.ProfessorRoleRequiredException;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
@@ -68,7 +69,10 @@ class SectionServiceTest {
             .build();
 
     private final User professor = User.create("202012345", "prof@kgu.ac.kr", "김교수",
-            "encoded", UserGlobalRole.USER, "010-0000-0000");
+            "encoded", UserGlobalRole.ADMIN, "010-0000-0000");
+
+    private final User student = User.create("202099999", "student@kgu.ac.kr", "김학생",
+            "encoded", UserGlobalRole.USER, "010-1111-1111");
 
     private Section section() {
         return Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null);
@@ -111,6 +115,19 @@ class SectionServiceTest {
         assertThatThrownBy(() ->
                 commandService.createSection("999999999", 1L, "CS101", "01분반", "월3,4", 40, null, null))
                 .isInstanceOf(UserNotFoundException.class);
+
+        verify(sectionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("USER 역할의 사용자는 분반 담당 교수로 지정할 수 없다")
+    void rejectsSectionForUserRoleProfessor() {
+        given(courseRepository.findById(1L)).willReturn(Optional.of(course));
+        given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(student));
+
+        assertThatThrownBy(() ->
+                commandService.createSection("202099999", 1L, "CS101", "01분반", "월3,4", 40, null, null))
+                .isInstanceOf(ProfessorRoleRequiredException.class);
 
         verify(sectionRepository, never()).save(any());
     }
@@ -196,6 +213,22 @@ class SectionServiceTest {
     }
 
     @Test
+    @DisplayName("분반 수정으로 USER 역할의 사용자를 담당 교수로 지정할 수 없다")
+    void rejectsUpdateToUserRoleProfessor() {
+        Section section = section();
+        given(courseRepository.findById(1L)).willReturn(Optional.of(course));
+        given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(student));
+
+        assertThatThrownBy(() ->
+                commandService.updateSection(section, "202099999", 1L, "CS102", "02분반", "화5,6", 30, null, null))
+                .isInstanceOf(ProfessorRoleRequiredException.class);
+
+        assertThat(section.getProfessorId()).isEqualTo("202012345");
+        assertThat(section.getCode()).isEqualTo("CS101");
+        verify(sectionRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("없는 강좌로는 분반을 수정할 수 없다")
     void rejectsUpdateToMissingCourse() {
         Section section = section();
@@ -219,6 +252,19 @@ class SectionServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
 
         assertThat(section.getProfessorId()).isEqualTo("202012345");
+    }
+
+    @Test
+    @DisplayName("분반 담당 교수를 USER 역할의 사용자로 바꿀 수 없다")
+    void rejectsMoveToUserRoleProfessor() {
+        Section section = section();
+        given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(student));
+
+        assertThatThrownBy(() -> commandService.changeProfessor(section, "202099999"))
+                .isInstanceOf(ProfessorRoleRequiredException.class);
+
+        assertThat(section.getProfessorId()).isEqualTo("202012345");
+        verify(sectionRepository, never()).save(any());
     }
 
     @Test
