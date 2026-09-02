@@ -5,6 +5,9 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+
+import jakarta.persistence.LockModeType;
 
 public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Long> {
     @EntityGraph(attributePaths = {"course", "professor"})
@@ -21,4 +24,10 @@ public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Lo
     List<SectionJpaEntity> findAllByIdInAndDeletedAtIsNullOrderByCodeAsc(List<Long> ids);
 
     boolean existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(Long id, String studentNumber);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<SectionJpaEntity> findByIdAndProfessorStudentNumberAndDeletedAtIsNull(
+            Long id,
+            String studentNumber
+    );
 }

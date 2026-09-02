@@ -80,4 +80,9 @@ public class FakeSectionRepository implements SectionRepository {
             .filter(section -> section.getProfessorId().equals(professorId))
             .isPresent();
     }
+
+    @Override
+    public boolean lockActiveByIdAndProfessorId(Long id, String professorId) {
+        return existsActiveByIdAndProfessorId(id, professorId);
+    }
 }
