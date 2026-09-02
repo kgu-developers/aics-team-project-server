@@ -10,9 +10,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import kgu.developers.domain.auditLog.domain.AuditLog;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
+import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 
 public class FakeAuditLogRepository implements AuditLogRepository {
@@ -58,9 +60,8 @@ public class FakeAuditLogRepository implements AuditLogRepository {
 		List<AuditLog> filtered = store.values().stream()
 				.filter(log -> log.getDeletedAt() == null)
 				.filter(log -> sectionId.equals(log.getSectionId()))
-				.sorted(Comparator.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
-		return paginate(filtered, pageable);
+		return paginate(applySort(filtered, pageable.getSort()), pageable);
 	}
 
 	@Override
@@ -71,9 +72,8 @@ public class FakeAuditLogRepository implements AuditLogRepository {
 		List<AuditLog> filtered = store.values().stream()
 				.filter(log -> log.getDeletedAt() == null)
 				.filter(log -> actorId.equals(log.getActorId()))
-				.sorted(Comparator.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
-		return paginate(filtered, pageable);
+		return paginate(applySort(filtered, pageable.getSort()), pageable);
 	}
 
 	@Override
@@ -84,9 +84,75 @@ public class FakeAuditLogRepository implements AuditLogRepository {
 		List<AuditLog> filtered = store.values().stream()
 				.filter(log -> log.getDeletedAt() == null)
 				.filter(log -> eventType.equals(log.getEventType()))
-				.sorted(Comparator.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
 				.toList();
-		return paginate(filtered, pageable);
+		return paginate(applySort(filtered, pageable.getSort()), pageable);
+	}
+
+	@Override
+	public Page<AuditLog> findAllByTeam(Long sectionId, Long teamId, Pageable pageable) {
+		if (sectionId == null || teamId == null) {
+			return Page.empty(pageable);
+		}
+		List<AuditLog> filtered = activeLogs()
+				.filter(log -> sectionId.equals(log.getSectionId()))
+				.filter(log -> TargetType.TEAM == log.getTargetType())
+				.filter(log -> teamId.equals(log.getTargetId()))
+				.toList();
+		return paginate(applySort(filtered, pageable.getSort()), pageable);
+	}
+
+	@Override
+	public List<AuditLog> findAllByTeamAndActorIdIn(Long sectionId, Long teamId, List<String> actorIds) {
+		if (sectionId == null || teamId == null || actorIds == null || actorIds.isEmpty()) {
+			return List.of();
+		}
+		return activeLogs()
+				.filter(log -> sectionId.equals(log.getSectionId()))
+				.filter(log -> TargetType.TEAM == log.getTargetType())
+				.filter(log -> teamId.equals(log.getTargetId()))
+				.filter(log -> actorIds.contains(log.getActorId()))
+				.sorted(newestFirst())
+				.toList();
+	}
+
+	private List<AuditLog> applySort(List<AuditLog> logs, Sort sort) {
+		if (sort.isUnsorted()) {
+			return logs;
+		}
+		Comparator<AuditLog> comparator = null;
+		for (Sort.Order order : sort) {
+			Comparator<AuditLog> propertyComparator = comparatorFor(order.getProperty());
+			if (order.isDescending()) {
+				propertyComparator = propertyComparator.reversed();
+			}
+			comparator = comparator == null
+					? propertyComparator
+					: comparator.thenComparing(propertyComparator);
+		}
+		return logs.stream().sorted(comparator).toList();
+	}
+
+	private Comparator<AuditLog> comparatorFor(String property) {
+		return switch (property) {
+			case "id" -> Comparator.comparing(AuditLog::getId, Comparator.nullsLast(Comparator.naturalOrder()));
+			case "createdAt" -> Comparator.comparing(
+					AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+			case "actorId" -> Comparator.comparing(
+					AuditLog::getActorId, Comparator.nullsLast(Comparator.naturalOrder()));
+			case "eventType" -> Comparator.comparing(
+					AuditLog::getEventType, Comparator.nullsLast(Comparator.naturalOrder()));
+			default -> throw new IllegalArgumentException("지원하지 않는 AuditLog 정렬 속성입니다: " + property);
+		};
+	}
+
+	private java.util.stream.Stream<AuditLog> activeLogs() {
+		return store.values().stream().filter(log -> log.getDeletedAt() == null);
+	}
+
+	private Comparator<AuditLog> newestFirst() {
+		return Comparator
+				.comparing(AuditLog::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+				.thenComparing(AuditLog::getId, Comparator.nullsLast(Comparator.reverseOrder()));
 	}
 
 	private Page<AuditLog> paginate(List<AuditLog> items, Pageable pageable) {
