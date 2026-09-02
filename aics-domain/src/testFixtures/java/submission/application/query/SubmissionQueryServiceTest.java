@@ -77,7 +77,30 @@ class SubmissionQueryServiceTest {
         LocalDateTime past = LocalDateTime.now().minusDays(1);
         Milestone milestone = milestone(5L, 2, schedule(past, past, past));
         given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
-        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        Submission submission = submission(5L);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isFalse();
+    }
+
+    @Test
+    @DisplayName("opensAt 전이면 공개된 마일스톤이라도 제출할 수 없다")
+    void canSubmitNow_FalseBeforeOpensAt() {
+        LocalDateTime opensAt = LocalDateTime.now().plusDays(1);
+        LocalDateTime dueAt = LocalDateTime.now().plusDays(7);
+        Milestone milestone = milestone(5L, 2, new MilestoneSchedule(opensAt, dueAt, null, null, null, null));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isFalse();
+    }
+
+    @Test
+    @DisplayName("DRAFT 상태 마일스톤은 기간이 열려 있어도 제출할 수 없다")
+    void canSubmitNow_FalseWhenMilestoneIsDraft() {
+        Milestone draftMilestone = Milestone.restore(
+                5L, SECTION_ID, "마일스톤", null, 2, MilestoneStatus.DRAFT,
+                schedule(LocalDateTime.now().plusDays(1), null, null));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(draftMilestone));
         Submission submission = submission(5L);
 
         assertThat(submissionQueryService.canSubmitNow(submission)).isFalse();
@@ -96,13 +119,14 @@ class SubmissionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("공식 기간이 다 지나도, 직전 마일스톤을 이미 제출했으면 다음 마일스톤은 조기 오픈된다")
+    @DisplayName("아직 공식 오픈 전이어도, 직전 마일스톤을 이미 제출했으면 다음 마일스톤은 조기 오픈된다")
     void canSubmitNow_TrueWhenPreviousMilestoneAlreadySubmitted() {
-        LocalDateTime past = LocalDateTime.now().minusDays(1);
         LocalDateTime future = LocalDateTime.now().plusDays(1);
+        LocalDateTime opensAt = LocalDateTime.now().plusHours(1);
+        LocalDateTime dueAt = LocalDateTime.now().plusDays(7);
 
         Milestone previousMilestone = milestone(4L, 1, schedule(future, null, null));
-        Milestone currentMilestone = milestone(5L, 2, schedule(past, past, past));
+        Milestone currentMilestone = milestone(5L, 2, new MilestoneSchedule(opensAt, dueAt, null, null, null, null));
         given(milestoneRepository.findById(5L)).willReturn(Optional.of(currentMilestone));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID))
                 .willReturn(List.of(previousMilestone, currentMilestone));
@@ -118,13 +142,30 @@ class SubmissionQueryServiceTest {
     }
 
     @Test
+    @DisplayName("공식 오픈 시각이 이미 지났으면, 직전 마일스톤을 제출했어도 더 이상 '조기'오픈은 적용되지 않는다")
+    void canSubmitNow_FalseAfterOpensAtEvenIfPreviousSubmitted() {
+        LocalDateTime past = LocalDateTime.now().minusDays(1);
+        Milestone currentMilestone = milestone(5L, 2, schedule(past, past, past));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(currentMilestone));
+
+        Submission previousSubmission = submissionRepository.save(Submission.create(TEAM_ID, 4L));
+        previousSubmission.recordNewVersion(1);
+        submissionRepository.save(previousSubmission);
+
+        Submission currentSubmission = submission(5L);
+
+        assertThat(submissionQueryService.canSubmitNow(currentSubmission)).isFalse();
+    }
+
+    @Test
     @DisplayName("직전 마일스톤을 아직 제출 안 했으면 조기 오픈되지 않는다")
     void canSubmitNow_FalseWhenPreviousMilestoneNotSubmittedYet() {
-        LocalDateTime past = LocalDateTime.now().minusDays(1);
         LocalDateTime future = LocalDateTime.now().plusDays(1);
+        LocalDateTime opensAt = LocalDateTime.now().plusHours(1);
+        LocalDateTime dueAt = LocalDateTime.now().plusDays(7);
 
         Milestone previousMilestone = milestone(4L, 1, schedule(future, null, null));
-        Milestone currentMilestone = milestone(5L, 2, schedule(past, past, past));
+        Milestone currentMilestone = milestone(5L, 2, new MilestoneSchedule(opensAt, dueAt, null, null, null, null));
         given(milestoneRepository.findById(5L)).willReturn(Optional.of(currentMilestone));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID))
                 .willReturn(List.of(previousMilestone, currentMilestone));

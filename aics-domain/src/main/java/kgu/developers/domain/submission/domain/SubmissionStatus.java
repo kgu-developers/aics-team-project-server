@@ -5,5 +5,6 @@ public enum SubmissionStatus {
     SUBMITTED,
     APPROVED,
     FEEDBACK_PROVIDED,
-    REVISION_REQUESTED
+    REVISION_REQUESTED,
+    COMPLETED
 }

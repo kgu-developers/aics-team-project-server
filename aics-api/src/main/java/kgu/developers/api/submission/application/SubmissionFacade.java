@@ -1,6 +1,7 @@
 package kgu.developers.api.submission.application;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,6 +24,10 @@ import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
 import kgu.developers.api.submission.presentation.response.TeamPresentationResponse;
+import kgu.developers.domain.editlock.application.query.EditLockQueryService;
+import kgu.developers.domain.editlock.domain.EditLockTargetType;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
@@ -45,6 +50,9 @@ import kgu.developers.domain.submission.domain.SubmissionMemberConfirmationRepos
 import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.domain.SubmissionVersionRepository;
 import kgu.developers.domain.submission.exception.SubmissionAccessDeniedException;
+import kgu.developers.domain.submission.exception.SubmissionArtifactCountMismatchException;
+import kgu.developers.domain.submission.exception.SubmissionInvalidArtifactTypeException;
+import kgu.developers.domain.submission.exception.SubmissionInvalidPresentationOrderException;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -66,6 +74,8 @@ public class SubmissionFacade {
     private final FileStorage fileStorage;
     private final MilestoneRepository milestoneRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final EditLockQueryService editLockQueryService;
     private final SectionQueryService sectionQueryService;
 
     public SubmissionResponse getMyTeamSubmission(Long milestoneId, String userId) {
@@ -116,18 +126,26 @@ public class SubmissionFacade {
             List<MultipartFile> files
     ) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateTeamMembership(submission.getTeamId(), userId);
+        validateActiveTeamMembership(submission, userId);
+
+        if (files != null && !files.isEmpty()
+                && (fileArtifactIds == null || fileArtifactIds.size() != files.size())) {
+            throw new SubmissionArtifactCountMismatchException();
+        }
 
         List<SubmissionArtifactInput> inputs = new ArrayList<>();
         if (artifacts != null) {
-            artifacts.forEach(artifact -> inputs.add(new SubmissionArtifactInput(
-                    artifact.requiredArtifactId(), artifact.type(), null, artifact.url(), artifact.content())));
+            for (SubmissionArtifactRequest artifact : artifacts) {
+                if (artifact.type() == ArtifactType.FILE) {
+                    throw new SubmissionInvalidArtifactTypeException();
+                }
+                inputs.add(new SubmissionArtifactInput(
+                        artifact.requiredArtifactId(), artifact.type(), null, artifact.url(), artifact.content()));
+            }
         }
         if (files != null) {
             for (int i = 0; i < files.size(); i++) {
-                Long requiredArtifactId = (fileArtifactIds != null && i < fileArtifactIds.size())
-                        ? fileArtifactIds.get(i) : null;
-                inputs.add(new SubmissionArtifactInput(requiredArtifactId, ArtifactType.FILE, files.get(i), null, null));
+                inputs.add(new SubmissionArtifactInput(fileArtifactIds.get(i), ArtifactType.FILE, files.get(i), null, null));
             }
         }
 
@@ -144,7 +162,7 @@ public class SubmissionFacade {
 
     public void confirmAsMember(Long submissionId, String userId, SubmissionMemberConfirmationRequest request) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateTeamMembership(submission.getTeamId(), userId);
+        validateActiveTeamMembership(submission, userId);
         submissionCommandService.confirmAsMember(
                 submissionId, userId, request.confirmedFinalReport(), request.confirmedArtifacts(), request.oneLineReview());
     }
@@ -152,7 +170,7 @@ public class SubmissionFacade {
     public SubmissionResponse completeSubmission(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateLeader(submission.getTeamId(), userId);
-        submissionCommandService.completeSubmission(submissionId);
+        submissionCommandService.completeSubmission(submissionId, userId);
         return toResponse(submissionQueryService.getSubmission(submissionId));
     }
 
@@ -175,7 +193,8 @@ public class SubmissionFacade {
 
     public PresentationContentResponse updatePresentationContent(Long submissionId, String userId, PresentationContentRequest request) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateTeamMembership(submission.getTeamId(), userId);
+        validateActiveTeamMembership(submission, userId);
+        validateNotLockedByAnother(submissionId, userId);
         PresentationContent content = presentationContentCommandService.upsert(
                 submissionId, request.introText(), request.features(), request.screens(), request.youtubeUrl());
         return PresentationContentResponse.from(content);
@@ -200,8 +219,14 @@ public class SubmissionFacade {
         if (!sectionQueryService.isActiveSectionOwnedByProfessor(milestone.getSectionId(), professorId)) {
             throw new SubmissionAccessDeniedException();
         }
-        Map<Long, Integer> orderByTeamId = request.teamOrders().stream()
-                .collect(Collectors.toMap(PresentationOrderRequest.TeamOrder::teamId, PresentationOrderRequest.TeamOrder::order));
+        // Collectors.toMap은 키가 중복되면 IllegalStateException(500)을 던지므로, 여기서
+        // 직접 넣으면서 중복 teamId를 400으로 미리 걸러낸다.
+        Map<Long, Integer> orderByTeamId = new LinkedHashMap<>();
+        for (PresentationOrderRequest.TeamOrder teamOrder : request.teamOrders()) {
+            if (orderByTeamId.put(teamOrder.teamId(), teamOrder.order()) != null) {
+                throw new SubmissionInvalidPresentationOrderException();
+            }
+        }
         submissionCommandService.assignPresentationOrders(milestoneId, orderByTeamId);
     }
 
@@ -235,5 +260,31 @@ public class SubmissionFacade {
         if (teamMemberRepository.findByTeamIdAndUserId(teamId, userId).isEmpty()) {
             throw new AccessDeniedException("그 팀에 소속된 사용자만 접근할 수 있습니다.");
         }
+    }
+
+    // 쓰기 경로(제출/확인/발표자료 수정) 전용 — 팀원 행이 남아있는 것만으로는 부족하고,
+    // 지금 이 분반에 "활성 학생"으로 등록돼 있어야 한다. 탈퇴했거나 조교로 역할이 바뀐 뒤에도
+    // TeamMember 행만 안 지워지면 계속 쓸 수 있던 구멍을 막는다.
+    private void validateActiveTeamMembership(Submission submission, String userId) {
+        validateTeamMembership(submission.getTeamId(), userId);
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        boolean activeStudent = enrollmentRepository.findBySectionIdAndUserId(milestone.getSectionId(), userId)
+                .map(Enrollment::isActiveStudent)
+                .orElse(false);
+        if (!activeStudent) {
+            throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 접근할 수 있습니다.");
+        }
+    }
+
+    // 다른 사람이 지금 이 발표자료를 편집 중(EditLock 보유)이면 덮어쓰지 못하게 막는다.
+    // 잠금을 아무도 안 잡았으면 그대로 허용 — 잠금 자체는 여전히 선택 사항이고, 이건
+    // "잡은 잠금이 있으면 그 소유자만 쓸 수 있다"는 최소한의 강제만 건다.
+    private void validateNotLockedByAnother(Long submissionId, String userId) {
+        editLockQueryService.getActiveLock(EditLockTargetType.PRESENTATION_CONTENT, submissionId)
+                .filter(lock -> !lock.isOwnedBy(userId))
+                .ifPresent(lock -> {
+                    throw new SubmissionAccessDeniedException();
+                });
     }
 }

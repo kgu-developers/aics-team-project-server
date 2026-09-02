@@ -22,6 +22,7 @@ public class FakeSubmissionMemberConfirmationRepository implements SubmissionMem
             .id(id)
             .submissionId(confirmation.getSubmissionId())
             .userId(confirmation.getUserId())
+            .version(confirmation.getVersion())
             .confirmedFinalReport(confirmation.isConfirmedFinalReport())
             .confirmedArtifacts(confirmation.isConfirmedArtifacts())
             .oneLineReview(confirmation.getOneLineReview())

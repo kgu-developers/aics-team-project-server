@@ -42,7 +42,7 @@ public class SubmissionQueryService {
 
     public boolean canSubmitNow(Submission submission) {
         Milestone milestone = getMilestone(submission.getMilestoneId());
-        if (withinOwnWindow(milestone.getSchedule())) {
+        if (withinOwnWindow(milestone)) {
             return true;
         }
         if (withinReopenedWindow(submission)) {
@@ -69,16 +69,39 @@ public class SubmissionQueryService {
         return submission.getStatus() == SubmissionStatus.REVISION_REQUESTED;
     }
 
-    private boolean withinOwnWindow(MilestoneSchedule schedule) {
+    // 공개(PUBLISHED) 상태가 아니거나, 아직 opensAt 전이면 제출 기간 자체가 시작 안 한 것이다.
+    private boolean withinOwnWindow(Milestone milestone) {
+        if (milestone.getStatus() != MilestoneStatus.PUBLISHED) {
+            return false;
+        }
+        MilestoneSchedule schedule = milestone.getSchedule();
         LocalDateTime now = LocalDateTime.now();
+        if (!hasOpened(now, schedule.opensAt())) {
+            return false;
+        }
         return isBefore(now, schedule.dueAt())
                 || isBefore(now, schedule.lateSubmissionUntil())
                 || isBefore(now, schedule.revisionUntil());
     }
 
+    private boolean hasOpened(LocalDateTime now, LocalDateTime opensAt) {
+        return opensAt == null || !now.isBefore(opensAt);
+    }
+
     // 팀이 직전 마일스톤(같은 분반의 바로 앞 주차) 제출을 이미 끝냈으면, 이 마일스톤의
     // 공식 오픈일(opensAt) 전이라도 그 팀에 한해 미리 열어준다(팀별 조기활성화, 전체 공개일은 그대로).
+    // opensAt이 이미 지났으면(또는 애초에 없으면) "조기"라는 개념 자체가 성립하지 않으므로
+    // withinOwnWindow의 판단에 맡기고 여기서는 항상 false를 준다 — 안 그러면 모든 기한이
+    // 지난 뒤에도 이 조건만으로 계속 제출 가능 상태가 유지되는 문제가 생긴다.
     private boolean nextMilestoneOpenedEarly(Milestone milestone, Long teamId) {
+        if (milestone.getStatus() != MilestoneStatus.PUBLISHED) {
+            return false;
+        }
+        LocalDateTime opensAt = milestone.getSchedule().opensAt();
+        if (opensAt == null || !LocalDateTime.now().isBefore(opensAt)) {
+            return false;
+        }
+
         List<Milestone> sectionMilestones = milestoneRepository
                 .findAllBySectionIdOrderByWeekNumber(milestone.getSectionId());
 

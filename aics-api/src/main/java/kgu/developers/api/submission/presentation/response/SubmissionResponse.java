@@ -2,6 +2,8 @@ package kgu.developers.api.submission.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
+import java.time.LocalDateTime;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
@@ -33,7 +35,13 @@ public record SubmissionResponse(
         boolean hasPendingReview,
 
         @Schema(description = "발표 순서(발표 마일스톤 전용, 없으면 null)", example = "3")
-        Integer presentationOrder
+        Integer presentationOrder,
+
+        @Schema(description = "완료 처리된 시각(미완료면 null)")
+        LocalDateTime completedAt,
+
+        @Schema(description = "완료 처리한 팀장 학번(미완료면 null)")
+        String completedBy
 ) {
 
     public static SubmissionResponse of(Submission submission, boolean canSubmitNow, boolean hasPendingReview) {
@@ -46,6 +54,8 @@ public record SubmissionResponse(
                 .canSubmitNow(canSubmitNow)
                 .hasPendingReview(hasPendingReview)
                 .presentationOrder(submission.getPresentationOrder())
+                .completedAt(submission.getCompletedAt())
+                .completedBy(submission.getCompletedBy())
                 .build();
     }
 }

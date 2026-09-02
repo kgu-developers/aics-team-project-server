@@ -12,7 +12,11 @@ import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.editlock.application.command.EditLockCommandService;
 import kgu.developers.domain.editlock.application.query.EditLockQueryService;
 import kgu.developers.domain.editlock.domain.EditLockTargetType;
+import kgu.developers.domain.submission.domain.Submission;
+import kgu.developers.domain.teamMember.domain.TeamMember;
 import mock.repository.FakeEditLockRepository;
+import mock.repository.FakeSubmissionRepository;
+import mock.repository.FakeTeamMemberRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +26,7 @@ public class EditLockFacadeTest {
     private static final String MEMBER = "202412345";
     private static final String OTHER_MEMBER = "202499999";
     private static final EditLockTargetType TARGET_TYPE = EditLockTargetType.PRESENTATION_CONTENT;
+    private static final Long TEAM_ID = 10L;
     private static final Long TARGET_ID = 1L;
 
     private EditLockFacade facade;
@@ -29,9 +34,19 @@ public class EditLockFacadeTest {
     @BeforeEach
     public void init() {
         FakeEditLockRepository fakeEditLockRepository = new FakeEditLockRepository();
+        FakeSubmissionRepository fakeSubmissionRepository = new FakeSubmissionRepository();
+        FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
+
+        // TARGET_ID(=1L)와 실제로 매칭되도록, 시퀀스가 1부터 시작하는 이 Fake의 첫 저장 결과를 그대로 씀.
+        Submission submission = fakeSubmissionRepository.save(Submission.create(TEAM_ID, 100L));
+        fakeTeamMemberRepository.save(TeamMember.create(submission.getTeamId(), MEMBER, false, "팀원"));
+        fakeTeamMemberRepository.save(TeamMember.create(submission.getTeamId(), OTHER_MEMBER, false, "팀원"));
+
         facade = new EditLockFacade(
             new EditLockCommandService(fakeEditLockRepository),
-            new EditLockQueryService(fakeEditLockRepository)
+            new EditLockQueryService(fakeEditLockRepository),
+            fakeSubmissionRepository,
+            fakeTeamMemberRepository
         );
     }
 

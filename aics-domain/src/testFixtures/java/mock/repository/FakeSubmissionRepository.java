@@ -29,6 +29,8 @@ public class FakeSubmissionRepository implements SubmissionRepository {
             .reopenedAt(submission.getReopenedAt())
             .reopenedBy(submission.getReopenedBy())
             .presentationOrder(submission.getPresentationOrder())
+            .completedAt(submission.getCompletedAt())
+            .completedBy(submission.getCompletedBy())
             .createdAt(submission.getCreatedAt())
             .updatedAt(submission.getUpdatedAt())
             .deletedAt(submission.getDeletedAt())

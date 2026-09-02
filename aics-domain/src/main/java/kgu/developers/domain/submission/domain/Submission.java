@@ -24,6 +24,8 @@ public class Submission {
     private LocalDateTime reopenedAt;
     private String reopenedBy;
     private Integer presentationOrder;
+    private LocalDateTime completedAt;
+    private String completedBy;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -61,5 +63,19 @@ public class Submission {
 
     public boolean belongsToTeam(Long teamId) {
         return this.teamId.equals(teamId);
+    }
+
+    public boolean isSubmitted() {
+        return this.status != SubmissionStatus.NOT_SUBMITTED;
+    }
+
+    public boolean isCompleted() {
+        return this.status == SubmissionStatus.COMPLETED;
+    }
+
+    public void complete(String completedBy) {
+        this.status = SubmissionStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+        this.completedBy = completedBy;
     }
 }

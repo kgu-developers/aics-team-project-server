@@ -7,7 +7,6 @@ import static org.mockito.Mockito.mock;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +21,11 @@ import kgu.developers.api.submission.presentation.request.SubmissionReopenReques
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
+import kgu.developers.domain.editlock.application.command.EditLockCommandService;
+import kgu.developers.domain.editlock.application.query.EditLockQueryService;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
@@ -33,17 +37,21 @@ import kgu.developers.domain.submission.application.query.SubmissionQueryService
 import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionStatus;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 
+import mock.repository.FakeEditLockRepository;
 import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakeFileObjectRepository;
 import mock.repository.FakeFileStorage;
 import mock.repository.FakePresentationContentRepository;
+import mock.repository.FakeRequiredArtifactRepository;
 import mock.repository.FakeSubmissionArtifactRepository;
 import mock.repository.FakeSubmissionMemberConfirmationRepository;
 import mock.repository.FakeSubmissionRepository;
 import mock.repository.FakeSubmissionVersionRepository;
 import mock.repository.FakeTeamMemberRepository;
+import mock.repository.FakeTeamRepository;
 
 class SubmissionFacadeTest {
 
@@ -59,6 +67,8 @@ class SubmissionFacadeTest {
     private SectionQueryService sectionQueryService;
     private FakeTeamMemberRepository teamMemberRepository;
     private FakeSubmissionRepository submissionRepository;
+    private FakeTeamRepository teamRepository;
+    private FakeEditLockRepository editLockRepository;
     private SubmissionFacade submissionFacade;
 
     @BeforeEach
@@ -80,6 +90,12 @@ class SubmissionFacadeTest {
         FakeFileObjectRepository fileObjectRepository = new FakeFileObjectRepository();
         FakeFileStorage fileStorage = new FakeFileStorage();
         FakeEnrollmentRepository enrollmentRepository = new FakeEnrollmentRepository();
+        enrollmentRepository.save(Enrollment.create(SECTION_ID, LEADER, Role.STUDENT, Status.ACTIVE));
+        enrollmentRepository.save(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE));
+        FakeRequiredArtifactRepository requiredArtifactRepository = new FakeRequiredArtifactRepository();
+        teamRepository = new FakeTeamRepository();
+        editLockRepository = new FakeEditLockRepository();
+        EditLockQueryService editLockQueryService = new EditLockQueryService(editLockRepository);
 
         SubmissionQueryService submissionQueryService =
                 new SubmissionQueryService(submissionRepository, milestoneRepository);
@@ -93,6 +109,8 @@ class SubmissionFacadeTest {
                 milestoneRepository,
                 teamMemberRepository,
                 enrollmentRepository,
+                requiredArtifactRepository,
+                teamRepository,
                 submissionQueryService
         );
         PresentationContentCommandService presentationContentCommandService =
@@ -110,6 +128,8 @@ class SubmissionFacadeTest {
                 fileStorage,
                 milestoneRepository,
                 teamMemberRepository,
+                enrollmentRepository,
+                editLockQueryService,
                 sectionQueryService
         );
     }
@@ -169,6 +189,18 @@ class SubmissionFacadeTest {
     }
 
     @Test
+    @DisplayName("탈퇴한 사용자는 팀원 행이 남아있어도 제출할 수 없다")
+    void submitVersion_RejectsWithdrawnEnrollment() {
+        teamMemberRepository.save(TeamMember.create(TEAM_ID, "202677777", false, "탈퇴예정"));
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        assertThatThrownBy(() -> submissionFacade.submitVersion(
+                submission.getId(), "202677777", "탈퇴 후 제출 시도", null, List.of(), List.of(), List.of()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("팀장이 아니면 완료 처리를 할 수 없다")
     void completeSubmission_RejectsNonLeader() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
@@ -179,13 +211,25 @@ class SubmissionFacadeTest {
     }
 
     @Test
-    @DisplayName("일반 마일스톤은 팀장이면 팀원 확인 없이도 완료 게이트를 통과한다")
+    @DisplayName("일반 마일스톤은 이미 제출한 팀장이면 팀원 확인 없이도 완료 게이트를 통과한다")
     void completeSubmission_AllowsLeaderForGeneralMilestone() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        submissionFacade.submitVersion(submission.getId(), LEADER, "제출", null, List.of(), List.of(), List.of());
 
-        assertThat(org.assertj.core.api.Assertions.catchThrowable(
-                () -> submissionFacade.completeSubmission(submission.getId(), LEADER))).isNull();
+        SubmissionResponse response = submissionFacade.completeSubmission(submission.getId(), LEADER);
+
+        assertThat(response.status()).isEqualTo(SubmissionStatus.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("아직 제출한 적 없으면 팀장이어도 완료 처리할 수 없다")
+    void completeSubmission_RejectsWhenNotYetSubmitted() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        assertThatThrownBy(() -> submissionFacade.completeSubmission(submission.getId(), LEADER))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionNotYetSubmittedException.class);
     }
 
     @Test
@@ -201,9 +245,12 @@ class SubmissionFacadeTest {
     }
 
     @Test
-    @DisplayName("담당 교수는 재오픈할 수 있다")
+    @DisplayName("완료된 제출은 담당 교수가 재오픈할 수 있다")
     void reopenSubmission_AllowsOwningProfessor() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        submission.recordNewVersion(1);
+        submission.complete(LEADER);
+        submissionRepository.save(submission);
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
 
@@ -211,6 +258,18 @@ class SubmissionFacadeTest {
                 submission.getId(), PROFESSOR, new SubmissionReopenRequest(LocalDateTime.now().plusDays(1)));
 
         assertThat(response.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+    }
+
+    @Test
+    @DisplayName("완료되지 않은 제출은 담당 교수여도 재오픈할 수 없다")
+    void reopenSubmission_RejectsWhenNotCompletedEvenForOwningProfessor() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        assertThatThrownBy(() -> submissionFacade.reopenSubmission(
+                submission.getId(), PROFESSOR, new SubmissionReopenRequest(LocalDateTime.now().plusDays(1))))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionNotCompletedException.class);
     }
 
     @Test
@@ -239,10 +298,24 @@ class SubmissionFacadeTest {
     }
 
     @Test
+    @DisplayName("다른 사람이 편집잠금을 쥐고 있으면 발표 공개자료를 수정할 수 없다")
+    void updatePresentationContent_RejectsWhenLockedByAnother() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        new EditLockCommandService(editLockRepository).acquire(
+                kgu.developers.domain.editlock.domain.EditLockTargetType.PRESENTATION_CONTENT, submission.getId(), LEADER);
+
+        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
+                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, null, null)))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionAccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("담당 교수는 발표순서를 일괄 지정할 수 있고, 지정된 순서대로 목록이 조회된다")
     void assignPresentationOrder_ThenListedInOrder() {
-        submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        submissionRepository.save(Submission.create(20L, MILESTONE_ID));
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());
+        teamRepository.save(Team.builder().id(20L).sectionId(SECTION_ID).name("다른팀").build());
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
 
@@ -255,6 +328,34 @@ class SubmissionFacadeTest {
         assertThat(response.contents()).hasSize(2);
         assertThat(response.contents().get(0).teamId()).isEqualTo(20L);
         assertThat(response.contents().get(1).teamId()).isEqualTo(TEAM_ID);
+    }
+
+    @Test
+    @DisplayName("분반의 일부 팀이 빠지면 발표순서 지정이 거부된다")
+    void assignPresentationOrder_RejectsWhenTeamMissing() {
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());
+        teamRepository.save(Team.builder().id(20L).sectionId(SECTION_ID).name("다른팀").build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        assertThatThrownBy(() -> submissionFacade.assignPresentationOrder(
+                MILESTONE_ID, PROFESSOR, new PresentationOrderRequest(List.of(
+                        new PresentationOrderRequest.TeamOrder(TEAM_ID, 1)))))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionInvalidPresentationOrderException.class);
+    }
+
+    @Test
+    @DisplayName("발표순서 지정 요청에 팀이 중복되면 거부된다")
+    void assignPresentationOrder_RejectsDuplicateTeam() {
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        assertThatThrownBy(() -> submissionFacade.assignPresentationOrder(
+                MILESTONE_ID, PROFESSOR, new PresentationOrderRequest(List.of(
+                        new PresentationOrderRequest.TeamOrder(TEAM_ID, 1),
+                        new PresentationOrderRequest.TeamOrder(TEAM_ID, 2)))))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionInvalidPresentationOrderException.class);
     }
 
     private Milestone milestone() {

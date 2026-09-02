@@ -67,6 +67,12 @@ public class SubmissionJpaEntity extends BaseTimeEntity {
     @Column(name = "presentation_order")
     private Integer presentationOrder;
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "completed_by", length = 20)
+    private String completedBy;
+
     public static SubmissionJpaEntity fromDomain(Submission submission) {
         return SubmissionJpaEntity.builder()
                 .id(submission.getId())
@@ -79,6 +85,8 @@ public class SubmissionJpaEntity extends BaseTimeEntity {
                 .reopenedAt(submission.getReopenedAt())
                 .reopenedBy(submission.getReopenedBy())
                 .presentationOrder(submission.getPresentationOrder())
+                .completedAt(submission.getCompletedAt())
+                .completedBy(submission.getCompletedBy())
                 .build();
     }
 
@@ -94,6 +102,8 @@ public class SubmissionJpaEntity extends BaseTimeEntity {
                 .reopenedAt(reopenedAt)
                 .reopenedBy(reopenedBy)
                 .presentationOrder(presentationOrder)
+                .completedAt(completedAt)
+                .completedBy(completedBy)
                 .createdAt(getCreatedAt())
                 .updatedAt(getUpdatedAt())
                 .deletedAt(getDeletedAt())

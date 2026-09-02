@@ -41,6 +41,9 @@ public class SubmissionMemberConfirmationJpaEntity {
     @Column(name = "user_id", nullable = false, length = 20)
     private String userId;
 
+    @Column(name = "version", nullable = false)
+    private int version;
+
     @Column(name = "confirmed_final_report", nullable = false)
     private boolean confirmedFinalReport;
 
@@ -58,6 +61,7 @@ public class SubmissionMemberConfirmationJpaEntity {
                 .id(confirmation.getId())
                 .submissionId(confirmation.getSubmissionId())
                 .userId(confirmation.getUserId())
+                .version(confirmation.getVersion())
                 .confirmedFinalReport(confirmation.isConfirmedFinalReport())
                 .confirmedArtifacts(confirmation.isConfirmedArtifacts())
                 .oneLineReview(confirmation.getOneLineReview())
@@ -70,6 +74,7 @@ public class SubmissionMemberConfirmationJpaEntity {
                 .id(id)
                 .submissionId(submissionId)
                 .userId(userId)
+                .version(version)
                 .confirmedFinalReport(confirmedFinalReport)
                 .confirmedArtifacts(confirmedArtifacts)
                 .oneLineReview(oneLineReview)

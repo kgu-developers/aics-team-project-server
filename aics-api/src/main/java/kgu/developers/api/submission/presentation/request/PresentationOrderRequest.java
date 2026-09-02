@@ -7,15 +7,16 @@ import java.util.List;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 public record PresentationOrderRequest(
-        @Schema(description = "팀별 발표 순서 목록", requiredMode = REQUIRED)
+        @Schema(description = "팀별 발표 순서 목록(분반의 모든 팀을 중복 없이 포함해야 한다)", requiredMode = REQUIRED)
         @NotEmpty
         List<TeamOrder> teamOrders
 ) {
     public record TeamOrder(
             @NotNull Long teamId,
-            @NotNull Integer order
+            @NotNull @Positive Integer order
     ) {
     }
 }
