@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
+import kgu.developers.auth.api.presentation.response.MessageResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,9 +20,9 @@ public interface AuthController {
 		""")
 	@ApiResponse(
 		responseCode = "200",
-		description = "본문은 \"Login Successful\", 토큰은 Set-Cookie(HttpOnly)로 발급")
+		description = "본문은 {\"message\": \"Login successfully\", \"role\": \"USER|ADMIN|ASSISTANT\"}, 토큰은 Set-Cookie(HttpOnly)로 발급")
 	@ApiResponse(responseCode = "401", description = "학번 또는 비밀번호가 올바르지 않습니다.")
-	ResponseEntity<String> login(
+	ResponseEntity<MessageResponse> login(
 		@Parameter(
 			description = "로그인 request 객체 입니다.",
 			required = true
@@ -35,9 +36,9 @@ public interface AuthController {
 		""")
 	@ApiResponse(
 		responseCode = "200",
-		description = "본문은 \"Refresh Successfully\", 토큰은 Set-Cookie(HttpOnly)로 재발급")
+		description = "본문은 {\"message\": \"Refresh successfully\"}, 토큰은 Set-Cookie(HttpOnly)로 재발급")
 	@ApiResponse(responseCode = "401", description = "refreshToken이 없거나 유효하지 않습니다.")
-	ResponseEntity<String> refresh(
+	ResponseEntity<MessageResponse> refresh(
 		@Parameter(
 			description = "refreshToken 쿠키입니다.",
 			required = true
@@ -51,8 +52,8 @@ public interface AuthController {
 		""")
 	@ApiResponse(
 		responseCode = "200",
-		description = "본문은 \"Logout Successfully\", 두 토큰 쿠키를 Max-Age=0으로 만료")
-	ResponseEntity<String> logout(
+		description = "본문은 {\"message\": \"Logout successfully\"}, 두 토큰 쿠키를 Max-Age=0으로 만료")
+	ResponseEntity<MessageResponse> logout(
 		@Parameter(description = "리프레시 토큰 쿠키입니다.", required = false)
 		String refreshToken);
 }

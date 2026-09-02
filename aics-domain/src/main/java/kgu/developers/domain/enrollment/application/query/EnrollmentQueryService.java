@@ -51,4 +51,13 @@ public class EnrollmentQueryService {
                 .map(enrollment -> new EnrollmentDetail(enrollment, users.get(enrollment.getUserId())))
                 .toList();
     }
+
+    public List<EnrollmentDetail> getEnrollmentsByStudentNumber(String studentNumber) {
+        // 사용자가 삭제된 수강 정보는 명단에서 제외한다
+        return userRepository.findByStudentNumber(studentNumber)
+                .map(user -> enrollmentRepository.findAllByUserId(studentNumber).stream()
+                        .map(enrollment -> new EnrollmentDetail(enrollment, user))
+                        .toList())
+                .orElseGet(List::of);
+    }
 }

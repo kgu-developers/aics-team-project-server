@@ -32,6 +32,10 @@ public class AuthFacade {
         return issue(user);
     }
 
+    public String getUserRole(String studentNumber) {
+        return userQueryService.getUserRoleByStudentNumber(studentNumber);
+    }
+
     public LoginResponse refresh(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new InvalidTokenException();
@@ -89,17 +93,17 @@ public class AuthFacade {
                 refreshToken);
     }
 
-    private User findForRefresh(String student_number) {
+    private User findForRefresh(String studentNumber) {
         try {
-            return userQueryService.getUserByStudentNumber(student_number);
+            return userQueryService.getUserByStudentNumber(studentNumber);
         } catch (UserNotFoundException e) {
             throw new InvalidTokenException();
         }
     }
 
-    private User findForLogin(String student_number) {
+    private User findForLogin(String studentNumber) {
         try {
-            return userQueryService.getUserByStudentNumber(student_number);
+            return userQueryService.getUserByStudentNumber(studentNumber);
         } catch (UserNotFoundException e) {
             throw new InvalidCredentialsException();
         }

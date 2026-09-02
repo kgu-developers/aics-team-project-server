@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import kgu.developers.auth.api.application.AuthFacade;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
+import kgu.developers.auth.api.presentation.response.MessageResponse;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -33,40 +34,41 @@ public class AuthControllerImpl implements AuthController {
 
     @Override
     @PostMapping("/login")
-    public ResponseEntity<String> login(
+    public ResponseEntity<MessageResponse> login(
             @Valid @RequestBody LoginRequest request) {
-        return withTokenCookies(userFacade.login(request), "Login Successfully");
+        return withTokenCookies(userFacade.login(request),
+                MessageResponse.of("Login successfully", userFacade.getUserRole(request.studentNumber())));
     }
 
     @Override
     @PostMapping("/refresh")
-    public ResponseEntity<String> refresh(
+    public ResponseEntity<MessageResponse> refresh(
             @CookieValue(name = REFRESH_TOKEN, required = false) String refreshToken) {
-        return withTokenCookies(userFacade.refresh(refreshToken), "Refresh Successfully");
+        return withTokenCookies(userFacade.refresh(refreshToken), MessageResponse.of("Refresh successfully"));
     }
 
     @Override
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(
+    public ResponseEntity<MessageResponse> logout(
             @CookieValue(name = REFRESH_TOKEN, required = false) String refreshToken) {
         userFacade.logout(refreshToken);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, expiredCookie(ACCESS_TOKEN).toString())
                 .header(HttpHeaders.SET_COOKIE, expiredCookie(REFRESH_TOKEN).toString())
-                .body("Logout Successfully");
+                .body(MessageResponse.of("Logout successfully"));
     }
 
     private ResponseCookie expiredCookie(String name) {
         return tokenCookie(name, "", Duration.ZERO);
     }
 
-    private ResponseEntity<String> withTokenCookies(LoginResponse tokens, String message) {
+    private ResponseEntity<MessageResponse> withTokenCookies(LoginResponse tokens, MessageResponse body) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
                         tokenCookie(ACCESS_TOKEN, tokens.accessToken(), jwtUtil.getAccessTokenValidity()).toString())
                 .header(HttpHeaders.SET_COOKIE,
                         tokenCookie(REFRESH_TOKEN, tokens.refreshToken(), jwtUtil.getRefreshTokenValidity()).toString())
-                .body(message);
+                .body(body);
     }
 
     private ResponseCookie tokenCookie(String name, String value, Duration maxAge) {
