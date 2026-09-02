@@ -67,7 +67,7 @@ class AuthFacadeTest {
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
     given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.STUDENT);
-    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "USER")).willReturn("access-token");
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 
     LoginResponse response = userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD));
@@ -79,12 +79,46 @@ class AuthFacadeTest {
   }
 
   @Test
+  @DisplayName("login은 조교 역할로 로그인하면 ASSISTANT가 JWT에 포함된다")
+  void loginWithAssistantRole() {
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
+    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ASSISTANT);
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ASSISTANT")).willReturn("access-token");
+    given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
+
+    LoginResponse response = userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD));
+
+    assertThat(response.accessToken()).isEqualTo("access-token");
+    assertThat(response.refreshToken()).isEqualTo("refresh-token");
+    assertThat(response.role()).isEqualTo(LoginRole.ASSISTANT);
+    verify(refreshTokenStore).save(STUDENT_NUMBER, "refresh-token");
+  }
+
+  @Test
+  @DisplayName("login은 관리자 역할로 로그인하면 ADMIN이 JWT에 포함된다")
+  void loginWithAdminRole() {
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
+    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ADMIN);
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ADMIN")).willReturn("access-token");
+    given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
+
+    LoginResponse response = userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD));
+
+    assertThat(response.accessToken()).isEqualTo("access-token");
+    assertThat(response.refreshToken()).isEqualTo("refresh-token");
+    assertThat(response.role()).isEqualTo(LoginRole.ADMIN);
+    verify(refreshTokenStore).save(STUDENT_NUMBER, "refresh-token");
+  }
+
+  @Test
   @DisplayName("refresh는 refreshToken이 유효하면 토큰을 새로 발급한다")
   void refresh() {
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
     given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.STUDENT);
-    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "USER")).willReturn("new-access-token");
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT")).willReturn("new-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
         .willReturn(true);
@@ -94,6 +128,42 @@ class AuthFacadeTest {
     assertThat(response.accessToken()).isEqualTo("new-access-token");
     assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
     assertThat(response.role()).isEqualTo(LoginRole.STUDENT);
+  }
+
+  @Test
+  @DisplayName("refresh는 조교 역할로 토큰을 갱신하면 ASSISTANT가 JWT에 포함된다")
+  void refreshWithAssistantRole() {
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ASSISTANT);
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ASSISTANT")).willReturn("new-access-token");
+    given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
+    given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
+        .willReturn(true);
+
+    LoginResponse response = userFacade.refresh("refresh-token");
+
+    assertThat(response.accessToken()).isEqualTo("new-access-token");
+    assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+    assertThat(response.role()).isEqualTo(LoginRole.ASSISTANT);
+  }
+
+  @Test
+  @DisplayName("refresh는 관리자 역할로 토큰을 갱신하면 ADMIN이 JWT에 포함된다")
+  void refreshWithAdminRole() {
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(userQueryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).willReturn(LoginRole.ADMIN);
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "ADMIN")).willReturn("new-access-token");
+    given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
+    given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
+        .willReturn(true);
+
+    LoginResponse response = userFacade.refresh("refresh-token");
+
+    assertThat(response.accessToken()).isEqualTo("new-access-token");
+    assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+    assertThat(response.role()).isEqualTo(LoginRole.ADMIN);
   }
 
   @Test

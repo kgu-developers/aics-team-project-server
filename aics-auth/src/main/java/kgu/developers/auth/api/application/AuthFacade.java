@@ -88,7 +88,7 @@ public class AuthFacade {
 
     private LoginResponse tokens(User user, String refreshToken, LoginRole role) {
         return LoginResponse.of(
-                jwtUtil.createAccessToken(user.getStudentNumber(), user.getGlobalRole().name()),
+                jwtUtil.createAccessToken(user.getStudentNumber(), role.name()),
                 refreshToken,
                 role);
     }
