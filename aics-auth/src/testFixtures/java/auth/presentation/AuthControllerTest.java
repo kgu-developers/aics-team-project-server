@@ -25,6 +25,7 @@ import kgu.developers.auth.api.application.AuthFacade;
 import kgu.developers.auth.api.presentation.AuthControllerImpl;
 import kgu.developers.auth.api.presentation.request.LoginRequest;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.globalutils.jwt.JwtUtil;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,7 +53,7 @@ class AuthControllerTest {
         .willReturn(LoginResponse.of("access-token", "refresh-token"));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
-    given(authFacade.getUserRole("202699999")).willReturn("STUDENT");
+    given(authFacade.getUserRole("202699999")).willReturn(LoginRole.STUDENT);
 
     return mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(BODY))
         .andExpect(status().isOk())

@@ -2,6 +2,7 @@ package kgu.developers.domain.user.application.query;
 
 import java.util.List;
 
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Role;
@@ -30,16 +31,16 @@ public class UserQueryService {
                 .orElseThrow(UserNotFoundException::new);
     }
 
-    public String getUserRoleByStudentNumber(String studentNumber) {
+    public LoginRole getUserRoleByStudentNumber(String studentNumber) {
         UserGlobalRole globalRole = getUserByStudentNumber(studentNumber).getGlobalRole();
         if (globalRole != UserGlobalRole.USER) {
-            return globalRole.name();
+            return LoginRole.valueOf(globalRole.name());
         }
 
         boolean assistant = enrollmentRepository.findAllByUserId(studentNumber).stream()
                 .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
                 .map(Enrollment::getRole)
                 .anyMatch(role -> role == Role.ASSISTANT);
-        return assistant ? Role.ASSISTANT.name() : Role.STUDENT.name();
+        return assistant ? LoginRole.ADMIN : LoginRole.STUDENT;
     }
 }

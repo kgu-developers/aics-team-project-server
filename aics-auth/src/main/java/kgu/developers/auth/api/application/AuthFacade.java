@@ -1,6 +1,7 @@
 package kgu.developers.auth.api.application;
 
 import kgu.developers.auth.api.presentation.response.LoginResponse;
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.exception.InvalidCredentialsException;
@@ -32,7 +33,7 @@ public class AuthFacade {
         return issue(user);
     }
 
-    public String getUserRole(String studentNumber) {
+    public LoginRole getUserRole(String studentNumber) {
         return userQueryService.getUserRoleByStudentNumber(studentNumber);
     }
 

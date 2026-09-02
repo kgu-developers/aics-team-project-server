@@ -15,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Role;
@@ -53,18 +54,18 @@ class UserQueryServiceTest {
   void adminRole() {
     givenUser(ADMIN);
 
-    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo("ADMIN");
+    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.ADMIN);
   }
 
   @Test
-  @DisplayName("활성 수강 중 조교가 하나라도 있으면 ASSISTANT를 반환한다")
+  @DisplayName("활성 수강 중 조교가 하나라도 있으면 ADMIN을 반환한다")
   void assistantRole() {
     givenUser(USER);
     given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(
         enrollment(1L, Role.STUDENT, Status.ACTIVE),
         enrollment(2L, Role.ASSISTANT, Status.ACTIVE)));
 
-    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo("ASSISTANT");
+    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.ADMIN);
   }
 
   @Test
@@ -75,7 +76,7 @@ class UserQueryServiceTest {
         enrollment(1L, Role.STUDENT, Status.ACTIVE),
         enrollment(2L, Role.ASSISTANT, Status.WITHDRAWN)));
 
-    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo("STUDENT");
+    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.STUDENT);
   }
 
   @Test
@@ -84,6 +85,6 @@ class UserQueryServiceTest {
     givenUser(USER);
     given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
 
-    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo("STUDENT");
+    assertThat(queryService.getUserRoleByStudentNumber(STUDENT_NUMBER)).isEqualTo(LoginRole.STUDENT);
   }
 }

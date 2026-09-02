@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
+import kgu.developers.domain.auth.domain.LoginRole;
+
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
@@ -14,13 +16,13 @@ public record MessageResponse(
         String message,
 
         @Schema(description = "역할 (로그인 응답에만 포함)")
-        String role
+        LoginRole role
 ) {
     public static MessageResponse of(String message) {
         return of(message, null);
     }
 
-    public static MessageResponse of(String message, String role) {
+    public static MessageResponse of(String message, LoginRole role) {
         return MessageResponse.builder()
                 .message(message)
                 .role(role)
