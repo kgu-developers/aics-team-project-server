@@ -33,8 +33,7 @@ public class PeerEvaluationFormFacade {
     }
 
     private void validateSectionAccess(Long sectionId, String professorId) {
-        String ownerId = sectionQueryService.getSectionById(sectionId).section().getProfessorId();
-        if (!professorId.equals(ownerId)) {
+        if (!sectionQueryService.isActiveSectionOwnedByProfessor(sectionId, professorId)) {
             throw new AccessDeniedException("담당 분반의 상호평가 양식만 관리할 수 있습니다.");
         }
     }

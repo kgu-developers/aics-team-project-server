@@ -13,9 +13,6 @@ import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCo
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.section.application.query.SectionQueryService;
-import kgu.developers.domain.section.domain.Section;
-import kgu.developers.domain.section.domain.SectionDetail;
-import kgu.developers.domain.section.exception.SectionNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,7 +43,8 @@ class PeerEvaluationFormFacadeTest {
         LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
         PeerEvaluationFormCreateRequest request =
                 new PeerEvaluationFormCreateRequest(3L, true, opensAt, closesAt);
-        given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("202012345"));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+                .willReturn(true);
         given(commandService.createForm(2L, 3L, true, opensAt, closesAt)).willReturn(1L);
 
         assertThat(facade.createForm(2L, "202012345", request).id()).isEqualTo(1L);
@@ -61,7 +59,8 @@ class PeerEvaluationFormFacadeTest {
         LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
         PeerEvaluationFormCreateRequest request =
                 new PeerEvaluationFormCreateRequest(3L, true, opensAt, closesAt);
-        given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("another-professor"));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+                .willReturn(false);
 
         assertThatThrownBy(() -> facade.createForm(2L, "202012345", request))
                 .isInstanceOf(AccessDeniedException.class);
@@ -71,16 +70,17 @@ class PeerEvaluationFormFacadeTest {
     }
 
     @Test
-    @DisplayName("존재하지 않는 분반에는 상호평가 양식을 생성하지 않는다")
+    @DisplayName("존재하지 않는 분반도 권한 없음으로 처리한다")
     void rejectMissingSection() {
         LocalDateTime opensAt = LocalDateTime.of(2026, 10, 1, 9, 0);
         LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
         PeerEvaluationFormCreateRequest request =
                 new PeerEvaluationFormCreateRequest(3L, true, opensAt, closesAt);
-        given(sectionQueryService.getSectionById(404L)).willThrow(new SectionNotFoundException());
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(404L, "202012345"))
+                .willReturn(false);
 
         assertThatThrownBy(() -> facade.createForm(404L, "202012345", request))
-                .isInstanceOf(SectionNotFoundException.class);
+                .isInstanceOf(AccessDeniedException.class);
 
         then(milestoneQueryService).shouldHaveNoInteractions();
         then(commandService).shouldHaveNoInteractions();
@@ -93,7 +93,8 @@ class PeerEvaluationFormFacadeTest {
         LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
         PeerEvaluationFormCreateRequest request =
                 new PeerEvaluationFormCreateRequest(404L, true, opensAt, closesAt);
-        given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("202012345"));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+                .willReturn(true);
         given(milestoneQueryService.getMilestone(2L, 404L))
                 .willThrow(new MilestoneNotFoundException(404L));
 
@@ -110,7 +111,8 @@ class PeerEvaluationFormFacadeTest {
         LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
         PeerEvaluationFormCreateRequest request =
                 new PeerEvaluationFormCreateRequest(3L, true, opensAt, closesAt);
-        given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("202012345"));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+                .willReturn(true);
         given(milestoneQueryService.getMilestone(2L, 3L))
                 .willThrow(new MilestoneNotFoundException(3L));
 
@@ -118,13 +120,5 @@ class PeerEvaluationFormFacadeTest {
                 .isInstanceOf(MilestoneNotFoundException.class);
 
         then(commandService).shouldHaveNoInteractions();
-    }
-
-    private SectionDetail sectionOwnedBy(String professorId) {
-        Section section = Section.builder()
-                .id(2L)
-                .professorId(professorId)
-                .build();
-        return new SectionDetail(section, null, null);
     }
 }
