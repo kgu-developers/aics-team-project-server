@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
+
 @Repository
 @RequiredArgsConstructor
 public class ProjectRepositoryImpl implements ProjectRepository {
@@ -26,7 +28,8 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     @Transactional
     public Project save(Project project) {
         try {
-            TeamJpaEntity team = entityManager.find(TeamJpaEntity.class, project.getTeamId());
+            TeamJpaEntity team = entityManager.find(
+                    TeamJpaEntity.class, project.getTeamId(), PESSIMISTIC_WRITE);
             if (team == null || team.getDeletedAt() != null) {
                 throw new TeamNotFoundException();
             }

@@ -7,6 +7,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -62,7 +64,7 @@ class ProjectRepositoryImplTest {
     );
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
 
     Project savedProject = Project.builder()
         .id(1L)
@@ -108,7 +110,7 @@ class ProjectRepositoryImplTest {
         "온라인"
     );
 
-    given(entityManager.find(TeamJpaEntity.class, 999L)).willReturn(null);
+    given(entityManager.find(TeamJpaEntity.class, 999L, PESSIMISTIC_WRITE)).willReturn(null);
 
     assertThatThrownBy(() -> repository.save(project))
         .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
@@ -135,7 +137,7 @@ class ProjectRepositoryImplTest {
 
     TeamJpaEntity deletedTeam = TeamJpaEntity.builder().id(1L).build();
     deletedTeam.delete();
-    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(deletedTeam);
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(deletedTeam);
 
     assertThatThrownBy(() -> repository.save(project))
         .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
@@ -162,7 +164,7 @@ class ProjectRepositoryImplTest {
     );
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
 
     Project existing = Project.builder()
         .id(1L)
@@ -437,7 +439,7 @@ class ProjectRepositoryImplTest {
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
 
     given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
@@ -470,7 +472,7 @@ class ProjectRepositoryImplTest {
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
     ProjectJpaEntity entityToDelete = ProjectJpaEntity.toEntity(projectToDelete, team);
 
     given(jpaProjectRepository.findByIdAndDeletedAtIsNull(1L))
@@ -523,7 +525,7 @@ class ProjectRepositoryImplTest {
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-    given(entityManager.find(TeamJpaEntity.class, 1L)).willReturn(team);
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
 
     ProjectJpaEntity updatedEntity = ProjectJpaEntity.builder()
         .id(1L)
