@@ -188,4 +188,19 @@ class TeamEvaluationCriterionControllerTest {
 
     then(facade).shouldHaveNoInteractions();
   }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  @DisplayName("앞뒤 공백 제거 후 100자를 초과한 평가 항목명은 400을 응답한다")
+  void rejectTitleLongerThanMaximumAfterTrim() throws Exception {
+    String title = "가".repeat(101);
+
+    mockMvc.perform(post(URL, 2L).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"title\":\"" + title + "\",\"maxScore\":30,\"displayOrder\":0}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+
+    then(facade).shouldHaveNoInteractions();
+  }
 }

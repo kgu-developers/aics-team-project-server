@@ -21,8 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 @ApiResponses({
     @ApiResponse(responseCode = "400", description = "잘못된 요청 값"),
     @ApiResponse(responseCode = "401", description = "인증 필요"),
-    @ApiResponse(responseCode = "403", description = "관리자 권한 또는 담당 분반 접근 권한 없음"),
-    @ApiResponse(responseCode = "404", description = "분반을 찾을 수 없음")
+    @ApiResponse(responseCode = "403", description = "관리자 권한 또는 담당 분반 접근 권한 없음")
 })
 public interface TeamEvaluationCriterionController {
 

@@ -7,14 +7,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 
 public record TeamEvaluationCriterionCreateRequest(
     @Schema(
         description = "평가 항목명(앞뒤 공백 제거 후 최대 100자)",
         example = "객체지향 설계",
-        maxLength = 100,
         requiredMode = REQUIRED)
     @NotBlank
+    @Size(max = 100)
     String title,
 
     @Schema(description = "항목 최대 점수", example = "30", requiredMode = REQUIRED)
@@ -27,4 +28,10 @@ public record TeamEvaluationCriterionCreateRequest(
     @PositiveOrZero
     Integer displayOrder
 ) {
+
+  public TeamEvaluationCriterionCreateRequest {
+    if (title != null) {
+      title = title.trim();
+    }
+  }
 }
