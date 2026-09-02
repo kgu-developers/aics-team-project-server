@@ -20,13 +20,22 @@ public record TeamHistoryResponse(
         String actorId,
         @Schema(description = "행위자 이름")
         String actorName,
-        @Schema(description = "이벤트 유형", requiredMode = REQUIRED)
+        @Schema(
+                description = "프론트 표시 문구 변환에 사용하는 이벤트 유형 문자열",
+                example = "TEAM_UPDATED",
+                requiredMode = REQUIRED
+        )
         String eventType,
-        @Schema(description = "대상 유형", requiredMode = REQUIRED)
+        @Schema(
+                description = "대상 유형",
+                example = "TEAM",
+                allowableValues = {"TEAM", "USER", "MEETING_RECORD", "SUBMISSION", "MILESTONE"},
+                requiredMode = REQUIRED
+        )
         TargetType targetType,
         @Schema(description = "대상 식별자", requiredMode = REQUIRED)
         Long targetId,
-        @Schema(description = "부가 정보", requiredMode = REQUIRED)
+        @Schema(description = "프론트 표시 문구 변환에 사용하는 이벤트별 부가 정보", requiredMode = REQUIRED)
         JsonNode metadata,
         @Schema(description = "발생 시각", requiredMode = REQUIRED)
         LocalDateTime occurredAt

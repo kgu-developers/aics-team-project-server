@@ -22,7 +22,7 @@ public record TeamMemberActivityResponse(
         String projectRole,
         @Schema(description = "마지막 로그인 시각")
         LocalDateTime lastLoginAt,
-        @Schema(description = "마지막 활동")
+        @Schema(description = "마지막 활동 객체 (활동 이력이 없으면 null)", nullable = true)
         LatestActivityResponse lastActivity
 ) {
     public static TeamMemberActivityResponse from(TeamMember member, User user, AuditLog latestActivity) {
