@@ -105,3 +105,7 @@ jobs:
 
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d
+            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+              caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+              caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
