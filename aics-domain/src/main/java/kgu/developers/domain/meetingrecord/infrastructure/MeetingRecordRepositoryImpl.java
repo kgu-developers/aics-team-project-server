@@ -48,10 +48,8 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
             : jpaMeetingRecordRepository.findAllByTeamIdAndPhase(teamId, phase);
 
         List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
-        Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId = jpaMeetingParticipantRepository.findAllByMeetingRecordIdIn(meetingRecordIds)
-            .stream()
-            .map(MeetingParticipantJpaEntity::toDomain)
-            .collect(Collectors.groupingBy(MeetingParticipant::getMeetingRecordId));
+        Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId =
+            findParticipantsByMeetingRecordId(meetingRecordIds);
 
         return entities.stream()
             .map(entity -> entity.toDomain(participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of())))

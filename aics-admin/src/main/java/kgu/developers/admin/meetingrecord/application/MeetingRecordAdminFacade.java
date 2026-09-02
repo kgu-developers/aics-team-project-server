@@ -7,10 +7,10 @@ import java.util.stream.Collectors;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
-import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +33,7 @@ public class MeetingRecordAdminFacade {
     );
 
     private final SectionRepository sectionRepository;
+    private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
     private final MeetingRecordQueryService meetingRecordQueryService;
 
@@ -67,12 +68,12 @@ public class MeetingRecordAdminFacade {
                 .toList();
         }
 
-        Section section = sectionRepository.findById(sectionId)
-            .orElseThrow(SectionNotFoundException::new)
-            .section();
-        if (!professorId.equals(section.getProfessorId())) {
+        if (!sectionQueryService.isActiveSectionOwnedByProfessor(sectionId, professorId)) {
             throw new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다.");
         }
+        Section section = sectionRepository.findById(sectionId)
+            .orElseThrow(() -> new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다."))
+            .section();
         return List.of(section);
     }
 }

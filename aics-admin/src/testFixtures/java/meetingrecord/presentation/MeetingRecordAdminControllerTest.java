@@ -28,8 +28,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -50,7 +48,6 @@ class MeetingRecordAdminControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new MeetingRecordAdminControllerImpl(meetingRecordAdminFacade))
-            .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
             .build();
     }
 
@@ -71,9 +68,9 @@ class MeetingRecordAdminControllerTest {
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(meetingRecordAdminFacade).getMeetingRecords(eq(1L), pageableCaptor.capture(), eq(PROFESSOR_ID));
         Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(20);
-        assertThat(pageable.getSort().getOrderFor("meetingAt")).isNotNull();
-        assertThat(pageable.getSort().getOrderFor("meetingAt").isDescending()).isTrue();
+        assertThat(pageable.getSort().isUnsorted()).isTrue();
     }
 
     @Test
@@ -92,7 +89,8 @@ class MeetingRecordAdminControllerTest {
 
         assertThatThrownBy(() -> controller.getMeetingRecords(
             -1L,
-            PageRequest.of(0, 20),
+            0,
+            20,
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
             .isInstanceOf(ConstraintViolationException.class);
         verifyNoInteractions(meetingRecordAdminFacade);

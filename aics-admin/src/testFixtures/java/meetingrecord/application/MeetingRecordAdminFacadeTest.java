@@ -14,6 +14,7 @@ import kgu.developers.admin.meetingrecord.application.MeetingRecordAdminFacade;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
@@ -38,6 +39,9 @@ class MeetingRecordAdminFacadeTest {
 
     @Mock
     private SectionRepository sectionRepository;
+
+    @Mock
+    private SectionQueryService sectionQueryService;
 
     @Mock
     private TeamRepository teamRepository;
@@ -89,6 +93,8 @@ class MeetingRecordAdminFacadeTest {
         Section section = section(1L, "1151", PROFESSOR_ID);
         Team team = team(10L, 1L, "A팀");
 
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID))
+            .willReturn(true);
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L), latestFirstPageable))
@@ -104,8 +110,24 @@ class MeetingRecordAdminFacadeTest {
     @DisplayName("다른 교수의 분반은 조회할 수 없다")
     void getMeetingRecords_ForeignSection() {
         Pageable pageable = PageRequest.of(0, 20);
-        Section foreignSection = section(1L, "1151", "202600001");
-        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(foreignSection)));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID))
+            .willReturn(false);
+
+        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(1L, pageable, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
+
+        verify(teamRepository, never()).findAllBySectionIdIn(anyList());
+        verify(sectionRepository, never()).findById(1L);
+    }
+
+    @Test
+    @DisplayName("권한 확인 직후 분반이 사라져도 존재 여부를 노출하지 않는다")
+    void getMeetingRecords_SectionRemovedAfterAccessCheck() {
+        Pageable pageable = PageRequest.of(0, 20);
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID))
+            .willReturn(true);
+        given(sectionRepository.findById(1L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(1L, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)

@@ -3,9 +3,7 @@ package kgu.developers.admin.meetingrecord.presentation;
 import kgu.developers.admin.meetingrecord.application.MeetingRecordAdminFacade;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
@@ -26,10 +24,12 @@ public class MeetingRecordAdminControllerImpl implements MeetingRecordAdminContr
     @GetMapping
     public ResponseEntity<MeetingRecordAdminPageResponse> getMeetingRecords(
         @RequestParam(required = false) Long sectionId,
-        @PageableDefault(size = 20, sort = "meetingAt", direction = Sort.Direction.DESC) Pageable pageable,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
         Authentication authentication
     ) {
         return ResponseEntity.ok(
-            meetingRecordAdminFacade.getMeetingRecords(sectionId, pageable, authentication.getName()));
+            meetingRecordAdminFacade.getMeetingRecords(
+                sectionId, PageRequest.of(page, size), authentication.getName()));
     }
 }

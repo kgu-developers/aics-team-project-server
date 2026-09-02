@@ -7,8 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,7 +30,10 @@ public interface MeetingRecordAdminController {
     )
     ResponseEntity<MeetingRecordAdminPageResponse> getMeetingRecords(
         @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
-        Pageable pageable,
+        @Parameter(description = "페이지 번호(0부터 시작)", example = "0")
+        @RequestParam(defaultValue = "0") @PositiveOrZero int page,
+        @Parameter(description = "페이지 크기", example = "20")
+        @RequestParam(defaultValue = "20") @Positive int size,
         Authentication authentication
     );
 }
