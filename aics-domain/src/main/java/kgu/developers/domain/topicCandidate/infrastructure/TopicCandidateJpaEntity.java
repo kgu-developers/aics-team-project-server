@@ -14,6 +14,9 @@ import static lombok.AccessLevel.PROTECTED;
 @Entity
 @Table(
     name = "\"topic_candidate\"",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_topic_candidate_team_title", columnNames = {"team_id", "title"})
+    },
     indexes = {
         @Index(columnList = "team_id", name = "idx_team_id"),
         @Index(columnList = "proposer_user_id", name = "idx_proposer_user_id")
@@ -62,6 +65,7 @@ public class TopicCandidateJpaEntity extends BaseTimeEntity {
                 .description(topicCandidate.getDescription())
                 .build();
         entity.createdAt = topicCandidate.getCreatedAt();
+        entity.updatedAt = topicCandidate.getUpdatedAt();
         entity.deletedAt = topicCandidate.getDeletedAt();
         return entity;
     }

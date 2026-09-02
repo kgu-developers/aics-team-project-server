@@ -51,4 +51,9 @@ public class TopicCandidate {
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
+
+    public void reactivate() {
+        this.deletedAt = null;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

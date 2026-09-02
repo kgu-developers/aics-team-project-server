@@ -2,10 +2,9 @@ package kgu.developers.domain.topicCandidate.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,12 +13,12 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import jakarta.persistence.EntityManager;
+import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
-import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateTitleException;
 import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +26,9 @@ class TopicCandidateRepositoryImplTest {
 
     @Mock
     private JpaTopicCandidateRepository jpaTopicCandidateRepository;
+
+    @Mock
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("저장소는 삭제되지 않은 주제 후보만 조회한다")
@@ -42,7 +44,7 @@ class TopicCandidateRepositoryImplTest {
                 .build();
         given(jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(1L))
                 .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(active)));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
         Optional<TopicCandidate> result = repository.findById(1L);
 
@@ -56,7 +58,7 @@ class TopicCandidateRepositoryImplTest {
     void findByIdReturnsEmptyForDeleted() {
         given(jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(1L))
                 .willReturn(Optional.empty());
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
         Optional<TopicCandidate> result = repository.findById(1L);
 
@@ -89,7 +91,7 @@ class TopicCandidateRepositoryImplTest {
                         TopicCandidateJpaEntity.toEntity(active1),
                         TopicCandidateJpaEntity.toEntity(active2)
                 ));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
         List<TopicCandidate> result = repository.findByTeamId(100L);
 
@@ -111,7 +113,7 @@ class TopicCandidateRepositoryImplTest {
                 .build();
         given(jpaTopicCandidateRepository.findByProposerUserIdAndDeletedAtIsNull("20230001"))
                 .willReturn(List.of(TopicCandidateJpaEntity.toEntity(active)));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
         List<TopicCandidate> result = repository.findByProposerUserId("20230001");
 
@@ -134,7 +136,7 @@ class TopicCandidateRepositoryImplTest {
         TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(active);
         given(jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(1L))
                 .willReturn(Optional.of(entity));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
         repository.deleteById(1L);
 
@@ -146,7 +148,7 @@ class TopicCandidateRepositoryImplTest {
     void deleteByIdThrowsExceptionWhenNotFound() {
         given(jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(1L))
                 .willReturn(Optional.empty());
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
         assertThatThrownBy(() -> repository.deleteById(1L))
                 .isInstanceOf(TopicCandidateNotFoundException.class);
@@ -164,55 +166,26 @@ class TopicCandidateRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("save는 같은 팀에 살아있는 같은 제목이 있으면 거절한다")
-    void saveRejectsDuplicateActiveTitle() {
+    @DisplayName("중복 검사 조회는 팀 행에 쓰기 락을 걸고 살아있는 같은 제목만 본다")
+    void findActiveByTeamIdAndTitleForUpdateLocksTeam() {
         given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "중복 제목"))
                 .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(candidate(1L, "중복 제목"))));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
-        assertThatThrownBy(() -> repository.save(TopicCandidate.create(100L, "20230002", "중복 제목", "설명")))
-                .isInstanceOf(DuplicateTopicCandidateTitleException.class);
+        Optional<TopicCandidate> result = repository.findActiveByTeamIdAndTitleForUpdate(100L, "중복 제목");
 
-        verify(jpaTopicCandidateRepository, never()).save(any(TopicCandidateJpaEntity.class));
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(1L);
+        verify(entityManager).find(TeamJpaEntity.class, 100L, PESSIMISTIC_WRITE);
     }
 
     @Test
-    @DisplayName("save는 제목 수정도 검사한다. 예전에는 신규 등록만 검사해서 그냥 통과했다")
-    void saveChecksTitleOnUpdateToo() {
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "남의 제목"))
-                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(candidate(1L, "남의 제목"))));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
-
-        assertThatThrownBy(() -> repository.save(candidate(2L, "남의 제목")))
-                .isInstanceOf(DuplicateTopicCandidateTitleException.class);
-    }
-
-    @Test
-    @DisplayName("save는 자기 제목을 그대로 둔 수정을 중복으로 보지 않는다")
-    void saveAllowsKeepingOwnTitle() {
-        TopicCandidate mine = candidate(1L, "내 제목");
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "내 제목"))
-                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(mine)));
-        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
-                .willReturn(TopicCandidateJpaEntity.toEntity(mine));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
-
-        assertThat(repository.save(mine).getId()).isEqualTo(1L);
-    }
-
-    @Test
-    @DisplayName("save는 소프트 삭제된 제목이면 같은 팀에서 다시 쓸 수 있다")
-    void saveAllowsReusingDeletedTitle() {
+    @DisplayName("중복 검사 조회는 소프트 삭제된 제목을 무시한다")
+    void findActiveByTeamIdAndTitleForUpdateIgnoresDeleted() {
         given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "삭제된 제목"))
                 .willReturn(Optional.empty());
-        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
-                .willReturn(TopicCandidateJpaEntity.toEntity(candidate(2L, "삭제된 제목")));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
-        TopicCandidate result = repository.save(
-                TopicCandidate.create(100L, "20230002", "삭제된 제목", "새 설명"));
-
-        assertThat(result.getId()).isEqualTo(2L);
-        assertThat(result.getTitle()).isEqualTo("삭제된 제목");
+        assertThat(repository.findActiveByTeamIdAndTitleForUpdate(100L, "삭제된 제목")).isEmpty();
     }
 }
