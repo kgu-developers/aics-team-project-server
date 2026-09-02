@@ -1,11 +1,11 @@
 package kgu.developers.api.user.application;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import kgu.developers.api.user.presentation.request.UserUpdateRequest;
 import kgu.developers.api.user.presentation.response.UserResponse;
@@ -20,7 +20,6 @@ import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
-import kgu.developers.domain.user.domain.UserGlobalRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,10 +47,7 @@ public class UserFacade {
                 .max(Comparator.naturalOrder())
                 .orElse(null);
 
-        List<SectionDetail> professorSections = List.of();
-        if (user.getGlobalRole() == UserGlobalRole.ADMIN) {
-            professorSections = sectionRepository.findAllByProfessorId(studentNumber);
-        }
+        List<SectionDetail> professorSections = sectionRepository.findAllByProfessorId(studentNumber);
 
         if (enrollments.isEmpty() && professorSections.isEmpty()) {
             return UserResponse.from(user, List.of(), teamId);
@@ -90,8 +86,9 @@ public class UserFacade {
                 .map(SectionResponse::from)
                 .toList();
 
-        return Stream.concat(enrollmentSections.stream(), professorSectionResponses.stream())
-                .distinct()
-                .toList();
+        Map<Long, SectionResponse> sectionsById = new LinkedHashMap<>();
+        enrollmentSections.forEach(section -> sectionsById.putIfAbsent(section.id(), section));
+        professorSectionResponses.forEach(section -> sectionsById.putIfAbsent(section.id(), section));
+        return List.copyOf(sectionsById.values());
     }
 }

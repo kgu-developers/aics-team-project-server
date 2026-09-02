@@ -2,7 +2,6 @@ package user.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -72,6 +71,10 @@ class UserFacadeTest {
             .build();
 
     private SectionDetail sectionDetail(Long sectionId) {
+        return sectionDetail(sectionId, 40);
+    }
+
+    private SectionDetail sectionDetail(Long sectionId, Integer capacity) {
         Section section = Section.builder()
                 .id(sectionId)
                 .professorId(STUDENT_NUMBER)
@@ -79,7 +82,7 @@ class UserFacadeTest {
                 .code("CS101")
                 .name("0" + sectionId + "분반")
                 .classTime("월3,4")
-                .capacity(40)
+                .capacity(capacity)
                 .contactVisibleFrom(LocalDateTime.of(2026, 3, 2, 0, 0))
                 .contactVisibleUntil(LocalDateTime.of(2026, 6, 20, 18, 0))
                 .build();
@@ -95,15 +98,17 @@ class UserFacadeTest {
     void getMeDeduplicatesSectionBelongingToBothSources() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
         given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(activeEnrollment(1L)));
-        given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
-        given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L)));
+        given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L, 41)));
+        given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L, 40)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
         assertThat(response.sections())
                 .singleElement()
-                .extracting(SectionResponse::id)
-                .isEqualTo(1L);
+                .satisfies(section -> {
+                    assertThat(section.id()).isEqualTo(1L);
+                    assertThat(section.capacity()).isEqualTo(40);
+                });
     }
 
     @Test
@@ -131,13 +136,12 @@ class UserFacadeTest {
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
         assertThat(response.sections()).isEmpty();
-        verifyNoInteractions(sectionRepository);
     }
 
     @Test
-    @DisplayName("활성 수강 내역이 없는 교수도 담당 분반을 조회한다")
+    @DisplayName("전역 역할과 무관하게 실제 담당 분반을 조회한다")
     void getMeIncludesProfessorSectionsWithoutEnrollments() {
-        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
         given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
         given(sectionRepository.findAllByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
 
