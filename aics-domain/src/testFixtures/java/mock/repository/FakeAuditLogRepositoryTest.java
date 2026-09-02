@@ -2,6 +2,8 @@ package mock.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
@@ -57,5 +60,45 @@ class FakeAuditLogRepositoryTest {
 
 		assertThat(fakeAuditLogRepository.findById(log1.getId())).isEmpty();
 		assertThat(fakeAuditLogRepository.findAllByActorId("202012345", pageable).getTotalElements()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("findAllByTeam은 Pageable의 정렬 조건을 그대로 적용한다")
+	void findAllByTeamAppliesPageableSort() {
+		AuditLog newer = fakeAuditLogRepository.save(auditLog(
+				"202012345", 1L, 100L, LocalDateTime.of(2026, 9, 2, 12, 0)));
+		AuditLog older = fakeAuditLogRepository.save(auditLog(
+				"202012346", 1L, 100L, LocalDateTime.of(2026, 9, 1, 12, 0)));
+		Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id")));
+
+		assertThat(fakeAuditLogRepository.findAllByTeam(1L, 100L, pageable).getContent())
+				.extracting(AuditLog::getId)
+				.containsExactly(older.getId(), newer.getId());
+	}
+
+	@Test
+	@DisplayName("findAllByTeamAndActorIdIn은 다른 팀에서 발생한 활동을 제외한다")
+	void findAllByTeamAndActorIdInExcludesPreviousTeamActivities() {
+		AuditLog currentTeam = fakeAuditLogRepository.save(auditLog(
+				"202012345", 1L, 100L, LocalDateTime.of(2026, 9, 1, 12, 0)));
+		fakeAuditLogRepository.save(auditLog(
+				"202012345", 1L, 200L, LocalDateTime.of(2026, 9, 2, 12, 0)));
+
+		assertThat(fakeAuditLogRepository.findAllByTeamAndActorIdIn(
+				1L, 100L, List.of("202012345")))
+				.extracting(AuditLog::getId)
+				.containsExactly(currentTeam.getId());
+	}
+
+	private AuditLog auditLog(String actorId, Long sectionId, Long teamId, LocalDateTime createdAt) {
+		return AuditLog.builder()
+				.actorId(actorId)
+				.sectionId(sectionId)
+				.eventType("TEAM_UPDATED")
+				.targetType(TargetType.TEAM)
+				.targetId(teamId)
+				.metadata(JsonConverter.parse("{}"))
+				.createdAt(createdAt)
+				.build();
 	}
 }
