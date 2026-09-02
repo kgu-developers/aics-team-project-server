@@ -17,10 +17,11 @@ public interface JpaTopicVoteRepository extends JpaRepository<TopicVoteJpaEntity
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
-            INSERT INTO topic_vote (team_id, candidate_id, voter_user_id, created_at, updated_at)
-            VALUES (:teamId, :candidateId, :voterUserId, now(), now())
+            INSERT INTO topic_vote (team_id, candidate_id, voter_user_id, version, created_at, updated_at)
+            VALUES (:teamId, :candidateId, :voterUserId, 0, now(), now())
             ON CONFLICT (team_id, voter_user_id) DO UPDATE
-            SET candidate_id = EXCLUDED.candidate_id, deleted_at = NULL, updated_at = now()
+            SET candidate_id = EXCLUDED.candidate_id, deleted_at = NULL,
+                version = topic_vote.version + 1, updated_at = now()
             """, nativeQuery = true)
     void upsert(@Param("teamId") Long teamId,
                 @Param("candidateId") Long candidateId,

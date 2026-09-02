@@ -4,6 +4,7 @@ import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import kgu.developers.domain.topicVote.exception.TopicVoteNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,16 +56,23 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     @Override
     @Transactional
     public void deleteById(Long id) {
-        TopicVoteJpaEntity entity = jpaTopicVoteRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(TopicVoteNotFoundException::new);
-        entity.delete();
+        softDelete(jpaTopicVoteRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(TopicVoteNotFoundException::new));
     }
 
     @Override
     @Transactional
     public void deleteByTeamIdAndVoterUserId(Long teamId, String voterUserId) {
-        TopicVoteJpaEntity entity = jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
-                .orElseThrow(TopicVoteNotFoundException::new);
+        softDelete(jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
+                .orElseThrow(TopicVoteNotFoundException::new));
+    }
+
+    private void softDelete(TopicVoteJpaEntity entity) {
         entity.delete();
+        try {
+            jpaTopicVoteRepository.flush();
+        } catch (OptimisticLockingFailureException e) {
+            throw new TopicVoteNotFoundException();   // 경쟁에서 진 취소 요청은 취소할 표가 없던 것과 같다
+        }
     }
 }

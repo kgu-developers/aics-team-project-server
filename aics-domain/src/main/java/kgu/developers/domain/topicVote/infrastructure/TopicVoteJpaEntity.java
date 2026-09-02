@@ -35,12 +35,16 @@ public class TopicVoteJpaEntity extends BaseTimeEntity {
     @Column(name = "voter_user_id", nullable = false, length = 20)
     private String voterUserId;
 
+    @Version
+    private long version;
+
     public TopicVote toDomain() {
         return TopicVote.builder()
                 .id(id)
                 .teamId(teamId)
                 .candidateId(candidateId)
                 .voterUserId(voterUserId)
+                .version(version)
                 .createdAt(getCreatedAt())
                 .updatedAt(getUpdatedAt())
                 .deletedAt(getDeletedAt())
@@ -53,6 +57,7 @@ public class TopicVoteJpaEntity extends BaseTimeEntity {
                 .teamId(topicVote.getTeamId())
                 .candidateId(topicVote.getCandidateId())
                 .voterUserId(topicVote.getVoterUserId())
+                .version(topicVote.getVersion())
                 .build();
         entity.createdAt = topicVote.getCreatedAt();
         entity.setDeletedAt(topicVote.getDeletedAt());

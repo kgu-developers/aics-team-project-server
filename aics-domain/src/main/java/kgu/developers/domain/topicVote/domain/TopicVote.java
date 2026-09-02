@@ -21,6 +21,8 @@ public class TopicVote {
     private Long candidateId;  // 후보 식별자
     private String voterUserId;  // 투표자 학번
 
+    private long version;  // 낙관적 락 버전
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;

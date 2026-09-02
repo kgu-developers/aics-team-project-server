@@ -18,6 +18,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -83,6 +85,9 @@ class TopicVoteRepositoryPostgresTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     @SpringBootApplication
     @EntityScan(basePackageClasses = TopicVoteJpaEntity.class)
     @EnableJpaRepositories(basePackageClasses = JpaTopicVoteRepository.class)
@@ -100,6 +105,11 @@ class TopicVoteRepositoryPostgresTest {
                 Integer.class, voterUserId);
     }
 
+    private long versionOf(String voterUserId) {
+        return jdbc.queryForObject(
+                "SELECT version FROM topic_vote WHERE voter_user_id = ?", Long.class, voterUserId);
+    }
+
     @Test
     @DisplayName("전제 확인: 유니크 제약이 팀 기준이고 소프트 삭제된 행에도 적용된다")
     void uniqueConstraintIsTeamScopedAndAppliesToSoftDeletedRows() {
@@ -114,8 +124,8 @@ class TopicVoteRepositoryPostgresTest {
 
         // 삭제된 행이 여전히 키를 점유하므로 맨 INSERT 는 반드시 실패한다 -> 재활성화가 필요한 이유
         assertThatThrownBy(() -> jdbc.update("""
-                INSERT INTO topic_vote (team_id, candidate_id, voter_user_id, created_at, updated_at)
-                VALUES (?, ?, ?, now(), now())
+                INSERT INTO topic_vote (team_id, candidate_id, voter_user_id, version, created_at, updated_at)
+                VALUES (?, ?, ?, 0, now(), now())
                 """, TEAM, CANDIDATE_B, VOTER))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
@@ -143,6 +153,7 @@ class TopicVoteRepositoryPostgresTest {
 
         assertThat(again.getId()).isEqualTo(first.getId());
         assertThat(activeVotesOf(VOTER)).isEqualTo(1);
+        assertThat(versionOf(VOTER)).isEqualTo(first.getVersion() + 1);   // 업서트가 버전을 올려야 낙관적 락이 산다
     }
 
     @Test
@@ -208,5 +219,67 @@ class TopicVoteRepositoryPostgresTest {
                 .isInstanceOf(TopicVoteNotFoundException.class);
         assertThatThrownBy(() -> topicVoteRepository.deleteById(vote.getId()))
                 .isInstanceOf(TopicVoteNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("조회 후 다른 요청이 행을 바꾸면 취소는 낙관적 락에 걸려 TopicVoteNotFoundException")
+    void staleCancelFailsWithNotFound() throws Exception {
+        TopicVote vote = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+
+        assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            // 영속성 컨텍스트에 버전 0 인 상태로 올려둔다
+            jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(TEAM, VOTER).orElseThrow();
+
+            bumpVersionInAnotherTransaction(vote.getId());
+
+            // 취소는 캐시된 버전 0 으로 UPDATE 를 날리므로 반드시 진다
+            topicVoteRepository.deleteByTeamIdAndVoterUserId(TEAM, VOTER);
+        })).isInstanceOf(TopicVoteNotFoundException.class);
+
+        assertThat(activeVotesOf(VOTER)).isEqualTo(1);   // 롤백됐으니 표는 그대로다
+    }
+
+    /** 같은 스레드에서 JdbcTemplate 을 쓰면 진행 중인 트랜잭션에 붙어버리므로 별도 스레드에서 커밋시킨다. */
+    private void bumpVersionInAnotherTransaction(Long id) {
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        try {
+            pool.submit(() -> jdbc.update("UPDATE topic_vote SET version = version + 1 WHERE id = ?", id)).get();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    @Test
+    @DisplayName("동시 취소: 낙관적 락으로 한 번만 성공하고 나머지는 TopicVoteNotFoundException")
+    void concurrentCancelSucceedsOnlyOnce() throws Exception {
+        topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+
+        int threads = 8;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+
+        List<Callable<Boolean>> tasks = java.util.Collections.nCopies(threads, () -> {
+            barrier.await();
+            try {
+                topicVoteCommandService.cancelVote(TEAM, VOTER);
+                return true;
+            } catch (TopicVoteNotFoundException e) {
+                return false;
+            }
+        });
+
+        List<Future<Boolean>> results = pool.invokeAll(tasks);
+        pool.shutdown();
+
+        long succeeded = 0;
+        for (Future<Boolean> result : results) {
+            if (result.get()) {
+                succeeded++;
+            }
+        }
+        assertThat(succeeded).isEqualTo(1);
+        assertThat(activeVotesOf(VOTER)).isZero();
     }
 }
