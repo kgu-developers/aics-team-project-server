@@ -113,6 +113,13 @@ class SecurityConfigTest {
   }
 
   @Test
+  @DisplayName("ASSISTANT 역할의 accessToken 쿠키는 403을 응답한다")
+  void assistantAccessTokenCookie() throws Exception {
+    mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("ASSISTANT")))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   @DisplayName("무효화된 accessToken 쿠키는 서명이 멀쩡해도 401을 응답한다 (탈퇴·강등 즉시 반영)")
   void revokedAccessTokenCookie() throws Exception {
     given(tokenRevocationStore.isRevoked(org.mockito.ArgumentMatchers.eq(STUDENT_NUMBER),
