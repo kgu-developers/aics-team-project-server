@@ -1,10 +1,12 @@
 package projectApproval.infrastructure;
 
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
+import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import kgu.developers.domain.projectApproval.exception.ProjectApprovalNotFoundException;
 import kgu.developers.domain.projectApproval.infrastructure.JpaProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalJpaEntity;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalRepositoryImpl;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +38,7 @@ class ProjectApprovalRepositoryImplTest {
     @DisplayName("프로젝트 동의 저장소 어댑터는 저장 결과를 도메인으로 반환한다")
     void save() {
         ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
-        given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
                 .willReturn(ProjectApprovalJpaEntity.builder()
                         .id(1L)
                         .projectId(1L)
@@ -48,7 +50,7 @@ class ProjectApprovalRepositoryImplTest {
 
         assertThat(saved.getId()).isEqualTo(1L);
         ArgumentCaptor<ProjectApprovalJpaEntity> captor = ArgumentCaptor.forClass(ProjectApprovalJpaEntity.class);
-        verify(jpaProjectApprovalRepository).save(captor.capture());
+        verify(jpaProjectApprovalRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getProjectId()).isEqualTo(1L);
         assertThat(captor.getValue().getUserId()).isEqualTo("20260001");
     }
@@ -65,16 +67,27 @@ class ProjectApprovalRepositoryImplTest {
                 .deletedAt(now.minusDays(1))
                 .build();
         approval.reactivate(now);
-        given(jpaProjectApprovalRepository.save(any(ProjectApprovalJpaEntity.class)))
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
 
         projectApprovalRepository.save(approval);
 
         ArgumentCaptor<ProjectApprovalJpaEntity> captor = ArgumentCaptor.forClass(ProjectApprovalJpaEntity.class);
-        verify(jpaProjectApprovalRepository).save(captor.capture());
+        verify(jpaProjectApprovalRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getId()).isEqualTo(1L);
         assertThat(captor.getValue().getDeletedAt()).isNull();
         assertThat(captor.getValue().getApprovedAt()).isEqualTo(now);
+    }
+
+    @Test
+    @DisplayName("save는 유니크 제약 위반을 DuplicateProjectApprovalException으로 변환한다")
+    void saveTranslatesUniqueViolation() {
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
+                .willThrow(new DataIntegrityViolationException("uk_project_approval_project_user"));
+
+        assertThatThrownBy(() -> projectApprovalRepository.save(approval))
+                .isInstanceOf(DuplicateProjectApprovalException.class);
     }
 
     @Test

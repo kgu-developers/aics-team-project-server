@@ -3,11 +3,13 @@ package kgu.developers.domain.projectApproval.infrastructure;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import kgu.developers.domain.projectApproval.exception.ProjectApprovalNotFoundException;
 import lombok.RequiredArgsConstructor;
 
@@ -19,7 +21,11 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     @Override
     public ProjectApproval save(ProjectApproval projectApproval) {
         ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.toEntity(projectApproval);
-        return jpaProjectApprovalRepository.save(entity).toDomain();
+        try {
+            return jpaProjectApprovalRepository.saveAndFlush(entity).toDomain();
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateProjectApprovalException();
+        }
     }
 
     @Override
