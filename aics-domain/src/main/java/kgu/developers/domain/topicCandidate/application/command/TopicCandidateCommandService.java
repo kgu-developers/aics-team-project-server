@@ -16,7 +16,8 @@ public class TopicCandidateCommandService {
     private final TopicCandidateRepository topicCandidateRepository;
 
     public Long createTopicCandidate(Long teamId, String proposerUserId, String title, String description) {
-        TopicCandidate existing = topicCandidateRepository.findIncludingDeletedByTeamIdAndTitle(teamId, title).orElse(null);
+        TopicCandidate existing = topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(teamId, title)
+                .orElse(null);
         if (existing != null) {
             if (existing.getDeletedAt() == null) {
                 throw new DuplicateTopicCandidateTitleException();

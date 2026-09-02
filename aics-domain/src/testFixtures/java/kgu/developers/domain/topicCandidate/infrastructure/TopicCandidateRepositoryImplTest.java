@@ -180,6 +180,19 @@ class TopicCandidateRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("생성 경로의 삭제 포함 조회도 팀 행에 쓰기 락을 건다")
+    void findIncludingDeletedByTeamIdAndTitleForUpdateLocksTeam() {
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitle(100L, "중복 제목"))
+                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(candidate(1L, "중복 제목"))));
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
+
+        Optional<TopicCandidate> result = repository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "중복 제목");
+
+        assertThat(result).isPresent();
+        verify(entityManager).find(TeamJpaEntity.class, 100L, PESSIMISTIC_WRITE);
+    }
+
+    @Test
     @DisplayName("중복 검사 조회는 소프트 삭제된 제목을 무시한다")
     void findActiveByTeamIdAndTitleForUpdateIgnoresDeleted() {
         given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "삭제된 제목"))

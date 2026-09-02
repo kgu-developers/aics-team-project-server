@@ -10,7 +10,7 @@ public interface TopicCandidateRepository {
 
     Optional<TopicCandidate> findActiveByTeamIdAndTitleForUpdate(Long teamId, String title);
 
-    Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitle(Long teamId, String title);
+    Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title);
 
     List<TopicCandidate> findByTeamId(Long teamId);
 

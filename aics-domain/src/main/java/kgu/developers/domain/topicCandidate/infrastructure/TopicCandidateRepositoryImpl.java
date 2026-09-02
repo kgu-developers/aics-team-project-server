@@ -41,7 +41,8 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     }
 
     @Override
-    public Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitle(Long teamId, String title) {
+    public Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title) {
+        entityManager.find(TeamJpaEntity.class, teamId, PESSIMISTIC_WRITE);
         return jpaTopicCandidateRepository.findByTeamIdAndTitle(teamId, title)
                 .map(TopicCandidateJpaEntity::toDomain);
     }

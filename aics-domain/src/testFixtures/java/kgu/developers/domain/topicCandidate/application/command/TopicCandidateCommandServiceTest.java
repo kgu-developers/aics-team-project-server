@@ -34,7 +34,7 @@ class TopicCandidateCommandServiceTest {
     @Test
     @DisplayName("등록은 같은 팀에 살아있는 같은 제목이 있으면 거절한다")
     void createRejectsDuplicateActiveTitle() {
-        given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "중복 제목"))
+        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "중복 제목"))
                 .willReturn(Optional.of(candidate(1L, "중복 제목")));
 
         assertThatThrownBy(() ->
@@ -47,7 +47,7 @@ class TopicCandidateCommandServiceTest {
     @Test
     @DisplayName("등록은 소프트 삭제된 제목이면 같은 팀에서 다시 쓸 수 있다")
     void createAllowsReusingDeletedTitle() {
-        given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
+        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
                 .willReturn(Optional.empty());
         given(topicCandidateRepository.save(any(TopicCandidate.class)))
                 .willReturn(candidate(2L, "삭제된 제목"));
