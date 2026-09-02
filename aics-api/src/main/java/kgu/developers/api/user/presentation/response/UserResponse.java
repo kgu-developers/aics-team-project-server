@@ -3,7 +3,6 @@ package kgu.developers.api.user.presentation.response;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -37,26 +36,16 @@ public record UserResponse(
         @Schema(description = "소속 분반 목록")
         List<SectionResponse> sections,
 
+        @Schema(description = "내 팀 ID", example = "1")
+        Long teamId,
+
         @Schema(description = "생성 일시")
         LocalDateTime createdAt,
 
         @Schema(description = "수정 일시")
         LocalDateTime updatedAt
 ) {
-    public static UserResponse from(User user) {
-        return UserResponse.builder()
-                .studentNumber(user.getStudentNumber())
-                .email(user.getEmail())
-                .name(user.getName())
-                .globalRole(user.getGlobalRole())
-                .phone(user.getPhone())
-                .sections(Collections.emptyList())
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
-    }
-
-    public static UserResponse from(User user, List<SectionResponse> sections) {
+    public static UserResponse from(User user, List<SectionResponse> sections, Long teamId) {
         return UserResponse.builder()
                 .studentNumber(user.getStudentNumber())
                 .email(user.getEmail())
@@ -64,6 +53,7 @@ public record UserResponse(
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
                 .sections(sections)
+                .teamId(teamId)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

@@ -14,6 +14,8 @@ import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
@@ -29,6 +31,7 @@ public class UserFacade {
     private final UserQueryService userQueryService;
     private final EnrollmentRepository enrollmentRepository;
     private final SectionRepository sectionRepository;
+    private final TeamMemberRepository teamMemberRepository;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String studentNumber) {
@@ -39,13 +42,18 @@ public class UserFacade {
                 .filter(e -> e.getStatus() == Status.ACTIVE)
                 .toList();
 
+        Long teamId = teamMemberRepository.findAllByUserId(studentNumber).stream()
+                .findFirst()
+                .map(TeamMember::getTeamId)
+                .orElse(null);
+
         List<SectionDetail> professorSections = List.of();
         if (user.getGlobalRole() == UserGlobalRole.ADMIN) {
             professorSections = sectionRepository.findAllByProfessorId(studentNumber);
         }
 
         if (enrollments.isEmpty() && professorSections.isEmpty()) {
-            return UserResponse.from(user);
+            return UserResponse.from(user, List.of(), teamId);
         }
 
         List<Long> enrollmentSectionIds = enrollments.stream()
@@ -57,7 +65,7 @@ public class UserFacade {
         List<SectionResponse> sections = mergeAndDeduplicateSections(
                 enrollments, enrollmentSectionDetails, professorSections);
 
-        return UserResponse.from(user, sections);
+        return UserResponse.from(user, sections, teamId);
     }
 
     public void updateUserPassword(String studentNumber, UserUpdateRequest request) {

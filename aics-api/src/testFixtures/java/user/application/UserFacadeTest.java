@@ -27,6 +27,8 @@ import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
@@ -48,6 +50,9 @@ class UserFacadeTest {
 
     @Mock
     private SectionRepository sectionRepository;
+
+    @Mock
+    private TeamMemberRepository teamMemberRepository;
 
     @InjectMocks
     private UserFacade userFacade;
@@ -142,5 +147,33 @@ class UserFacadeTest {
                 .singleElement()
                 .extracting(SectionResponse::id)
                 .isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("수강 내역이 없어도 팀에 속하면 teamId가 내려간다")
+    void getMeReturnsTeamIdWithoutEnrollments() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
+        given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
+                .willReturn(List.of(TeamMember.create(7L, STUDENT_NUMBER, true, null)));
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections()).isEmpty();
+        assertThat(response.teamId()).isEqualTo(7L);
+    }
+
+    @Test
+    @DisplayName("팀에 속하면 teamId가 내려가고, 속하지 않으면 null이다")
+    void getMeReturnsTeamId() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(activeEnrollment(1L)));
+        given(sectionRepository.findAllByIdIn(List.of(1L))).willReturn(List.of(sectionDetail(1L)));
+        given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
+                .willReturn(List.of(TeamMember.create(7L, STUDENT_NUMBER, true, null)))
+                .willReturn(List.of());
+
+        assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isEqualTo(7L);
+        assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isNull();
     }
 }
