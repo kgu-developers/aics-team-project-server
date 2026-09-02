@@ -45,4 +45,5 @@ public class TeamQueryService {
             throw new SectionNotFoundException();
         }
     }
+
 }

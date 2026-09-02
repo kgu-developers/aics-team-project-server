@@ -113,6 +113,39 @@ class AuditLogRepositoryImplTest {
 	}
 
 	@Test
+	@DisplayName("findAllByTeam은 특정 분반과 팀을 대상으로 한 감사 로그만 조회한다")
+	void findAllByTeam() {
+		Pageable pageable = PageRequest.of(0, 10);
+		given(jpaAuditLogRepository.findAllBySectionIdAndTargetTypeAndTargetIdAndDeletedAtIsNull(
+				10L, TargetType.TEAM.getCode(), 5L, pageable))
+				.willReturn(new PageImpl<>(List.of(sampleEntity()), pageable, 1));
+
+		Page<AuditLog> result = auditLogRepositoryImpl.findAllByTeam(10L, 5L, pageable);
+
+		assertThat(result.getTotalElements()).isEqualTo(1);
+		assertThat(result.getContent().get(0).getTargetType()).isEqualTo(TargetType.TEAM);
+		assertThat(result.getContent().get(0).getTargetId()).isEqualTo(5L);
+	}
+
+	@Test
+	@DisplayName("findAllByTeamAndActorIdIn은 현재 팀을 대상으로 한 팀원 활동을 최신순으로 조회한다")
+	void findAllByTeamAndActorIdIn() {
+		List<String> actorIds = List.of("202012345", "202012346");
+		given(jpaAuditLogRepository
+				.findAllBySectionIdAndTargetTypeAndTargetIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+						10L, TargetType.TEAM.getCode(), 5L, actorIds))
+				.willReturn(List.of(sampleEntity()));
+
+		List<AuditLog> result = auditLogRepositoryImpl.findAllByTeamAndActorIdIn(10L, 5L, actorIds);
+
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).getActorId()).isEqualTo("202012345");
+		verify(jpaAuditLogRepository)
+				.findAllBySectionIdAndTargetTypeAndTargetIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+						10L, TargetType.TEAM.getCode(), 5L, actorIds);
+	}
+
+	@Test
 	@DisplayName("deleteById는 조회한 엔티티에 deleted_at을 채운다")
 	void deleteById() {
 		AuditLogJpaEntity entity = sampleEntity();
@@ -142,5 +175,10 @@ class AuditLogRepositoryImplTest {
 		assertThat(auditLogRepositoryImpl.findAllByActorId(" ", pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByEventType(null, pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByEventType(" ", pageable)).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeam(null, 1L, pageable)).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeam(1L, null, pageable)).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeamAndActorIdIn(null, 1L, List.of("202012345"))).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeamAndActorIdIn(1L, null, List.of("202012345"))).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeamAndActorIdIn(1L, 2L, List.of())).isEmpty();
 	}
 }

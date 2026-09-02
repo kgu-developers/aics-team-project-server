@@ -1,6 +1,7 @@
 package kgu.developers.auth.api.application;
 
 import kgu.developers.auth.api.presentation.response.LoginResponse;
+import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.exception.InvalidCredentialsException;
@@ -23,12 +24,14 @@ public class AuthFacade {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenStore refreshTokenStore;
     private final TokenRevocationStore tokenRevocationStore;
+    private final UserCommandService userCommandService;
 
     public LoginResponse login(LoginRequest request) {
         User user = findForLogin(request.studentNumber());
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException();
         }
+        userCommandService.recordLogin(user);
         return issue(user);
     }
 
