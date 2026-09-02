@@ -42,7 +42,6 @@ public record TeamActivitySummaryResponse(
                         BinaryOperator.maxBy(activityOrder())
                 ));
         List<TeamMemberActivityResponse> summaries = members.stream()
-                .sorted(Comparator.comparing(TeamMember::getUserId))
                 .map(member -> TeamMemberActivityResponse.from(
                         member,
                         usersById.get(member.getUserId()),

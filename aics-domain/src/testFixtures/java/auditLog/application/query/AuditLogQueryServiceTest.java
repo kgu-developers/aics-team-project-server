@@ -49,12 +49,12 @@ class AuditLogQueryServiceTest {
     void getMemberActivities() {
         List<String> memberIds = List.of("202600001", "202600002");
         List<AuditLog> activities = List.of(AuditLog.builder().id(1L).build());
-        given(auditLogRepository.findAllBySectionIdAndActorIdIn(10L, memberIds))
+        given(auditLogRepository.findAllByTeamAndActorIdIn(10L, 20L, memberIds))
                 .willReturn(activities);
 
-        List<AuditLog> result = auditLogQueryService.getMemberActivities(10L, memberIds);
+        List<AuditLog> result = auditLogQueryService.getMemberActivities(10L, 20L, memberIds);
 
         assertThat(result).isSameAs(activities);
-        verify(auditLogRepository).findAllBySectionIdAndActorIdIn(10L, memberIds);
+        verify(auditLogRepository).findAllByTeamAndActorIdIn(10L, 20L, memberIds);
     }
 }

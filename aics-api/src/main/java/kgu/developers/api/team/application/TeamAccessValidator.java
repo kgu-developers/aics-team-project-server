@@ -22,14 +22,14 @@ public class TeamAccessValidator {
         }
     }
 
-    public void validateMembershipOrProfessor(Long teamId, String userId) {
-        if (teamMemberRepository.findByTeamIdAndUserId(teamId, userId).isPresent()) {
-            return;
-        }
+    public Team validateMembershipOrProfessor(Long teamId, String userId) {
         Team team = teamRepository.findById(teamId)
             .orElseThrow(() -> new AccessDeniedException("해당 팀에 소속된 사용자 또는 담당 교수만 접근할 수 있습니다."));
+        if (teamMemberRepository.findByTeamIdAndUserId(teamId, userId).isPresent()) {
+            return team;
+        }
         if (sectionRepository.existsActiveByIdAndProfessorId(team.getSectionId(), userId)) {
-            return;
+            return team;
         }
         throw new AccessDeniedException("해당 팀에 소속된 사용자 또는 담당 교수만 접근할 수 있습니다.");
     }

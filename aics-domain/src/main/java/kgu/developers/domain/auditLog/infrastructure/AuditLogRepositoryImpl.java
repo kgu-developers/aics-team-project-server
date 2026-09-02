@@ -74,12 +74,13 @@ public class AuditLogRepositoryImpl implements AuditLogRepository {
 	}
 
 	@Override
-	public List<AuditLog> findAllBySectionIdAndActorIdIn(Long sectionId, List<String> actorIds) {
-		if (sectionId == null || actorIds == null || actorIds.isEmpty()) {
+	public List<AuditLog> findAllByTeamAndActorIdIn(Long sectionId, Long teamId, List<String> actorIds) {
+		if (sectionId == null || teamId == null || actorIds == null || actorIds.isEmpty()) {
 			return List.of();
 		}
 		return jpaAuditLogRepository
-				.findAllBySectionIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(sectionId, actorIds)
+				.findAllBySectionIdAndTargetTypeAndTargetIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+						sectionId, TargetType.TEAM.getCode(), teamId, actorIds)
 				.stream()
 				.map(AuditLogJpaEntity::toDomain)
 				.toList();

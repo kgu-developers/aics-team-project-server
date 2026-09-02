@@ -1,13 +1,11 @@
 package auditlog.application;
 
-import static kgu.developers.domain.auditLog.domain.TargetType.MEETING_RECORD;
 import static kgu.developers.domain.auditLog.domain.TargetType.TEAM;
 import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -31,7 +29,6 @@ import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.application.query.AuditLogQueryService;
 import kgu.developers.domain.auditLog.domain.AuditLog;
-import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -49,8 +46,6 @@ class AuditLogFacadeTest {
     @Mock
     private TeamAccessValidator teamAccessValidator;
     @Mock
-    private TeamQueryService teamQueryService;
-    @Mock
     private TeamMemberQueryService teamMemberQueryService;
     @Mock
     private AuditLogQueryService auditLogQueryService;
@@ -66,7 +61,7 @@ class AuditLogFacadeTest {
         PageRequest pageable = PageRequest.of(0, 10);
         AuditLog history = auditLog(1L, USER_A, "TEAM_NAME_UPDATED", TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 10, 0));
-        given(teamQueryService.getTeamById(TEAM_ID)).willReturn(team());
+        given(teamAccessValidator.validateMembershipOrProfessor(TEAM_ID, USER_B)).willReturn(team());
         given(auditLogQueryService.getTeamHistories(SECTION_ID, TEAM_ID, pageable))
                 .willReturn(new PageImpl<>(List.of(history), pageable, 1));
         given(userQueryService.getUsersByStudentNumbers(List.of(USER_A)))
@@ -86,44 +81,44 @@ class AuditLogFacadeTest {
     void getTeamActivitySummary() {
         LocalDateTime loginAt = LocalDateTime.of(2026, 9, 1, 9, 0);
         List<TeamMember> members = List.of(
-                TeamMember.create(TEAM_ID, USER_B, false, "발표"),
-                TeamMember.create(TEAM_ID, USER_A, true, "기록")
+                TeamMember.create(TEAM_ID, USER_B, true, "발표"),
+                TeamMember.create(TEAM_ID, USER_A, false, "기록")
         );
-        AuditLog older = auditLog(1L, USER_A, "MEETING_CREATED", MEETING_RECORD, 8L,
+        AuditLog older = auditLog(1L, USER_B, "TEAM_RULE_UPDATED", TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 9, 30));
-        AuditLog latest = auditLog(2L, USER_A, "MEETING_UPDATED", MEETING_RECORD, 8L,
+        AuditLog latest = auditLog(2L, USER_B, "TEAM_NAME_UPDATED", TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 10, 30));
         AuditLog outsider = auditLog(3L, "202699999", "TEAM_UPDATED", TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 11, 0));
-        given(teamQueryService.getTeamById(TEAM_ID)).willReturn(team());
+        given(teamAccessValidator.validateMembershipOrProfessor(TEAM_ID, USER_A)).willReturn(team());
         given(teamMemberQueryService.getTeamMembersByTeamId(TEAM_ID)).willReturn(members);
         given(userQueryService.getUsersByStudentNumbers(List.of(USER_B, USER_A)))
-                .willReturn(List.of(user(USER_A, "김태양", loginAt), user(USER_B, "이학생", null)));
-        given(auditLogQueryService.getMemberActivities(SECTION_ID, List.of(USER_B, USER_A)))
+                .willReturn(List.of(user(USER_A, "김태양", null), user(USER_B, "이학생", loginAt)));
+        given(auditLogQueryService.getMemberActivities(SECTION_ID, TEAM_ID, List.of(USER_B, USER_A)))
                 .willReturn(List.of(older, outsider, latest));
 
         TeamActivitySummaryResponse result = auditLogFacade.getTeamActivitySummary(TEAM_ID, USER_A);
 
-        assertThat(result.members()).extracting("userId").containsExactly(USER_A, USER_B);
+        assertThat(result.members()).extracting("userId").containsExactly(USER_B, USER_A);
         assertThat(result.members().get(0).lastLoginAt()).isEqualTo(loginAt);
-        assertThat(result.members().get(0).lastActivity().eventType()).isEqualTo("MEETING_UPDATED");
+        assertThat(result.members().get(0).lastActivity().eventType()).isEqualTo("TEAM_NAME_UPDATED");
         assertThat(result.members().get(1).lastLoginAt()).isNull();
         assertThat(result.members().get(1).lastActivity()).isNull();
+        verify(auditLogQueryService).getMemberActivities(SECTION_ID, TEAM_ID, List.of(USER_B, USER_A));
     }
 
     @Test
     @DisplayName("팀원 또는 담당 교수가 아니면 감사 로그를 조회할 수 없다")
     void deniesOutsider() {
-        willThrow(new AccessDeniedException("접근할 수 없습니다."))
-                .given(teamAccessValidator)
-                .validateMembershipOrProfessor(TEAM_ID, "outsider");
+        given(teamAccessValidator.validateMembershipOrProfessor(TEAM_ID, "outsider"))
+                .willThrow(new AccessDeniedException("접근할 수 없습니다."));
 
         assertThatThrownBy(() -> auditLogFacade.getTeamHistories(
                 TEAM_ID, PageRequest.of(0, 10), "outsider"))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> auditLogFacade.getTeamActivitySummary(TEAM_ID, "outsider"))
                 .isInstanceOf(AccessDeniedException.class);
-        verify(teamQueryService, never()).getTeamById(any());
+        verify(auditLogQueryService, never()).getTeamHistories(any(), any(), any());
     }
 
     private Team team() {

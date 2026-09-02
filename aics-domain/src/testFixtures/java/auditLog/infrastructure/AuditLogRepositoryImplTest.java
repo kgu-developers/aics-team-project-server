@@ -128,17 +128,21 @@ class AuditLogRepositoryImplTest {
 	}
 
 	@Test
-	@DisplayName("findAllBySectionIdAndActorIdIn은 팀원들의 활동을 최신순으로 조회한다")
-	void findAllBySectionIdAndActorIdIn() {
+	@DisplayName("findAllByTeamAndActorIdIn은 현재 팀을 대상으로 한 팀원 활동을 최신순으로 조회한다")
+	void findAllByTeamAndActorIdIn() {
 		List<String> actorIds = List.of("202012345", "202012346");
 		given(jpaAuditLogRepository
-				.findAllBySectionIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(10L, actorIds))
+				.findAllBySectionIdAndTargetTypeAndTargetIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+						10L, TargetType.TEAM.getCode(), 5L, actorIds))
 				.willReturn(List.of(sampleEntity()));
 
-		List<AuditLog> result = auditLogRepositoryImpl.findAllBySectionIdAndActorIdIn(10L, actorIds);
+		List<AuditLog> result = auditLogRepositoryImpl.findAllByTeamAndActorIdIn(10L, 5L, actorIds);
 
 		assertThat(result).hasSize(1);
 		assertThat(result.get(0).getActorId()).isEqualTo("202012345");
+		verify(jpaAuditLogRepository)
+				.findAllBySectionIdAndTargetTypeAndTargetIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+						10L, TargetType.TEAM.getCode(), 5L, actorIds);
 	}
 
 	@Test
@@ -173,7 +177,8 @@ class AuditLogRepositoryImplTest {
 		assertThat(auditLogRepositoryImpl.findAllByEventType(" ", pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByTeam(null, 1L, pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByTeam(1L, null, pageable)).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllBySectionIdAndActorIdIn(null, List.of("202012345"))).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllBySectionIdAndActorIdIn(1L, List.of())).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeamAndActorIdIn(null, 1L, List.of("202012345"))).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeamAndActorIdIn(1L, null, List.of("202012345"))).isEmpty();
+		assertThat(auditLogRepositoryImpl.findAllByTeamAndActorIdIn(1L, 2L, List.of())).isEmpty();
 	}
 }

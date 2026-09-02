@@ -29,7 +29,7 @@ public record TeamHistoryResponse(
         @Schema(
                 description = "대상 유형",
                 example = "TEAM",
-                allowableValues = {"TEAM", "USER", "MEETING_RECORD", "SUBMISSION", "MILESTONE"},
+                allowableValues = {"TEAM"},
                 requiredMode = REQUIRED
         )
         TargetType targetType,

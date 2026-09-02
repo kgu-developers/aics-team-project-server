@@ -22,7 +22,7 @@ public class AuditLogQueryService {
         return auditLogRepository.findAllByTeam(sectionId, teamId, pageable);
     }
 
-    public List<AuditLog> getMemberActivities(Long sectionId, List<String> memberIds) {
-        return auditLogRepository.findAllBySectionIdAndActorIdIn(sectionId, memberIds);
+    public List<AuditLog> getMemberActivities(Long sectionId, Long teamId, List<String> memberIds) {
+        return auditLogRepository.findAllByTeamAndActorIdIn(sectionId, teamId, memberIds);
     }
 }

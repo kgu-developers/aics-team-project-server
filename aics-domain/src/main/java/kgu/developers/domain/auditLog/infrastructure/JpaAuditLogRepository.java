@@ -20,6 +20,6 @@ public interface JpaAuditLogRepository extends JpaRepository<AuditLogJpaEntity, 
 	Page<AuditLogJpaEntity> findAllBySectionIdAndTargetTypeAndTargetIdAndDeletedAtIsNull(
 			Long sectionId, Long targetType, Long targetId, Pageable pageable);
 
-	List<AuditLogJpaEntity> findAllBySectionIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
-			Long sectionId, List<String> actorIds);
+	List<AuditLogJpaEntity> findAllBySectionIdAndTargetTypeAndTargetIdAndActorIdInAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(
+			Long sectionId, Long targetType, Long targetId, List<String> actorIds);
 }

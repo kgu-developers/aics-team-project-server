@@ -20,7 +20,7 @@ public interface AuditLogRepository {
 
 	Page<AuditLog> findAllByTeam(Long sectionId, Long teamId, Pageable pageable);
 
-	List<AuditLog> findAllBySectionIdAndActorIdIn(Long sectionId, List<String> actorIds);
+	List<AuditLog> findAllByTeamAndActorIdIn(Long sectionId, Long teamId, List<String> actorIds);
 
 	void deleteById(Long id);
 }
