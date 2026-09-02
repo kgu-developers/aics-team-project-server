@@ -17,6 +17,7 @@ public class User {
 
     private UserGlobalRole globalRole;
     private String phone;
+    private LocalDateTime lastLoginAt;
 
     protected LocalDateTime createdAt;
     protected LocalDateTime updatedAt;
@@ -52,6 +53,10 @@ public class User {
 
     public void updatePhone(String phone) {
         this.phone = phone;
+    }
+
+    public void recordLogin(LocalDateTime loggedInAt) {
+        this.lastLoginAt = loggedInAt;
     }
 
     public void delete() {
