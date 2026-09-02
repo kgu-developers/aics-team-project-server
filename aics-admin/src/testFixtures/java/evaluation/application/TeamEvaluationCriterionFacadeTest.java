@@ -12,9 +12,6 @@ import kgu.developers.domain.evaluation.application.command.TeamEvaluationCriter
 import kgu.developers.domain.evaluation.application.query.TeamEvaluationCriterionQueryService;
 import kgu.developers.domain.evaluation.domain.TeamEvaluationCriterion;
 import kgu.developers.domain.section.application.query.SectionQueryService;
-import kgu.developers.domain.section.domain.Section;
-import kgu.developers.domain.section.domain.SectionDetail;
-import kgu.developers.domain.section.exception.SectionNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +40,8 @@ class TeamEvaluationCriterionFacadeTest {
   void createCriterion() {
     TeamEvaluationCriterionCreateRequest request =
         new TeamEvaluationCriterionCreateRequest("객체지향 설계", 30, 0);
-    given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("202012345"));
+    given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+        .willReturn(true);
     given(commandService.createCriterion(2L, "객체지향 설계", 30, 0)).willReturn(1L);
 
     assertThat(facade.createCriterion(2L, "202012345", request).id()).isEqualTo(1L);
@@ -52,7 +50,8 @@ class TeamEvaluationCriterionFacadeTest {
   @Test
   @DisplayName("분반별 평가 항목을 응답 DTO로 변환한다")
   void getCriteria() {
-    given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("202012345"));
+    given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+        .willReturn(true);
     given(queryService.getCriteria(2L)).willReturn(List.of(
         TeamEvaluationCriterion.restore(
             1L, 2L, "객체지향 설계", 30, 0, null, null, null)));
@@ -70,7 +69,8 @@ class TeamEvaluationCriterionFacadeTest {
   @Test
   @DisplayName("담당 교수가 아닌 관리자는 평가 항목을 조회할 수 없다")
   void rejectAnotherProfessor() {
-    given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("another-professor"));
+    given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+        .willReturn(false);
 
     assertThatThrownBy(() -> facade.getCriteria(2L, "202012345"))
         .isInstanceOf(AccessDeniedException.class);
@@ -83,7 +83,8 @@ class TeamEvaluationCriterionFacadeTest {
   void rejectCreateByAnotherProfessor() {
     TeamEvaluationCriterionCreateRequest request =
         new TeamEvaluationCriterionCreateRequest("객체지향 설계", 30, 0);
-    given(sectionQueryService.getSectionById(2L)).willReturn(sectionOwnedBy("another-professor"));
+    given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+        .willReturn(false);
 
     assertThatThrownBy(() -> facade.createCriterion(2L, "202012345", request))
         .isInstanceOf(AccessDeniedException.class);
@@ -92,21 +93,14 @@ class TeamEvaluationCriterionFacadeTest {
   }
 
   @Test
-  @DisplayName("존재하지 않는 분반의 평가 항목은 조회하지 않는다")
+  @DisplayName("존재하지 않는 분반도 소유하지 않은 분반과 동일하게 거부한다")
   void rejectMissingSection() {
-    given(sectionQueryService.getSectionById(404L)).willThrow(new SectionNotFoundException());
+    given(sectionQueryService.isActiveSectionOwnedByProfessor(404L, "202012345"))
+        .willReturn(false);
 
     assertThatThrownBy(() -> facade.getCriteria(404L, "202012345"))
-        .isInstanceOf(SectionNotFoundException.class);
+        .isInstanceOf(AccessDeniedException.class);
 
     then(queryService).shouldHaveNoInteractions();
-  }
-
-  private SectionDetail sectionOwnedBy(String professorId) {
-    Section section = Section.builder()
-        .id(2L)
-        .professorId(professorId)
-        .build();
-    return new SectionDetail(section, null, null);
   }
 }

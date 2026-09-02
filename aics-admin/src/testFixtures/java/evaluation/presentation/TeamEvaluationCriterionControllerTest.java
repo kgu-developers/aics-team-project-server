@@ -13,6 +13,7 @@ import java.util.List;
 import kgu.developers.admin.evaluation.application.TeamEvaluationCriterionFacade;
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.evaluation.presentation.TeamEvaluationCriterionControllerImpl;
+import kgu.developers.admin.evaluation.presentation.request.TeamEvaluationCriterionCreateRequest;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionListResponse;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionPersistResponse;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionResponse;
@@ -116,8 +117,7 @@ class TeamEvaluationCriterionControllerTest {
     given(facade.createCriterion(
         2L,
         "202012345",
-        new kgu.developers.admin.evaluation.presentation.request.TeamEvaluationCriterionCreateRequest(
-            "객체지향 설계", 30, 0)))
+        new TeamEvaluationCriterionCreateRequest("객체지향 설계", 30, 0)))
         .willReturn(TeamEvaluationCriterionPersistResponse.of(1L));
 
     mockMvc.perform(post(URL, 2L).with(csrf())
@@ -125,6 +125,25 @@ class TeamEvaluationCriterionControllerTest {
             .content(VALID_BODY))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(1L));
+  }
+
+  @Test
+  @WithMockUser(username = "202012345", roles = "ADMIN")
+  @DisplayName("앞뒤 공백 제거 후 100자인 평가 항목명은 생성 요청을 허용한다")
+  void createCriterion_WithPaddedMaximumLengthTitle() throws Exception {
+    String title = " " + "가".repeat(100) + "  ";
+    TeamEvaluationCriterionCreateRequest request =
+        new TeamEvaluationCriterionCreateRequest(title, 30, 0);
+    given(facade.createCriterion(2L, "202012345", request))
+        .willReturn(TeamEvaluationCriterionPersistResponse.of(1L));
+
+    mockMvc.perform(post(URL, 2L).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"title\":\"" + title + "\",\"maxScore\":30,\"displayOrder\":0}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.id").value(1L));
+
+    then(facade).should().createCriterion(2L, "202012345", request);
   }
 
   @Test

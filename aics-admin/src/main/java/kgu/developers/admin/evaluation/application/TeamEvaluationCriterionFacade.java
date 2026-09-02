@@ -35,8 +35,7 @@ public class TeamEvaluationCriterionFacade {
   }
 
   private void validateSectionAccess(Long sectionId, String professorId) {
-    String ownerId = sectionQueryService.getSectionById(sectionId).section().getProfessorId();
-    if (!professorId.equals(ownerId)) {
+    if (!sectionQueryService.isActiveSectionOwnedByProfessor(sectionId, professorId)) {
       throw new AccessDeniedException("담당 분반의 발표 평가 항목만 관리할 수 있습니다.");
     }
   }
