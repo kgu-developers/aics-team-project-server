@@ -46,11 +46,11 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     @Override
     @Transactional
     public TopicVote upsert(TopicVote topicVote) {
-        jpaTopicVoteRepository.upsert(topicVote.getTeamId(), topicVote.getCandidateId(), topicVote.getVoterUserId());
+        // RETURNING 으로 결과 행을 바로 받는다. 같은 트랜잭션에서 이 행을 미리 로딩했다면 영속성 컨텍스트의
+        // 옛 인스턴스가 반환되므로, 그런 호출자가 생기면 upsert 전에 clear/refresh 가 필요하다.
         return jpaTopicVoteRepository
-                .findByTeamIdAndVoterUserIdAndDeletedAtIsNull(topicVote.getTeamId(), topicVote.getVoterUserId())
-                .map(TopicVoteJpaEntity::toDomain)
-                .orElseThrow(TopicVoteNotFoundException::new);
+                .upsert(topicVote.getTeamId(), topicVote.getCandidateId(), topicVote.getVoterUserId())
+                .toDomain();
     }
 
     @Override
