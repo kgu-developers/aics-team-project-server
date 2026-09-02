@@ -14,6 +14,7 @@ import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +37,9 @@ public class UserFacade {
                 .orElse(null);
 
         List<SectionDetail> enrollmentSections = sectionQueryService.getSectionsByStudentNumber(studentNumber);
-        List<SectionDetail> professorSections = sectionQueryService.getSectionsByProfessorId(studentNumber);
+        List<SectionDetail> professorSections = user.getGlobalRole() == UserGlobalRole.ADMIN
+                ? sectionQueryService.getSectionsByProfessorId(studentNumber)
+                : List.of();
         List<SectionResponse> sections = mergeAndDeduplicateSections(enrollmentSections, professorSections);
 
         return UserResponse.from(user, sections, teamId);

@@ -2,6 +2,8 @@ package user.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -124,9 +126,9 @@ class UserFacadeTest {
     }
 
     @Test
-    @DisplayName("전역 역할과 무관하게 실제 담당 분반을 조회한다")
+    @DisplayName("수강 내역이 없는 관리자도 담당 분반을 조회한다")
     void getMeIncludesProfessorSectionsWithoutEnrollments() {
-        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
         given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
@@ -135,6 +137,17 @@ class UserFacadeTest {
                 .singleElement()
                 .extracting(SectionResponse::id)
                 .isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("일반 사용자는 교수 담당 분반을 조회하지 않는다")
+    void getMeDoesNotQueryProfessorSectionsForUser() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections()).isEmpty();
+        verify(sectionQueryService, never()).getSectionsByProfessorId(STUDENT_NUMBER);
     }
 
     @Test
