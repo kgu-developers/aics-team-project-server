@@ -96,13 +96,26 @@ class ProjectCommandServiceTest {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
-        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of());
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(TeamMember.create(1L, "202412345", false, "개발자")));
+        given(projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(10L, "202412345", project.getProposalRevision())).willReturn(true);
 
         projectCommandService.completeProposal(10L);
 
         assertThat(project.getProposalCompletedAt()).isNotNull();
         assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
         then(projectRepository).should().save(project);
+    }
+
+    @Test
+    @DisplayName("completeProposal은 팀원이 한 명도 없으면 예외를 던진다")
+    void completeProposal_rejectsEmptyTeam() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of());
+
+        assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
+        then(projectRepository).should(org.mockito.Mockito.never()).save(project);
     }
 
     @Test

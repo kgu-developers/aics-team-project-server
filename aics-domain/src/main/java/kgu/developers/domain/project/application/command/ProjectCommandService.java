@@ -7,10 +7,13 @@ import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -93,7 +96,8 @@ public class ProjectCommandService {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
-        boolean allMembersApproved = teamMemberRepository.findAllByTeamId(project.getTeamId()).stream()
+        List<TeamMember> members = teamMemberRepository.findAllByTeamId(project.getTeamId());
+        boolean allMembersApproved = !members.isEmpty() && members.stream()
             .allMatch(member -> projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(
                 projectId, member.getUserId(), project.getProposalRevision()
             ));
