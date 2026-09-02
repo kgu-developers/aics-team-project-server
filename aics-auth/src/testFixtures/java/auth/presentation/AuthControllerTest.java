@@ -52,6 +52,7 @@ class AuthControllerTest {
         .willReturn(LoginResponse.of("access-token", "refresh-token"));
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
+    given(authFacade.getUserRole("202699999")).willReturn("STUDENT");
 
     return mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(BODY))
         .andExpect(status().isOk())
@@ -59,11 +60,12 @@ class AuthControllerTest {
   }
 
   @Test
-  @DisplayName("로그인 성공 시 본문은 Login Successfully이고 토큰은 Set-Cookie로 내려간다")
+  @DisplayName("로그인 성공 시 본문은 message와 role이고 토큰은 Set-Cookie로 내려간다")
   void loginSetsCookiesNotBody() throws Exception {
     MvcResult result = login();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Login Successfully");
+    assertThat(result.getResponse().getContentAsString())
+        .isEqualTo("{\"message\":\"Login successfully\",\"role\":\"STUDENT\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .anyMatch(c -> c.startsWith("accessToken=access-token"))
         .anyMatch(c -> c.startsWith("refreshToken=refresh-token"));
@@ -95,7 +97,7 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andReturn();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Refresh Successfully");
+    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Refresh successfully\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .anyMatch(c -> c.startsWith("accessToken=new-access-token"))
         .anyMatch(c -> c.startsWith("refreshToken=new-refresh-token"))
@@ -120,7 +122,7 @@ class AuthControllerTest {
         .andExpect(status().isOk())
         .andReturn();
 
-    assertThat(result.getResponse().getContentAsString()).isEqualTo("Logout Successfully");
+    assertThat(result.getResponse().getContentAsString()).isEqualTo("{\"message\":\"Logout successfully\"}");
     assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
         .hasSize(2)
         .allMatch(c -> c.contains("Max-Age=0"))

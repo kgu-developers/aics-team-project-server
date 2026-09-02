@@ -20,7 +20,7 @@ public interface AuthController {
 		""")
 	@ApiResponse(
 		responseCode = "200",
-		description = "본문은 {\"message\": \"Login successfully\", \"role\": \"USER|ADMIN|ASSISTANT\"}, 토큰은 Set-Cookie(HttpOnly)로 발급")
+		description = "본문은 {\"message\": \"Login successfully\", \"role\": \"STUDENT|ADMIN|ASSISTANT\"}, 토큰은 Set-Cookie(HttpOnly)로 발급")
 	@ApiResponse(responseCode = "401", description = "학번 또는 비밀번호가 올바르지 않습니다.")
 	ResponseEntity<MessageResponse> login(
 		@Parameter(
