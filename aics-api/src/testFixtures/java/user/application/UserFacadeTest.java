@@ -176,4 +176,18 @@ class UserFacadeTest {
         assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isEqualTo(7L);
         assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isNull();
     }
+
+    @Test
+    @DisplayName("여러 팀에 속하면 조회 순서와 무관하게 가장 최근 팀이 내려간다")
+    void getMeReturnsLatestTeamIdWhenUserBelongsToMultipleTeams() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+        given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of());
+        given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
+                .willReturn(List.of(
+                        TeamMember.create(3L, STUDENT_NUMBER, false, null),
+                        TeamMember.create(9L, STUDENT_NUMBER, true, null),
+                        TeamMember.create(5L, STUDENT_NUMBER, false, null)));
+
+        assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isEqualTo(9L);
+    }
 }

@@ -1,5 +1,6 @@
 package kgu.developers.api.user.application;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -43,8 +44,8 @@ public class UserFacade {
                 .toList();
 
         Long teamId = teamMemberRepository.findAllByUserId(studentNumber).stream()
-                .findFirst()
                 .map(TeamMember::getTeamId)
+                .max(Comparator.naturalOrder())
                 .orElse(null);
 
         List<SectionDetail> professorSections = List.of();
