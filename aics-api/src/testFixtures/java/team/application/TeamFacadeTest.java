@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -196,7 +198,7 @@ class TeamFacadeTest {
     given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team);
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(before), List.of(after));
-    given(teamMemberCommandService.claimLeader(1L, USER)).willAnswer(invocation -> {
+    given(teamMemberCommandService.claimLeader(team, USER)).willAnswer(invocation -> {
       team.updateStatus(Status.CONFIRMED);
       return after;
     });
@@ -207,9 +209,9 @@ class TeamFacadeTest {
         teamQueryService, teamMemberQueryService, teamMemberCommandService);
     updateOrder.verify(teamQueryService).getTeamByIdForUpdate(1L);
     updateOrder.verify(teamMemberQueryService).getTeamMembersByTeamId(1L);
-    updateOrder.verify(teamMemberCommandService).claimLeader(1L, USER);
+    updateOrder.verify(teamMemberCommandService).claimLeader(team, USER);
     verify(teamAccessValidator).validateMembership(1L, USER);
-    verify(teamMemberCommandService).claimLeader(1L, USER);
+    verify(teamMemberCommandService).claimLeader(team, USER);
     verify(auditLogCommandService).recordTeamChange(
         org.mockito.ArgumentMatchers.eq(USER), org.mockito.ArgumentMatchers.eq(10L),
         org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_UPDATED),
@@ -237,7 +239,7 @@ class TeamFacadeTest {
     assertThatThrownBy(() -> teamFacade.claimLeader(1L, USER))
         .isInstanceOf(AccessDeniedException.class);
 
-    verify(teamMemberCommandService, never()).claimLeader(1L, USER);
+    verify(teamMemberCommandService, never()).claimLeader(any(Team.class), eq(USER));
   }
 
   @Test

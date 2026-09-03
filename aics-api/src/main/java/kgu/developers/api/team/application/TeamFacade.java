@@ -71,7 +71,7 @@ public class TeamFacade {
     Status beforeStatus = team.getStatus();
     TeamMembersAuditSnapshot beforeMembers = TeamMembersAuditSnapshot.from(
         teamMemberQueryService.getTeamMembersByTeamId(teamId));
-    teamMemberCommandService.claimLeader(teamId, userId);
+    teamMemberCommandService.claimLeader(team, userId);
     TeamMembersAuditSnapshot afterMembers = TeamMembersAuditSnapshot.from(
         teamMemberQueryService.getTeamMembersByTeamId(teamId));
     recordTeamMemberChange(userId, team, "LEADER_CLAIMED", beforeMembers, afterMembers);

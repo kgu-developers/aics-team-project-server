@@ -91,8 +91,8 @@ public class TeamMemberCommandService {
     return teamMemberRepository.save(teamMember);
   }
 
-  public TeamMember claimLeader(Long teamId, String userId) {
-    Team team = teamQueryService.getTeamById(teamId);
+  public TeamMember claimLeader(Team team, String userId) {
+    Long teamId = team.getId();
     team.validateNotConfirmed();
     TeamMember member = teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
         .orElseThrow(TeamMemberNotFoundException::new);
