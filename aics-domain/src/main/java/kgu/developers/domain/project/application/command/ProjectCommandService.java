@@ -94,6 +94,11 @@ public class ProjectCommandService {
         return projectRepository.save(project);
     }
 
+    public void deleteProject(Long projectId) {
+        projectRepository.deleteById(projectId);
+        projectApprovalRepository.deleteAllByProjectId(projectId);
+    }
+
     public void completeProposal(Long projectId) {
         Project project = projectRepository.findByIdForUpdate(projectId)
             .orElseThrow(ProjectNotFoundException::new);

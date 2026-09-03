@@ -24,6 +24,9 @@ public interface ProjectController {
         Authentication authentication
     );
 
+    @Operation(summary = "프로젝트 제안서 삭제")
+    ResponseEntity<Void> deleteProject(@PathVariable Long projectId, Authentication authentication);
+
     @Operation(summary = "프로젝트 제안 단계 완료")
     ResponseEntity<Void> completeProposal(@PathVariable Long projectId, Authentication authentication);
 

@@ -101,6 +101,29 @@ class ProjectFacadeTest {
     }
 
     @Test
+    @DisplayName("deleteProject는 팀장이면 제안서를 삭제한다")
+    void deleteProject() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+
+        projectFacade.deleteProject(10L, MEMBER_ID);
+
+        then(projectCommandService).should().deleteProject(10L);
+    }
+
+    @Test
+    @DisplayName("deleteProject는 팀장이 아니면 접근을 거부한다")
+    void deleteProject_deniesNonLeader() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.deleteProject(10L, MEMBER_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        then(projectCommandService).should(org.mockito.Mockito.never()).deleteProject(10L);
+    }
+
+    @Test
     @DisplayName("approveProject는 본인 팀원 동의를 저장한다")
     void approveProject() {
         given(projectQueryService.getProject(10L)).willReturn(project());

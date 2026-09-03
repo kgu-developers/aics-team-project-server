@@ -169,6 +169,15 @@ class ProjectCommandServiceTest {
         inOrder.verify(projectRepository).findAllByTeamIdIncludingDeletedForUpdate(1L);
     }
 
+    @Test
+    @DisplayName("deleteProject는 제안서와 동의 이력을 함께 삭제한다")
+    void deleteProject_deletesProjectAndApprovals() {
+        projectCommandService.deleteProject(10L);
+
+        then(projectRepository).should().deleteById(10L);
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+    }
+
     private Project saveProject() throws Exception {
         return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
             "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));

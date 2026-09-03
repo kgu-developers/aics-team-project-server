@@ -8,6 +8,7 @@ import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryRe
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -36,6 +37,13 @@ public class ProjectControllerImpl implements ProjectController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(projectFacade.saveProject(teamId, authentication.getName(), request));
+    }
+
+    @Override
+    @DeleteMapping("/projects/{projectId}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Long projectId, Authentication authentication) {
+        projectFacade.deleteProject(projectId, authentication.getName());
+        return ResponseEntity.noContent().build();
     }
 
     @Override

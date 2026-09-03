@@ -50,6 +50,13 @@ public class ProjectFacade {
         projectCommandService.completeProposal(projectId);
     }
 
+    public void deleteProject(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        teamAccessValidator.validateTeamLeader(project.getTeamId(), userId);
+
+        projectCommandService.deleteProject(projectId);
+    }
+
     public void approveProject(Long projectId, String userId) {
         Project project = projectQueryService.getProject(projectId);
         teamAccessValidator.validateMembership(project.getTeamId(), userId);
