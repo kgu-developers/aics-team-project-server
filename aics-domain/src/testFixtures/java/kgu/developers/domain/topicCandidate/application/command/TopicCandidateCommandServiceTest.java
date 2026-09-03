@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -140,6 +141,19 @@ class TopicCandidateCommandServiceTest {
         topicCandidateCommandService.deleteTopicCandidate(1L);
 
         assertThat(savedCandidate().getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("삭제는 락 대기 중 후보가 다른 팀으로 이동하면 소프트 삭제하지 않는다")
+    void deleteAbortsWhenTeamMovedWhileWaitingForLock() {
+        // 잠금 조회가 잠근 팀과 새로고침 후 팀의 불일치를 감지해 충돌을 올린다
+        willThrow(new OptimisticLockingFailureException("팀 변경"))
+                .given(topicCandidateRepository).findByIdForUpdate(1L);
+
+        assertThatThrownBy(() -> topicCandidateCommandService.deleteTopicCandidate(1L))
+                .isInstanceOf(OptimisticLockingFailureException.class);
+
+        verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
     }
 
     @Test
