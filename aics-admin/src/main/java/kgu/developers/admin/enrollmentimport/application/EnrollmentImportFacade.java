@@ -39,7 +39,6 @@ import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
-import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -146,14 +145,17 @@ public class EnrollmentImportFacade {
                 existingUsers.add(studentNumber);
                 createdUsers++;
             }
-            // preview 이후 계정이 탈퇴(소프트삭제)됐을 수 있다 — 이 한 행만 건너뛰고
-            // 이미 반영된 다른 행들은 롤백시키지 않는다.
-            try {
-                enrollmentCommandService.createEnrollment(batch.getSectionId(), studentNumber, role);
-                applied++;
-            } catch (UserNotFoundException e) {
+            // preview 이후 계정이 탈퇴(소프트삭제)됐을 수 있다. createEnrollment()가 여기서
+            // UserNotFoundException을 던지게 두면, 그 메서드 자체가 @Transactional이라
+            // 예외가 그 경계를 넘는 순간 현재 트랜잭션이 rollback-only로 마킹돼서, 이 행만
+            // 건너뛰려던 의도와 달리 배치 전체가 롤백될 수 있다(sunzx0428 리뷰 09-03).
+            // 그래서 예외를 잡는 대신 existingUsers로 미리 걸러내 애초에 호출하지 않는다.
+            if (!existingUsers.contains(studentNumber)) {
                 skipped++;
+                continue;
             }
+            enrollmentCommandService.createEnrollment(batch.getSectionId(), studentNumber, role);
+            applied++;
         }
         importBatchRepository.save(batch);
 

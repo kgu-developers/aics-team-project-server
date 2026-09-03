@@ -81,7 +81,7 @@ public class TeamImportFacadeTest {
     sectionRepository = mock(SectionRepository.class);
     userRepository = mock(UserRepository.class);
     facade = new TeamImportFacade(importBatchRepository, enrollmentRepository, teamRepository,
-        teamMemberRepository, sectionRepository,
+        teamMemberRepository, userRepository, sectionRepository,
         new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
 
     given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
@@ -92,10 +92,17 @@ public class TeamImportFacadeTest {
         Enrollment.create(SECTION_ID, STUDENT_A, Role.STUDENT, Status.ACTIVE),
         Enrollment.create(SECTION_ID, STUDENT_B, Role.STUDENT, Status.ACTIVE),
         Enrollment.create(SECTION_ID, STUDENT_C, Role.STUDENT, Status.ACTIVE)));
+    given(userRepository.findAllByStudentNumberIn(any())).willReturn(
+        List.of(user(ASSISTANT), user(STUDENT_A), user(STUDENT_B), user(STUDENT_C)));
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
     given(importBatchRepository.save(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 1L));
     given(sectionRepository.findActiveByIdForUpdate(SECTION_ID))
         .willReturn(Optional.of(mock(Section.class)));
+  }
+
+  private User user(String studentNumber) {
+    return User.create(studentNumber, studentNumber + "@kyonggi.ac.kr", "이름", "password",
+        UserGlobalRole.USER, "010-0000-0000");
   }
 
   @Test
@@ -505,6 +512,54 @@ public class TeamImportFacadeTest {
     TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
 
     // then
+    assertThat(response.appliedMembers()).isEqualTo(1);
+    assertThat(response.skipped()).isEqualTo(1);
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getUserId()).isEqualTo(STUDENT_B);
+  }
+
+  @Test
+  @DisplayName("apply는 이미 확정된 팀의 팀원 편성·갱신을 건너뛴다")
+  public void apply_SkipsConfirmedTeam() {
+    // given: 1팀은 이미 CONFIRMED 상태
+    Team confirmedTeam = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀")
+        .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(confirmedTeam));
+    TeamMember existingMember = TeamMember.create(10L, STUDENT_A, false, "백엔드");
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(existingMember));
+
+    ImportBatch batch = batch(0, List.of(
+        row(2, "1팀", STUDENT_A, false, "프론트", RowStatus.UPDATE),
+        row(3, "1팀", STUDENT_B, false, "", RowStatus.VALID)));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then: 기존 팀원 갱신도, 신규 팀원 편성도 확정된 팀이라 둘 다 건너뛴다
+    assertThat(response.appliedMembers()).isZero();
+    assertThat(response.skipped()).isEqualTo(2);
+    verify(teamMemberRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("apply는 미리보기 이후 탈퇴한 계정을 건너뛴다")
+  public void apply_SkipsWithdrawnUser() {
+    // given: STUDENT_A의 수강 이력은 ACTIVE로 남아있지만, 계정 자체는 탈퇴해 활성 사용자 목록에서 빠졌다
+    given(userRepository.findAllByStudentNumberIn(any())).willReturn(
+        List.of(user(ASSISTANT), user(STUDENT_B), user(STUDENT_C)));
+    ImportBatch batch = batch(0, List.of(
+        row(2, "1팀", STUDENT_A, false, "", RowStatus.VALID),
+        row(3, "1팀", STUDENT_B, false, "", RowStatus.VALID)));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+    given(teamRepository.save(any())).willAnswer(invocation -> Team.builder().id(10L)
+        .sectionId(SECTION_ID).name("1팀").build());
+
+    // when
+    TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+    // then: STUDENT_A는 건너뛰고, STUDENT_B만 편성된다
     assertThat(response.appliedMembers()).isEqualTo(1);
     assertThat(response.skipped()).isEqualTo(1);
     ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);

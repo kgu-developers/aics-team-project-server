@@ -393,20 +393,23 @@ public class EnrollmentImportFacadeTest {
     @Test
     @DisplayName("apply는 preview 이후 계정이 탈퇴한 학생은 그 행만 건너뛰고 나머지는 반영한다")
     public void apply_SkipsRowWhenUserWithdrawnAfterPreview() {
-        // given: preview 때는 존재했던 MEMBER 계정이 apply 시점엔 탈퇴해 createEnrollment가 실패한다
+        // given: preview 때는 존재했던 MEMBER 계정이 apply 시점엔 탈퇴해 활성 유저 목록에서 빠진다.
+        // createEnrollment()가 예외를 던지게 해서 잡는 대신, existingUsers로 미리 걸러내
+        // @Transactional 경계를 넘는 예외 자체가 안 생기게 한다(그래야 배치 전체 롤백 위험이 없음).
         ImportBatch batch = batch(0, List.of(
             row(2, MEMBER, RowStatus.VALID),
             row(3, ENROLLED_BUT_NOT_YET, RowStatus.VALID)));
         given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
-        given(enrollmentCommandService.createEnrollment(SECTION_ID, MEMBER, Role.STUDENT))
-            .willThrow(new kgu.developers.domain.user.exception.UserNotFoundException());
+        given(userRepository.findAllByStudentNumberIn(any()))
+            .willReturn(List.of(user(ENROLLED_BUT_NOT_YET)));
 
         // when
         EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
 
-        // then: MEMBER 행만 건너뛰고, 트랜잭션 전체가 롤백되지 않고 나머지 행은 반영된다
+        // then: MEMBER 행만 건너뛰고(createEnrollment 자체가 호출되지 않음), 나머지 행은 반영된다
         assertThat(response.applied()).isEqualTo(1);
         assertThat(response.skipped()).isEqualTo(1);
+        verify(enrollmentCommandService, never()).createEnrollment(eq(SECTION_ID), eq(MEMBER), any());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, ENROLLED_BUT_NOT_YET, Role.STUDENT);
     }
 
@@ -600,7 +603,9 @@ public class EnrollmentImportFacadeTest {
         given(userRepository.findByStudentNumber(admin)).willReturn(Optional.of(
             User.create(admin, admin + "@kyonggi.ac.kr", "관리자", "password",
                 UserGlobalRole.ADMIN, "010-0000-0000")));
-        
+        given(userRepository.findAllByStudentNumberIn(any()))
+            .willReturn(List.of(user(MEMBER), user(ENROLLED), user(NEWCOMER)));
+
         ImportBatch batch = batch(0, List.of(
             row(2, NEWCOMER, RowStatus.VALID, Role.ASSISTANT)
         ));

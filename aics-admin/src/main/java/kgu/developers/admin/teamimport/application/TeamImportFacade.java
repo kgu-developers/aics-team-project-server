@@ -41,6 +41,8 @@ import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -53,6 +55,7 @@ public class TeamImportFacade {
     private final EnrollmentRepository enrollmentRepository;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final UserRepository userRepository;
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
 
@@ -90,6 +93,11 @@ public class TeamImportFacade {
         List<Team> teams = teamRepository.findAllBySectionId(batch.getSectionId());
         Map<String, Long> teamIds = new HashMap<>();
         teams.forEach(team -> teamIds.put(team.getName(), team.getId()));
+        // 일반 팀원 변경 경로(TeamMemberCommandService.validateUpdateAllowed)는 확정된 팀의
+        // 이동·역할변경을 막는데, 엑셀 임포트는 그 서비스를 안 거쳐서 이 규칙을 우회하고
+        // 있었다(sunzx0428 리뷰 09-03) — 여기서도 같은 규칙을 적용한다.
+        Map<Long, Status> teamStatusById = new HashMap<>();
+        teams.forEach(team -> teamStatusById.put(team.getId(), team.getStatus()));
 
         // validate() 처럼 분반의 모든 팀원을 한 번에 불러와, plan()/plannedLeaders() 가
         // 행/팀마다 따로 조회하지 않고 이 맵에서 찾도록 한다
@@ -124,6 +132,10 @@ public class TeamImportFacade {
             }
 
             if (row.assigned() != null) {
+                if (teamStatusById.get(row.assigned().getTeamId()) == Status.CONFIRMED) {
+                    skipped++;
+                    continue;
+                }
                 row.assigned().updateIsLeader(row.leader());
                 row.assigned().updateProjectRole(row.projectRole());
                 teamMemberRepository.save(row.assigned());
@@ -132,6 +144,10 @@ public class TeamImportFacade {
             }
 
             Long teamId = teamIds.get(row.teamName());
+            if (teamId != null && teamStatusById.get(teamId) == Status.CONFIRMED) {
+                skipped++;
+                continue;
+            }
             if (teamId == null) {
                 teamId = teamRepository.save(
                     Team.create(batch.getSectionId(), row.teamName(), "", "", Status.FORMING)).getId();
@@ -215,11 +231,22 @@ public class TeamImportFacade {
         return leaderOf;
     }
 
+    // 활성 수강만으로는 부족하다 — preview 이후 탈퇴(소프트삭제)한 계정도 Enrollment는
+    // ACTIVE로 남아있을 수 있어서, 활성 사용자 여부와 교집합으로 걸러야 탈퇴 계정의
+    // 팀원을 생성·재활성화하는 걸 막을 수 있다(sunzx0428 리뷰 09-03).
     private Set<String> activeEnrollments(Long sectionId) {
-        return enrollmentRepository.findAllBySectionId(sectionId).stream()
+        Set<String> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .filter(enrollment -> enrollment.getStatus() == ACTIVE)
             .map(Enrollment::getUserId)
             .collect(Collectors.toSet());
+        if (enrolled.isEmpty()) {
+            return enrolled;
+        }
+        Set<String> activeUsers = userRepository.findAllByStudentNumberIn(List.copyOf(enrolled)).stream()
+            .map(User::getStudentNumber)
+            .collect(Collectors.toSet());
+        enrolled.retainAll(activeUsers);
+        return enrolled;
     }
 
     private List<TeamImportRow> validate(Long sectionId, List<TeamImportRow> rows) {
