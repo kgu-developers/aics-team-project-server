@@ -36,6 +36,11 @@ public class SectionRepositoryImpl implements SectionRepository {
     }
 
     @Override
+    public Optional<Section> findActiveByIdForUpdate(Long id) {
+        return jpaSectionRepository.findActiveByIdForUpdate(id).map(SectionJpaEntity::toDomain);
+    }
+
+    @Override
     public List<SectionDetail> findAllByCourseId(Long courseId) {
         List<SectionJpaEntity> entities = jpaSectionRepository.findAllByCourseIdAndDeletedAtIsNullOrderByCodeAsc(courseId);
         return entities.stream()

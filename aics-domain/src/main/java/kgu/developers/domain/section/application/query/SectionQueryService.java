@@ -16,6 +16,7 @@ import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
+import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -47,10 +48,13 @@ public class SectionQueryService {
     }
 
     public List<SectionDetail> getSectionsByProfessorId(String professorId) {
-        if (userRepository.findByStudentNumber(professorId).isEmpty()) {
-            throw new UserNotFoundException();
-        }
-        return sectionRepository.findAllByProfessorId(professorId);
+        User professor = userRepository.findByStudentNumber(professorId)
+                .orElseThrow(UserNotFoundException::new);
+        return getOwnedSections(professor);
+    }
+
+    public List<SectionDetail> getOwnedSections(User professor) {
+        return sectionRepository.findAllByProfessorId(professor.getStudentNumber());
     }
 
     public List<SectionDetail> getSectionsByProfessorId(String professorId, StatusType status, Integer year,
@@ -60,10 +64,13 @@ public class SectionQueryService {
 
     /** 학생이 수강 중인 분반. 교수 소유가 아니라 수강 정보(Enrollment)를 거쳐 찾는다. */
     public List<SectionDetail> getSectionsByStudentNumber(String studentNumber) {
-        if (userRepository.findByStudentNumber(studentNumber).isEmpty()) {
-            throw new UserNotFoundException();
-        }
-        List<Long> sectionIds = enrollmentRepository.findAllByUserId(studentNumber).stream()
+        User user = userRepository.findByStudentNumber(studentNumber)
+                .orElseThrow(UserNotFoundException::new);
+        return getEnrolledSections(user);
+    }
+
+    public List<SectionDetail> getEnrolledSections(User user) {
+        List<Long> sectionIds = enrollmentRepository.findAllByUserId(user.getStudentNumber()).stream()
                 .filter(enrollment -> enrollment.getStatus() == Status.ACTIVE)
                 .map(Enrollment::getSectionId)
                 .toList();

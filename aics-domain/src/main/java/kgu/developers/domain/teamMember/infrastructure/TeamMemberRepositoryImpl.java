@@ -101,6 +101,17 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
   }
 
   @Override
+  public List<TeamMember> findAllByTeamIdIn(List<Long> teamIds) {
+    if (teamIds.isEmpty()) {
+      return List.of();
+    }
+    return jpaTeamMemberRepository.findAllByTeamIdInAndDeletedAtIsNull(teamIds)
+        .stream()
+        .map(TeamMemberJpaEntity::toDomain)
+        .toList();
+  }
+
+  @Override
   public List<TeamMember> findAllByUserId(String userId) {
     return jpaTeamMemberRepository.findAllByUserStudentNumberAndDeletedAtIsNull(userId)
         .stream()
@@ -115,8 +126,8 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
   }
 
   @Override
-  public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
-    return jpaTeamMemberRepository.findByTeam_Section_IdAndUserStudentNumberAndDeletedAtIsNull(sectionId, userId)
+  public Optional<TeamMember> findIncludingDeleted(Long teamId, String userId) {
+    return jpaTeamMemberRepository.findByTeamIdAndUserStudentNumber(teamId, userId)
         .map(TeamMemberJpaEntity::toDomain);
   }
 
@@ -129,6 +140,12 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
   @Override
   public boolean existsByTeamIdAndIsLeaderTrue(Long teamId) {
     return jpaTeamMemberRepository.existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(teamId);
+  }
+
+  @Override
+  public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
+    return jpaTeamMemberRepository.findBySectionIdAndUserStudentNumberAndDeletedAtIsNull(sectionId, userId)
+        .map(TeamMemberJpaEntity::toDomain);
   }
 
   private void validateNoOtherLeader(TeamMember teamMember) {

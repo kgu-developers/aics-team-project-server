@@ -14,15 +14,20 @@ public interface JpaTeamMemberRepository extends JpaRepository<TeamMemberJpaEnti
 
     List<TeamMemberJpaEntity> findAllByTeamIdAndDeletedAtIsNull(Long teamId);
 
+    List<TeamMemberJpaEntity> findAllByTeamIdInAndDeletedAtIsNull(List<Long> teamIds);
+
     List<TeamMemberJpaEntity> findAllByUserStudentNumberAndDeletedAtIsNull(String userId);
 
     Optional<TeamMemberJpaEntity> findByTeamIdAndUserStudentNumberAndDeletedAtIsNull(Long teamId, String userId);
 
-    Optional<TeamMemberJpaEntity> findByTeam_Section_IdAndUserStudentNumberAndDeletedAtIsNull(Long sectionId, String userId);
+    Optional<TeamMemberJpaEntity> findByTeamIdAndUserStudentNumber(Long teamId, String userId);
 
     Optional<TeamMemberJpaEntity> findByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(Long teamId);
 
     boolean existsByTeamIdAndIsLeaderTrueAndDeletedAtIsNull(Long teamId);
+
+    @Query("SELECT tm FROM TeamMemberJpaEntity tm WHERE tm.team.section.id = :sectionId AND tm.user.studentNumber = :userId AND tm.deletedAt IS NULL")
+    Optional<TeamMemberJpaEntity> findBySectionIdAndUserStudentNumberAndDeletedAtIsNull(@Param("sectionId") Long sectionId, @Param("userId") String userId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update TeamMemberJpaEntity tm set tm.deletedAt = :now, tm.updatedAt = :now"

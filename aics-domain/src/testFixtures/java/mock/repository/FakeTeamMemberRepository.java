@@ -13,9 +13,18 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
 
     private final Map<Long, TeamMember> store = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(0);
-    private final Map<Long, Long> sectionIdByTeamId = new ConcurrentHashMap<>();
+    private final Map<Long, Long> sectionIdByTeamId;
 
-    // findActiveBySectionIdAndUserId 를 쓰려면 이걸로 team-section 매핑을 등록해야 한다.
+    public FakeTeamMemberRepository() {
+        this(Map.of());
+    }
+
+    public FakeTeamMemberRepository(Map<Long, Long> sectionIdByTeamId) {
+        this.sectionIdByTeamId = new ConcurrentHashMap<>(sectionIdByTeamId);
+    }
+
+    // 무인자 생성자로 만든 뒤에도 findActiveBySectionIdAndUserId 를 쓰려면 이걸로
+    // team-section 매핑을 등록해야 한다 — 등록 안 하면 그 메서드는 항상 empty를 반환한다.
     public void assignTeamToSection(Long teamId, Long sectionId) {
         sectionIdByTeamId.put(teamId, sectionId);
     }
@@ -62,6 +71,14 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     }
 
     @Override
+    public List<TeamMember> findAllByTeamIdIn(List<Long> teamIds) {
+        return store.values().stream()
+            .filter(teamMember -> teamMember.getDeletedAt() == null)
+            .filter(teamMember -> teamIds.contains(teamMember.getTeamId()))
+            .toList();
+    }
+
+    @Override
     public List<TeamMember> findAllByUserId(String userId) {
         return store.values().stream()
             .filter(teamMember -> teamMember.getDeletedAt() == null)
@@ -79,11 +96,10 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     }
 
     @Override
-    public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
+    public Optional<TeamMember> findIncludingDeleted(Long teamId, String userId) {
         return store.values().stream()
-            .filter(teamMember -> teamMember.getDeletedAt() == null)
+            .filter(teamMember -> teamMember.getTeamId().equals(teamId))
             .filter(teamMember -> teamMember.getUserId().equals(userId))
-            .filter(teamMember -> sectionId.equals(sectionIdByTeamId.get(teamMember.getTeamId())))
             .findFirst();
     }
 
@@ -99,6 +115,15 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     @Override
     public boolean existsByTeamIdAndIsLeaderTrue(Long teamId) {
         return findLeaderByTeamId(teamId).isPresent();
+    }
+
+    @Override
+    public Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId) {
+        return store.values().stream()
+            .filter(teamMember -> teamMember.getDeletedAt() == null)
+            .filter(teamMember -> teamMember.getUserId().equals(userId))
+            .filter(teamMember -> sectionId.equals(sectionIdByTeamId.get(teamMember.getTeamId())))
+            .findFirst();
     }
 
     @Override
