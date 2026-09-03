@@ -30,4 +30,10 @@ public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from SectionJpaEntity s where s.id = :id and s.deletedAt is null")
     Optional<SectionJpaEntity> findActiveByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<SectionJpaEntity> findByIdAndProfessorStudentNumberAndDeletedAtIsNull(
+            Long id,
+            String studentNumber
+    );
 }

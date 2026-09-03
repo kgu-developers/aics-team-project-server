@@ -35,6 +35,7 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
 
         TeamMember saved = TeamMember.builder()
             .id(id)
+            .version(teamMember.getVersion())
             .teamId(teamMember.getTeamId())
             .userId(teamMember.getUserId())
             .isLeader(teamMember.isLeader())
@@ -46,6 +47,13 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
 
         store.put(id, saved);
         return saved;
+    }
+
+    @Override
+    public List<TeamMember> saveAll(List<TeamMember> teamMembers) {
+        return teamMembers.stream()
+            .map(this::save)
+            .toList();
     }
 
     @Override

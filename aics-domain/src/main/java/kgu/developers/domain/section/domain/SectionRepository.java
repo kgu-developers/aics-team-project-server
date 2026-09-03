@@ -23,4 +23,6 @@ public interface SectionRepository {
      * 잠그는 코드와 같은 트랜잭션에서 같이 호출하면 예상 못 한 락 경합/데드락이 날 수 있다.
      */
     Optional<Section> findActiveByIdForUpdate(Long id);
+
+    boolean lockActiveByIdAndProfessorId(Long id, String professorId);
 }

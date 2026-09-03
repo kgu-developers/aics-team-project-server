@@ -1,10 +1,13 @@
 package kgu.developers.domain.sectionannouncement.infrastructure;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncement;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncementRepository;
+import kgu.developers.domain.sectionannouncement.exception.SectionAnnouncementConcurrentlyModifiedException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -15,7 +18,11 @@ public class SectionAnnouncementRepositoryImpl implements SectionAnnouncementRep
 
     @Override
     public SectionAnnouncement save(SectionAnnouncement sectionAnnouncement) {
-        return jpaSectionAnnouncementRepository.save(SectionAnnouncementJpaEntity.toEntity(sectionAnnouncement)).toDomain();
+        try {
+            return jpaSectionAnnouncementRepository.saveAndFlush(SectionAnnouncementJpaEntity.toEntity(sectionAnnouncement)).toDomain();
+        } catch (OptimisticLockingFailureException e) {
+            throw new SectionAnnouncementConcurrentlyModifiedException();
+        }
     }
 
     @Override
@@ -24,8 +31,16 @@ public class SectionAnnouncementRepositoryImpl implements SectionAnnouncementRep
     }
 
     @Override
-    public List<SectionAnnouncement> findAllBySectionId(Long sectionId) {
-        return jpaSectionAnnouncementRepository.findAllBySectionId(sectionId).stream()
+    public List<SectionAnnouncement> findAllPublishedBySectionId(Long sectionId, LocalDateTime now) {
+        return jpaSectionAnnouncementRepository
+            .findAllBySectionIdAndPublishedAtLessThanEqualOrderByPublishedAtDesc(sectionId, now).stream()
+            .map(SectionAnnouncementJpaEntity::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<SectionAnnouncement> findAllToNotify(LocalDateTime now) {
+        return jpaSectionAnnouncementRepository.findAllByPublishedAtLessThanEqualAndNotifiedAtIsNull(now).stream()
             .map(SectionAnnouncementJpaEntity::toDomain)
             .toList();
     }

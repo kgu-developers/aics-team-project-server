@@ -16,6 +16,7 @@ public class MeetingAction {
     private String content;
     private MeetingActionStatus status;
     private LocalDateTime dueAt;
+    private long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

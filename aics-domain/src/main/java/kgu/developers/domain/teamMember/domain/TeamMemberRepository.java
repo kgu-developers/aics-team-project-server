@@ -6,6 +6,8 @@ import java.util.Optional;
 public interface TeamMemberRepository {
     TeamMember save(TeamMember teamMember);
 
+    List<TeamMember> saveAll(List<TeamMember> teamMembers);
+
     Optional<TeamMember> findById(Long id);
 
     List<TeamMember> findAllByTeamId(Long teamId);

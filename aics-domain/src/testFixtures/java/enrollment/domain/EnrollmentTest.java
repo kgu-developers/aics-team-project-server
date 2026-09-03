@@ -58,4 +58,28 @@ class EnrollmentTest {
     assertThat(Status.ACTIVE.getDescription()).isEqualTo("활성");
     assertThat(Status.WITHDRAWN.getDescription()).isEqualTo("탈퇴");
   }
+
+  @Test
+  @DisplayName("isActiveStudent는 ACTIVE 상태의 STUDENT인 경우에만 true를 반환한다")
+  void isActiveStudent() {
+    Enrollment activeStudent = Enrollment.create(1L, "202012345", Role.STUDENT, Status.ACTIVE);
+    Enrollment withdrawnStudent = Enrollment.create(1L, "202012345", Role.STUDENT, Status.WITHDRAWN);
+    Enrollment activeAssistant = Enrollment.create(1L, "202012345", Role.ASSISTANT, Status.ACTIVE);
+
+    assertThat(activeStudent.isActiveStudent()).isTrue();
+    assertThat(withdrawnStudent.isActiveStudent()).isFalse();
+    assertThat(activeAssistant.isActiveStudent()).isFalse();
+  }
+
+  @Test
+  @DisplayName("isActiveAssistant는 ACTIVE 상태의 ASSISTANT인 경우에만 true를 반환한다")
+  void isActiveAssistant() {
+    Enrollment activeAssistant = Enrollment.create(1L, "202012345", Role.ASSISTANT, Status.ACTIVE);
+    Enrollment withdrawnAssistant = Enrollment.create(1L, "202012345", Role.ASSISTANT, Status.WITHDRAWN);
+    Enrollment activeStudent = Enrollment.create(1L, "202012345", Role.STUDENT, Status.ACTIVE);
+
+    assertThat(activeAssistant.isActiveAssistant()).isTrue();
+    assertThat(withdrawnAssistant.isActiveAssistant()).isFalse();
+    assertThat(activeStudent.isActiveAssistant()).isFalse();
+  }
 }
