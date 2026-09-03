@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
@@ -35,13 +36,16 @@ class SubmissionQueryServiceTest {
     @Mock
     private MilestoneRepository milestoneRepository;
 
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
     private FakeSubmissionRepository submissionRepository;
     private SubmissionQueryService submissionQueryService;
 
     @BeforeEach
     void setUp() {
         submissionRepository = new FakeSubmissionRepository();
-        submissionQueryService = new SubmissionQueryService(submissionRepository, milestoneRepository);
+        submissionQueryService = new SubmissionQueryService(submissionRepository, milestoneRepository, transactionManager);
     }
 
     @Test
@@ -67,7 +71,8 @@ class SubmissionQueryServiceTest {
     @DisplayName("동시에 처음 조회해 저장이 유니크 제약에 걸리면, 방금 다른 요청이 만든 행을 다시 조회해 반환한다")
     void getOrCreateSubmission_RetriesOnUniqueConstraintConflict() {
         SubmissionRepository racyRepository = org.mockito.Mockito.mock(SubmissionRepository.class);
-        SubmissionQueryService racyQueryService = new SubmissionQueryService(racyRepository, milestoneRepository);
+        SubmissionQueryService racyQueryService =
+                new SubmissionQueryService(racyRepository, milestoneRepository, transactionManager);
         Submission alreadyCreatedByOtherRequest = Submission.create(TEAM_ID, 5L);
         given(racyRepository.findByTeamIdAndMilestoneId(TEAM_ID, 5L))
                 .willReturn(Optional.empty())

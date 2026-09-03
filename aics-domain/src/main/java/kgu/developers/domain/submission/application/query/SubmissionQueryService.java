@@ -7,7 +7,10 @@ import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
@@ -26,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class SubmissionQueryService {
     private final SubmissionRepository submissionRepository;
     private final MilestoneRepository milestoneRepository;
+    private final PlatformTransactionManager transactionManager;
 
     public Submission getSubmission(Long submissionId) {
         return submissionRepository.findById(submissionId)
@@ -49,8 +53,17 @@ public class SubmissionQueryService {
         try {
             return submissionRepository.save(Submission.create(teamId, milestoneId));
         } catch (DataIntegrityViolationException e) {
-            return submissionRepository.findByTeamIdAndMilestoneId(teamId, milestoneId)
-                    .orElseThrow(() -> e);
+            // save()가 유니크 제약 위반으로 실패한 세션은 더 이상 신뢰할 수 없다 — Hibernate는
+            // flush 중 예외가 나면 그 세션을 계속 쓰지 말라고 명시한다. 그래서 같은 트랜잭션에서
+            // 바로 재조회하지 않고 완전히 새 트랜잭션(새 커넥션·영속성 컨텍스트)을 열어서
+            // 조회한다. PostgreSQL은 유니크 인덱스 충돌 검사 시 경합 중인 다른 트랜잭션의
+            // 커밋을 기다리므로, 이 예외를 받은 시점엔 이미 그 트랜잭션이 커밋된 뒤라 새
+            // 트랜잭션에서 바로 보인다(sunzx0428 PR #87 리뷰 09-03).
+            TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
+            requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            return requiresNew.execute(status -> submissionRepository
+                    .findByTeamIdAndMilestoneId(teamId, milestoneId)
+                    .orElseThrow(() -> e));
         }
     }
 

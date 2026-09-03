@@ -109,7 +109,7 @@ class SubmissionFacadeTest {
         EditLockQueryService editLockQueryService = new EditLockQueryService(editLockRepository);
 
         SubmissionQueryService submissionQueryService =
-                new SubmissionQueryService(submissionRepository, milestoneRepository);
+                new SubmissionQueryService(submissionRepository, milestoneRepository, mock(org.springframework.transaction.PlatformTransactionManager.class));
         SubmissionCommandService submissionCommandService = new SubmissionCommandService(
                 submissionRepository,
                 submissionVersionRepository,
@@ -219,6 +219,19 @@ class SubmissionFacadeTest {
 
         assertThatThrownBy(() -> submissionFacade.submitVersion(
                 submission.getId(), MEMBER, "1차 제출", null, List.of(missingType), List.of(), List.of()))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionArtifactTypeRequiredException.class);
+    }
+
+    @Test
+    @DisplayName("아티팩트 배열 원소 자체가 null이면 NPE 대신 400으로 거부된다")
+    void submitVersion_RejectsNullArtifactElement() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        List<SubmissionArtifactRequest> artifactsWithNullElement = new java.util.ArrayList<>();
+        artifactsWithNullElement.add(null);
+
+        assertThatThrownBy(() -> submissionFacade.submitVersion(
+                submission.getId(), MEMBER, "1차 제출", null, artifactsWithNullElement, List.of(), List.of()))
                 .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionArtifactTypeRequiredException.class);
     }
 
@@ -466,6 +479,33 @@ class SubmissionFacadeTest {
                 submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null));
 
         assertThat(response.introText()).isEqualTo("소개");
+        // screens는 imageFileId뿐 아니라 다운로드 가능한 imageUrl로도 보강돼야 한다 — 다른 팀
+        // 사용자가 공개 발표자료를 볼 때 imageFileId만으로는 이미지를 못 띄우던 문제
+        // (sunzx0428 PR #87 리뷰 09-03).
+        assertThat(response.screens().get(0).get("imageUrl").asText()).isEqualTo("https://fake-storage.local/key");
+    }
+
+    @Test
+    @DisplayName("다른 팀 사용자가 조회하는 공개 발표자료에도 imageUrl이 보강된다")
+    void getPresentationContent_ResolvesImageUrlForOtherTeamViewer() throws Exception {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        FileObject ourFile = fileObjectRepository.save(
+                FileObject.create(MEMBER, "screen-key", "screen.png", "image/png", 1024L, true, "IMAGE"));
+        SubmissionVersion version = submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 1, "1차 제출", null, MEMBER, false));
+        submissionArtifactRepository.saveAll(
+                List.of(SubmissionArtifact.file(version.getId(), null, ourFile.getId())));
+        JsonNode screens = new ObjectMapper().readTree(
+                "[{\"imageFileId\": " + ourFile.getId() + ", \"caption\": \"홈 화면\"}]");
+        submissionFacade.updatePresentationContent(
+                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null));
+
+        // when: 팀 소속이 아닌 사용자가 공개 발표자료를 조회
+        PresentationContentResponse fetched = submissionFacade.getPresentationContent(submission.getId(), NON_MEMBER);
+
+        // then
+        assertThat(fetched.screens().get(0).get("imageUrl").asText()).isEqualTo("https://fake-storage.local/screen-key");
     }
 
     @Test

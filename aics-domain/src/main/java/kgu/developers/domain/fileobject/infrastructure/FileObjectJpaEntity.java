@@ -50,7 +50,7 @@ public class FileObjectJpaEntity extends BaseTimeEntity {
     private String previewType;
 
     public static FileObjectJpaEntity fromDomain(FileObject fileObject) {
-        return FileObjectJpaEntity.builder()
+        FileObjectJpaEntity entity = FileObjectJpaEntity.builder()
                 .id(fileObject.getId())
                 .uploadedBy(fileObject.getUploadedBy())
                 .storageKey(fileObject.getStorageKey())
@@ -60,6 +60,10 @@ public class FileObjectJpaEntity extends BaseTimeEntity {
                 .previewSupported(fileObject.isPreviewSupported())
                 .previewType(fileObject.getPreviewType())
                 .build();
+        // deletedAt은 BaseTimeEntity 상속 필드라 이 클래스의 @Builder에는 없다(sunzx0428 PR #87
+        // 리뷰 09-03 — SubmissionJpaEntity와 같은 이유).
+        entity.setDeletedAt(fileObject.getDeletedAt());
+        return entity;
     }
 
     public FileObject toDomain() {

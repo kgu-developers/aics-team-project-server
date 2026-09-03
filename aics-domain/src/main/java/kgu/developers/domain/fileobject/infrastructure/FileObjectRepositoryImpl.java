@@ -21,7 +21,7 @@ public class FileObjectRepositoryImpl implements FileObjectRepository {
 
     @Override
     public Optional<FileObject> findById(Long id) {
-        return jpaFileObjectRepository.findById(id)
+        return jpaFileObjectRepository.findByIdAndDeletedAtIsNull(id)
                 .map(FileObjectJpaEntity::toDomain);
     }
 }

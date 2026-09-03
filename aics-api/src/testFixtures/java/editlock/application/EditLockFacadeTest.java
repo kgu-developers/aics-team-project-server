@@ -84,7 +84,7 @@ public class EditLockFacadeTest {
     @DisplayName("getStatus는 잠금이 없으면 locked=false를 반환한다")
     public void getStatus_Unlocked() {
         // when
-        EditLockStatusResponse result = facade.getStatus(TARGET_TYPE, TARGET_ID);
+        EditLockStatusResponse result = facade.getStatus(TARGET_TYPE, TARGET_ID, MEMBER);
 
         // then
         assertFalse(result.locked());
@@ -122,7 +122,7 @@ public class EditLockFacadeTest {
         facade.release(TARGET_TYPE, TARGET_ID, MEMBER);
 
         // then
-        assertFalse(facade.getStatus(TARGET_TYPE, TARGET_ID).locked());
+        assertFalse(facade.getStatus(TARGET_TYPE, TARGET_ID, MEMBER).locked());
     }
 
     @Test
@@ -135,6 +135,15 @@ public class EditLockFacadeTest {
 
         assertThatThrownBy(() -> facade.acquire(MEMBER, request))
             .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("getStatus는 그 팀 소속이 아니면 조회를 거부한다")
+    public void getStatus_RejectsNonMember() {
+        String outsider = "202400000";
+
+        assertThatThrownBy(() -> facade.getStatus(TARGET_TYPE, TARGET_ID, outsider))
+            .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }
 
     @Test

@@ -32,6 +32,7 @@ import kgu.developers.domain.submission.domain.SubmissionArtifactRepository;
 import kgu.developers.domain.submission.domain.SubmissionMemberConfirmation;
 import kgu.developers.domain.submission.domain.SubmissionMemberConfirmationRepository;
 import kgu.developers.domain.submission.domain.SubmissionRepository;
+import kgu.developers.domain.submission.exception.SubmissionNotFoundException;
 import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.domain.SubmissionVersionRepository;
 import kgu.developers.domain.submission.exception.SubmissionMemberConfirmationIncompleteException;
@@ -70,7 +71,12 @@ public class SubmissionCommandService {
             String changeNote,
             List<SubmissionArtifactInput> artifactInputs
     ) {
-        Submission submission = submissionQueryService.getSubmission(submissionId);
+        // 상태 전환(제출·완료·재개)과 버전 채번을 같은 잠금 규약으로 직렬화한다 — 잠금 없이
+        // countBySubmissionId만으로 다음 버전을 계산하면 동시 제출 시 같은 번호가 나올 수 있고,
+        // 완료·재개와 겹치면 나중에 저장한 쪽이 먼저 것을 조용히 덮어쓸 수 있다
+        // (sunzx0428 PR #87 리뷰 09-03).
+        Submission submission = submissionRepository.findByIdForUpdate(submissionId)
+                .orElseThrow(SubmissionNotFoundException::new);
         if (!submissionQueryService.canSubmitNow(submission)) {
             throw new SubmissionNotAllowedNowException();
         }
@@ -123,7 +129,9 @@ public class SubmissionCommandService {
     // 최종보고서 마일스톤이면 팀원 전원(WITHDRAWN 제외)이 "지금 버전"을 실제로(true/true) 확인해야 통과한다.
     // 그 외 마일스톤은 게이트 자체가 없다(문서화된 동작). 미제출 상태는 애초에 완료 대상이 아니다.
     public void completeSubmission(Long submissionId, String completedBy) {
-        Submission submission = submissionQueryService.getSubmission(submissionId);
+        // submitVersion과 같은 잠금 규약: 제출·재개와 경합해도 상태가 유실되지 않게 잠근다.
+        Submission submission = submissionRepository.findByIdForUpdate(submissionId)
+                .orElseThrow(SubmissionNotFoundException::new);
         if (!submission.isSubmitted()) {
             throw new SubmissionNotYetSubmittedException();
         }
@@ -169,7 +177,9 @@ public class SubmissionCommandService {
     // revisionDueAt까지 재제출을 허용하는 최소 구현. 팀 결정이 나오면 다시 손봐야 한다.
     // 완료된 제출만 재오픈 대상이다(미완료 상태는 이미 제출 기간 로직으로 커버됨).
     public void reopenSubmission(Long submissionId, String professorId, LocalDateTime revisionDueAt) {
-        Submission submission = submissionQueryService.getSubmission(submissionId);
+        // submitVersion과 같은 잠금 규약: 제출·완료와 경합해도 상태가 유실되지 않게 잠근다.
+        Submission submission = submissionRepository.findByIdForUpdate(submissionId)
+                .orElseThrow(SubmissionNotFoundException::new);
         if (!submission.isCompleted()) {
             throw new SubmissionNotCompletedException();
         }

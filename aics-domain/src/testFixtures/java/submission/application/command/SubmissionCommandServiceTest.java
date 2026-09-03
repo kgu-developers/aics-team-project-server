@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.Role;
@@ -69,6 +70,9 @@ class SubmissionCommandServiceTest {
     @Mock
     private MilestoneRepository milestoneRepository;
 
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
     private FakeSubmissionRepository submissionRepository;
     private FakeSubmissionVersionRepository submissionVersionRepository;
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
@@ -96,7 +100,7 @@ class SubmissionCommandServiceTest {
         teamRepository = new FakeTeamRepository();
 
         SubmissionQueryService submissionQueryService =
-                new SubmissionQueryService(submissionRepository, milestoneRepository);
+                new SubmissionQueryService(submissionRepository, milestoneRepository, transactionManager);
         submissionCommandService = new SubmissionCommandService(
                 submissionRepository,
                 submissionVersionRepository,

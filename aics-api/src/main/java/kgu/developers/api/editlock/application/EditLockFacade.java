@@ -33,7 +33,14 @@ public class EditLockFacade {
     private final MilestoneRepository milestoneRepository;
     private final EnrollmentRepository enrollmentRepository;
 
-    public EditLockStatusResponse getStatus(EditLockTargetType targetType, Long targetId) {
+    // acquire()와 같은 대상 접근 검증을 거친다 — 검증 없이 조회를 허용하면 다른 분반·팀
+    // 사용자도 lockedBy(학번)를 알아낼 수 있었다(sunzx0428 PR #87 리뷰 09-03).
+    public EditLockStatusResponse getStatus(EditLockTargetType targetType, Long targetId, String userId) {
+        validateTargetAccess(targetType, targetId, userId);
+        return getStatusWithoutAccessCheck(targetType, targetId);
+    }
+
+    private EditLockStatusResponse getStatusWithoutAccessCheck(EditLockTargetType targetType, Long targetId) {
         return editLockQueryService.getActiveLock(targetType, targetId)
             .map(EditLockStatusResponse::from)
             .orElseGet(EditLockStatusResponse::unlocked);
@@ -42,7 +49,7 @@ public class EditLockFacade {
     public EditLockStatusResponse acquire(String userId, EditLockAcquireRequest request) {
         validateTargetAccess(request.targetType(), request.targetId(), userId);
         editLockCommandService.acquire(request.targetType(), request.targetId(), userId);
-        return getStatus(request.targetType(), request.targetId());
+        return getStatusWithoutAccessCheck(request.targetType(), request.targetId());
     }
 
     public void release(EditLockTargetType targetType, Long targetId, String userId) {

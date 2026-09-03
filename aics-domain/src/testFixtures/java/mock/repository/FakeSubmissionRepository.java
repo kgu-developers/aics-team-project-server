@@ -46,6 +46,11 @@ public class FakeSubmissionRepository implements SubmissionRepository {
     }
 
     @Override
+    public Optional<Submission> findByIdForUpdate(Long id) {
+        return Optional.ofNullable(store.get(id));
+    }
+
+    @Override
     public Optional<Submission> findByTeamIdAndMilestoneId(Long teamId, Long milestoneId) {
         return store.values().stream()
             .filter(submission -> submission.getTeamId().equals(teamId))

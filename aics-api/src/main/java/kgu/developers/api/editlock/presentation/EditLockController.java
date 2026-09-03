@@ -27,7 +27,8 @@ public interface EditLockController {
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = EditLockStatusResponse.class)))
     ResponseEntity<EditLockStatusResponse> getStatus(
         @RequestParam EditLockTargetType targetType,
-        @RequestParam Long targetId
+        @RequestParam Long targetId,
+        Authentication authentication
     );
 
     @Operation(

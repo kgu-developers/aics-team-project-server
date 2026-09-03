@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
@@ -147,9 +150,10 @@ public class SubmissionFacade {
         if (artifacts != null) {
             for (SubmissionArtifactRequest artifact : artifacts) {
                 // 컨트롤러의 @Valid는 멀티파트 List 원소까지 확실히 검증하리라 보장할 수 없어서,
-                // 여기서도 직접 확인한다 — type이 null이면 바로 아래 FILE 비교에서 NPE가 나
-                // 500으로 새는 대신, 의미가 분명한 400으로 떨어지게 한다.
-                if (artifact.type() == null) {
+                // 여기서도 직접 확인한다 — 원소 자체가 null이거나(예: "artifacts": [null]) type이
+                // null이면 바로 아래에서 NPE가 나 500으로 새는 대신, 의미가 분명한 400으로
+                // 떨어지게 한다(sunzx0428 PR #87 리뷰 09-03 — 원소 자체가 null인 경우가 누락됨).
+                if (artifact == null || artifact.type() == null) {
                     throw new SubmissionArtifactTypeRequiredException();
                 }
                 if (artifact.type() == ArtifactType.FILE) {
@@ -206,7 +210,7 @@ public class SubmissionFacade {
     public PresentationContentResponse getPresentationContent(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validatePresentationMilestone(submission.getMilestoneId());
-        return PresentationContentResponse.from(presentationContentRepository.findBySubmissionId(submissionId).orElse(null));
+        return toPresentationContentResponse(presentationContentRepository.findBySubmissionId(submissionId).orElse(null));
     }
 
     public PresentationContentResponse updatePresentationContent(Long submissionId, String userId, PresentationContentRequest request) {
@@ -217,7 +221,7 @@ public class SubmissionFacade {
         validateScreenImagesOwnedBySubmission(submissionId, request.screens());
         PresentationContent content = presentationContentCommandService.upsert(
                 submissionId, request.introText(), request.features(), request.screens(), request.youtubeUrl());
-        return PresentationContentResponse.from(content);
+        return toPresentationContentResponse(content);
     }
 
     public MilestonePresentationsResponse getMilestonePresentations(Long milestoneId, String userId) {
@@ -229,9 +233,41 @@ public class SubmissionFacade {
                 .collect(Collectors.toMap(PresentationContent::getSubmissionId, c -> c));
 
         List<TeamPresentationResponse> contents = submissions.stream()
-                .map(submission -> TeamPresentationResponse.of(submission, contentBySubmissionId.get(submission.getId())))
+                .map(submission -> TeamPresentationResponse.of(
+                        submission, toPresentationContentResponse(contentBySubmissionId.get(submission.getId()))))
                 .toList();
         return MilestonePresentationsResponse.builder().contents(contents).build();
+    }
+
+    // screens는 [{imageFileId, caption}, ...] 형식의 원본 JSON을 그대로 저장·응답하는데, imageFileId만
+    // 내려주면 다른 팀 사용자는 그 이미지를 실제로 볼 방법이 없었다(presigned URL을 받는 경로가
+    // 이 발표자료 조회 API 말고는 없음, sunzx0428 PR #87 리뷰 09-03). 조회할 때마다 각 화면의
+    // imageFileId를 presigned URL(imageUrl)로 보강해서 내려준다 — 저장은 안 건드린다(15분 후
+    // 만료되는 임시 URL이라 영구 저장하면 안 됨).
+    private PresentationContentResponse toPresentationContentResponse(PresentationContent content) {
+        if (content == null) {
+            return PresentationContentResponse.from(null, null);
+        }
+        return PresentationContentResponse.from(content, resolveScreenImageUrls(content.getScreens()));
+    }
+
+    private JsonNode resolveScreenImageUrls(JsonNode screens) {
+        if (screens == null || !screens.isArray()) {
+            return screens;
+        }
+        ArrayNode resolved = JsonNodeFactory.instance.arrayNode();
+        for (JsonNode screen : screens) {
+            JsonNode imageFileIdNode = screen.isObject() ? screen.get("imageFileId") : null;
+            if (imageFileIdNode == null || !imageFileIdNode.isIntegralNumber()) {
+                resolved.add(screen);
+                continue;
+            }
+            ObjectNode withUrl = (ObjectNode) screen.deepCopy();
+            fileObjectRepository.findById(imageFileIdNode.asLong())
+                    .ifPresent(fileObject -> withUrl.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey())));
+            resolved.add(withUrl);
+        }
+        return resolved;
     }
 
     public void assignPresentationOrder(Long milestoneId, String professorId, PresentationOrderRequest request) {

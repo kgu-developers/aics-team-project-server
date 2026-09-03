@@ -22,14 +22,17 @@ public record PresentationContentResponse(
         String youtubeUrl
 ) {
 
-    public static PresentationContentResponse from(PresentationContent content) {
+    // screens는 호출부(SubmissionFacade)가 imageFileId를 presigned URL로 보강해 넘겨준 걸 그대로
+    // 쓴다 — 원본 content.getScreens()를 여기서 직접 읽지 않는 이유는, 그러면 이 메서드를 새로
+    // 쓰는 곳마다 보강을 깜빡하고 imageFileId만 내려주는 실수가 반복될 수 있기 때문이다.
+    public static PresentationContentResponse from(PresentationContent content, JsonNode resolvedScreens) {
         if (content == null) {
             return PresentationContentResponse.builder().build();
         }
         return PresentationContentResponse.builder()
                 .introText(content.getIntroText())
                 .features(content.getFeatures())
-                .screens(content.getScreens())
+                .screens(resolvedScreens)
                 .youtubeUrl(content.getYoutubeUrl())
                 .build();
     }

@@ -25,9 +25,10 @@ public class EditLockControllerImpl implements EditLockController {
     @GetMapping("/edit-locks")
     public ResponseEntity<EditLockStatusResponse> getStatus(
         @RequestParam EditLockTargetType targetType,
-        @RequestParam Long targetId
+        @RequestParam Long targetId,
+        Authentication authentication
     ) {
-        return ResponseEntity.ok(editLockFacade.getStatus(targetType, targetId));
+        return ResponseEntity.ok(editLockFacade.getStatus(targetType, targetId, authentication.getName()));
     }
 
     @Override

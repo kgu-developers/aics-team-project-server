@@ -22,19 +22,20 @@ public class SubmissionVersionRepositoryImpl implements SubmissionVersionReposit
 
     @Override
     public List<SubmissionVersion> findAllBySubmissionId(Long submissionId) {
-        return jpaSubmissionVersionRepository.findAllBySubmissionIdOrderByVersionDesc(submissionId).stream()
+        return jpaSubmissionVersionRepository
+                .findAllBySubmissionIdAndDeletedAtIsNullOrderByVersionDesc(submissionId).stream()
                 .map(SubmissionVersionJpaEntity::toDomain)
                 .toList();
     }
 
     @Override
     public Optional<SubmissionVersion> findBySubmissionIdAndVersion(Long submissionId, int version) {
-        return jpaSubmissionVersionRepository.findBySubmissionIdAndVersion(submissionId, version)
+        return jpaSubmissionVersionRepository.findBySubmissionIdAndVersionAndDeletedAtIsNull(submissionId, version)
                 .map(SubmissionVersionJpaEntity::toDomain);
     }
 
     @Override
     public int countBySubmissionId(Long submissionId) {
-        return jpaSubmissionVersionRepository.countBySubmissionId(submissionId);
+        return jpaSubmissionVersionRepository.countBySubmissionIdAndDeletedAtIsNull(submissionId);
     }
 }

@@ -74,7 +74,7 @@ public class SubmissionJpaEntity extends BaseTimeEntity {
     private String completedBy;
 
     public static SubmissionJpaEntity fromDomain(Submission submission) {
-        return SubmissionJpaEntity.builder()
+        SubmissionJpaEntity entity = SubmissionJpaEntity.builder()
                 .id(submission.getId())
                 .teamId(submission.getTeamId())
                 .milestoneId(submission.getMilestoneId())
@@ -88,6 +88,11 @@ public class SubmissionJpaEntity extends BaseTimeEntity {
                 .completedAt(submission.getCompletedAt())
                 .completedBy(submission.getCompletedBy())
                 .build();
+        // deletedAt은 BaseTimeEntity가 상속받는 필드라 이 클래스의 @Builder에는 없다 — 빠뜨리면
+        // 소프트삭제된 도메인 객체를 save()해도 삭제 표시가 저장 안 되는 문제가 생긴다
+        // (sunzx0428 PR #87 리뷰 09-03).
+        entity.setDeletedAt(submission.getDeletedAt());
+        return entity;
     }
 
     public Submission toDomain() {
