@@ -5,7 +5,9 @@ import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
+import kgu.developers.domain.project.exception.ProjectApprovalRequiredException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
+import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
@@ -14,6 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+
+import static java.util.stream.Collectors.toSet;
 
 @Service
 @RequiredArgsConstructor
@@ -96,12 +101,14 @@ public class ProjectCommandService {
             throw new ProjectProposalCompletedException();
         }
         List<TeamMember> members = teamMemberRepository.findAllByTeamId(project.getTeamId());
+        Set<String> approvedUserIds = projectApprovalRepository
+            .findAllByProjectIdAndProposalRevision(projectId, project.getProposalRevision()).stream()
+            .map(ProjectApproval::getUserId)
+            .collect(toSet());
         boolean allMembersApproved = !members.isEmpty() && members.stream()
-            .allMatch(member -> projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(
-                projectId, member.getUserId(), project.getProposalRevision()
-            ));
+            .allMatch(member -> approvedUserIds.contains(member.getUserId()));
         if (!allMembersApproved) {
-            throw new kgu.developers.domain.project.exception.ProjectApprovalRequiredException();
+            throw new ProjectApprovalRequiredException();
         }
         project.completeProposal();
         projectRepository.save(project);

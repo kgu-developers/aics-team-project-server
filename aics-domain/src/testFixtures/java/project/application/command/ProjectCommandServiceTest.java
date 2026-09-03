@@ -53,9 +53,6 @@ class ProjectCommandServiceTest {
         Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
             .goal("기존 목표").approvalStatus(ApprovalStatus.APPROVED).build();
         given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(existing));
-        given(projectApprovalRepository.findAllByProjectId(10L)).willReturn(List.of(
-            ProjectApproval.builder().id(100L).projectId(10L).userId("202412345").approvedAt(LocalDateTime.now()).build()
-        ));
         given(projectRepository.save(existing)).willReturn(existing);
 
         Project result = saveProject();
@@ -97,7 +94,8 @@ class ProjectCommandServiceTest {
             .approvalStatus(ApprovalStatus.DRAFT).build();
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(TeamMember.create(1L, "202412345", false, "개발자")));
-        given(projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(10L, "202412345", project.getProposalRevision())).willReturn(true);
+        given(projectApprovalRepository.findAllByProjectIdAndProposalRevision(10L, project.getProposalRevision()))
+            .willReturn(List.of(ProjectApproval.create(10L, "202412345", project.getProposalRevision(), LocalDateTime.now())));
 
         projectCommandService.completeProposal(10L);
 
@@ -152,7 +150,7 @@ class ProjectCommandServiceTest {
             .approvalStatus(ApprovalStatus.DRAFT).proposalRevision(2L).build();
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(TeamMember.create(1L, "202412345", false, "개발자")));
-        given(projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(10L, "202412345", 2L)).willReturn(false);
+        given(projectApprovalRepository.findAllByProjectIdAndProposalRevision(10L, 2L)).willReturn(List.of());
 
         assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
         then(projectRepository).should(org.mockito.Mockito.never()).save(project);
