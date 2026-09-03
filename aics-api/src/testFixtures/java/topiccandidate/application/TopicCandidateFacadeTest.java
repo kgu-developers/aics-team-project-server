@@ -16,6 +16,10 @@ import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
+import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeRequest;
+import kgu.developers.api.topiccandidate.presentation.response.TopicFinalizeResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +31,7 @@ class TopicCandidateFacadeTest {
 
     private TopicCandidateRepository topicCandidateRepository;
     private TopicVoteRepository topicVoteRepository;
+    private ProjectRepository projectRepository;
     private TopicCandidateCommandService topicCandidateCommandService;
     private TeamAccessValidator teamAccessValidator;
     private TopicCandidateFacade topicCandidateFacade;
@@ -35,12 +40,14 @@ class TopicCandidateFacadeTest {
     void setUp() {
         topicCandidateRepository = mock(TopicCandidateRepository.class);
         topicVoteRepository = mock(TopicVoteRepository.class);
+        projectRepository = mock(ProjectRepository.class);
         topicCandidateCommandService = mock(TopicCandidateCommandService.class);
         teamAccessValidator = mock(TeamAccessValidator.class);
         topicCandidateFacade = new TopicCandidateFacade(
             topicCandidateCommandService,
             topicCandidateRepository,
             topicVoteRepository,
+            projectRepository,
             teamAccessValidator
         );
     }
@@ -120,6 +127,40 @@ class TopicCandidateFacadeTest {
             )
             .containsExactly(1L, CURRENT_USER_ID, request.title(), request.description());
         verify(teamAccessValidator).validateMembership(TEAM_ID, CURRENT_USER_ID);
+    }
+
+    @Test
+    @DisplayName("finalizeTopic은 팀장이 선택한 후보 제목으로 프로젝트를 생성한다")
+    void finalizeTopic_CreatesProjectWithCandidateTitle() {
+        // given
+        TopicCandidate topicCandidate = candidate(1L, "AI 기반 학습 도우미", "학생별 맞춤형 학습 계획을 지원합니다.");
+        Project savedProject = Project.builder()
+            .id(2L)
+            .teamId(TEAM_ID)
+            .title(topicCandidate.getTitle())
+            .description(topicCandidate.getDescription())
+            .goal(topicCandidate.getDescription())
+            .build();
+        given(topicCandidateRepository.findById(topicCandidate.getId())).willReturn(java.util.Optional.of(topicCandidate));
+        given(projectRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of());
+        given(projectRepository.save(org.mockito.ArgumentMatchers.any(Project.class))).willReturn(savedProject);
+
+        // when
+        TopicFinalizeResponse result = topicCandidateFacade.finalizeTopic(
+            TEAM_ID, CURRENT_USER_ID, new TopicFinalizeRequest(topicCandidate.getId())
+        );
+
+        // then
+        assertThat(result)
+            .extracting(TopicFinalizeResponse::projectId, TopicFinalizeResponse::candidateId, TopicFinalizeResponse::title)
+            .containsExactly(2L, topicCandidate.getId(), topicCandidate.getTitle());
+        verify(teamAccessValidator).validateLeader(TEAM_ID, CURRENT_USER_ID);
+        verify(projectRepository).save(org.mockito.ArgumentMatchers.argThat(project ->
+            project.getTeamId().equals(TEAM_ID)
+                && project.getTitle().equals(topicCandidate.getTitle())
+                && project.getDescription().equals(topicCandidate.getDescription())
+                && project.getGoal().equals(topicCandidate.getDescription())
+        ));
     }
 
     private TopicCandidate candidate(Long id, String title, String description) {

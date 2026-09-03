@@ -7,8 +7,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
+import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
+import kgu.developers.api.topiccandidate.presentation.response.TopicFinalizeResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +43,20 @@ public interface TopicCandidateController {
     ResponseEntity<TopicCandidatePersistResponse> createTopicCandidate(
         @PathVariable Long teamId,
         @Valid @RequestBody TopicCandidateCreateRequest request,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "최종 주제 확정 API",
+        description = """
+            Description : 팀장이 팀의 주제 후보 하나를 최종 주제로 확정한다. 후보 제목으로 팀 프로젝트를 생성하거나 기존 프로젝트 제목을 갱신한다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TopicFinalizeResponse.class)))
+    ResponseEntity<TopicFinalizeResponse> finalizeTopic(
+        @PathVariable Long teamId,
+        @Valid @RequestBody TopicFinalizeRequest request,
         Authentication authentication
     );
 }

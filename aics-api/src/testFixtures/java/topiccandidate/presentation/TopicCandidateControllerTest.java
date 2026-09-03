@@ -4,6 +4,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,8 +12,10 @@ import java.util.List;
 import kgu.developers.api.topiccandidate.application.TopicCandidateFacade;
 import kgu.developers.api.topiccandidate.presentation.TopicCandidateControllerImpl;
 import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
+import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
+import kgu.developers.api.topiccandidate.presentation.response.TopicFinalizeResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -81,6 +84,27 @@ class TopicCandidateControllerTest {
             .andExpect(jsonPath("$.description").value("학생별 맞춤형 학습 계획을 지원합니다."));
 
         verify(topicCandidateFacade).createTopicCandidate(TEAM_ID, USER_ID, request);
+    }
+
+    @Test
+    @DisplayName("PATCH /teams/{teamId}/topic-finalize는 팀장의 최종 주제를 확정한다")
+    void finalizeTopic_FinalizesTopic() throws Exception {
+        // given
+        TopicFinalizeRequest request = new TopicFinalizeRequest(1L);
+        given(topicCandidateFacade.finalizeTopic(TEAM_ID, USER_ID, request))
+            .willReturn(new TopicFinalizeResponse(2L, 1L, "AI 기반 학습 도우미"));
+
+        // when & then
+        mockMvc.perform(patch("/api/v1/teams/{teamId}/topic-finalize", TEAM_ID)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"candidateId\":1}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.projectId").value(2L))
+            .andExpect(jsonPath("$.candidateId").value(1L))
+            .andExpect(jsonPath("$.title").value("AI 기반 학습 도우미"));
+
+        verify(topicCandidateFacade).finalizeTopic(TEAM_ID, USER_ID, request);
     }
 
     private TopicCandidateListResponse response() {
