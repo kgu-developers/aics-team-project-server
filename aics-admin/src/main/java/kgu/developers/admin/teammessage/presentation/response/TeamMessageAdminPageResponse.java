@@ -5,12 +5,16 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import kgu.developers.common.response.PageableResponse;
 import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teamthread.domain.TeamThread;
+import kgu.developers.domain.teamthread.exception.TeamThreadNotFoundException;
 import lombok.Builder;
 import org.springframework.data.domain.Page;
 
@@ -36,9 +40,12 @@ public record TeamMessageAdminPageResponse(
     ) {
         List<TeamMessageAdminResponse> contents = page.getContent().stream()
             .map(message -> {
-                TeamThread thread = threadsById.get(message.getThreadId());
-                Team team = teamsById.get(thread.getTeamId());
-                Section section = sectionsById.get(team.getSectionId());
+                TeamThread thread = Optional.ofNullable(threadsById.get(message.getThreadId()))
+                    .orElseThrow(TeamThreadNotFoundException::new);
+                Team team = Optional.ofNullable(teamsById.get(thread.getTeamId()))
+                    .orElseThrow(TeamNotFoundException::new);
+                Section section = Optional.ofNullable(sectionsById.get(team.getSectionId()))
+                    .orElseThrow(SectionNotFoundException::new);
                 return TeamMessageAdminResponse.from(
                     message, team, section, readMessageIds.contains(message.getId()));
             })
