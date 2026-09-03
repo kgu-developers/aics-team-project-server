@@ -311,7 +311,7 @@ class SectionServiceTest {
     @Test
     @DisplayName("학생별 분반은 교수 소유가 아니라 수강 정보로 조회한다")
     void findsSectionsByStudentNumber() {
-        given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(professor));
+        given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(student));
         given(enrollmentRepository.findAllByUserId("202099999")).willReturn(List.of(
                 Enrollment.create(1L, "202099999", Role.STUDENT, Status.ACTIVE),
                 Enrollment.create(2L, "202099999", Role.STUDENT, Status.WITHDRAWN)));

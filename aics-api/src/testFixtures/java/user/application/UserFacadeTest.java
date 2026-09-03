@@ -88,8 +88,8 @@ class UserFacadeTest {
     @DisplayName("수강 분반과 담당 분반이 겹치면 한 번만 내려간다")
     void getMeDeduplicatesSectionBelongingToBothSources() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
-        given(sectionQueryService.getSectionsByStudentNumber(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L, 40)));
-        given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L, 41)));
+        given(sectionQueryService.getEnrolledSections(professor)).willReturn(List.of(sectionDetail(1L, 40)));
+        given(sectionQueryService.getOwnedSections(professor)).willReturn(List.of(sectionDetail(1L, 41)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
@@ -105,8 +105,8 @@ class UserFacadeTest {
     @DisplayName("수강 분반과 담당 분반이 다르면 둘 다 내려간다")
     void getMeKeepsDistinctSections() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
-        given(sectionQueryService.getSectionsByStudentNumber(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
-        given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(2L)));
+        given(sectionQueryService.getEnrolledSections(professor)).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getOwnedSections(professor)).willReturn(List.of(sectionDetail(2L)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
@@ -129,7 +129,7 @@ class UserFacadeTest {
     @DisplayName("수강 내역이 없는 관리자도 담당 분반을 조회한다")
     void getMeIncludesProfessorSectionsWithoutEnrollments() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
-        given(sectionQueryService.getSectionsByProfessorId(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getOwnedSections(professor)).willReturn(List.of(sectionDetail(1L)));
 
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
@@ -147,7 +147,7 @@ class UserFacadeTest {
         UserResponse response = userFacade.getMe(STUDENT_NUMBER);
 
         assertThat(response.sections()).isEmpty();
-        verify(sectionQueryService, never()).getSectionsByProfessorId(STUDENT_NUMBER);
+        verify(sectionQueryService, never()).getOwnedSections(student);
     }
 
     @Test
@@ -167,7 +167,7 @@ class UserFacadeTest {
     @DisplayName("팀에 속하면 teamId가 내려가고, 속하지 않으면 null이다")
     void getMeReturnsTeamId() {
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
-        given(sectionQueryService.getSectionsByStudentNumber(STUDENT_NUMBER)).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getEnrolledSections(student)).willReturn(List.of(sectionDetail(1L)));
         given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
                 .willReturn(List.of(TeamMember.create(7L, STUDENT_NUMBER, true, null)))
                 .willReturn(List.of());
