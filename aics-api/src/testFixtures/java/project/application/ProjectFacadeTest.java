@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.then;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
+import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.ApprovalStatus;
@@ -25,7 +26,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
-import java.util.Optional;
 import java.util.List;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +36,7 @@ class ProjectFacadeTest {
 
     @Mock private ProjectCommandService projectCommandService;
     @Mock private ProjectQueryService projectQueryService;
+    @Mock private TeamAccessValidator teamAccessValidator;
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
     @Mock private ProjectApprovalCommandService projectApprovalCommandService;
@@ -44,8 +45,7 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("getProject는 팀원에게 프로젝트 제안서를 반환한다")
     void getProject() {
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID))
-            .willReturn(Optional.of(TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자")));
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
         given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(project());
 
         assertThat(projectFacade.getProject(TEAM_ID, MEMBER_ID).title()).isEqualTo("AI 학습 도우미");
@@ -54,7 +54,8 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("saveProject는 팀원이 아니면 접근을 거부한다")
     void saveProject_deniesNonMember() throws Exception {
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.empty());
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
 
         assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
             .isInstanceOf(AccessDeniedException.class);
@@ -64,8 +65,7 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("saveProject는 요청 필드를 커맨드 서비스에 전달한다")
     void saveProject() throws Exception {
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID))
-            .willReturn(Optional.of(TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자")));
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
@@ -76,9 +76,8 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("completeProposal은 팀장이고 모든 팀원이 승인하면 완료 처리한다")
     void completeProposal() {
-        TeamMember leader = TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장");
         given(projectQueryService.getProject(10L)).willReturn(project());
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(leader));
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
 
         projectFacade.completeProposal(10L, MEMBER_ID);
 
@@ -89,8 +88,8 @@ class ProjectFacadeTest {
     @DisplayName("completeProposal은 팀장이 아니면 접근을 거부한다")
     void completeProposal_deniesNonLeader() {
         given(projectQueryService.getProject(10L)).willReturn(project());
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID))
-            .willReturn(Optional.of(TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자")));
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
 
         assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class);
@@ -99,9 +98,8 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("completeProposal은 동의 검증을 잠금 경계의 커맨드 서비스에 위임한다")
     void completeProposal_delegatesApprovalValidationToCommandService() {
-        TeamMember leader = TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장");
         given(projectQueryService.getProject(10L)).willReturn(project());
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(leader));
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
         projectFacade.completeProposal(10L, MEMBER_ID);
 
         then(projectCommandService).should().completeProposal(10L);
@@ -111,8 +109,7 @@ class ProjectFacadeTest {
     @DisplayName("approveProject는 본인 팀원 동의를 저장한다")
     void approveProject() {
         given(projectQueryService.getProject(10L)).willReturn(project());
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID))
-            .willReturn(Optional.of(TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자")));
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
 
         projectFacade.approveProject(10L, MEMBER_ID);
 
@@ -124,7 +121,7 @@ class ProjectFacadeTest {
     void getApprovalSummary() {
         TeamMember member = TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자");
         given(projectQueryService.getProject(10L)).willReturn(project());
-        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, MEMBER_ID)).willReturn(Optional.of(member));
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
         given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(member, TeamMember.create(TEAM_ID, "202412346", false, "기획자")));
         given(projectApprovalRepository.findAllByProjectIdAndProposalRevision(10L, 0L)).willReturn(List.of(
             ProjectApproval.builder().id(1L).projectId(10L).userId(MEMBER_ID).build()
