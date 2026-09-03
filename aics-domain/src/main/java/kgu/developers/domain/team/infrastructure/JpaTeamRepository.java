@@ -12,6 +12,10 @@ import org.springframework.data.repository.query.Param;
 public interface JpaTeamRepository extends JpaRepository<TeamJpaEntity, Long> {
     Optional<TeamJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select team from TeamJpaEntity team where team.id = :id and team.deletedAt is null")
+    Optional<TeamJpaEntity> findWithLockByIdAndDeletedAtIsNull(@Param("id") Long id);
+
     List<TeamJpaEntity> findAllBySectionIdAndDeletedAtIsNull(Long sectionId);
 
     List<TeamJpaEntity> findAllBySectionIdInAndDeletedAtIsNull(List<Long> sectionIds);

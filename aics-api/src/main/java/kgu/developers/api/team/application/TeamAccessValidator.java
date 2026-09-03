@@ -3,6 +3,7 @@ package kgu.developers.api.team.application;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +35,7 @@ public class TeamAccessValidator {
     public void validateLeaderWithTeamLock(Long teamId, String userId) {
         validateLeader(teamId, userId);
         teamRepository.findByIdForUpdate(teamId)
-            .orElseThrow(() -> new AccessDeniedException("해당 팀을 찾을 수 없습니다."));
+            .orElseThrow(TeamNotFoundException::new);
         validateLeader(teamId, userId);
     }
 

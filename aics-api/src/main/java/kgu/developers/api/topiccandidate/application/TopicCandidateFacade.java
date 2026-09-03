@@ -60,7 +60,7 @@ public class TopicCandidateFacade {
 
     @Transactional
     public TopicFinalizeResponse finalizeTopic(Long teamId, String userId, TopicFinalizeRequest request) {
-        teamAccessValidator.validateLeader(teamId, userId);
+        teamAccessValidator.validateLeaderWithTeamLock(teamId, userId);
 
         TopicCandidate topicCandidate = topicCandidateRepository.findById(request.candidateId())
             .orElseThrow(TopicCandidateNotFoundException::new);

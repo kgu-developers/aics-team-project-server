@@ -154,10 +154,11 @@ class TopicCandidateFacadeTest {
         assertThat(result)
             .extracting(TopicFinalizeResponse::projectId, TopicFinalizeResponse::candidateId, TopicFinalizeResponse::title)
             .containsExactly(2L, topicCandidate.getId(), topicCandidate.getTitle());
-        verify(teamAccessValidator).validateLeader(TEAM_ID, CURRENT_USER_ID);
+        verify(teamAccessValidator).validateLeaderWithTeamLock(TEAM_ID, CURRENT_USER_ID);
         verify(projectRepository).save(org.mockito.ArgumentMatchers.argThat(project ->
             project.getTeamId().equals(TEAM_ID)
                 && project.getTitle().equals(topicCandidate.getTitle())
+                && project.getTopicCandidateId().equals(topicCandidate.getId())
                 && project.getDescription().equals(topicCandidate.getDescription())
                 && project.getGoal().equals(topicCandidate.getDescription())
         ));
