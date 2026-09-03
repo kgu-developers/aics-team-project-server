@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -92,6 +93,37 @@ class TeamMessageAdminControllerTest {
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
             .isInstanceOf(ConstraintViolationException.class);
         verifyNoInteractions(teamMessageAdminFacade);
+    }
+
+    @Test
+    @DisplayName("GET /messages는 100을 초과하는 페이지 크기를 거부한다")
+    void getMessages_WithOversizedPage() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        MethodValidationPostProcessor processor = new MethodValidationPostProcessor();
+        processor.setValidator(validator);
+        processor.setProxyTargetClass(true);
+        processor.afterPropertiesSet();
+        TeamMessageAdminController controller = (TeamMessageAdminController) processor.postProcessAfterInitialization(
+            new TeamMessageAdminControllerImpl(teamMessageAdminFacade), "teamMessageAdminController");
+
+        assertThatThrownBy(() -> controller.getMessages(
+            1L,
+            0,
+            101,
+            new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .isInstanceOf(ConstraintViolationException.class);
+        verifyNoInteractions(teamMessageAdminFacade);
+    }
+
+    @Test
+    @DisplayName("PATCH /messages/{id}/read는 인증된 교수 기준으로 읽음 처리한다")
+    void markAsRead() throws Exception {
+        mockMvc.perform(patch(BASE_URL + "/1/read")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isNoContent());
+
+        verify(teamMessageAdminFacade).markAsRead(1L, PROFESSOR_ID);
     }
 
     private TeamMessageAdminPageResponse response() {

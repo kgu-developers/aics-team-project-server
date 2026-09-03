@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,6 +18,7 @@ import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
@@ -47,6 +49,9 @@ class TeamMessageAdminFacadeTest {
 
     @Mock
     private TeamThreadQueryService teamThreadQueryService;
+
+    @Mock
+    private TeamMessageCommandService teamMessageCommandService;
 
     @Mock
     private TeamMessageQueryService teamMessageQueryService;
@@ -120,6 +125,42 @@ class TeamMessageAdminFacadeTest {
             .hasMessage("담당 분반의 메시지만 조회할 수 있습니다.");
 
         verify(teamRepository, never()).findAllBySectionIdIn(anyList());
+    }
+
+    @Test
+    @DisplayName("담당 교수는 본인 분반의 메시지를 읽음 처리한다")
+    void markAsRead_OwnedSection() {
+        TeamMessage message = message(1000L, 100L, "확인했습니다.");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+        Team team = team(10L, 1L, "A팀");
+        Section section = section(1L, "1151", PROFESSOR_ID);
+        given(teamMessageQueryService.getMessage(1000L)).willReturn(message);
+        given(teamThreadQueryService.getThreadById(100L)).willReturn(thread);
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team));
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+
+        teamMessageAdminFacade.markAsRead(1000L, PROFESSOR_ID);
+
+        verify(teamMessageCommandService).markAsRead(1000L, PROFESSOR_ID);
+    }
+
+    @Test
+    @DisplayName("다른 교수 분반의 메시지는 읽음 처리할 수 없다")
+    void markAsRead_ForeignSection() {
+        TeamMessage message = message(1000L, 100L, "확인했습니다.");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+        Team team = team(10L, 1L, "A팀");
+        Section section = section(1L, "1151", "다른 교수");
+        given(teamMessageQueryService.getMessage(1000L)).willReturn(message);
+        given(teamThreadQueryService.getThreadById(100L)).willReturn(thread);
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team));
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+
+        assertThatThrownBy(() -> teamMessageAdminFacade.markAsRead(1000L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 메시지만 읽음 처리할 수 있습니다.");
+
+        verifyNoInteractions(teamMessageCommandService);
     }
 
     private Section section(Long id, String name, String professorId) {

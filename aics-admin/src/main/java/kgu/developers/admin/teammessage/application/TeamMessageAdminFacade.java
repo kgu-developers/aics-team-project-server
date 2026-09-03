@@ -11,6 +11,7 @@ import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
@@ -34,6 +35,7 @@ public class TeamMessageAdminFacade {
     private final SectionRepository sectionRepository;
     private final TeamRepository teamRepository;
     private final TeamThreadQueryService teamThreadQueryService;
+    private final TeamMessageCommandService teamMessageCommandService;
     private final TeamMessageQueryService teamMessageQueryService;
 
     public TeamMessageAdminPageResponse getMessages(Long sectionId, Pageable pageable, String professorId) {
@@ -62,6 +64,21 @@ public class TeamMessageAdminFacade {
 
         return TeamMessageAdminPageResponse.from(
             messages, unreadCount, readMessageIds, threadsById, teamsById, sectionsById);
+    }
+
+    @Transactional
+    public void markAsRead(Long messageId, String professorId) {
+        TeamMessage message = teamMessageQueryService.getMessage(messageId);
+        TeamThread thread = teamThreadQueryService.getThreadById(message.getThreadId());
+        Team team = teamRepository.findById(thread.getTeamId())
+            .orElseThrow(() -> new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다."));
+
+        sectionRepository.findById(team.getSectionId())
+            .map(SectionDetail::section)
+            .filter(section -> professorId.equals(section.getProfessorId()))
+            .orElseThrow(() -> new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다."));
+
+        teamMessageCommandService.markAsRead(messageId, professorId);
     }
 
     private List<Section> resolveSections(Long sectionId, String professorId) {

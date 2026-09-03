@@ -6,11 +6,13 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "AdminTeamMessage", description = "관리자 통합 쪽지함 API")
@@ -34,8 +36,22 @@ public interface TeamMessageAdminController {
         @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
         @Parameter(description = "페이지 번호(0부터 시작)", example = "0")
         @RequestParam(defaultValue = "0") @PositiveOrZero int page,
-        @Parameter(description = "페이지 크기", example = "20")
-        @RequestParam(defaultValue = "20") @Positive int size,
+        @Parameter(description = "페이지 크기(최대 100)", example = "20")
+        @RequestParam(defaultValue = "20") @Positive @Max(100) int size,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "관리자 메시지 읽음 처리 API",
+        description = """
+            Description : 담당 교수가 본인 분반의 메시지를 읽음 처리한다.
+                이미 읽은 메시지는 멱등하게 성공 처리하며, 다른 교수의 분반 메시지는 처리할 수 없다.
+            Assignee : 최태양
+            """
+    )
+    @ApiResponse(responseCode = "204")
+    ResponseEntity<Void> markAsRead(
+        @Parameter(description = "메시지 식별자") @PathVariable @Positive Long id,
         Authentication authentication
     );
 }
