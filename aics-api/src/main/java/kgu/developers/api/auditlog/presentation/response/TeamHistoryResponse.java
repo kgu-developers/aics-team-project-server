@@ -21,8 +21,13 @@ public record TeamHistoryResponse(
         @Schema(description = "행위자 이름")
         String actorName,
         @Schema(
-                description = "프론트 표시 문구 변환에 사용하는 이벤트 유형 문자열",
-                example = "TEAM_UPDATED",
+                description = "프론트 표시 문구 변환에 사용하는 팀 변경 이벤트 유형",
+                example = AuditLogEventTypes.TEAM_UPDATED,
+                allowableValues = {
+                        AuditLogEventTypes.TEAM_UPDATED,
+                        AuditLogEventTypes.TEAM_NAME_UPDATED,
+                        AuditLogEventTypes.TEAM_RULE_UPDATED
+                },
                 requiredMode = REQUIRED
         )
         String eventType,

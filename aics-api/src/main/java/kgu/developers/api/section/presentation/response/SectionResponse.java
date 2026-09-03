@@ -42,10 +42,20 @@ public record SectionResponse(
     @Schema(description = "학년도", example = "2026", requiredMode = REQUIRED)
     Integer year,
 
-    @Schema(description = "학기", example = "SPRING", requiredMode = REQUIRED)
+    @Schema(
+        description = "학기",
+        example = "SPRING",
+        allowableValues = {"SPRING", "SUMMER", "FALL", "WINTER"},
+        requiredMode = REQUIRED
+    )
     SemesterType semester,
 
-    @Schema(description = "강좌 상태", example = "ACTIVE", requiredMode = REQUIRED)
+    @Schema(
+        description = "강좌 상태",
+        example = "ACTIVE",
+        allowableValues = {"DRAFT", "ACTIVE", "ARCHIVED"},
+        requiredMode = REQUIRED
+    )
     StatusType status
 ) {
 
