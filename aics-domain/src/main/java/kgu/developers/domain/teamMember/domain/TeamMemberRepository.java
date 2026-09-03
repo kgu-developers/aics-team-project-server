@@ -12,13 +12,19 @@ public interface TeamMemberRepository {
 
     List<TeamMember> findAllByTeamId(Long teamId);
 
+    List<TeamMember> findAllByTeamIdIn(List<Long> teamIds);
+
     List<TeamMember> findAllByUserId(String userId);
 
     Optional<TeamMember> findByTeamIdAndUserId(Long teamId, String userId);
 
+    Optional<TeamMember> findIncludingDeleted(Long teamId, String userId);
+
     Optional<TeamMember> findLeaderByTeamId(Long teamId);
 
     boolean existsByTeamIdAndIsLeaderTrue(Long teamId);
+
+    Optional<TeamMember> findActiveBySectionIdAndUserId(Long sectionId, String userId);
 
     void deleteById(Long id);
 

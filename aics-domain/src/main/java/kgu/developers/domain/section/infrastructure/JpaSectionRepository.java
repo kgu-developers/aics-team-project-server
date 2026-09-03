@@ -3,11 +3,13 @@ package kgu.developers.domain.section.infrastructure;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-
-import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Long> {
     @EntityGraph(attributePaths = {"course", "professor"})
@@ -24,6 +26,10 @@ public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Lo
     List<SectionJpaEntity> findAllByIdInAndDeletedAtIsNullOrderByCodeAsc(List<Long> ids);
 
     boolean existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(Long id, String studentNumber);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from SectionJpaEntity s where s.id = :id and s.deletedAt is null")
+    Optional<SectionJpaEntity> findActiveByIdForUpdate(@Param("id") Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<SectionJpaEntity> findByIdAndProfessorStudentNumberAndDeletedAtIsNull(
