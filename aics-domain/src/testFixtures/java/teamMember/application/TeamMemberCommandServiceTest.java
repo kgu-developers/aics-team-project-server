@@ -154,6 +154,29 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
+    @DisplayName("수강 철회 시 해당 분반의 활성 팀 소속을 삭제한다")
+    void withdrawFromTeam() {
+        TeamMember member = teamMember();
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+                .willReturn(Optional.of(member));
+
+        teamMemberCommandService.withdrawFromTeam(10L, "202699999");
+
+        verify(teamMemberRepository).deleteById(member.getId());
+    }
+
+    @Test
+    @DisplayName("수강 철회 학생에게 활성 팀 소속이 없으면 정상 종료한다")
+    void withdrawFromTeamWithoutActiveMembership() {
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+                .willReturn(Optional.empty());
+
+        teamMemberCommandService.withdrawFromTeam(10L, "202699999");
+
+        verify(teamMemberRepository, never()).deleteById(any());
+    }
+
+    @Test
     @DisplayName("이미 팀장이 있으면 팀장 자진 선언은 409 예외를 던진다")
     void rejectsLeaderClaimWhenLeaderAlreadyExists() {
         TeamMember member = teamMember();

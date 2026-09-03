@@ -105,6 +105,11 @@ public class TeamMemberCommandService {
     return claimed;
   }
 
+  public void withdrawFromTeam(Long sectionId, String userId) {
+    teamMemberRepository.findActiveBySectionIdAndUserId(sectionId, userId)
+        .ifPresent(teamMember -> teamMemberRepository.deleteById(teamMember.getId()));
+  }
+
   private void validateUpdateAllowed(
       Team currentTeam, Long targetTeamId, String projectRole, Boolean isLeader) {
     if (currentTeam.getStatus() != Status.CONFIRMED) {
