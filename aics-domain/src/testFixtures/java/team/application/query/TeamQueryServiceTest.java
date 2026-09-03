@@ -82,4 +82,24 @@ class TeamQueryServiceTest {
         assertThatThrownBy(() -> teamQueryService.getTeamById(1L))
                 .isInstanceOf(TeamNotFoundException.class);
     }
+
+    @Test
+    @DisplayName("getTeamByIdForUpdate는 잠금 조회로 팀을 가져온다")
+    void getTeamByIdForUpdate() {
+        Team team = Team.builder().id(1L).sectionId(10L).name("1팀").build();
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team));
+
+        Team result = teamQueryService.getTeamByIdForUpdate(1L);
+
+        assertThat(result).isSameAs(team);
+    }
+
+    @Test
+    @DisplayName("getTeamByIdForUpdate는 존재하지 않는 팀이면 예외를 던진다")
+    void getTeamByIdForUpdateWithMissingTeam() {
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> teamQueryService.getTeamByIdForUpdate(1L))
+                .isInstanceOf(TeamNotFoundException.class);
+    }
 }

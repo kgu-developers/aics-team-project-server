@@ -2,6 +2,7 @@ package teamMember.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -67,8 +69,8 @@ class TeamMemberAdminFacadeTest {
     TeamMemberUpdateRequest request = new TeamMemberUpdateRequest(2L, "프론트엔드", true);
 
     given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(found);
-    given(teamQueryService.getTeamById(1L)).willReturn(team(1L));
-    given(teamQueryService.getTeamById(2L)).willReturn(team(2L));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team(1L));
+    given(teamQueryService.getTeamByIdForUpdate(2L)).willReturn(team(2L));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(found), List.of());
     given(teamMemberQueryService.getTeamMembersByTeamId(2L))
@@ -85,6 +87,10 @@ class TeamMemberAdminFacadeTest {
     assertThat(response.name()).isEqualTo("김철수");
     assertThat(response.isLeader()).isTrue();
     assertThat(response.projectRole()).isEqualTo("프론트엔드");
+    InOrder lockOrder = inOrder(teamQueryService, teamMemberQueryService);
+    lockOrder.verify(teamQueryService).getTeamByIdForUpdate(1L);
+    lockOrder.verify(teamQueryService).getTeamByIdForUpdate(2L);
+    lockOrder.verify(teamMemberQueryService).getTeamMember(1L, "202699999");
     verify(auditLogCommandService, times(2)).recordTeamChange(
         org.mockito.ArgumentMatchers.eq("admin001"), org.mockito.ArgumentMatchers.eq(10L),
         org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_UPDATED),
@@ -99,7 +105,7 @@ class TeamMemberAdminFacadeTest {
     TeamMemberUpdateRequest request = new TeamMemberUpdateRequest(null, "프론트엔드", null);
 
     given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(found);
-    given(teamQueryService.getTeamById(1L)).willReturn(team(1L));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team(1L));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(found), List.of(found));
     given(teamMemberCommandService.updateTeamMember(found, null, "프론트엔드", null)).willReturn(found);
@@ -117,7 +123,7 @@ class TeamMemberAdminFacadeTest {
     TeamMemberUpdateRequest request = new TeamMemberUpdateRequest(null, "프론트엔드", null);
     TeamMember found = member();
     given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(found);
-    given(teamQueryService.getTeamById(1L)).willReturn(team(1L));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team(1L));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(found), List.of(found));
     given(teamMemberCommandService.updateTeamMember(found, null, "프론트엔드", null)).willReturn(found);

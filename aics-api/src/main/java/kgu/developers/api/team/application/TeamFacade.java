@@ -2,7 +2,6 @@ package kgu.developers.api.team.application;
 
 import static kgu.developers.domain.teamMember.domain.TeamMemberWithUser.mapAll;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,8 +13,10 @@ import kgu.developers.api.team.presentation.response.TeamKickoffResponse;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
 import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
 import kgu.developers.domain.auditLog.domain.AuditLogEventType;
+import kgu.developers.domain.auditLog.domain.TeamMembersAuditSnapshot;
 import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
+import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -42,8 +43,8 @@ public class TeamFacade {
   @Transactional
   public TeamKickoffResponse updateKickoff(Long teamId, String userId, TeamKickoffUpdateRequest request) {
     teamAccessValidator.validateMembership(teamId, userId);
-    TeamSnapshot beforeTeam = TeamSnapshot.from(teamQueryService.getTeamById(teamId));
-    List<TeamMemberSnapshot> beforeMembers = memberSnapshots(
+    TeamSnapshot beforeTeam = TeamSnapshot.from(teamQueryService.getTeamByIdForUpdate(teamId));
+    TeamMembersAuditSnapshot beforeMembers = TeamMembersAuditSnapshot.from(
         teamMemberQueryService.getTeamMembersByTeamId(teamId));
 
     Team team = teamCommandService.updateKickoff(
@@ -56,7 +57,8 @@ public class TeamFacade {
     List<TeamMember> updatedMembers =
         teamMemberCommandService.updateKickoffRoles(teamId, request.leaderStudentNumber(), projectRoles);
 
-    recordKickoffChanges(userId, team, beforeTeam, beforeMembers, memberSnapshots(updatedMembers));
+    recordKickoffChanges(userId, team, beforeTeam, beforeMembers,
+        TeamMembersAuditSnapshot.from(updatedMembers));
 
     return TeamKickoffResponse.of(team,
         mapAll(teamMemberQueryService.withUsers(updatedMembers), TeamMemberResponse::of));
@@ -65,13 +67,15 @@ public class TeamFacade {
   @Transactional
   public void claimLeader(Long teamId, String userId) {
     teamAccessValidator.validateMembership(teamId, userId);
-    Team team = teamQueryService.getTeamById(teamId);
-    List<TeamMemberSnapshot> beforeMembers = memberSnapshots(
+    Team team = teamQueryService.getTeamByIdForUpdate(teamId);
+    Status beforeStatus = team.getStatus();
+    TeamMembersAuditSnapshot beforeMembers = TeamMembersAuditSnapshot.from(
         teamMemberQueryService.getTeamMembersByTeamId(teamId));
     teamMemberCommandService.claimLeader(teamId, userId);
-    List<TeamMemberSnapshot> afterMembers = memberSnapshots(
+    TeamMembersAuditSnapshot afterMembers = TeamMembersAuditSnapshot.from(
         teamMemberQueryService.getTeamMembersByTeamId(teamId));
     recordTeamMemberChange(userId, team, "LEADER_CLAIMED", beforeMembers, afterMembers);
+    recordTeamStatusChange(userId, team, beforeStatus, team.getStatus());
   }
 
   private List<TeamMemberResponse> members(Long teamId) {
@@ -82,8 +86,8 @@ public class TeamFacade {
       String actorId,
       Team team,
       TeamSnapshot beforeTeam,
-      List<TeamMemberSnapshot> beforeMembers,
-      List<TeamMemberSnapshot> afterMembers
+      TeamMembersAuditSnapshot beforeMembers,
+      TeamMembersAuditSnapshot afterMembers
   ) {
     if (!Objects.equals(beforeTeam.name(), team.getName())) {
       record(actorId, team, AuditLogEventType.TEAM_NAME_UPDATED,
@@ -107,8 +111,8 @@ public class TeamFacade {
       String actorId,
       Team team,
       String changeType,
-      List<TeamMemberSnapshot> beforeMembers,
-      List<TeamMemberSnapshot> afterMembers
+      TeamMembersAuditSnapshot beforeMembers,
+      TeamMembersAuditSnapshot afterMembers
   ) {
     if (beforeMembers.equals(afterMembers)) {
       return;
@@ -116,8 +120,25 @@ public class TeamFacade {
     record(actorId, team, AuditLogEventType.TEAM_UPDATED,
         Map.of(
             "changeType", changeType,
-            "before", new TeamMembersSnapshot(beforeMembers),
-            "after", new TeamMembersSnapshot(afterMembers)
+            "before", beforeMembers,
+            "after", afterMembers
+        ));
+  }
+
+  private void recordTeamStatusChange(
+      String actorId,
+      Team team,
+      Status beforeStatus,
+      Status afterStatus
+  ) {
+    if (beforeStatus == afterStatus) {
+      return;
+    }
+    record(actorId, team, AuditLogEventType.TEAM_UPDATED,
+        Map.of(
+            "changeType", "TEAM_STATUS_UPDATED",
+            "before", new TeamStatusSnapshot(beforeStatus),
+            "after", new TeamStatusSnapshot(afterStatus)
         ));
   }
 
@@ -129,16 +150,6 @@ public class TeamFacade {
         eventType,
         JsonConverter.toTree(metadata)
     );
-  }
-
-  private List<TeamMemberSnapshot> memberSnapshots(List<TeamMember> members) {
-    if (members == null) {
-      return List.of();
-    }
-    return members.stream()
-        .map(TeamMemberSnapshot::from)
-        .sorted(Comparator.comparing(TeamMemberSnapshot::studentNumber))
-        .toList();
   }
 
   private record TeamSnapshot(String name, String kickoffRule, String meetingSchedule) {
@@ -153,12 +164,7 @@ public class TeamFacade {
   private record TeamRuleSnapshot(String kickoffRule, String meetingSchedule) {
   }
 
-  private record TeamMembersSnapshot(List<TeamMemberSnapshot> members) {
+  private record TeamStatusSnapshot(Status status) {
   }
 
-  private record TeamMemberSnapshot(String studentNumber, boolean leader, String projectRole) {
-    private static TeamMemberSnapshot from(TeamMember member) {
-      return new TeamMemberSnapshot(member.getUserId(), member.isLeader(), member.getProjectRole());
-    }
-  }
 }
