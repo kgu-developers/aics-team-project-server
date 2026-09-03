@@ -22,7 +22,7 @@ public class TopicCandidateCommandService {
             if (existing.getDeletedAt() == null) {
                 throw new DuplicateTopicCandidateTitleException();
             }
-            existing.reactivate();
+            existing.reactivate(proposerUserId, description);
             return topicCandidateRepository.save(existing).getId();
         }
 

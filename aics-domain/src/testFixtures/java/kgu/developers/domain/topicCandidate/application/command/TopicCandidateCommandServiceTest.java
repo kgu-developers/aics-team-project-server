@@ -58,6 +58,23 @@ class TopicCandidateCommandServiceTest {
     }
 
     @Test
+    @DisplayName("등록은 삭제된 후보를 되살릴 때 새 제안자와 설명을 반영한다")
+    void createReactivatesWithNewProposerAndDescription() {
+        TopicCandidate deleted = candidate(2L, "삭제된 제목");
+        deleted.delete();
+        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
+                .willReturn(Optional.of(deleted));
+        given(topicCandidateRepository.save(deleted)).willReturn(deleted);
+
+        Long id = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "삭제된 제목", "새 설명");
+
+        assertThat(id).isEqualTo(2L);
+        assertThat(deleted.getDeletedAt()).isNull();
+        assertThat(deleted.getProposerUserId()).isEqualTo("20230002");
+        assertThat(deleted.getDescription()).isEqualTo("새 설명");
+    }
+
+    @Test
     @DisplayName("수정도 제목 중복을 검사한다")
     void updateChecksTitleToo() {
         given(topicCandidateRepository.findById(2L))
