@@ -153,31 +153,6 @@ class TopicCandidateRepositoryImplTest {
         assertThat(repository.findByIdForUpdate(1L)).isEmpty();
     }
 
-    private TopicCandidate candidate(Long id, String title) {
-        return TopicCandidate.builder()
-                .id(id)
-                .teamId(100L)
-                .proposerUserId("20230001")
-                .title(title)
-                .description("설명")
-                .createdAt(LocalDateTime.now())
-                .build();
-    }
-
-    @Test
-    @DisplayName("중복 검사 조회는 팀 행에 쓰기 락을 걸고 살아있는 같은 제목만 본다")
-    void findActiveByTeamIdAndTitleForUpdateLocksTeam() {
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "중복 제목"))
-                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(candidate(1L, "중복 제목"))));
-        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
-
-        Optional<TopicCandidate> result = repository.findActiveByTeamIdAndTitleForUpdate(100L, "중복 제목");
-
-        assertThat(result).isPresent();
-        assertThat(result.get().getId()).isEqualTo(1L);
-        verify(entityManager).find(TeamJpaEntity.class, 100L, PESSIMISTIC_WRITE);
-    }
-
     @Test
     @DisplayName("생성 경로의 삭제 포함 조회도 팀 행에 쓰기 락을 건다")
     void findIncludingDeletedByTeamIdAndTitleForUpdateLocksTeam() {
@@ -192,12 +167,28 @@ class TopicCandidateRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("중복 검사 조회는 소프트 삭제된 제목을 무시한다")
-    void findActiveByTeamIdAndTitleForUpdateIgnoresDeleted() {
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "삭제된 제목"))
-                .willReturn(Optional.empty());
+    @DisplayName("중복 검사 조회는 소프트 삭제된 제목도 점유로 본다")
+    void findIncludingDeletedByTeamIdAndTitleForUpdateSeesDeleted() {
+        TopicCandidate deleted = candidate(1L, "삭제된 제목");
+        deleted.delete();
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitle(100L, "삭제된 제목"))
+                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(deleted)));
         TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
-        assertThat(repository.findActiveByTeamIdAndTitleForUpdate(100L, "삭제된 제목")).isEmpty();
+        Optional<TopicCandidate> result = repository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목");
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getDeletedAt()).isNotNull();
+    }
+
+    private TopicCandidate candidate(Long id, String title) {
+        return TopicCandidate.builder()
+                .id(id)
+                .teamId(100L)
+                .proposerUserId("20230001")
+                .title(title)
+                .description("설명")
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 }

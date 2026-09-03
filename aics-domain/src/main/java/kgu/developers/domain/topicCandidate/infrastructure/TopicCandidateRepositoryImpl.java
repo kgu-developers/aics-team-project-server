@@ -51,13 +51,6 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     }
 
     @Override
-    public Optional<TopicCandidate> findActiveByTeamIdAndTitleForUpdate(Long teamId, String title) {
-        lockTeamForUpdate(teamId);
-        return jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(teamId, title)
-                .map(TopicCandidateJpaEntity::toDomain);
-    }
-
-    @Override
     public Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title) {
         lockTeamForUpdate(teamId);
         return jpaTopicCandidateRepository.findByTeamIdAndTitle(teamId, title)

@@ -78,7 +78,7 @@ public class TopicCandidateCommandService {
     }
 
     private void validateDuplicateTitle(Long teamId, String title, Long excludeId) {
-        topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(teamId, title)
+        topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(teamId, title)
                 .ifPresent(candidate -> {
                     if (excludeId == null || !candidate.getId().equals(excludeId)) {
                         throw new DuplicateTopicCandidateTitleException();

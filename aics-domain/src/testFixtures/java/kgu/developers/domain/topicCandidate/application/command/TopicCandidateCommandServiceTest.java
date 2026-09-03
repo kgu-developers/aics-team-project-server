@@ -166,10 +166,26 @@ class TopicCandidateCommandServiceTest {
                 .willReturn(Optional.of(candidate(2L, "내 제목")));
         given(topicCandidateRepository.findByIdForUpdate(2L))
                 .willReturn(Optional.of(candidate(2L, "내 제목")));
-        given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "남의 제목"))
+        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "남의 제목"))
                 .willReturn(Optional.of(candidate(1L, "남의 제목")));
 
         assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(2L, 100L, "남의 제목", null))
+                .isInstanceOf(DuplicateTopicCandidateTitleException.class);
+
+        verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
+    }
+
+    @Test
+    @DisplayName("수정은 소프트 삭제된 행이 점유한 제목도 중복으로 본다")
+    void updateRejectsTitleHeldByDeletedCandidate() {
+        TopicCandidate deleted = candidate(1L, "삭제된 제목");
+        deleted.delete();
+        given(topicCandidateRepository.findById(2L)).willReturn(Optional.of(candidate(2L, "내 제목")));
+        given(topicCandidateRepository.findByIdForUpdate(2L)).willReturn(Optional.of(candidate(2L, "내 제목")));
+        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
+                .willReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(2L, 100L, "삭제된 제목", null))
                 .isInstanceOf(DuplicateTopicCandidateTitleException.class);
 
         verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
@@ -181,7 +197,7 @@ class TopicCandidateCommandServiceTest {
         TopicCandidate mine = candidate(1L, "내 제목");
         given(topicCandidateRepository.findById(1L)).willReturn(Optional.of(mine));
         given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mine));
-        given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "내 제목"))
+        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "내 제목"))
                 .willReturn(Optional.of(mine));
 
         topicCandidateCommandService.updateTopicCandidate(1L, 100L, "내 제목", "새 설명");

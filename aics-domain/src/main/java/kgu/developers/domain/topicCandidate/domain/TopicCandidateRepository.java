@@ -12,8 +12,6 @@ public interface TopicCandidateRepository {
 
     void lockTeamForUpdate(Long teamId);
 
-    Optional<TopicCandidate> findActiveByTeamIdAndTitleForUpdate(Long teamId, String title);
-
     Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title);
 
     List<TopicCandidate> findByTeamId(Long teamId);
