@@ -96,6 +96,29 @@ class MeetingRecordAdminControllerTest {
         verifyNoInteractions(meetingRecordAdminFacade);
     }
 
+    @Test
+    @DisplayName("GET /meeting-records는 100을 초과한 페이지 크기를 거부한다")
+    void getMeetingRecords_WithOversizedPage() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        MethodValidationPostProcessor processor = new MethodValidationPostProcessor();
+        processor.setValidator(validator);
+        processor.setProxyTargetClass(true);
+        processor.afterPropertiesSet();
+        MeetingRecordAdminController controller =
+            (MeetingRecordAdminController) processor.postProcessAfterInitialization(
+                new MeetingRecordAdminControllerImpl(meetingRecordAdminFacade),
+                "meetingRecordAdminController");
+
+        assertThatThrownBy(() -> controller.getMeetingRecords(
+            null,
+            0,
+            101,
+            new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .isInstanceOf(ConstraintViolationException.class);
+        verifyNoInteractions(meetingRecordAdminFacade);
+    }
+
     private MeetingRecordAdminPageResponse response() {
         MeetingRecordAdminResponse content = MeetingRecordAdminResponse.builder()
             .id(1L)

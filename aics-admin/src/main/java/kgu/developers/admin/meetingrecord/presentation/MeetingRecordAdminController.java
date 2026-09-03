@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
@@ -32,8 +33,8 @@ public interface MeetingRecordAdminController {
         @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
         @Parameter(description = "페이지 번호(0부터 시작)", example = "0")
         @RequestParam(defaultValue = "0") @PositiveOrZero int page,
-        @Parameter(description = "페이지 크기", example = "20")
-        @RequestParam(defaultValue = "20") @Positive int size,
+        @Parameter(description = "페이지 크기(최대 100)", example = "20")
+        @RequestParam(defaultValue = "20") @Positive @Max(100) int size,
         Authentication authentication
     );
 }

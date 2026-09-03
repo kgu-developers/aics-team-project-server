@@ -15,6 +15,7 @@ import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 public class FakeMeetingRecordRepository implements MeetingRecordRepository {
 
@@ -71,12 +72,36 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
     public Page<MeetingRecord> findAllByTeamIdIn(List<Long> teamIds, Pageable pageable) {
         List<MeetingRecord> records = store.values().stream()
             .filter(meetingRecord -> teamIds.contains(meetingRecord.getTeamId()))
-            .sorted(Comparator.comparing(MeetingRecord::getMeetingAt).reversed()
-                .thenComparing(MeetingRecord::getId, Comparator.reverseOrder()))
             .toList();
+        records = applySort(records, pageable.getSort());
         int start = Math.min((int) pageable.getOffset(), records.size());
         int end = Math.min(start + pageable.getPageSize(), records.size());
         return new PageImpl<>(records.subList(start, end), pageable, records.size());
+    }
+
+    private List<MeetingRecord> applySort(List<MeetingRecord> records, Sort sort) {
+        if (sort.isUnsorted()) {
+            return records;
+        }
+
+        Comparator<MeetingRecord> comparator = null;
+        for (Sort.Order order : sort) {
+            Comparator<MeetingRecord> propertyComparator = comparatorFor(order.getProperty());
+            if (order.isDescending()) {
+                propertyComparator = propertyComparator.reversed();
+            }
+            comparator = comparator == null
+                ? propertyComparator
+                : comparator.thenComparing(propertyComparator);
+        }
+        return records.stream().sorted(comparator).toList();
+    }
+
+    private Comparator<MeetingRecord> comparatorFor(String property) {
+        if ("meetingAt".equals(property)) {
+            return Comparator.comparing(MeetingRecord::getMeetingAt);
+        }
+        return Comparator.comparing(MeetingRecord::getId);
     }
 
     @Override
