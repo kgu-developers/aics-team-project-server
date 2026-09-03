@@ -244,8 +244,8 @@ public class TeamMessageFacadeTest {
     }
 
     @Test
-    @DisplayName("담당 교수는 팀 메시지를 조회·등록하고 중요 표시·읽음 처리를 할 수 있다")
-    void teamOperations_ProfessorCanAccessOwnedSectionTeam() {
+    @DisplayName("담당 교수도 학생용 팀 메시지 API에는 접근할 수 없다")
+    void teamOperations_ProfessorCannotAccessStudentApi() {
         // given
         fakeSectionRepository.save(Section.builder()
             .id(1L)
@@ -261,24 +261,18 @@ public class TeamMessageFacadeTest {
             .build());
         TeamMessagePersistResponse posted = teamMessageFacade.postMessage(1L, USER_A, createRequest("확인 부탁드립니다."));
 
-        // when
-        TeamMessagePageResponse messages = teamMessageFacade.getMessages(
-            1L, null, PageRequest.of(0, 10), PROFESSOR_ID);
-        teamMessageFacade.updateImportant(posted.id(), true, PROFESSOR_ID);
-        teamMessageFacade.markAsRead(posted.id(), PROFESSOR_ID);
-        UnreadMessageCountResponse unreadCount = teamMessageFacade.getUnreadCount(1L, PROFESSOR_ID);
-        TeamMessagePersistResponse reply = teamMessageFacade.postMessage(
-            1L, PROFESSOR_ID, createRequest("확인했습니다."));
-
-        // then
-        assertEquals(1, messages.contents().size());
-        assertEquals(0, unreadCount.count());
-        assertEquals(PROFESSOR_ID, reply.senderId());
-        assertTrue(teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), PROFESSOR_ID)
-            .contents().stream()
-            .filter(message -> message.id().equals(posted.id()))
-            .findFirst()
-            .orElseThrow()
-            .important());
+        // when & then
+        assertThatThrownBy(() -> teamMessageFacade.getMessages(
+            1L, null, PageRequest.of(0, 10), PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.updateImportant(posted.id(), true, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.markAsRead(posted.id(), PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.getUnreadCount(1L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.postMessage(
+            1L, PROFESSOR_ID, createRequest("확인했습니다.")))
+            .isInstanceOf(AccessDeniedException.class);
     }
 }

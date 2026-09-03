@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import kgu.developers.admin.teammessage.application.TeamMessageAdminFacade;
-import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
@@ -42,9 +41,6 @@ class TeamMessageAdminFacadeTest {
 
     @Mock
     private SectionRepository sectionRepository;
-
-    @Mock
-    private SectionQueryService sectionQueryService;
 
     @Mock
     private TeamRepository teamRepository;
@@ -103,23 +99,20 @@ class TeamMessageAdminFacadeTest {
     @DisplayName("다른 교수의 분반 메시지는 조회할 수 없다")
     void getMessages_ForeignSection() {
         Pageable pageable = PageRequest.of(0, 20);
-        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID))
-            .willReturn(false);
+        given(sectionRepository.findById(1L))
+            .willReturn(Optional.of(detail(section(1L, "1151", "다른 교수"))));
 
         assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 메시지만 조회할 수 있습니다.");
 
-        verify(sectionRepository, never()).findById(1L);
         verify(teamRepository, never()).findAllBySectionIdIn(anyList());
     }
 
     @Test
-    @DisplayName("소유권 확인 뒤 분반이 사라져도 존재 여부를 노출하지 않는다")
-    void getMessages_SectionRemovedAfterAccessCheck() {
+    @DisplayName("존재하지 않는 분반도 접근 권한 오류로 처리한다")
+    void getMessages_SectionNotFound() {
         Pageable pageable = PageRequest.of(0, 20);
-        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID))
-            .willReturn(true);
         given(sectionRepository.findById(1L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID))
