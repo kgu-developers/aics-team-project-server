@@ -9,6 +9,7 @@ import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
 import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class ProjectApprovalCommandService {
+
+    private static final String UNIQUE_APPROVAL_CONSTRAINT = "uk_project_approval_project_user";
 
     private final ProjectApprovalRepository projectApprovalRepository;
     private final ProjectRepository projectRepository;
@@ -34,7 +37,19 @@ public class ProjectApprovalCommandService {
         try {
             projectApprovalRepository.save(ProjectApproval.create(projectId, userId, proposalRevision, LocalDateTime.now()));
         } catch (DataIntegrityViolationException exception) {
-            throw new DuplicateProjectApprovalException();
+            if (!violatesUniqueApproval(exception)) {
+                throw exception;
+            }
+            throw new DuplicateProjectApprovalException(exception);
         }
+    }
+
+    private boolean violatesUniqueApproval(Throwable exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException constraintViolation) {
+                return UNIQUE_APPROVAL_CONSTRAINT.equalsIgnoreCase(constraintViolation.getConstraintName());
+            }
+        }
+        return false;
     }
 }
