@@ -197,7 +197,13 @@ public class SubmissionCommandService {
         validatePresentationOrders(sectionTeams, orderByTeamId);
 
         for (Team team : sectionTeams) {
-            Submission submission = submissionQueryService.getOrCreateSubmission(team.getId(), milestoneId);
+            Long submissionId = submissionQueryService.getOrCreateSubmission(team.getId(), milestoneId).getId();
+            // submitVersion/completeSubmission/reopenSubmission과 같은 잠금 규약: 락 없이 조회한
+            // Submission을 그대로 save()하면 발표 순서 지정이 동시에 진행 중인 제출·완료 처리와
+            // 겹쳤을 때 오래된 status/currentVersion을 발표 순서와 함께 덮어쓸 수 있다
+            // (sunzx0428 PR #87 리뷰 09-03 2차).
+            Submission submission = submissionRepository.findByIdForUpdate(submissionId)
+                    .orElseThrow(SubmissionNotFoundException::new);
             submission.assignPresentationOrder(orderByTeamId.get(team.getId()));
             submissionRepository.save(submission);
         }

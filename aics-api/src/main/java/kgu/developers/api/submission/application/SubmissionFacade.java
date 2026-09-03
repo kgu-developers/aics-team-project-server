@@ -210,7 +210,8 @@ public class SubmissionFacade {
     public PresentationContentResponse getPresentationContent(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validatePresentationMilestone(submission.getMilestoneId());
-        return toPresentationContentResponse(presentationContentRepository.findBySubmissionId(submissionId).orElse(null));
+        return toPresentationContentResponse(
+                submissionId, presentationContentRepository.findBySubmissionId(submissionId).orElse(null));
     }
 
     public PresentationContentResponse updatePresentationContent(Long submissionId, String userId, PresentationContentRequest request) {
@@ -220,8 +221,9 @@ public class SubmissionFacade {
         validateNotLockedByAnother(submissionId, userId);
         validateScreenImagesOwnedBySubmission(submissionId, request.screens());
         PresentationContent content = presentationContentCommandService.upsert(
-                submissionId, request.introText(), request.features(), request.screens(), request.youtubeUrl());
-        return toPresentationContentResponse(content);
+                submissionId, request.introText(), request.features(),
+                stripClientProvidedImageUrls(request.screens()), request.youtubeUrl());
+        return toPresentationContentResponse(submissionId, content);
     }
 
     public MilestonePresentationsResponse getMilestonePresentations(Long milestoneId, String userId) {
@@ -234,7 +236,7 @@ public class SubmissionFacade {
 
         List<TeamPresentationResponse> contents = submissions.stream()
                 .map(submission -> TeamPresentationResponse.of(
-                        submission, toPresentationContentResponse(contentBySubmissionId.get(submission.getId()))))
+                        submission, toPresentationContentResponse(submission.getId(), contentBySubmissionId.get(submission.getId()))))
                 .toList();
         return MilestonePresentationsResponse.builder().contents(contents).build();
     }
@@ -244,30 +246,59 @@ public class SubmissionFacade {
     // 이 발표자료 조회 API 말고는 없음, sunzx0428 PR #87 리뷰 09-03). 조회할 때마다 각 화면의
     // imageFileId를 presigned URL(imageUrl)로 보강해서 내려준다 — 저장은 안 건드린다(15분 후
     // 만료되는 임시 URL이라 영구 저장하면 안 됨).
-    private PresentationContentResponse toPresentationContentResponse(PresentationContent content) {
+    private PresentationContentResponse toPresentationContentResponse(Long submissionId, PresentationContent content) {
         if (content == null) {
             return PresentationContentResponse.from(null, null);
         }
-        return PresentationContentResponse.from(content, resolveScreenImageUrls(content.getScreens()));
+        return PresentationContentResponse.from(content, resolveScreenImageUrls(submissionId, content.getScreens()));
     }
 
-    private JsonNode resolveScreenImageUrls(JsonNode screens) {
+    // imageFileId 소유권을 저장 시점(validateScreenImagesOwnedBySubmission)에만 확인하고 끝내면,
+    // 그 뒤 뭔가의 이유로 저장된 값이 오염돼도 조회할 때마다 계속 URL이 나가버린다. 여기서도
+    // isFileArtifactOfSubmission으로 다시 확인해서, 지금 시점에 소유가 아니면 URL을 만들지 않는다
+    // (sunzx0428 PR #87 리뷰 09-03 2차). "imageUrl"은 항상 먼저 지우고 다시 계산한다 — 클라이언트가
+    // 보낸 값이든 과거에 잘못 저장된 값이든 그대로 흘려보내지 않기 위해서다.
+    private JsonNode resolveScreenImageUrls(Long submissionId, JsonNode screens) {
         if (screens == null || !screens.isArray()) {
             return screens;
         }
         ArrayNode resolved = JsonNodeFactory.instance.arrayNode();
         for (JsonNode screen : screens) {
-            JsonNode imageFileIdNode = screen.isObject() ? screen.get("imageFileId") : null;
-            if (imageFileIdNode == null || !imageFileIdNode.isIntegralNumber()) {
+            if (!screen.isObject()) {
                 resolved.add(screen);
                 continue;
             }
-            ObjectNode withUrl = (ObjectNode) screen.deepCopy();
-            fileObjectRepository.findById(imageFileIdNode.asLong())
-                    .ifPresent(fileObject -> withUrl.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey())));
-            resolved.add(withUrl);
+            ObjectNode sanitized = (ObjectNode) screen.deepCopy();
+            sanitized.remove("imageUrl");
+            JsonNode imageFileIdNode = screen.get("imageFileId");
+            if (imageFileIdNode != null && imageFileIdNode.isIntegralNumber()
+                    && isFileArtifactOfSubmission(submissionId, imageFileIdNode.asLong())) {
+                fileObjectRepository.findById(imageFileIdNode.asLong())
+                        .ifPresent(fileObject -> sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey())));
+            }
+            resolved.add(sanitized);
         }
         return resolved;
+    }
+
+    // presigned URL은 조회 시점에 서버가 매번 새로 만드는 값이라 저장하면 안 되는데, 클라이언트가
+    // 요청 JSON에 임의의 "imageUrl"을 넣어 보내면 그게 그대로 DB에 남을 수 있었다. 저장 전에
+    // 걸러낸다(sunzx0428 PR #87 리뷰 09-03 2차).
+    private JsonNode stripClientProvidedImageUrls(JsonNode screens) {
+        if (screens == null || !screens.isArray()) {
+            return screens;
+        }
+        ArrayNode sanitized = JsonNodeFactory.instance.arrayNode();
+        for (JsonNode screen : screens) {
+            if (!screen.isObject()) {
+                sanitized.add(screen);
+                continue;
+            }
+            ObjectNode copy = (ObjectNode) screen.deepCopy();
+            copy.remove("imageUrl");
+            sanitized.add(copy);
+        }
+        return sanitized;
     }
 
     public void assignPresentationOrder(Long milestoneId, String professorId, PresentationOrderRequest request) {

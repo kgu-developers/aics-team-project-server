@@ -39,7 +39,6 @@ public class SubmissionQueryService {
     // 마일스톤 publish 시점에 미리 만들어두는(eager) 대신, 팀이 처음 조회하는 시점에 만든다.
     // B1(마일스톤) 쪽 코드를 안 건드리면서도 "GET .../my-team-submission은 절대 404가 안 난다"는
     // API 계약은 그대로 지킬 수 있다.
-    @Transactional
     public Submission getOrCreateSubmission(Long teamId, Long milestoneId) {
         return submissionRepository.findByTeamIdAndMilestoneId(teamId, milestoneId)
                 .orElseGet(() -> createSubmission(teamId, milestoneId));
@@ -49,18 +48,19 @@ public class SubmissionQueryService {
     // 걸 보고 둘 다 저장을 시도할 수 있다 — DB 유니크 제약(uk_submission_team_milestone)이
     // 하나만 통과시키므로, 저장이 그 제약에 걸리면 방금 다른 요청이 만든 행을 다시 조회해서
     // 반환한다(멱등 처리, 두 번째 요청이 500 대신 정상 응답을 받게).
+    //
+    // save()도 재조회도 각자 별도의 REQUIRES_NEW 트랜잭션에서 실행한다 — 저장이 유니크 제약
+    // 위반으로 실패하면 PostgreSQL은 그 트랜잭션이 물려있던 커넥션 자체를 abort 상태로 만든다.
+    // 재조회만 새 트랜잭션으로 옮기고 save() 시도를 호출자의(이 메서드를 부른 쪽의) 트랜잭션
+    // 안에 그대로 두면, 재조회가 새 트랜잭션에서 성공해도 호출자의 트랜잭션은 이미 abort된
+    // 커넥션을 물고 있어 커밋 시점에 실패한다(sunzx0428 PR #87 리뷰 09-03 2차). save() 시도
+    // 자체를 독립된 트랜잭션으로 분리해야 실패가 호출자의 트랜잭션을 오염시키지 않는다.
     private Submission createSubmission(Long teamId, Long milestoneId) {
+        TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
+        requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         try {
-            return submissionRepository.save(Submission.create(teamId, milestoneId));
+            return requiresNew.execute(status -> submissionRepository.save(Submission.create(teamId, milestoneId)));
         } catch (DataIntegrityViolationException e) {
-            // save()가 유니크 제약 위반으로 실패한 세션은 더 이상 신뢰할 수 없다 — Hibernate는
-            // flush 중 예외가 나면 그 세션을 계속 쓰지 말라고 명시한다. 그래서 같은 트랜잭션에서
-            // 바로 재조회하지 않고 완전히 새 트랜잭션(새 커넥션·영속성 컨텍스트)을 열어서
-            // 조회한다. PostgreSQL은 유니크 인덱스 충돌 검사 시 경합 중인 다른 트랜잭션의
-            // 커밋을 기다리므로, 이 예외를 받은 시점엔 이미 그 트랜잭션이 커밋된 뒤라 새
-            // 트랜잭션에서 바로 보인다(sunzx0428 PR #87 리뷰 09-03).
-            TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
-            requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             return requiresNew.execute(status -> submissionRepository
                     .findByTeamIdAndMilestoneId(teamId, milestoneId)
                     .orElseThrow(() -> e));
