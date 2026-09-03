@@ -1,0 +1,191 @@
+package user.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import kgu.developers.api.section.presentation.response.SectionResponse;
+import kgu.developers.api.user.application.UserFacade;
+import kgu.developers.api.user.presentation.response.UserResponse;
+import kgu.developers.domain.course.domain.Course;
+import kgu.developers.domain.course.domain.SemesterType;
+import kgu.developers.domain.course.domain.StatusType;
+import kgu.developers.domain.section.application.query.SectionQueryService;
+import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.section.domain.SectionDetail;
+import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.application.command.UserCommandService;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
+
+@ExtendWith(MockitoExtension.class)
+class UserFacadeTest {
+
+    private static final String STUDENT_NUMBER = "202699999";
+
+    @Mock
+    private UserCommandService userCommandService;
+
+    @Mock
+    private UserQueryService userQueryService;
+
+    @Mock
+    private SectionQueryService sectionQueryService;
+
+    @Mock
+    private TeamMemberRepository teamMemberRepository;
+
+    @InjectMocks
+    private UserFacade userFacade;
+
+    private final User student = User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "encoded",
+            UserGlobalRole.USER, "010-1234-6789");
+
+    private final User professor = User.create(STUDENT_NUMBER, "professor@kyonggi.ac.kr", "김교수", "encoded",
+            UserGlobalRole.ADMIN, "010-9876-5432");
+
+    private final Course course = Course.builder()
+            .id(1L)
+            .name("객체지향프로그래밍")
+            .year(2026)
+            .semester(SemesterType.SPRING)
+            .status(StatusType.ACTIVE)
+            .build();
+
+    private SectionDetail sectionDetail(Long sectionId) {
+        return sectionDetail(sectionId, 40);
+    }
+
+    private SectionDetail sectionDetail(Long sectionId, Integer capacity) {
+        Section section = Section.builder()
+                .id(sectionId)
+                .professorId(STUDENT_NUMBER)
+                .courseId(1L)
+                .code("CS101")
+                .name("0" + sectionId + "분반")
+                .classTime("월3,4")
+                .capacity(capacity)
+                .contactVisibleFrom(LocalDateTime.of(2026, 3, 2, 0, 0))
+                .contactVisibleUntil(LocalDateTime.of(2026, 6, 20, 18, 0))
+                .build();
+        return new SectionDetail(section, course, professor);
+    }
+
+    @Test
+    @DisplayName("수강 분반과 담당 분반이 겹치면 한 번만 내려간다")
+    void getMeDeduplicatesSectionBelongingToBothSources() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
+        given(sectionQueryService.getEnrolledSections(professor)).willReturn(List.of(sectionDetail(1L, 40)));
+        given(sectionQueryService.getOwnedSections(professor)).willReturn(List.of(sectionDetail(1L, 41)));
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections())
+                .singleElement()
+                .satisfies(section -> {
+                    assertThat(section.id()).isEqualTo(1L);
+                    assertThat(section.capacity()).isEqualTo(40);
+                });
+    }
+
+    @Test
+    @DisplayName("수강 분반과 담당 분반이 다르면 둘 다 내려간다")
+    void getMeKeepsDistinctSections() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
+        given(sectionQueryService.getEnrolledSections(professor)).willReturn(List.of(sectionDetail(1L)));
+        given(sectionQueryService.getOwnedSections(professor)).willReturn(List.of(sectionDetail(2L)));
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections())
+                .extracting(SectionResponse::id)
+                .containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("수강 분반과 담당 분반이 없으면 소속 분반은 비어 있다")
+    void getMeReturnsEmptySections() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("수강 내역이 없는 관리자도 담당 분반을 조회한다")
+    void getMeIncludesProfessorSectionsWithoutEnrollments() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
+        given(sectionQueryService.getOwnedSections(professor)).willReturn(List.of(sectionDetail(1L)));
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections())
+                .singleElement()
+                .extracting(SectionResponse::id)
+                .isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("일반 사용자는 교수 담당 분반을 조회하지 않는다")
+    void getMeDoesNotQueryProfessorSectionsForUser() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections()).isEmpty();
+        verify(sectionQueryService, never()).getOwnedSections(student);
+    }
+
+    @Test
+    @DisplayName("수강 내역이 없어도 팀에 속하면 teamId가 내려간다")
+    void getMeReturnsTeamIdWithoutEnrollments() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+        given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
+                .willReturn(List.of(TeamMember.create(7L, STUDENT_NUMBER, true, null)));
+
+        UserResponse response = userFacade.getMe(STUDENT_NUMBER);
+
+        assertThat(response.sections()).isEmpty();
+        assertThat(response.teamId()).isEqualTo(7L);
+    }
+
+    @Test
+    @DisplayName("팀에 속하면 teamId가 내려가고, 속하지 않으면 null이다")
+    void getMeReturnsTeamId() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+        given(sectionQueryService.getEnrolledSections(student)).willReturn(List.of(sectionDetail(1L)));
+        given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
+                .willReturn(List.of(TeamMember.create(7L, STUDENT_NUMBER, true, null)))
+                .willReturn(List.of());
+
+        assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isEqualTo(7L);
+        assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isNull();
+    }
+
+    @Test
+    @DisplayName("여러 팀에 속하면 조회 순서와 무관하게 가장 최근 팀이 내려간다")
+    void getMeReturnsLatestTeamIdWhenUserBelongsToMultipleTeams() {
+        given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(student);
+        given(teamMemberRepository.findAllByUserId(STUDENT_NUMBER))
+                .willReturn(List.of(
+                        TeamMember.create(3L, STUDENT_NUMBER, false, null),
+                        TeamMember.create(9L, STUDENT_NUMBER, true, null),
+                        TeamMember.create(5L, STUDENT_NUMBER, false, null)));
+
+        assertThat(userFacade.getMe(STUDENT_NUMBER).teamId()).isEqualTo(9L);
+    }
+}
