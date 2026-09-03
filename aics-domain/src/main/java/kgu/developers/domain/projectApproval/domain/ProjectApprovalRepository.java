@@ -20,6 +20,8 @@ public interface ProjectApprovalRepository {
 
     List<ProjectApproval> findAllByUserId(String userId);
 
+    ApprovalCount countApprovalsByTeamMembers(Long projectId, Long teamId, long proposalRevision);
+
     void deleteById(Long id);
 
     void deleteAllByProjectId(Long projectId);

@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
+import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,11 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
             .stream()
             .map(ProjectApprovalJpaEntity::toDomain)
             .toList();
+    }
+
+    @Override
+    public ApprovalCount countApprovalsByTeamMembers(Long projectId, Long teamId, long proposalRevision) {
+        return jpaProjectApprovalRepository.countApprovalsByTeamMembers(projectId, teamId, proposalRevision);
     }
 
     @Override

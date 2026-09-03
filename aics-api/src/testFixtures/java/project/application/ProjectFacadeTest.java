@@ -13,11 +13,9 @@ import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
-import kgu.developers.domain.projectApproval.domain.ProjectApproval;
-import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,8 +23,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
-
-import java.util.List;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectFacadeTest {
@@ -37,7 +33,6 @@ class ProjectFacadeTest {
     @Mock private ProjectCommandService projectCommandService;
     @Mock private ProjectQueryService projectQueryService;
     @Mock private TeamAccessValidator teamAccessValidator;
-    @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
     @Mock private ProjectApprovalCommandService projectApprovalCommandService;
     @InjectMocks private ProjectFacade projectFacade;
@@ -119,13 +114,10 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("getApprovalSummary는 완료 인원과 전체 인원을 반환한다")
     void getApprovalSummary() {
-        TeamMember member = TeamMember.create(TEAM_ID, MEMBER_ID, false, "개발자");
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
-        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(member, TeamMember.create(TEAM_ID, "202412346", false, "기획자")));
-        given(projectApprovalRepository.findAllByProjectIdAndProposalRevision(10L, 0L)).willReturn(List.of(
-            ProjectApproval.builder().id(1L).projectId(10L).userId(MEMBER_ID).build()
-        ));
+        given(projectApprovalRepository.countApprovalsByTeamMembers(10L, TEAM_ID, 0L))
+            .willReturn(new ApprovalCount(2L, 1L));
 
         var response = projectFacade.getApprovalSummary(10L, MEMBER_ID);
 
