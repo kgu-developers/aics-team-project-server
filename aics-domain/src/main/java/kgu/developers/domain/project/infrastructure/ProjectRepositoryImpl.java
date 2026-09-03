@@ -61,14 +61,6 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     }
 
     @Override
-    public List<Project> findAllByTeamIdForUpdate(Long teamId) {
-        return jpaProjectRepository.findAllByTeamIdForUpdate(teamId)
-                .stream()
-                .map(ProjectJpaEntity::toDomain)
-                .toList();
-    }
-
-    @Override
     public List<Project> findAllByTeamIdIncludingDeletedForUpdate(Long teamId) {
         return jpaProjectRepository.findAllByTeamIdIncludingDeletedForUpdate(teamId)
                 .stream()

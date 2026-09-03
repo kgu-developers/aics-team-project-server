@@ -13,17 +13,11 @@ import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 public interface JpaProjectApprovalRepository extends JpaRepository<ProjectApprovalJpaEntity, Long> {
     Optional<ProjectApprovalJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
-    boolean existsByProjectIdAndUserIdAndDeletedAtIsNull(Long projectId, String userId);
-
     boolean existsByProjectIdAndUserIdAndProposalRevisionAndDeletedAtIsNull(Long projectId, String userId, long proposalRevision);
-
-    Optional<ProjectApprovalJpaEntity> findByProjectIdAndUserIdAndDeletedAtIsNull(Long projectId, String userId);
 
     List<ProjectApprovalJpaEntity> findAllByProjectIdAndDeletedAtIsNullOrderByUserIdAsc(Long projectId);
 
     List<ProjectApprovalJpaEntity> findAllByProjectIdAndProposalRevisionAndDeletedAtIsNullOrderByUserIdAsc(Long projectId, long proposalRevision);
-
-    List<ProjectApprovalJpaEntity> findAllByUserIdAndDeletedAtIsNullOrderByProjectIdAsc(String userId);
 
     @Query("""
         SELECT new kgu.developers.domain.projectApproval.domain.ApprovalCount(COUNT(tm.id), COUNT(pa.id))
