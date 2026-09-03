@@ -13,6 +13,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,33 +46,45 @@ class TopicCandidateCommandServiceTest {
     }
 
     @Test
-    @DisplayName("등록은 소프트 삭제된 제목이면 같은 팀에서 다시 쓸 수 있다")
-    void createAllowsReusingDeletedTitle() {
-        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
+    @DisplayName("등록은 같은 제목이 없으면 새 후보를 저장한다")
+    void createSavesNewCandidateWhenNoneExists() {
+        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "새 제목"))
                 .willReturn(Optional.empty());
         given(topicCandidateRepository.save(any(TopicCandidate.class)))
-                .willReturn(candidate(2L, "삭제된 제목"));
+                .willReturn(candidate(2L, "새 제목"));
 
-        Long id = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "삭제된 제목", "새 설명");
+        Long id = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "새 제목", "새 설명");
 
         assertThat(id).isEqualTo(2L);
+        TopicCandidate saved = savedCandidate();
+        assertThat(saved.getId()).isNull();
+        assertThat(saved.getProposerUserId()).isEqualTo("20230002");
+        assertThat(saved.getDescription()).isEqualTo("새 설명");
     }
 
     @Test
-    @DisplayName("등록은 삭제된 후보를 되살릴 때 새 제안자와 설명을 반영한다")
-    void createReactivatesWithNewProposerAndDescription() {
+    @DisplayName("등록은 소프트 삭제된 후보를 되살리며 새 제안자와 설명을 반영한다")
+    void createReactivatesDeletedCandidate() {
         TopicCandidate deleted = candidate(2L, "삭제된 제목");
         deleted.delete();
         given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
                 .willReturn(Optional.of(deleted));
-        given(topicCandidateRepository.save(deleted)).willReturn(deleted);
+        given(topicCandidateRepository.save(any(TopicCandidate.class))).willReturn(deleted);
 
         Long id = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "삭제된 제목", "새 설명");
 
         assertThat(id).isEqualTo(2L);
-        assertThat(deleted.getDeletedAt()).isNull();
-        assertThat(deleted.getProposerUserId()).isEqualTo("20230002");
-        assertThat(deleted.getDescription()).isEqualTo("새 설명");
+        TopicCandidate saved = savedCandidate();
+        assertThat(saved.getId()).isEqualTo(2L);
+        assertThat(saved.getDeletedAt()).isNull();
+        assertThat(saved.getProposerUserId()).isEqualTo("20230002");
+        assertThat(saved.getDescription()).isEqualTo("새 설명");
+    }
+
+    private TopicCandidate savedCandidate() {
+        ArgumentCaptor<TopicCandidate> captor = ArgumentCaptor.forClass(TopicCandidate.class);
+        verify(topicCandidateRepository).save(captor.capture());
+        return captor.getValue();
     }
 
     @Test
