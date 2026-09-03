@@ -124,6 +124,12 @@ public class EnrollmentImportFacade {
                     skipped++;
                     continue;
                 }
+                // preview 이후 계정이 탈퇴(소프트삭제)됐을 수 있다 — 탈퇴 계정의 수강 이력을
+                // 다시 활성화하지 않도록, 신규 계정 생성 분기와 같은 existingUsers 기준으로 확인한다.
+                if (!existingUsers.contains(studentNumber)) {
+                    skipped++;
+                    continue;
+                }
                 enrollmentCommandService.updateEnrollment(batch.getSectionId(), studentNumber, role, Status.ACTIVE);
                 applied++;
                 continue;

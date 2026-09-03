@@ -150,6 +150,18 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("preview는 형식이 잘못된 이메일을 오류로 표시한다")
+    public void preview_RejectsMalformedEmail() throws IOException {
+        // when
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", "not-an-email", "010-0000-0003", ""}));
+
+        // then
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("이메일 형식");
+    }
+
+    @Test
     @DisplayName("preview는 같은 이메일을 가진 유저가 여러 명이어도 죽지 않는다")
     public void preview_SurvivesDuplicateEmailOwners() throws IOException {
         // given
@@ -264,6 +276,26 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.skipped()).isZero();
         verify(enrollmentCommandService).updateEnrollment(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE);
         verify(enrollmentCommandService, never()).createEnrollment(any(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("apply는 재활성화 대상 계정이 preview 이후 탈퇴했으면 그 행을 건너뛴다")
+    public void apply_SkipsReactivationWhenUserWithdrawnAfterPreview() {
+        // given: MEMBER의 Enrollment는 WITHDRAWN으로 남아있지만, apply 시점엔 계정 자체가 탈퇴해
+        // 활성 사용자 목록(existingUsers)에서 빠졌다
+        ImportBatch batch = batch(0, List.of(row(2, MEMBER, RowStatus.VALID)));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+        given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
+            Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.WITHDRAWN)));
+        given(userRepository.findAllByStudentNumberIn(any())).willReturn(List.of(user(ENROLLED)));
+
+        // when
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        // then
+        assertThat(response.applied()).isZero();
+        assertThat(response.skipped()).isEqualTo(1);
+        verify(enrollmentCommandService, never()).updateEnrollment(any(), any(), any(), any());
     }
 
     @Test

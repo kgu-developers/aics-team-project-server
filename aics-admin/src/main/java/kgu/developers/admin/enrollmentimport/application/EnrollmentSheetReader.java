@@ -7,6 +7,7 @@ import static kgu.developers.admin.importcommon.Sheets.column;
 import static kgu.developers.admin.importcommon.Sheets.tooLong;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.apache.poi.ss.usermodel.Row;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +17,9 @@ import kgu.developers.domain.enrollment.domain.Role;
 
 public final class EnrollmentSheetReader {
     private static final String SCHOOL_MAIL_DOMAIN = "@kyonggi.ac.kr";
+    // 일반 사용자 생성 경로(UserAdminRequest)의 @Email과 같은 취지 — 이 경로는
+    // 그 검증을 거치지 않고 UserCommandService.createUser로 바로 가기 때문에 여기서 직접 확인한다.
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$");
 
     private EnrollmentSheetReader() {
     }
@@ -61,6 +65,8 @@ public final class EnrollmentSheetReader {
         }
         if (email.isEmpty()) {
             email = studentNumber + SCHOOL_MAIL_DOMAIN;
+        } else if (!EMAIL_PATTERN.matcher(email).matches()) {
+            return invalid(rowNumber, studentNumber, name, email, phone, "이메일 형식이 올바르지 않습니다.");
         }
 
         // 저장 시 잘리거나 실패하지 않도록 user 테이블 컬럼 길이를 미리 확인한다
