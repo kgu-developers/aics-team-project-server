@@ -26,6 +26,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import kgu.developers.admin.enrollmentimport.application.EnrollmentImportFacade;
 import kgu.developers.admin.enrollmentimport.application.EnrollmentImportRow;
@@ -71,6 +73,7 @@ public class EnrollmentImportFacadeTest {
     private UserCommandService userCommandService;
     private UserRepository userRepository;
     private SectionRepository sectionRepository;
+    private TransactionTemplate transactionTemplate;
     private EnrollmentImportFacade facade;
 
     @BeforeEach
@@ -81,10 +84,16 @@ public class EnrollmentImportFacadeTest {
         userCommandService = mock(UserCommandService.class);
         userRepository = mock(UserRepository.class);
         sectionRepository = mock(SectionRepository.class);
+        transactionTemplate = mock(TransactionTemplate.class);
+        given(transactionTemplate.execute(any())).willAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
         facade = new EnrollmentImportFacade(importBatchRepository, enrollmentRepository,
             enrollmentCommandService, userCommandService, userRepository,
             sectionRepository,
-            new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
+            new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository),
+            transactionTemplate);
 
         given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
         given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))

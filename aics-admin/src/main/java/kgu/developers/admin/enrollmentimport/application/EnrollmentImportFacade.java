@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -53,22 +54,29 @@ public class EnrollmentImportFacade {
     private final UserRepository userRepository;
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public EnrollmentImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         boolean isAssistantOnly = sectionStaffValidator.validateAndIsAssistantOnly(sectionId, uploaderId);
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
 
-        List<EnrollmentImportRow> rows = validate(sectionId, EnrollmentSheetReader.read(file), isAssistantOnly);
-        EnrollmentImportSummary summary = EnrollmentImportSummary.of(rows);
+        // 임시파일 복사·zip해제·워크북 파싱은 시간이 걸릴 수 있는 순수 I/O라, DB 트랜잭션을
+        // 열어둔 채로 하지 않는다(sunzx0428 리뷰 09-03) — 커넥션 풀을 불필요하게 오래
+        // 점유하게 됨. 트랜잭션이 필요한 조회·저장 구간만 아래에서 별도로 감싼다.
+        List<EnrollmentImportRow> parsedRows = EnrollmentSheetReader.read(file);
 
-        ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.ENROLLMENT,
-            JsonConverter.toTree(rows), JsonConverter.toTree(summary),
-            LocalDateTime.now().plus(PREVIEW_TTL));
+        return transactionTemplate.execute(status -> {
+            List<EnrollmentImportRow> rows = validate(sectionId, parsedRows, isAssistantOnly);
+            EnrollmentImportSummary summary = EnrollmentImportSummary.of(rows);
 
-        return new EnrollmentImportPreviewResponse(importBatchRepository.save(batch).getId(), summary, rows);
+            ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.ENROLLMENT,
+                JsonConverter.toTree(rows), JsonConverter.toTree(summary),
+                LocalDateTime.now().plus(PREVIEW_TTL));
+
+            return new EnrollmentImportPreviewResponse(importBatchRepository.save(batch).getId(), summary, rows);
+        });
     }
 
     @Transactional

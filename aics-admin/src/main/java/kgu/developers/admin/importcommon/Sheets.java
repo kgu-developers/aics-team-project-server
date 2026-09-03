@@ -12,12 +12,14 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.zip.ZipInputStream;
 
+import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.util.RecordFormatException;
 import org.springframework.web.multipart.MultipartFile;
 
 import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
@@ -83,8 +85,14 @@ public final class Sheets {
             throw e;
         } catch (IOException e) {
             throw new ImportBatchFileInvalidException(e);
-        } catch (Exception e) {
-            throw new ImportBatchFileInvalidException("압축 파일 처리 중 오류가 발생했습니다: " + e.getMessage());
+        } catch (EncryptedDocumentException | IllegalArgumentException | RecordFormatException e) {
+            // 비밀번호 보호, 지원하지 않는 파일 형식(NotOfficeXmlFileException 등은
+            // IllegalArgumentException 계열), 손상된 레코드 구조처럼 업로드한 파일 자체의
+            // 문제로 판단되는 예외만 좁혀서 400으로 응답한다. 그 외(NPE 등 POI/서버 쪽에서
+            // 예상 못한 문제)는 여기서 안 잡고 GlobalExceptionHandler의 범용 핸들러가 500으로
+            // 처리하게 둔다 — 서버 오류까지 "파일이 잘못됐다"고 클라이언트 탓으로 돌리면 안 된다
+            // (sunzx0428 리뷰 09-03).
+            throw new ImportBatchFileInvalidException("파일을 열 수 없습니다: " + e.getMessage());
         } finally {
             deleteQuietly(temp);
         }

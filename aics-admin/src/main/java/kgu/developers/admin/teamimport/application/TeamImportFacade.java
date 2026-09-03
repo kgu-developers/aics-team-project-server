@@ -16,10 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -39,6 +41,7 @@ import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.domain.User;
@@ -58,22 +61,29 @@ public class TeamImportFacade {
     private final UserRepository userRepository;
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public TeamImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         sectionStaffValidator.validate(sectionId, uploaderId);
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();
         }
 
-        List<TeamImportRow> rows = validate(sectionId, TeamSheetReader.read(file));
-        TeamImportSummary summary = TeamImportSummary.of(rows);
+        // 임시파일 복사·zip해제·워크북 파싱은 시간이 걸릴 수 있는 순수 I/O라, DB 트랜잭션을
+        // 열어둔 채로 하지 않는다(sunzx0428 리뷰 09-03) — 커넥션 풀을 불필요하게 오래
+        // 점유하게 됨. 트랜잭션이 필요한 조회·저장 구간만 아래에서 별도로 감싼다.
+        List<TeamImportRow> parsedRows = TeamSheetReader.read(file);
 
-        ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.TEAM,
-            JsonConverter.toTree(rows), JsonConverter.toTree(summary),
-            LocalDateTime.now().plus(PREVIEW_TTL));
+        return transactionTemplate.execute(status -> {
+            List<TeamImportRow> rows = validate(sectionId, parsedRows);
+            TeamImportSummary summary = TeamImportSummary.of(rows);
 
-        return new TeamImportPreviewResponse(importBatchRepository.save(batch).getId(), summary, rows);
+            ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.TEAM,
+                JsonConverter.toTree(rows), JsonConverter.toTree(summary),
+                LocalDateTime.now().plus(PREVIEW_TTL));
+
+            return new TeamImportPreviewResponse(importBatchRepository.save(batch).getId(), summary, rows);
+        });
     }
 
     @Transactional
@@ -114,6 +124,21 @@ public class TeamImportFacade {
         List<PlannedRow> planned = new ArrayList<>();
         int skipped = plan(batch, teamIds, activeAssignedOf, planned);
         Map<String, String> leaderOf = plannedLeaders(planned, teamIds, currentLeaderByTeamId);
+
+        // 위 teamStatusById는 잠금 없이 읽은 스냅샷이라, 그 사이 다른 요청이
+        // TeamCommandService.finalizeTeam()(findByIdForUpdate로 팀을 잠그고 CONFIRMED로
+        // 전환)을 실행하면 옛 FORMING 상태를 그대로 믿고 이미 확정된 팀의 팀원을 수정할 수
+        // 있다(sunzx0428 리뷰 09-03). 실제로 반영 대상인 팀들만 ID 오름차순으로 잠가(다른
+        // 트랜잭션과 반대 순서로 잠가서 나는 데드락 방지, Part 5 참고) 최신 상태로 다시 확인한다.
+        Set<Long> touchedTeamIds = new TreeSet<>();
+        planned.forEach(row -> {
+            Long teamId = row.assigned() != null ? row.assigned().getTeamId() : teamIds.get(row.teamName());
+            if (teamId != null) {
+                touchedTeamIds.add(teamId);
+            }
+        });
+        touchedTeamIds.forEach(id -> teamStatusById.put(id,
+            teamRepository.findByIdForUpdate(id).orElseThrow(TeamNotFoundException::new).getStatus()));
 
         int createdTeams = 0;
         int appliedMembers = 0;

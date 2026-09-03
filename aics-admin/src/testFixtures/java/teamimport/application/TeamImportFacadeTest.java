@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import kgu.developers.admin.importcommon.RowStatus;
 import kgu.developers.admin.teamimport.application.TeamImportFacade;
@@ -70,6 +72,7 @@ public class TeamImportFacadeTest {
   private TeamMemberRepository teamMemberRepository;
   private SectionRepository sectionRepository;
   private UserRepository userRepository;
+  private TransactionTemplate transactionTemplate;
   private TeamImportFacade facade;
 
   @BeforeEach
@@ -80,11 +83,23 @@ public class TeamImportFacadeTest {
     teamMemberRepository = mock(TeamMemberRepository.class);
     sectionRepository = mock(SectionRepository.class);
     userRepository = mock(UserRepository.class);
+    transactionTemplate = mock(TransactionTemplate.class);
+    given(transactionTemplate.execute(any())).willAnswer(invocation -> {
+      TransactionCallback<?> callback = invocation.getArgument(0);
+      return callback.doInTransaction(null);
+    });
     facade = new TeamImportFacade(importBatchRepository, enrollmentRepository, teamRepository,
         teamMemberRepository, userRepository, sectionRepository,
-        new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository));
+        new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository),
+        transactionTemplate);
 
     given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
+    given(teamRepository.findByIdForUpdate(any())).willAnswer(invocation -> {
+      Long id = invocation.getArgument(0);
+      return teamRepository.findAllBySectionId(SECTION_ID).stream()
+          .filter(team -> team.getId().equals(id))
+          .findFirst();
+    });
     given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
         .willReturn(Optional.of(Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE)));
     given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
