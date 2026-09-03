@@ -1,9 +1,12 @@
 package kgu.developers.domain.topicCandidate.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 
@@ -12,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -151,6 +155,20 @@ class TopicCandidateRepositoryImplTest {
         TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
         assertThat(repository.findByIdForUpdate(1L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("잠금 조회는 락 대기 중 팀이 바뀌면 실패한다")
+    void findByIdForUpdateFailsWhenTeamMovedWhileWaitingForLock() {
+        TopicCandidateJpaEntity entity = spy(TopicCandidateJpaEntity.toEntity(candidate(1L, "활성 주제")));
+        // 락 대기 중 다른 트랜잭션이 팀 이동을 커밋한 상황: 잠근 팀(100)과 실제 팀(200)이 어긋난다
+        willReturn(100L, 200L).given(entity).getTeamId();
+        given(jpaTopicCandidateRepository.findById(1L)).willReturn(Optional.of(entity));
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
+
+        assertThatThrownBy(() -> repository.findByIdForUpdate(1L))
+                .isInstanceOf(OptimisticLockingFailureException.class);
+        verify(entityManager).find(TeamJpaEntity.class, 100L, PESSIMISTIC_WRITE);
     }
 
     @Test
