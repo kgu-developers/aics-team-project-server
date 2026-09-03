@@ -92,7 +92,7 @@ public interface SubmissionController {
         @PathVariable Long submissionId,
         @RequestParam String description,
         @RequestParam(required = false) String changeNote,
-        @RequestPart(value = "artifacts", required = false) List<SubmissionArtifactRequest> artifacts,
+        @RequestPart(value = "artifacts", required = false) @Valid List<SubmissionArtifactRequest> artifacts,
         @RequestParam(required = false) List<Long> fileArtifactIds,
         @RequestPart(value = "files", required = false) List<MultipartFile> files,
         Authentication authentication

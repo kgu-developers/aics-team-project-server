@@ -19,6 +19,7 @@ public class EditLock {
     private Long targetId;
     private String lockedBy;
     private LocalDateTime lockedAt;
+    private Long version;  // 낙관적 락 버전 (신규는 null)
 
     public static EditLock create(EditLockTargetType targetType, Long targetId, String lockedBy, LocalDateTime lockedAt) {
         return EditLock.builder()

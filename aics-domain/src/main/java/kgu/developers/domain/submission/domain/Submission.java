@@ -55,6 +55,10 @@ public class Submission {
         this.reopenedBy = reopenedBy;
         this.revisionDueAt = revisionDueAt;
         this.status = SubmissionStatus.REVISION_REQUESTED;
+        // API 응답 계약("미완료면 completedAt/completedBy는 null")과 어긋나지 않도록,
+        // 재오픈되면 이전 완료 이력은 지운다.
+        this.completedAt = null;
+        this.completedBy = null;
     }
 
     public void assignPresentationOrder(Integer order) {

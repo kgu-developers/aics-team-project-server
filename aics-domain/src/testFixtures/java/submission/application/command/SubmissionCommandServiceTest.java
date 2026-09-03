@@ -332,6 +332,20 @@ class SubmissionCommandServiceTest {
     }
 
     @Test
+    @DisplayName("필수 FILE 산출물에 0바이트 파일을 올리면 거부된다")
+    void submitVersion_RejectsEmptyRequiredFile() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+        RequiredArtifact fileArtifact = requiredArtifactRepository.save(RequiredArtifact.create(
+                MILESTONE_ID, RequiredArtifactType.FILE, "보고서", true, null, null));
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "보고서.pdf", "application/pdf", new byte[0]);
+
+        assertThatThrownBy(() -> submissionCommandService.submitVersion(
+                submission.getId(), USER_ID, "빈 파일 제출", null,
+                List.of(new SubmissionArtifactInput(fileArtifact.getId(), ArtifactType.FILE, emptyFile, null, null))))
+                .isInstanceOf(SubmissionRequiredArtifactMismatchException.class);
+    }
+
+    @Test
     @DisplayName("필수 산출물을 모두 채우면 제출이 성공한다")
     void submitVersion_SucceedsWhenAllRequiredArtifactsPresent() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));

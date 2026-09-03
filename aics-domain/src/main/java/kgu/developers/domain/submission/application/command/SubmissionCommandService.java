@@ -260,7 +260,7 @@ public class SubmissionCommandService {
     }
 
     private void validateFile(RequiredArtifact required, MultipartFile file) {
-        if (file == null) {
+        if (file == null || file.isEmpty()) {
             throw new SubmissionRequiredArtifactMismatchException();
         }
         if (required.getAllowedExtensions() != null) {

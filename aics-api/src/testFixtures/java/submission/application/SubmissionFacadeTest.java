@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.api.submission.application.SubmissionFacade;
 import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
+import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
@@ -40,7 +41,9 @@ import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.submission.application.command.SubmissionCommandService;
 import kgu.developers.domain.submission.application.query.SubmissionQueryService;
 import kgu.developers.domain.submission.domain.Submission;
+import kgu.developers.domain.submission.domain.SubmissionArtifact;
 import kgu.developers.domain.submission.domain.SubmissionStatus;
+import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -75,6 +78,8 @@ class SubmissionFacadeTest {
     private FakeTeamRepository teamRepository;
     private FakeEditLockRepository editLockRepository;
     private FakeFileObjectRepository fileObjectRepository;
+    private FakeSubmissionVersionRepository submissionVersionRepository;
+    private FakeSubmissionArtifactRepository submissionArtifactRepository;
     private SubmissionFacade submissionFacade;
 
     @BeforeEach
@@ -88,8 +93,8 @@ class SubmissionFacadeTest {
         teamMemberRepository.assignTeamToSection(TEAM_ID, SECTION_ID);
 
         submissionRepository = new FakeSubmissionRepository();
-        FakeSubmissionVersionRepository submissionVersionRepository = new FakeSubmissionVersionRepository();
-        FakeSubmissionArtifactRepository submissionArtifactRepository = new FakeSubmissionArtifactRepository();
+        submissionVersionRepository = new FakeSubmissionVersionRepository();
+        submissionArtifactRepository = new FakeSubmissionArtifactRepository();
         FakeSubmissionMemberConfirmationRepository submissionMemberConfirmationRepository =
                 new FakeSubmissionMemberConfirmationRepository();
         FakePresentationContentRepository presentationContentRepository = new FakePresentationContentRepository();
@@ -206,6 +211,18 @@ class SubmissionFacadeTest {
     }
 
     @Test
+    @DisplayName("아티팩트 종류(type)가 없으면 NPE 대신 400으로 거부된다")
+    void submitVersion_RejectsMissingArtifactType() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        SubmissionArtifactRequest missingType = new SubmissionArtifactRequest(null, null, null, null);
+
+        assertThatThrownBy(() -> submissionFacade.submitVersion(
+                submission.getId(), MEMBER, "1차 제출", null, List.of(missingType), List.of(), List.of()))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionArtifactTypeRequiredException.class);
+    }
+
+    @Test
     @DisplayName("탈퇴한 사용자는 팀원 행이 남아있어도 제출할 수 없다")
     void submitVersion_RejectsWithdrawnEnrollment() {
         teamMemberRepository.save(TeamMember.create(TEAM_ID, "202677777", false, "탈퇴예정"));
@@ -288,6 +305,9 @@ class SubmissionFacadeTest {
                 submission.getId(), PROFESSOR, new SubmissionReopenRequest(LocalDateTime.now().plusDays(1)));
 
         assertThat(response.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+        // 재오픈 후엔 "미완료면 null"이라는 응답 계약대로 완료 이력이 지워져야 한다.
+        assertThat(response.completedAt()).isNull();
+        assertThat(response.completedBy()).isNull();
     }
 
     @Test
@@ -413,14 +433,15 @@ class SubmissionFacadeTest {
     }
 
     @Test
-    @DisplayName("다른 팀이 업로드한 이미지를 발표 화면에 지정할 수 없다")
-    void updatePresentationContent_RejectsImageNotOwnedByTeam() throws Exception {
+    @DisplayName("우리 제출물에 첨부된 적 없는 파일은 발표 화면에 지정할 수 없다")
+    void updatePresentationContent_RejectsImageNotAttachedToOurSubmission() throws Exception {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-        FileObject otherTeamsFile = fileObjectRepository.save(
+        // 다른 팀이 올렸든, 아무 데도 첨부된 적 없는 파일이든 — 우리 제출물 버전 이력에 없으면 동일하게 거부돼야 한다.
+        FileObject unattachedFile = fileObjectRepository.save(
                 FileObject.create(NON_MEMBER, "key", "screen.png", "image/png", 1024L, true, "IMAGE"));
         JsonNode screens = new ObjectMapper().readTree(
-                "[{\"imageFileId\": " + otherTeamsFile.getId() + ", \"caption\": \"홈 화면\"}]");
+                "[{\"imageFileId\": " + unattachedFile.getId() + ", \"caption\": \"홈 화면\"}]");
 
         assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
                 submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null)))
@@ -428,12 +449,16 @@ class SubmissionFacadeTest {
     }
 
     @Test
-    @DisplayName("우리 팀이 업로드한 이미지는 발표 화면에 지정할 수 있다")
-    void updatePresentationContent_AllowsImageOwnedByTeam() throws Exception {
+    @DisplayName("우리 제출물에 FILE 아티팩트로 첨부된 적 있는 이미지는 발표 화면에 지정할 수 있다")
+    void updatePresentationContent_AllowsImageAttachedToOurSubmission() throws Exception {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
         FileObject ourFile = fileObjectRepository.save(
                 FileObject.create(MEMBER, "key", "screen.png", "image/png", 1024L, true, "IMAGE"));
+        SubmissionVersion version = submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 1, "1차 제출", null, MEMBER, false));
+        submissionArtifactRepository.saveAll(
+                List.of(SubmissionArtifact.file(version.getId(), null, ourFile.getId())));
         JsonNode screens = new ObjectMapper().readTree(
                 "[{\"imageFileId\": " + ourFile.getId() + ", \"caption\": \"홈 화면\"}]");
 
@@ -441,6 +466,41 @@ class SubmissionFacadeTest {
                 submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null));
 
         assertThat(response.introText()).isEqualTo("소개");
+    }
+
+    @Test
+    @DisplayName("screens가 배열이 아니면 거부된다")
+    void updatePresentationContent_RejectsNonArrayScreens() throws Exception {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        JsonNode screens = new ObjectMapper().readTree("{\"imageFileId\": 1}");
+
+        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
+                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null)))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionInvalidScreensException.class);
+    }
+
+    @Test
+    @DisplayName("screens 원소의 imageFileId가 숫자가 아니면 거부된다")
+    void updatePresentationContent_RejectsNonNumericImageFileId() throws Exception {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        JsonNode screens = new ObjectMapper().readTree("[{\"imageFileId\": \"not-a-number\"}]");
+
+        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
+                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null)))
+                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionInvalidScreensException.class);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 사용자는 팀원 행이 남아있어도 우리팀 제출 조회·생성을 할 수 없다")
+    void getMyTeamSubmission_RejectsWithdrawnEnrollment() {
+        teamMemberRepository.save(TeamMember.create(TEAM_ID, "202677775", false, "탈퇴예정"));
+        teamMemberRepository.assignTeamToSection(TEAM_ID, SECTION_ID);
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        assertThatThrownBy(() -> submissionFacade.getMyTeamSubmission(MILESTONE_ID, "202677775"))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     private Milestone milestone() {

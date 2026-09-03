@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +38,20 @@ public class SubmissionQueryService {
     @Transactional
     public Submission getOrCreateSubmission(Long teamId, Long milestoneId) {
         return submissionRepository.findByTeamIdAndMilestoneId(teamId, milestoneId)
-                .orElseGet(() -> submissionRepository.save(Submission.create(teamId, milestoneId)));
+                .orElseGet(() -> createSubmission(teamId, milestoneId));
+    }
+
+    // 팀이 같은 마일스톤을 동시에 처음 조회하면 위 findByTeamIdAndMilestoneId가 둘 다 비어있는
+    // 걸 보고 둘 다 저장을 시도할 수 있다 — DB 유니크 제약(uk_submission_team_milestone)이
+    // 하나만 통과시키므로, 저장이 그 제약에 걸리면 방금 다른 요청이 만든 행을 다시 조회해서
+    // 반환한다(멱등 처리, 두 번째 요청이 500 대신 정상 응답을 받게).
+    private Submission createSubmission(Long teamId, Long milestoneId) {
+        try {
+            return submissionRepository.save(Submission.create(teamId, milestoneId));
+        } catch (DataIntegrityViolationException e) {
+            return submissionRepository.findByTeamIdAndMilestoneId(teamId, milestoneId)
+                    .orElseThrow(() -> e);
+        }
     }
 
     // 완료(COMPLETED) 처리된 제출은 공식 기간이 남아있어도 재제출을 막는다 — 재오픈되면

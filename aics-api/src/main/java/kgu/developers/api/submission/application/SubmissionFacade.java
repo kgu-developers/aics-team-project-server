@@ -54,8 +54,10 @@ import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.domain.SubmissionVersionRepository;
 import kgu.developers.domain.submission.exception.SubmissionAccessDeniedException;
 import kgu.developers.domain.submission.exception.SubmissionArtifactCountMismatchException;
+import kgu.developers.domain.submission.exception.SubmissionArtifactTypeRequiredException;
 import kgu.developers.domain.submission.exception.SubmissionInvalidArtifactTypeException;
 import kgu.developers.domain.submission.exception.SubmissionInvalidPresentationOrderException;
+import kgu.developers.domain.submission.exception.SubmissionInvalidScreensException;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
 import kgu.developers.domain.submission.exception.SubmissionMilestoneTypeMismatchException;
 import kgu.developers.domain.submission.exception.SubmissionPresentationImageOwnershipException;
@@ -88,6 +90,9 @@ public class SubmissionFacade {
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
         TeamMember member = teamMemberRepository.findActiveBySectionIdAndUserId(milestone.getSectionId(), userId)
                 .orElseThrow(() -> new AccessDeniedException("그 분반의 팀 소속만 접근할 수 있습니다."));
+        if (!isActiveStudent(milestone.getSectionId(), userId)) {
+            throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 접근할 수 있습니다.");
+        }
 
         Submission submission = submissionQueryService.getOrCreateSubmission(member.getTeamId(), milestoneId);
         return toResponse(submission);
@@ -141,6 +146,12 @@ public class SubmissionFacade {
         List<SubmissionArtifactInput> inputs = new ArrayList<>();
         if (artifacts != null) {
             for (SubmissionArtifactRequest artifact : artifacts) {
+                // 컨트롤러의 @Valid는 멀티파트 List 원소까지 확실히 검증하리라 보장할 수 없어서,
+                // 여기서도 직접 확인한다 — type이 null이면 바로 아래 FILE 비교에서 NPE가 나
+                // 500으로 새는 대신, 의미가 분명한 400으로 떨어지게 한다.
+                if (artifact.type() == null) {
+                    throw new SubmissionArtifactTypeRequiredException();
+                }
                 if (artifact.type() == ArtifactType.FILE) {
                     throw new SubmissionInvalidArtifactTypeException();
                 }
@@ -203,7 +214,7 @@ public class SubmissionFacade {
         validatePresentationMilestone(submission.getMilestoneId());
         validateActiveTeamMembership(submission, userId);
         validateNotLockedByAnother(submissionId, userId);
-        validateScreenImagesOwnedByTeam(submission.getTeamId(), request.screens());
+        validateScreenImagesOwnedBySubmission(submissionId, request.screens());
         PresentationContent content = presentationContentCommandService.upsert(
                 submissionId, request.introText(), request.features(), request.screens(), request.youtubeUrl());
         return PresentationContentResponse.from(content);
@@ -285,12 +296,15 @@ public class SubmissionFacade {
         validateTeamMembership(submission.getTeamId(), userId);
         Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
                 .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
-        boolean activeStudent = enrollmentRepository.findBySectionIdAndUserId(milestone.getSectionId(), userId)
-                .map(Enrollment::isActiveStudent)
-                .orElse(false);
-        if (!activeStudent) {
+        if (!isActiveStudent(milestone.getSectionId(), userId)) {
             throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 접근할 수 있습니다.");
         }
+    }
+
+    private boolean isActiveStudent(Long sectionId, String userId) {
+        return enrollmentRepository.findBySectionIdAndUserId(sectionId, userId)
+                .map(Enrollment::isActiveStudent)
+                .orElse(false);
     }
 
     // 발표자료 관련 API는 그 마일스톤이 실제로 PRESENTATION 타입일 때만 의미가 있다.
@@ -303,24 +317,39 @@ public class SubmissionFacade {
         }
     }
 
-    // screens는 형식이 자유로운 JSON([{imageFileId, caption}, ...])이라 그 안의 imageFileId가
-    // 실제로 존재하고 우리 팀이 업로드한 파일인지는 여기서 별도로 검증해야 한다 — 남의 팀
-    // 파일 id를 그대로 가져와 발표자료에 노출시키는 것을 막는다.
-    private void validateScreenImagesOwnedByTeam(Long teamId, JsonNode screens) {
-        if (screens == null || !screens.isArray()) {
+    // screens는 형식이 자유로운 JSON([{imageFileId, caption}, ...])이라 형식 자체와 그 안의
+    // imageFileId 소유권을 여기서 별도로 검증해야 한다.
+    private void validateScreenImagesOwnedBySubmission(Long submissionId, JsonNode screens) {
+        if (screens == null) {
             return;
         }
+        if (!screens.isArray()) {
+            throw new SubmissionInvalidScreensException();
+        }
         for (JsonNode screen : screens) {
+            if (!screen.isObject()) {
+                throw new SubmissionInvalidScreensException();
+            }
             JsonNode imageFileIdNode = screen.get("imageFileId");
             if (imageFileIdNode == null || imageFileIdNode.isNull()) {
                 continue;
             }
-            FileObject fileObject = fileObjectRepository.findById(imageFileIdNode.asLong())
-                    .orElseThrow(FileObjectNotFoundException::new);
-            if (teamMemberRepository.findByTeamIdAndUserId(teamId, fileObject.getUploadedBy()).isEmpty()) {
+            if (!imageFileIdNode.isIntegralNumber()) {
+                throw new SubmissionInvalidScreensException();
+            }
+            if (!isFileArtifactOfSubmission(submissionId, imageFileIdNode.asLong())) {
                 throw new SubmissionPresentationImageOwnershipException();
             }
         }
+    }
+
+    // imageFileId가 실제로 이 제출물 자신의 버전 이력에 FILE 아티팩트로 첨부된 적 있는 파일인지
+    // 확인한다. 이 관계(Submission→SubmissionVersion→SubmissionArtifact)는 한 번 만들어지면
+    // 안 바뀌므로, "업로더가 지금 이 순간 이 팀 소속인가"와 달리 팀 이동에 영향받지 않는다.
+    private boolean isFileArtifactOfSubmission(Long submissionId, Long fileId) {
+        return submissionVersionRepository.findAllBySubmissionId(submissionId).stream()
+                .flatMap(version -> submissionArtifactRepository.findAllByVersionId(version.getId()).stream())
+                .anyMatch(artifact -> artifact.getType() == ArtifactType.FILE && fileId.equals(artifact.getFileId()));
     }
 
     // 다른 사람이 지금 이 발표자료를 편집 중(EditLock 보유)이면 덮어쓰지 못하게 막는다.

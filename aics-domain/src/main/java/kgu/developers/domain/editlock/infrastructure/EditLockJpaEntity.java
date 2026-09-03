@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.editlock.domain.EditLock;
@@ -46,6 +47,9 @@ public class EditLockJpaEntity extends BaseTimeEntity {
     @Column(name = "locked_at", nullable = false)
     private LocalDateTime lockedAt;
 
+    @Version
+    private Long version;
+
     public EditLock toDomain() {
         return EditLock.builder()
             .id(this.id)
@@ -53,6 +57,7 @@ public class EditLockJpaEntity extends BaseTimeEntity {
             .targetId(this.targetId)
             .lockedBy(this.lockedBy)
             .lockedAt(this.lockedAt)
+            .version(this.version)
             .build();
     }
 
@@ -63,6 +68,7 @@ public class EditLockJpaEntity extends BaseTimeEntity {
             .targetId(domain.getTargetId())
             .lockedBy(domain.getLockedBy())
             .lockedAt(domain.getLockedAt())
+            .version(domain.getVersion())
             .build();
     }
 }

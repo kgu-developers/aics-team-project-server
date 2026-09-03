@@ -18,6 +18,9 @@ public record SubmissionArtifactResponse(
         @Schema(description = "아티팩트 종류", example = "FILE", requiredMode = REQUIRED)
         ArtifactType type,
 
+        @Schema(description = "파일 식별자(FILE일 때만) — 발표자료 screens의 imageFileId로 재사용 가능", example = "42")
+        Long fileId,
+
         @Schema(description = "파일 이름(FILE일 때만)", example = "발표자료.pdf")
         String fileName,
 
@@ -35,6 +38,7 @@ public record SubmissionArtifactResponse(
         return SubmissionArtifactResponse.builder()
                 .requiredArtifactId(artifact.getRequiredArtifactId())
                 .type(artifact.getType())
+                .fileId(artifact.getFileId())
                 .fileName(fileObject.getFileName())
                 .downloadUrl(downloadUrl)
                 .build();
