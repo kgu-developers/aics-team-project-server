@@ -15,6 +15,7 @@ public final class Milestone {
     private int weekNumber;
     private MilestoneStatus status;
     private MilestoneSchedule schedule;
+    private MilestoneType type;
 
     private Milestone(
             Long id,
@@ -23,7 +24,8 @@ public final class Milestone {
             String description,
             int weekNumber,
             MilestoneStatus status,
-            MilestoneSchedule schedule
+            MilestoneSchedule schedule,
+            MilestoneType type
     ) {
         this.id = validateOptionalId(id);
         this.sectionId = validateSectionId(sectionId);
@@ -32,6 +34,19 @@ public final class Milestone {
         this.weekNumber = validateWeekNumber(weekNumber);
         this.status = validateStatus(status);
         this.schedule = validateSchedule(schedule);
+        this.type = validateType(type);
+    }
+
+    // B3(제출·이력·발표)가 "이 마일스톤이 최종보고서/발표용인지" 구분하려고 추가한 필드.
+    // 기존 호출부(B1)를 안 건드리려고 타입 없는 create/restore는 GENERAL로 기본값 처리한다.
+    public static Milestone create(
+            Long sectionId,
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneSchedule schedule
+    ) {
+        return create(sectionId, title, description, weekNumber, schedule, MilestoneType.GENERAL);
     }
 
     public static Milestone create(
@@ -39,7 +54,8 @@ public final class Milestone {
             String title,
             String description,
             int weekNumber,
-            MilestoneSchedule schedule
+            MilestoneSchedule schedule,
+            MilestoneType type
     ) {
         return new Milestone(
                 null,
@@ -48,7 +64,8 @@ public final class Milestone {
                 description,
                 weekNumber,
                 MilestoneStatus.DRAFT,
-                schedule
+                schedule,
+                type
         );
     }
 
@@ -61,10 +78,23 @@ public final class Milestone {
             MilestoneStatus status,
             MilestoneSchedule schedule
     ) {
+        return restore(id, sectionId, title, description, weekNumber, status, schedule, MilestoneType.GENERAL);
+    }
+
+    public static Milestone restore(
+            Long id,
+            Long sectionId,
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneStatus status,
+            MilestoneSchedule schedule,
+            MilestoneType type
+    ) {
         if (id == null) {
             throw new IllegalArgumentException("마일스톤 식별자는 필수입니다.");
         }
-        return new Milestone(id, sectionId, title, description, weekNumber, status, schedule);
+        return new Milestone(id, sectionId, title, description, weekNumber, status, schedule, type);
     }
 
     public void updateDetails(String title, String description) {
@@ -89,6 +119,10 @@ public final class Milestone {
 
     public void changeStatus(MilestoneStatus status) {
         this.status = validateStatus(status);
+    }
+
+    public void changeType(MilestoneType type) {
+        this.type = validateType(type);
     }
 
     public boolean belongsToSection(Long sectionId) {
@@ -144,5 +178,12 @@ public final class Milestone {
             throw new IllegalArgumentException("마일스톤 일정은 필수입니다.");
         }
         return schedule;
+    }
+
+    private static MilestoneType validateType(MilestoneType type) {
+        if (type == null) {
+            throw new IllegalArgumentException("마일스톤 유형은 필수입니다.");
+        }
+        return type;
     }
 }

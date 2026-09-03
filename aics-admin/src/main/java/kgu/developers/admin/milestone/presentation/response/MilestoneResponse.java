@@ -5,6 +5,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 
 public record MilestoneResponse(
         @Schema(description = "마일스톤 ID", example = "1", requiredMode = REQUIRED)
@@ -26,7 +27,10 @@ public record MilestoneResponse(
         MilestoneStatus status,
 
         @Schema(description = "마일스톤 일정", requiredMode = REQUIRED)
-        MilestoneScheduleResponse schedule
+        MilestoneScheduleResponse schedule,
+
+        @Schema(description = "마일스톤 유형", example = "GENERAL", requiredMode = REQUIRED)
+        MilestoneType type
 ) {
     public static MilestoneResponse from(Milestone milestone) {
         return new MilestoneResponse(
@@ -36,7 +40,8 @@ public record MilestoneResponse(
                 milestone.getDescription(),
                 milestone.getWeekNumber(),
                 milestone.getStatus(),
-                MilestoneScheduleResponse.from(milestone.getSchedule())
+                MilestoneScheduleResponse.from(milestone.getSchedule()),
+                milestone.getType()
         );
     }
 }
