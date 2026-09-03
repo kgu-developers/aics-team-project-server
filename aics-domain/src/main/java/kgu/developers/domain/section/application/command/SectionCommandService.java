@@ -9,6 +9,9 @@ import kgu.developers.domain.course.domain.CourseRepository;
 import kgu.developers.domain.course.exception.CourseNotFoundException;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.section.exception.ProfessorRoleRequiredException;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -95,8 +98,10 @@ public class SectionCommandService {
     }
 
     private void requireProfessor(String professorId) {
-        if (userRepository.findByStudentNumber(professorId).isEmpty()) {
-            throw new UserNotFoundException();
+        User professor = userRepository.findByStudentNumber(professorId)
+                .orElseThrow(UserNotFoundException::new);
+        if (professor.getGlobalRole() != UserGlobalRole.ADMIN) {
+            throw new ProfessorRoleRequiredException();
         }
     }
 }
