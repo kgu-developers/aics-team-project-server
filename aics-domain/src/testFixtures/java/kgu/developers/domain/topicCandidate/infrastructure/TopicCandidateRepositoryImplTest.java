@@ -1,8 +1,9 @@
 package kgu.developers.domain.topicCandidate.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
 
@@ -13,13 +14,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
-import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
 class TopicCandidateRepositoryImplTest {
@@ -122,36 +123,34 @@ class TopicCandidateRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("주제 후보 삭제는 소프트 삭제를 수행한다")
-    void deleteByIdPerformsSoftDelete() {
-        TopicCandidate active = TopicCandidate.builder()
-                .id(1L)
-                .teamId(100L)
-                .proposerUserId("20230001")
-                .title("활성 주제")
-                .description("설명")
-                .createdAt(LocalDateTime.now())
-                .deletedAt(null)
-                .build();
-        TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(active);
-        given(jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(1L))
-                .willReturn(Optional.of(entity));
+    @DisplayName("잠금 조회는 팀 행에 쓰기 락을 건 뒤 후보를 다시 읽는다")
+    void findByIdForUpdateLocksTeamThenRefreshes() {
+        TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(candidate(1L, "활성 주제"));
+        given(jpaTopicCandidateRepository.findById(1L)).willReturn(Optional.of(entity));
         TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
-        repository.deleteById(1L);
+        Optional<TopicCandidate> result = repository.findByIdForUpdate(1L);
 
-        assertThat(entity.getDeletedAt()).isNotNull();
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(1L);
+        InOrder inOrder = inOrder(entityManager);
+        inOrder.verify(entityManager).find(TeamJpaEntity.class, 100L, PESSIMISTIC_WRITE);
+        inOrder.verify(entityManager).refresh(entity);
     }
 
     @Test
-    @DisplayName("존재하지 않는 주제 후보 삭제 시 예외를 발생한다")
-    void deleteByIdThrowsExceptionWhenNotFound() {
-        given(jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(1L))
-                .willReturn(Optional.empty());
+    @DisplayName("잠금 조회는 락을 잡은 뒤 삭제된 것으로 확인되면 비어 있다")
+    void findByIdForUpdateReturnsEmptyForDeleted() {
+        TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(candidate(1L, "활성 주제"));
+        given(jpaTopicCandidateRepository.findById(1L)).willReturn(Optional.of(entity));
+        // 락 대기 중 다른 트랜잭션이 삭제를 커밋한 상황
+        willAnswer(invocation -> {
+            entity.delete();
+            return null;
+        }).given(entityManager).refresh(entity);
         TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
-        assertThatThrownBy(() -> repository.deleteById(1L))
-                .isInstanceOf(TopicCandidateNotFoundException.class);
+        assertThat(repository.findByIdForUpdate(1L)).isEmpty();
     }
 
     private TopicCandidate candidate(Long id, String title) {

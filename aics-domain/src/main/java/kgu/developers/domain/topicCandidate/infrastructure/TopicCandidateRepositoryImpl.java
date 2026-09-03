@@ -4,13 +4,11 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
-import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 import static jakarta.persistence.LockModeType.PESSIMISTIC_WRITE;
@@ -34,15 +32,34 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     }
 
     @Override
-    public Optional<TopicCandidate> findActiveByTeamIdAndTitleForUpdate(Long teamId, String title) {
+    public Optional<TopicCandidate> findByIdForUpdate(Long id) {
+        return jpaTopicCandidateRepository.findById(id)
+                .map(this::lockTeamAndRefresh)
+                .filter(entity -> entity.getDeletedAt() == null)
+                .map(TopicCandidateJpaEntity::toDomain);
+    }
+
+    @Override
+    public void lockTeamForUpdate(Long teamId) {
         entityManager.find(TeamJpaEntity.class, teamId, PESSIMISTIC_WRITE);
+    }
+
+    private TopicCandidateJpaEntity lockTeamAndRefresh(TopicCandidateJpaEntity entity) {
+        lockTeamForUpdate(entity.getTeamId());
+        entityManager.refresh(entity);
+        return entity;
+    }
+
+    @Override
+    public Optional<TopicCandidate> findActiveByTeamIdAndTitleForUpdate(Long teamId, String title) {
+        lockTeamForUpdate(teamId);
         return jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(teamId, title)
                 .map(TopicCandidateJpaEntity::toDomain);
     }
 
     @Override
     public Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title) {
-        entityManager.find(TeamJpaEntity.class, teamId, PESSIMISTIC_WRITE);
+        lockTeamForUpdate(teamId);
         return jpaTopicCandidateRepository.findByTeamIdAndTitle(teamId, title)
                 .map(TopicCandidateJpaEntity::toDomain);
     }
@@ -61,14 +78,5 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
         return entities.stream()
                 .map(TopicCandidateJpaEntity::toDomain)
                 .toList();
-    }
-
-    @Override
-    @Transactional
-    public void deleteById(Long id) {
-        TopicCandidateJpaEntity entity = jpaTopicCandidateRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(TopicCandidateNotFoundException::new);
-        entity.delete();
-        jpaTopicCandidateRepository.save(entity);
     }
 }

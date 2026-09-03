@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -14,9 +15,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
@@ -81,6 +85,74 @@ class TopicCandidateCommandServiceTest {
         assertThat(saved.getDescription()).isEqualTo("새 설명");
     }
 
+    @Test
+    @DisplayName("팀 이동 수정은 두 팀 행을 팀 id 오름차순으로 잠근다")
+    void updateLocksBothTeamsInIdOrder() {
+        TopicCandidate mine = candidate(1L, "내 제목");
+        given(topicCandidateRepository.findById(1L)).willReturn(Optional.of(mine));
+        given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mine));
+
+        topicCandidateCommandService.updateTopicCandidate(1L, 40L, null, "새 설명");
+
+        InOrder inOrder = inOrder(topicCandidateRepository);
+        inOrder.verify(topicCandidateRepository).lockTeamForUpdate(40L);
+        inOrder.verify(topicCandidateRepository).lockTeamForUpdate(100L);
+    }
+
+    @Test
+    @DisplayName("팀 이동이 없으면 같은 팀 행을 한 번만 잠근다")
+    void updateLocksSingleTeamWhenNotMoving() {
+        TopicCandidate mine = candidate(1L, "내 제목");
+        given(topicCandidateRepository.findById(1L)).willReturn(Optional.of(mine));
+        given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mine));
+
+        topicCandidateCommandService.updateTopicCandidate(1L, 100L, null, "새 설명");
+
+        verify(topicCandidateRepository).lockTeamForUpdate(100L);
+    }
+
+    @Test
+    @DisplayName("잠금 전에 팀이 바뀌었으면 수정을 거절한다")
+    void updateRejectsTeamChangedBeforeLock() {
+        given(topicCandidateRepository.findById(1L)).willReturn(Optional.of(candidate(1L, "내 제목")));
+        TopicCandidate moved = TopicCandidate.builder()
+                .id(1L)
+                .teamId(200L)
+                .proposerUserId("20230001")
+                .title("내 제목")
+                .description("설명")
+                .createdAt(LocalDateTime.now())
+                .build();
+        given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.of(moved));
+
+        assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(1L, null, null, "새 설명"))
+                .isInstanceOf(OptimisticLockingFailureException.class);
+
+        verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
+    }
+
+    @Test
+    @DisplayName("삭제는 수정과 같은 잠금 경로로 후보를 읽고 소프트 삭제한다")
+    void deleteUsesSameLockedRead() {
+        TopicCandidate mine = candidate(1L, "내 제목");
+        given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mine));
+
+        topicCandidateCommandService.deleteTopicCandidate(1L);
+
+        assertThat(savedCandidate().getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("없는 주제 후보를 삭제하면 예외가 난다")
+    void deleteThrowsWhenNotFound() {
+        given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> topicCandidateCommandService.deleteTopicCandidate(1L))
+                .isInstanceOf(TopicCandidateNotFoundException.class);
+
+        verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
+    }
+
     private TopicCandidate savedCandidate() {
         ArgumentCaptor<TopicCandidate> captor = ArgumentCaptor.forClass(TopicCandidate.class);
         verify(topicCandidateRepository).save(captor.capture());
@@ -91,6 +163,8 @@ class TopicCandidateCommandServiceTest {
     @DisplayName("수정도 제목 중복을 검사한다")
     void updateChecksTitleToo() {
         given(topicCandidateRepository.findById(2L))
+                .willReturn(Optional.of(candidate(2L, "내 제목")));
+        given(topicCandidateRepository.findByIdForUpdate(2L))
                 .willReturn(Optional.of(candidate(2L, "내 제목")));
         given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "남의 제목"))
                 .willReturn(Optional.of(candidate(1L, "남의 제목")));
@@ -106,6 +180,7 @@ class TopicCandidateCommandServiceTest {
     void updateAllowsKeepingOwnTitle() {
         TopicCandidate mine = candidate(1L, "내 제목");
         given(topicCandidateRepository.findById(1L)).willReturn(Optional.of(mine));
+        given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mine));
         given(topicCandidateRepository.findActiveByTeamIdAndTitleForUpdate(100L, "내 제목"))
                 .willReturn(Optional.of(mine));
 

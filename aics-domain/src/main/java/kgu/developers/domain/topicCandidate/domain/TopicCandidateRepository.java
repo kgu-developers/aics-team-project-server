@@ -8,6 +8,10 @@ public interface TopicCandidateRepository {
 
     Optional<TopicCandidate> findById(Long id);
 
+    Optional<TopicCandidate> findByIdForUpdate(Long id);
+
+    void lockTeamForUpdate(Long teamId);
+
     Optional<TopicCandidate> findActiveByTeamIdAndTitleForUpdate(Long teamId, String title);
 
     Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title);
@@ -15,6 +19,4 @@ public interface TopicCandidateRepository {
     List<TopicCandidate> findByTeamId(Long teamId);
 
     List<TopicCandidate> findByProposerUserId(String proposerUserId);
-
-    void deleteById(Long id);
 }
