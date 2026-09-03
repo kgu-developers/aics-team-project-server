@@ -21,4 +21,6 @@ public interface ProjectApprovalRepository {
     List<ProjectApproval> findAllByUserId(String userId);
 
     void deleteById(Long id);
+
+    void deleteAllByProjectId(Long projectId);
 }

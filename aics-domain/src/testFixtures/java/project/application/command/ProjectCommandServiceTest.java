@@ -63,7 +63,7 @@ class ProjectCommandServiceTest {
         assertThat(result.getTitle()).isEqualTo("새 제목");
         assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
         assertThat(result.getProposalRevision()).isEqualTo(1L);
-        then(projectApprovalRepository).should().deleteById(100L);
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
     }
 
     @Test
@@ -134,7 +134,6 @@ class ProjectCommandServiceTest {
         Project deleted = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
             .goal("기존 목표").approvalStatus(ApprovalStatus.DRAFT).deletedAt(LocalDateTime.now()).build();
         given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(deleted));
-        given(projectApprovalRepository.findAllByProjectId(10L)).willReturn(List.of());
         given(projectRepository.save(deleted)).willReturn(deleted);
 
         Project result = saveProject();
@@ -143,6 +142,7 @@ class ProjectCommandServiceTest {
         assertThat(result.getDeletedAt()).isNull();
         assertThat(result.getTitle()).isEqualTo("새 제목");
         assertThat(result.getProposalRevision()).isEqualTo(1L);
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
     }
 
     @Test

@@ -76,4 +76,9 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
                 jpaProjectApprovalRepository.saveAndFlush(approval);
             });
     }
+
+    @Override
+    public void deleteAllByProjectId(Long projectId) {
+        jpaProjectApprovalRepository.softDeleteAllByProjectId(projectId);
+    }
 }

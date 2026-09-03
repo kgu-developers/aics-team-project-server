@@ -84,8 +84,7 @@ public class ProjectCommandService {
         project.updateExternalLinks(externalLinks);
         project.updateApprovalStatus(ApprovalStatus.DRAFT);
         project.increaseProposalRevision();
-        projectApprovalRepository.findAllByProjectId(project.getId())
-            .forEach(approval -> projectApprovalRepository.deleteById(approval.getId()));
+        projectApprovalRepository.deleteAllByProjectId(project.getId());
 
         return projectRepository.save(project);
     }
