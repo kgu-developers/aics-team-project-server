@@ -12,8 +12,6 @@ public interface ProjectRepository {
 
     Optional<Project> findByIdForUpdate(Long id);
 
-    List<Project> findAllById(List<Long> ids);
-
     List<Project> findAllByTeamId(Long teamId);
 
     List<Project> findAllByTeamIdIncludingDeletedForUpdate(Long teamId);
