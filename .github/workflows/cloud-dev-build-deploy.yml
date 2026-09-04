@@ -105,3 +105,18 @@ jobs:
 
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d
+            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+              caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+            reload_attempt=1
+            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+              caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; do
+              if [ "$reload_attempt" -ge 10 ]; then
+                echo "Caddy reload failed after $reload_attempt attempts." >&2
+                exit 1
+              fi
+
+              echo "Caddy admin API is not ready. Retrying reload ($reload_attempt/10)..."
+              reload_attempt=$((reload_attempt + 1))
+              sleep 1
+            done
