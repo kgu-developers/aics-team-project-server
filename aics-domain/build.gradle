@@ -11,6 +11,8 @@ dependencies {
     implementation project(':aics-infra')
     implementation project(':aics-global-utils')
 
+    testFixturesRuntimeOnly 'com.h2database:h2'
+
     testFixturesImplementation project(':aics-common')
     testFixturesImplementation project(':aics-infra')
     testFixturesImplementation project(':aics-global-utils')
