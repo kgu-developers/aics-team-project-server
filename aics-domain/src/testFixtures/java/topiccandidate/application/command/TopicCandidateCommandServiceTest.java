@@ -85,7 +85,7 @@ class TopicCandidateCommandServiceTest {
         given(topicCandidateRepository.existsByTeamIdAndProposerUserId(TEAM_ID, PROPOSER_USER_ID)).willReturn(false);
         
         DataIntegrityViolationException constraintViolation = new DataIntegrityViolationException(
-            "duplicate key value violates unique constraint \"uk_team_proposer\""
+            "duplicate key value violates unique constraint \"uk_topic_candidate_team_proposer\""
         );
         given(topicCandidateRepository.save(any(TopicCandidate.class))).willThrow(constraintViolation);
 
@@ -100,13 +100,13 @@ class TopicCandidateCommandServiceTest {
         given(topicCandidateRepository.existsByTeamIdAndProposerUserId(TEAM_ID, PROPOSER_USER_ID)).willReturn(false);
         
         DataIntegrityViolationException otherConstraintViolation = new DataIntegrityViolationException(
-            "duplicate key value violates unique constraint \"uk_team_title\""
+            "duplicate key value violates unique constraint \"uk_topic_candidate_team_title\""
         );
         given(topicCandidateRepository.save(any(TopicCandidate.class))).willThrow(otherConstraintViolation);
 
         assertThatThrownBy(() -> topicCandidateCommandService.createTopicCandidate(
             TEAM_ID, PROPOSER_USER_ID, TITLE, DESCRIPTION
         )).isInstanceOf(DataIntegrityViolationException.class)
-            .hasMessageContaining("uk_team_title");
+            .hasMessageContaining("uk_topic_candidate_team_title");
     }
 }

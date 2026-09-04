@@ -53,9 +53,9 @@ class TopicCandidateCommandServiceTest {
         given(topicCandidateRepository.save(any(TopicCandidate.class)))
                 .willReturn(candidate(2L, "새 제목"));
 
-        Long id = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "새 제목", "새 설명");
+        TopicCandidate created = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "새 제목", "새 설명");
 
-        assertThat(id).isEqualTo(2L);
+        assertThat(created.getId()).isEqualTo(2L);
         TopicCandidate saved = savedCandidate();
         assertThat(saved.getId()).isNull();
         assertThat(saved.getProposerUserId()).isEqualTo("20230002");
@@ -71,9 +71,9 @@ class TopicCandidateCommandServiceTest {
                 .willReturn(Optional.of(deleted));
         given(topicCandidateRepository.save(any(TopicCandidate.class))).willReturn(deleted);
 
-        Long id = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "삭제된 제목", "새 설명");
+        TopicCandidate created = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "삭제된 제목", "새 설명");
 
-        assertThat(id).isEqualTo(2L);
+        assertThat(created.getId()).isEqualTo(2L);
         TopicCandidate saved = savedCandidate();
         assertThat(saved.getId()).isEqualTo(2L);
         assertThat(saved.getDeletedAt()).isNull();
