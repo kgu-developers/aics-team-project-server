@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,6 +22,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 @Component
+@ConditionalOnProperty(prefix = "aws.s3", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class S3FileStorage implements FileStorage {
     private static final Duration DOWNLOAD_URL_TTL = Duration.ofMinutes(15);
