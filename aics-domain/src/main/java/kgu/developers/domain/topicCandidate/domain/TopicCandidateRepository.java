@@ -10,8 +10,6 @@ public interface TopicCandidateRepository {
 
     Optional<TopicCandidate> findByIdForUpdate(Long id);
 
-    void lockTeamForUpdate(Long teamId);
-
     Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title);
 
     List<TopicCandidate> findByTeamId(Long teamId);

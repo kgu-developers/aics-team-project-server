@@ -36,10 +36,6 @@ public class TopicCandidate {
                 .build();
     }
 
-    public void updateTeamId(Long teamId) {
-        this.teamId = requireNonNull(teamId, "teamId");
-    }
-
     public void updateTitle(String title) {
         this.title = requireNonNull(title, "title");
     }

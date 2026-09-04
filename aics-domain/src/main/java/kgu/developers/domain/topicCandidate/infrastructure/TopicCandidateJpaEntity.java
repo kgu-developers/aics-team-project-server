@@ -31,7 +31,7 @@ public class TopicCandidateJpaEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private Long teamId;
 
     @Column(nullable = false, length = 20)

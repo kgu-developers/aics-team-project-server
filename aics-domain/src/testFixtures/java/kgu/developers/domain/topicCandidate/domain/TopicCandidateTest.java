@@ -57,11 +57,10 @@ class TopicCandidateTest {
     void update() {
         TopicCandidate topicCandidate = TopicCandidate.create(100L, "20230001", "AI 기반 스마트 홈 시스템", "IoT 센서와 머신러닝을 활용한 스마트 홈 자동화 시스템");
 
-        topicCandidate.updateTeamId(200L);
         topicCandidate.updateTitle("블록체인 기반 투표 시스템");
         topicCandidate.updateDescription("탈중앙화된 투표 시스템 구현");
 
-        assertThat(topicCandidate.getTeamId()).isEqualTo(200L);
+        assertThat(topicCandidate.getTeamId()).isEqualTo(100L);
         assertThat(topicCandidate.getTitle()).isEqualTo("블록체인 기반 투표 시스템");
         assertThat(topicCandidate.getDescription()).isEqualTo("탈중앙화된 투표 시스템 구현");
     }
@@ -71,9 +70,6 @@ class TopicCandidateTest {
     void updateWithNull() {
         TopicCandidate topicCandidate = TopicCandidate.create(100L, "20230001", "AI 기반 스마트 홈 시스템", "IoT 센서와 머신러닝을 활용한 스마트 홈 자동화 시스템");
 
-        assertThatThrownBy(() -> topicCandidate.updateTeamId(null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("teamId");
         assertThatThrownBy(() -> topicCandidate.updateTitle(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("title");

@@ -3,7 +3,6 @@ package kgu.developers.domain.topicCandidate.infrastructure;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
@@ -40,19 +39,13 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
                 .map(TopicCandidateJpaEntity::toDomain);
     }
 
-    @Override
-    public void lockTeamForUpdate(Long teamId) {
+    private void lockTeamForUpdate(Long teamId) {
         entityManager.find(TeamJpaEntity.class, teamId, PESSIMISTIC_WRITE);
     }
 
     private TopicCandidateJpaEntity lockTeamAndRefresh(TopicCandidateJpaEntity entity) {
-        Long lockedTeamId = entity.getTeamId();
-        lockTeamForUpdate(lockedTeamId);
+        lockTeamForUpdate(entity.getTeamId());
         entityManager.refresh(entity);
-        if (!lockedTeamId.equals(entity.getTeamId())) {
-            throw new OptimisticLockingFailureException(
-                    "주제 후보 %d의 팀이 잠금 획득 전에 변경되었습니다".formatted(entity.getId()));
-        }
         return entity;
     }
 
