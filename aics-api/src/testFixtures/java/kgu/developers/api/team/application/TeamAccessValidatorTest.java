@@ -72,7 +72,7 @@ public class TeamAccessValidatorTest {
     void validateTeamLeader_nonMember_throwsAccessDenied() {
         assertThatThrownBy(() -> teamAccessValidator.validateTeamLeader(TEAM_ID, OUTSIDER))
             .isInstanceOf(AccessDeniedException.class)
-            .hasMessage("팀장만 프로젝트 제안 단계를 완료할 수 있습니다.");
+            .hasMessage("팀장만 이 작업을 수행할 수 있습니다.");
     }
 
     @Test
@@ -80,7 +80,7 @@ public class TeamAccessValidatorTest {
     void validateTeamLeader_nonLeaderMember_throwsAccessDenied() {
         assertThatThrownBy(() -> teamAccessValidator.validateTeamLeader(TEAM_ID, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class)
-            .hasMessage("팀장만 프로젝트 제안 단계를 완료할 수 있습니다.");
+            .hasMessage("팀장만 이 작업을 수행할 수 있습니다.");
     }
 
     @Test

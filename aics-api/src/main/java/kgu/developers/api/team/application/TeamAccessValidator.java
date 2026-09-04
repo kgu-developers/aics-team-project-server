@@ -39,7 +39,7 @@ public class TeamAccessValidator {
             .map(member -> member.isLeader())
             .orElse(false);
         if (!isLeader) {
-            throw new AccessDeniedException("팀장만 프로젝트 제안 단계를 완료할 수 있습니다.");
+            throw new AccessDeniedException("팀장만 이 작업을 수행할 수 있습니다.");
         }
     }
 }
