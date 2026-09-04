@@ -3,7 +3,9 @@ package project.presentation;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -134,6 +136,26 @@ class ProjectControllerTest {
             .andExpect(status().isOk());
 
         then(projectFacade).should().completeProposal(10L, USER_ID);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/approval은 인증 사용자로 동의를 요청하고 200을 반환한다")
+    void approveProject() throws Exception {
+        mockMvc.perform(post("/api/v1/projects/{projectId}/approval", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+
+        then(projectFacade).should().approveProject(10L, USER_ID);
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/projects/{projectId}는 인증 사용자로 삭제를 요청하고 204를 반환한다")
+    void deleteProject() throws Exception {
+        mockMvc.perform(delete("/api/v1/projects/{projectId}", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isNoContent());
+
+        then(projectFacade).should().deleteProject(10L, USER_ID);
     }
 
     @Test
