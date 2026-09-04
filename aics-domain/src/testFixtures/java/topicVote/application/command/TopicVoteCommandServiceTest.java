@@ -5,11 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
 import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
@@ -20,7 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.mockito.InOrder;
 
 class TopicVoteCommandServiceTest {
 
@@ -31,13 +35,18 @@ class TopicVoteCommandServiceTest {
 
     private TopicVoteRepository topicVoteRepository;
     private TopicCandidateRepository topicCandidateRepository;
+    private TeamRepository teamRepository;
     private TopicVoteCommandService topicVoteCommandService;
 
     @BeforeEach
     void setUp() {
         topicVoteRepository = mock(TopicVoteRepository.class);
         topicCandidateRepository = mock(TopicCandidateRepository.class);
-        topicVoteCommandService = new TopicVoteCommandService(topicVoteRepository, topicCandidateRepository);
+        teamRepository = mock(TeamRepository.class);
+        topicVoteCommandService = new TopicVoteCommandService(topicVoteRepository, topicCandidateRepository, teamRepository);
+        given(teamRepository.findByIdForUpdate(TEAM_ID)).willReturn(Optional.of(
+            Team.builder().id(TEAM_ID).sectionId(1L).name("1팀").build()
+        ));
         givenActiveCandidate(CANDIDATE_ID, TEAM_ID);
         givenActiveCandidate(CHANGED_CANDIDATE_ID, TEAM_ID);
     }
@@ -171,46 +180,31 @@ class TopicVoteCommandServiceTest {
     }
 
     @Test
-    @DisplayName("vote는 동시 투표 시 중복 생성을 방지하고 기존 투표를 반환한다")
-    void vote_HandlesConcurrentVoteCreation() {
+    @DisplayName("vote는 팀 행을 먼저 잠근 뒤 투표를 저장한다")
+    void vote_LocksTeamRowBeforeSaving() {
         // given
-        TopicVote existingVote = TopicVote.builder()
-            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
-        
-        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID))
-            .willReturn(Optional.empty(), Optional.of(existingVote));
-
-        given(topicVoteRepository.save(any(TopicVote.class)))
-            .willThrow(new DataIntegrityViolationException("duplicate key"))
-            .willReturn(existingVote);
+        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID)).willReturn(Optional.empty());
+        given(topicVoteRepository.save(any(TopicVote.class))).willReturn(TopicVote.builder()
+            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build());
 
         // when
-        TopicVote result = topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
+        topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID);
 
         // then
-        assertThat(result).isSameAs(existingVote);
-        assertThat(result.getCandidateId()).isEqualTo(CANDIDATE_ID);
+        InOrder inOrder = inOrder(teamRepository, topicVoteRepository);
+        inOrder.verify(teamRepository).findByIdForUpdate(TEAM_ID);
+        inOrder.verify(topicVoteRepository).save(any(TopicVote.class));
     }
 
     @Test
-    @DisplayName("vote는 동시 투표 시 중복 생성을 방지하고 후보를 변경한다")
-    void vote_HandlesConcurrentVoteCreationWithDifferentCandidate() {
+    @DisplayName("vote는 팀이 없으면 투표를 저장하지 않는다")
+    void vote_Throws_WhenTeamNotFound() {
         // given
-        TopicVote existingVote = TopicVote.builder()
-            .id(1L).teamId(TEAM_ID).candidateId(CANDIDATE_ID).voterUserId(VOTER_USER_ID).build();
-        
-        given(topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(TEAM_ID, VOTER_USER_ID))
-            .willReturn(Optional.empty(), Optional.of(existingVote));
-        
-        given(topicVoteRepository.save(any(TopicVote.class)))
-            .willThrow(new DataIntegrityViolationException("duplicate key"))
-            .willReturn(existingVote);
+        given(teamRepository.findByIdForUpdate(TEAM_ID)).willReturn(Optional.empty());
 
-        // when
-        TopicVote result = topicVoteCommandService.vote(TEAM_ID, CHANGED_CANDIDATE_ID, VOTER_USER_ID);
-
-        // then
-        assertThat(result).isSameAs(existingVote);
-        assertThat(result.getCandidateId()).isEqualTo(CHANGED_CANDIDATE_ID);
+        // when & then
+        assertThatThrownBy(() -> topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID))
+            .isInstanceOf(TeamNotFoundException.class);
+        verify(topicVoteRepository, never()).save(any(TopicVote.class));
     }
 }

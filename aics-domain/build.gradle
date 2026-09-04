@@ -11,6 +11,10 @@ dependencies {
     implementation project(':aics-infra')
     implementation project(':aics-global-utils')
 
+    testFixturesImplementation 'org.testcontainers:junit-jupiter'
+    testFixturesImplementation 'org.testcontainers:postgresql'
+    testFixturesRuntimeOnly 'org.postgresql:postgresql'
+
     testFixturesImplementation project(':aics-common')
     testFixturesImplementation project(':aics-infra')
     testFixturesImplementation project(':aics-global-utils')

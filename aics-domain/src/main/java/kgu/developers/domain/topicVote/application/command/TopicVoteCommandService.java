@@ -1,16 +1,16 @@
 package kgu.developers.domain.topicVote.application.command;
 
 import java.util.Optional;
+import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
 import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import kgu.developers.domain.topicVote.exception.TopicVoteCandidateChangedException;
-import kgu.developers.domain.topicVote.exception.TopicVoteConflictException;
 import kgu.developers.domain.topicVote.exception.TopicVoteNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,9 +20,11 @@ public class TopicVoteCommandService {
 
     private final TopicVoteRepository topicVoteRepository;
     private final TopicCandidateRepository topicCandidateRepository;
+    private final TeamRepository teamRepository;
 
     @Transactional
     public TopicVote vote(Long teamId, Long candidateId, String voterUserId) {
+        teamRepository.findByIdForUpdate(teamId).orElseThrow(TeamNotFoundException::new);
         validateActiveCandidate(teamId, candidateId);
 
         Optional<TopicVote> existingVote = topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId);
@@ -33,25 +35,8 @@ public class TopicVoteCommandService {
             }
             return reactivateVote(vote, candidateId);
         }
-        
-        try {
-            return topicVoteRepository.save(TopicVote.create(teamId, candidateId, voterUserId));
-        } catch (DataIntegrityViolationException e) {
-            return handleVoteConflict(teamId, candidateId, voterUserId);
-        }
-    }
 
-    @Transactional
-    public TopicVote handleVoteConflict(Long teamId, Long candidateId, String voterUserId) {
-        Optional<TopicVote> retryVote = topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId);
-        if (retryVote.isPresent()) {
-            TopicVote vote = retryVote.get();
-            if (vote.getDeletedAt() == null) {
-                return changeVoteCandidate(vote, candidateId);
-            }
-            return reactivateVote(vote, candidateId);
-        }
-        throw new TopicVoteConflictException();
+        return topicVoteRepository.save(TopicVote.create(teamId, candidateId, voterUserId));
     }
 
     @Transactional
