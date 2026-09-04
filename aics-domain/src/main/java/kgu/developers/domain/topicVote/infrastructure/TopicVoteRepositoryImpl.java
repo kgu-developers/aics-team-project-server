@@ -62,8 +62,9 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
 
     @Override
     @Transactional
-    public void deleteByTeamIdAndVoterUserId(Long teamId, String voterUserId) {
-        softDelete(jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
+    public void deleteByTeamIdAndCandidateIdAndVoterUserId(Long teamId, Long candidateId, String voterUserId) {
+        softDelete(jpaTopicVoteRepository
+                .findByTeamIdAndCandidateIdAndVoterUserIdAndDeletedAtIsNull(teamId, candidateId, voterUserId)
                 .orElseThrow(TopicVoteNotFoundException::new));
     }
 

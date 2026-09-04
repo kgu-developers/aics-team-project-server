@@ -17,7 +17,7 @@ public class TopicVoteCommandService {
     return topicVoteRepository.upsert(TopicVote.create(teamId, candidateId, voterUserId));
   }
 
-  public void cancelVote(Long teamId, String voterUserId) {
-    topicVoteRepository.deleteByTeamIdAndVoterUserId(teamId, voterUserId);
+  public void cancelVote(Long teamId, Long candidateId, String voterUserId) {
+    topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(teamId, candidateId, voterUserId);
   }
 }

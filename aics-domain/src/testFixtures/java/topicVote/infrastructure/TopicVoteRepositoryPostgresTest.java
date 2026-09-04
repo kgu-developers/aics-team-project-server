@@ -120,7 +120,7 @@ class TopicVoteRepositoryPostgresTest {
         assertThat(constraint).isEqualTo("UNIQUE (team_id, voter_user_id)");
 
         topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
-        topicVoteCommandService.cancelVote(TEAM, VOTER);
+        topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
 
         // 삭제된 행이 여전히 키를 점유하므로 맨 INSERT 는 반드시 실패한다 -> 재활성화가 필요한 이유
         assertThatThrownBy(() -> jdbc.update("""
@@ -160,7 +160,7 @@ class TopicVoteRepositoryPostgresTest {
     @DisplayName("투표 취소 후 다시 투표하면 삭제된 행이 재활성화된다 (다른 후보여도 된다)")
     void revoteAfterCancelReactivatesRow() {
         TopicVote first = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
-        topicVoteCommandService.cancelVote(TEAM, VOTER);
+        topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
         assertThat(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM, VOTER)).isEmpty();
 
         TopicVote second = topicVoteCommandService.vote(TEAM, CANDIDATE_B, VOTER);
@@ -209,16 +209,28 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("존재하지 않거나 이미 취소된 투표를 취소하면 TopicVoteNotFoundException")
     void cancelMissingOrAlreadyDeletedVote() {
-        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, VOTER))
+        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER))
                 .isInstanceOf(TopicVoteNotFoundException.class);
 
         TopicVote vote = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
-        topicVoteCommandService.cancelVote(TEAM, VOTER);
+        topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
 
-        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, VOTER))
+        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER))
                 .isInstanceOf(TopicVoteNotFoundException.class);
         assertThatThrownBy(() -> topicVoteRepository.deleteById(vote.getId()))
                 .isInstanceOf(TopicVoteNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("후보가 다르면 취소되지 않고 기존 표가 유지된다")
+    void cancelWithMismatchedCandidateKeepsVote() {
+        topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+
+        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, CANDIDATE_B, VOTER))
+                .isInstanceOf(TopicVoteNotFoundException.class);
+
+        assertThat(activeVotesOf(VOTER)).isEqualTo(1);
+        assertThat(topicVoteRepository.findAllByCandidateId(CANDIDATE_A)).hasSize(1);
     }
 
     @Test
@@ -233,7 +245,7 @@ class TopicVoteRepositoryPostgresTest {
             bumpVersionInAnotherTransaction(vote.getId());
 
             // 취소는 캐시된 버전 0 으로 UPDATE 를 날리므로 반드시 진다
-            topicVoteRepository.deleteByTeamIdAndVoterUserId(TEAM, VOTER);
+            topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_A, VOTER);
         })).isInstanceOf(TopicVoteNotFoundException.class);
 
         assertThat(activeVotesOf(VOTER)).isEqualTo(1);   // 롤백됐으니 표는 그대로다
@@ -263,7 +275,7 @@ class TopicVoteRepositoryPostgresTest {
         List<Callable<Boolean>> tasks = java.util.Collections.nCopies(threads, () -> {
             barrier.await();
             try {
-                topicVoteCommandService.cancelVote(TEAM, VOTER);
+                topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
                 return true;
             } catch (TopicVoteNotFoundException e) {
                 return false;

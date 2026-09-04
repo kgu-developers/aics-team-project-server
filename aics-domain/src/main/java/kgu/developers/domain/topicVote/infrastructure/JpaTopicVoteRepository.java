@@ -14,6 +14,9 @@ public interface JpaTopicVoteRepository extends JpaRepository<TopicVoteJpaEntity
 
     Optional<TopicVoteJpaEntity> findByTeamIdAndVoterUserIdAndDeletedAtIsNull(Long teamId, String voterUserId);
 
+    Optional<TopicVoteJpaEntity> findByTeamIdAndCandidateIdAndVoterUserIdAndDeletedAtIsNull(
+            Long teamId, Long candidateId, String voterUserId);
+
     @Query(value = """
             INSERT INTO topic_vote (team_id, candidate_id, voter_user_id, version, created_at, updated_at)
             VALUES (:teamId, :candidateId, :voterUserId, 0, now(), now())

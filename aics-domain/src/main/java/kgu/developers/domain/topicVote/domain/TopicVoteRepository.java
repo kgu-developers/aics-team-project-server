@@ -17,5 +17,5 @@ public interface TopicVoteRepository {
 
     void deleteById(Long id);
 
-    void deleteByTeamIdAndVoterUserId(Long teamId, String voterUserId);
+    void deleteByTeamIdAndCandidateIdAndVoterUserId(Long teamId, Long candidateId, String voterUserId);
 }
