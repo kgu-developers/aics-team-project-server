@@ -11,6 +11,8 @@ import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundExce
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import static kgu.developers.common.exception.ConstraintViolations.violates;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -42,16 +44,11 @@ public class TopicCandidateCommandService {
         try {
             return topicCandidateRepository.save(topicCandidate);
         } catch (DataIntegrityViolationException e) {
-            if (isUniqueConstraintViolation(e, "uk_topic_candidate_team_proposer")) {
+            if (violates(e, "uk_topic_candidate_team_proposer")) {
                 throw new DuplicateTopicCandidateException();
             }
             throw e;
         }
-    }
-
-    private boolean isUniqueConstraintViolation(DataIntegrityViolationException e, String constraintName) {
-        String message = e.getMostSpecificCause().getMessage();
-        return message != null && message.contains(constraintName);
     }
 
     public void updateTopicCandidate(Long id, String title, String description) {

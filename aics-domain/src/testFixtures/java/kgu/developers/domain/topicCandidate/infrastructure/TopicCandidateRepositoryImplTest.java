@@ -1,6 +1,7 @@
 package kgu.developers.domain.topicCandidate.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.inOrder;
@@ -30,6 +31,23 @@ class TopicCandidateRepositoryImplTest {
 
     @Mock
     private EntityManager entityManager;
+
+    @Test
+    @DisplayName("save는 후보를 저장하고 flush한다")
+    void saveSavesAndFlushes() {
+        TopicCandidate candidate = candidate(1L, "새 주제");
+        TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(candidate);
+        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
+                .willReturn(entity);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
+
+        TopicCandidate result = repository.save(candidate);
+
+        assertThat(result.getTitle()).isEqualTo("새 주제");
+        InOrder inOrder = inOrder(jpaTopicCandidateRepository);
+        inOrder.verify(jpaTopicCandidateRepository).save(any(TopicCandidateJpaEntity.class));
+        inOrder.verify(jpaTopicCandidateRepository).flush();
+    }
 
     @Test
     @DisplayName("저장소는 삭제되지 않은 주제 후보만 조회한다")
