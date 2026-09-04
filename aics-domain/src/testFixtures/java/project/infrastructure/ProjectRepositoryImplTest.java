@@ -855,4 +855,305 @@ class ProjectRepositoryImplTest {
     assertThatThrownBy(() -> repository.save(projectSecondUpdate))
         .isInstanceOf(kgu.developers.domain.project.exception.ProjectVersionConflictException.class);
   }
+
+  @Test
+  @DisplayName("실제 JPA 트랜잭션 시나리오: 조회 → 삭제 → 오래된 객체 저장 시 버전 충돌")
+  void readDeleteThenSaveOldObjectScenario() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    // 시나리오 시작: 트랜잭션 1에서 프로젝트 조회
+    Project existingProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("원본 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(0L)
+        .build();
+
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(existingProject, team)));
+
+    // 트랜잭션 2: 프로젝트 삭제
+    ProjectJpaEntity entityToDelete = ProjectJpaEntity.toEntity(existingProject, team);
+    given(jpaProjectRepository.findByIdAndDeletedAtIsNull(1L))
+        .willReturn(Optional.of(entityToDelete));
+
+    repository.deleteById(1L);
+
+    // 삭제 후 findByTeamId가 삭제된 프로젝트를 반환하도록 설정
+    Project deletedProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("원본 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .deletedAt(LocalDateTime.now())
+        .build();
+    
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
+
+    // 트랜잭션 3: 오래된 객체로 저장 시도
+    Project oldProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("수정된 제목")
+        .description("새 설명")
+        .goal("새 목표")
+        .repositoryUrl("https://github.com/example/new-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("오프라인")
+        .version(0L) // 오래된 버전
+        .build();
+
+    // 삭제된 프로젝트가 있는 상태에서 저장 시도 - 버전 충돌 예외 발생
+    assertThatThrownBy(() -> repository.save(oldProject))
+        .isInstanceOf(ProjectVersionConflictException.class);
+  }
+
+  @Test
+  @DisplayName("실제 JPA 트랜잭션 시나리오: 조회 → 수정 → 오래된 객체 저장 시 버전 충돌")
+  void readUpdateThenSaveOldObjectScenario() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    // 시나리오 시작: 트랜잭션 1에서 프로젝트 조회
+    Project existingProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("원본 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(0L)
+        .build();
+
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(existingProject, team)));
+
+    // 트랜잭션 2: 프로젝트 수정 (버전 증가)
+    Project updatedProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("업데이트된 프로젝트")
+        .description("업데이트된 설명")
+        .goal("업데이트된 목표")
+        .repositoryUrl("https://github.com/example/updated-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(1L) // 버전 증가
+        .build();
+
+    ProjectJpaEntity updatedEntity = ProjectJpaEntity.toEntity(updatedProject, team);
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
+        .willReturn(updatedEntity);
+
+    Project result = repository.save(updatedProject);
+    assertThat(result.getVersion()).isEqualTo(1L);
+
+    // 트랜잭션 3: 오래된 객체로 저장 시도
+    Project oldProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("오래된 제목")
+        .description("오래된 설명")
+        .goal("오래된 목표")
+        .repositoryUrl("https://github.com/example/old-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("오프라인")
+        .version(0L) // 오래된 버전
+        .build();
+
+    // 낙관적 잠금 충돌로 인한 버전 충돌 예외 발생
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
+        .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
+            ProjectJpaEntity.class, 1L));
+
+    assertThatThrownBy(() -> repository.save(oldProject))
+        .isInstanceOf(ProjectVersionConflictException.class);
+  }
+
+  @Test
+  @DisplayName("실제 JPA 트랜잭션 시나리오: 조회 → 삭제 → 재활성화 정상 동작")
+  void readDeleteThenReactivateScenario() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    // 시나리오 시작: 트랜잭션 1에서 프로젝트 조회
+    Project existingProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("원본 프로젝트")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(0L)
+        .build();
+
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(existingProject, team)));
+
+    // 트랜잭션 2: 프로젝트 삭제
+    ProjectJpaEntity entityToDelete = ProjectJpaEntity.toEntity(existingProject, team);
+    given(jpaProjectRepository.findByIdAndDeletedAtIsNull(1L))
+        .willReturn(Optional.of(entityToDelete));
+
+    repository.deleteById(1L);
+
+    // 트랜잭션 3: 재활성화 시도
+    Project newProject = Project.builder()
+        .teamId(1L)
+        .title("재활성화된 프로젝트")
+        .description("재활성화 설명")
+        .goal("재활성화 목표")
+        .repositoryUrl("https://github.com/example/reactivated-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .build();
+
+    // 삭제된 프로젝트 반환
+    Project deletedProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("삭제된 프로젝트")
+        .description("설명")
+        .goal("목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .deletedAt(LocalDateTime.now())
+        .build();
+
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
+
+    // 재활성화된 프로젝트 반환
+    Project reactivatedProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("재활성화된 프로젝트")
+        .description("재활성화 설명")
+        .goal("재활성화 목표")
+        .repositoryUrl("https://github.com/example/reactivated-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .deletedAt(null)
+        .proposalCompletedAt(null)
+        .build();
+
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
+        .willReturn(ProjectJpaEntity.toEntity(reactivatedProject, team));
+
+    Project result = repository.reactivate(1L, newProject);
+
+    assertThat(result.getId()).isEqualTo(1L);
+    assertThat(result.getTitle()).isEqualTo("재활성화된 프로젝트");
+    assertThat(result.getDeletedAt()).isNull();
+  }
+
+  @Test
+  @DisplayName("실제 JPA 트랜잭션 시나리오: 동시 수정 시 낙관적 잠금 충돌")
+  void concurrentUpdateScenario() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    // 시나리오 시작: 트랜잭션 1에서 첫 번째 수정
+    Project firstUpdate = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("첫 번째 수정")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(0L)
+        .build();
+
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(firstUpdate, team)));
+
+    ProjectJpaEntity firstUpdatedEntity = ProjectJpaEntity.builder()
+        .id(1L)
+        .team(team)
+        .title("첫 번째 수정")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("온라인")
+        .version(1L) // 버전 증가
+        .build();
+
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
+        .willReturn(firstUpdatedEntity);
+
+    Project result1 = repository.save(firstUpdate);
+    assertThat(result1.getVersion()).isEqualTo(1L);
+
+    // 트랜잭션 2: 동시에 두 번째 수정 시도 (이전 버전으로)
+    Project secondUpdate = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("두 번째 수정")
+        .description("프로젝트 설명")
+        .goal("프로젝트 목표")
+        .repositoryUrl("https://github.com/example/repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("오프라인")
+        .version(0L) // 이전 버전으로 시도
+        .build();
+
+    given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
+        .willThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
+            ProjectJpaEntity.class, 1L));
+
+    assertThatThrownBy(() -> repository.save(secondUpdate))
+        .isInstanceOf(ProjectVersionConflictException.class);
+  }
 }
