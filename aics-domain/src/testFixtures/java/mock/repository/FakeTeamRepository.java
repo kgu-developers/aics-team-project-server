@@ -59,6 +59,14 @@ public class FakeTeamRepository implements TeamRepository {
     }
 
     @Override
+    public List<Team> findAllBySectionIdIn(List<Long> sectionIds) {
+        return store.values().stream()
+            .filter(team -> sectionIds.contains(team.getSectionId()))
+            .filter(team -> team.getDeletedAt() == null)
+            .toList();
+    }
+
+    @Override
     public boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id) {
         return store.values().stream()
             .anyMatch(team -> team.getSectionId().equals(sectionId)

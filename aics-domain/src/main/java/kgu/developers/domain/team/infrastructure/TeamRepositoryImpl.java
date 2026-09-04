@@ -74,6 +74,17 @@ public class TeamRepositoryImpl implements TeamRepository {
     }
 
     @Override
+    public List<Team> findAllBySectionIdIn(List<Long> sectionIds) {
+        if (sectionIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamRepository.findAllBySectionIdInAndDeletedAtIsNull(sectionIds)
+                .stream()
+                .map(TeamJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id) {
         // 분반 행을 먼저 잠가서, 같은 분반에 팀명이 동시에 중복 등록되는 경쟁 상태를 막는다.
         // DB 유니크 인덱스(uk_team_section_name)는 database/team.sql로만 관리돼 환경마다

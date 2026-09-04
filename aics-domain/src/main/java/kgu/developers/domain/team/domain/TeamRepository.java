@@ -14,6 +14,8 @@ public interface TeamRepository {
 
     List<Team> findAllBySectionId(Long sectionId);
 
+    List<Team> findAllBySectionIdIn(List<Long> sectionIds);
+
     boolean existsBySectionIdAndNameAndIdNot(Long sectionId, String name, Long id);
 
     void deleteById(Long id);

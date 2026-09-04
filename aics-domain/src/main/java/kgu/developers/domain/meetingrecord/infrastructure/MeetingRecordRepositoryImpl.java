@@ -10,6 +10,8 @@ import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -46,14 +48,27 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
             : jpaMeetingRecordRepository.findAllByTeamIdAndPhase(teamId, phase);
 
         List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
-        Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId = jpaMeetingParticipantRepository.findAllByMeetingRecordIdIn(meetingRecordIds)
-            .stream()
-            .map(MeetingParticipantJpaEntity::toDomain)
-            .collect(Collectors.groupingBy(MeetingParticipant::getMeetingRecordId));
+        Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId =
+            findParticipantsByMeetingRecordId(meetingRecordIds);
 
         return entities.stream()
             .map(entity -> entity.toDomain(participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of())))
             .toList();
+    }
+
+    @Override
+    public Page<MeetingRecord> findAllByTeamIdIn(List<Long> teamIds, Pageable pageable) {
+        if (teamIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Page<MeetingRecordJpaEntity> entities = jpaMeetingRecordRepository.findAllByTeamIdIn(teamIds, pageable);
+        List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
+        Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId = findParticipantsByMeetingRecordId(
+            meetingRecordIds);
+
+        return entities.map(entity -> entity.toDomain(
+            participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of())));
     }
 
     @Override
@@ -98,5 +113,14 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
         return jpaMeetingParticipantRepository.findAllByMeetingRecordId(meetingRecordId).stream()
             .map(MeetingParticipantJpaEntity::toDomain)
             .toList();
+    }
+
+    private Map<Long, List<MeetingParticipant>> findParticipantsByMeetingRecordId(List<Long> meetingRecordIds) {
+        if (meetingRecordIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaMeetingParticipantRepository.findAllByMeetingRecordIdIn(meetingRecordIds).stream()
+            .map(MeetingParticipantJpaEntity::toDomain)
+            .collect(Collectors.groupingBy(MeetingParticipant::getMeetingRecordId));
     }
 }

@@ -6,6 +6,8 @@ import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,5 +25,9 @@ public class MeetingRecordQueryService {
 
     public List<MeetingRecord> getMeetingRecords(Long teamId, MeetingPhase phase) {
         return meetingRecordRepository.findAllByTeamId(teamId, phase);
+    }
+
+    public Page<MeetingRecord> getMeetingRecords(List<Long> teamIds, Pageable pageable) {
+        return meetingRecordRepository.findAllByTeamIdIn(teamIds, pageable);
     }
 }
