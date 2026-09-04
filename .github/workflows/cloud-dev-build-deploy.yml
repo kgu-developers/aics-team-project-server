@@ -142,3 +142,9 @@ jobs:
             done
 
             echo "API, Admin, Auth 애플리케이션 기동 확인을 완료했습니다."
+
+            echo "이미지 정리 전 디스크 사용량:"
+            df -h .
+            docker image prune -af
+            echo "이미지 정리 후 디스크 사용량:"
+            df -h .
