@@ -41,6 +41,7 @@ file:
 
 aws:
   s3:
+    enabled: true
     region: ${AWS_S3_REGION:ap-northeast-2}
     # 버킷이 아직 없는 로컬/CI에서도 부팅은 되도록 기본값을 비워둔다 —
     # 실제 업로드를 시도할 때만(버킷 필요한 시점) 에러가 남.
