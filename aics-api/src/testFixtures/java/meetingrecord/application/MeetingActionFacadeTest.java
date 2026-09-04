@@ -11,6 +11,7 @@ import kgu.developers.api.meetingrecord.presentation.request.MeetingActionCreate
 import kgu.developers.api.meetingrecord.presentation.request.MeetingActionUpdateRequest;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionListResponse;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionResponse;
+import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.meetingrecord.application.command.MeetingActionCommandService;
 import kgu.developers.domain.meetingrecord.application.query.MeetingActionQueryService;
@@ -18,10 +19,15 @@ import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryS
 import kgu.developers.domain.meetingrecord.domain.MeetingActionStatus;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.team.domain.Status;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import mock.repository.FakeMeetingActionRepository;
 import mock.repository.FakeMeetingRecordRepository;
+import mock.repository.FakeSectionRepository;
 import mock.repository.FakeTeamMemberRepository;
+import mock.repository.FakeTeamRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +38,7 @@ public class MeetingActionFacadeTest {
     private static final String MEMBER = "202412345";
     private static final String NON_MEMBER = "202400000";
     private static final String OTHER_TEAM_STUDENT = "202400111";
+    private static final String PROFESSOR = "P0001";
 
     private MeetingActionFacade meetingActionFacade;
     private Long meetingRecordId;
@@ -41,7 +48,11 @@ public class MeetingActionFacadeTest {
         FakeMeetingRecordRepository fakeMeetingRecordRepository = new FakeMeetingRecordRepository();
         FakeMeetingActionRepository fakeMeetingActionRepository = new FakeMeetingActionRepository(fakeMeetingRecordRepository);
         FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
+        FakeTeamRepository fakeTeamRepository = new FakeTeamRepository();
+        FakeSectionRepository fakeSectionRepository = new FakeSectionRepository();
         fakeTeamMemberRepository.save(TeamMember.create(1L, MEMBER, false, "기록자"));
+        fakeSectionRepository.save(Section.builder().id(10L).professorId(PROFESSOR).build());
+        fakeTeamRepository.save(Team.builder().id(1L).sectionId(10L).status(Status.CONFIRMED).build());
 
         MeetingRecord meetingRecord = fakeMeetingRecordRepository.save(
             MeetingRecord.create(1L, MeetingPhase.PROPOSAL, MEMBER, LocalDateTime.now(), "장소", "내용", List.of(MEMBER))
@@ -52,7 +63,8 @@ public class MeetingActionFacadeTest {
             new MeetingActionCommandService(fakeMeetingActionRepository),
             new MeetingActionQueryService(fakeMeetingActionRepository),
             new MeetingRecordQueryService(fakeMeetingRecordRepository),
-            fakeTeamMemberRepository
+            fakeTeamMemberRepository,
+            new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository)
         );
     }
 
@@ -118,6 +130,19 @@ public class MeetingActionFacadeTest {
         // when & then
         assertThatThrownBy(() -> meetingActionFacade.getMeetingActions(meetingRecordId, NON_MEMBER))
             .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("getMeetingActions는 담당 교수도 조회할 수 있다")
+    public void getMeetingActions_Professor_Allowed() {
+        // given
+        meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
+
+        // when
+        MeetingActionListResponse result = meetingActionFacade.getMeetingActions(meetingRecordId, PROFESSOR);
+
+        // then
+        assertEquals(1, result.contents().size());
     }
 
     @Test
@@ -213,5 +238,18 @@ public class MeetingActionFacadeTest {
         // when & then
         assertThatThrownBy(() -> meetingActionFacade.getTeamActions(1L, null, NON_MEMBER))
             .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("getTeamActions는 담당 교수도 조회할 수 있다")
+    public void getTeamActions_Professor_Allowed() {
+        // given
+        meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
+
+        // when
+        MeetingActionListResponse result = meetingActionFacade.getTeamActions(1L, null, PROFESSOR);
+
+        // then
+        assertEquals(1, result.contents().size());
     }
 }
