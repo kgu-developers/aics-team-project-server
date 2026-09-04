@@ -56,11 +56,11 @@ class ProjectControllerTest {
     }
 
     @Test
-    @DisplayName("GET /teams/{teamId}/project는 프로젝트 제안서를 반환한다")
+    @DisplayName("GET /api/v1/teams/{teamId}/project는 프로젝트 제안서를 반환한다")
     void getProject() throws Exception {
         given(projectFacade.getProject(TEAM_ID, USER_ID)).willReturn(response());
 
-        mockMvc.perform(get("/teams/{teamId}/project", TEAM_ID)
+        mockMvc.perform(get("/api/v1/teams/{teamId}/project", TEAM_ID)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(10L))
@@ -72,7 +72,7 @@ class ProjectControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /teams/{teamId}/project는 요청 값을 제안서 등록에 전달한다")
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 요청 값을 제안서 등록에 전달한다")
     void saveProject() throws Exception {
         ProjectRequest request = new ProjectRequest(
             "AI 학습 도우미",
@@ -85,7 +85,7 @@ class ProjectControllerTest {
         given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
             .willReturn(response());
 
-        mockMvc.perform(put("/teams/{teamId}/project", TEAM_ID)
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
@@ -102,9 +102,9 @@ class ProjectControllerTest {
     }
 
     @Test
-    @DisplayName("PATCH /projects/{projectId}/proposal-complete는 완료 처리를 요청한다")
+    @DisplayName("PATCH /api/v1/projects/{projectId}/proposal-complete는 완료 처리를 요청한다")
     void completeProposal() throws Exception {
-        mockMvc.perform(patch("/projects/{projectId}/proposal-complete", 10L)
+        mockMvc.perform(patch("/api/v1/projects/{projectId}/proposal-complete", 10L)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isOk());
 
@@ -112,12 +112,12 @@ class ProjectControllerTest {
     }
 
     @Test
-    @DisplayName("GET /projects/{projectId}/approvals는 팀원 동의 진행 현황을 반환한다")
+    @DisplayName("GET /api/v1/projects/{projectId}/approvals는 팀원 동의 진행 현황을 반환한다")
     void getApprovalSummary() throws Exception {
         given(projectFacade.getApprovalSummary(10L, USER_ID))
             .willReturn(ProjectApprovalSummaryResponse.of(2, 4));
 
-        mockMvc.perform(get("/projects/{projectId}/approvals", 10L)
+        mockMvc.perform(get("/api/v1/projects/{projectId}/approvals", 10L)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.approvedCount").value(2))
