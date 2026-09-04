@@ -28,6 +28,7 @@ import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.exception.ProjectAlreadyExistsException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
+import kgu.developers.domain.project.exception.ProjectVersionConflictException;
 import kgu.developers.domain.project.infrastructure.JpaProjectRepository;
 import kgu.developers.domain.project.infrastructure.ProjectJpaEntity;
 import kgu.developers.domain.project.infrastructure.ProjectRepositoryImpl;
@@ -186,15 +187,100 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있으면 재활성화한다")
-  void saveReactivatesSoftDeletedProject() {
+  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있고 ID가 일치해도 ProjectVersionConflictException을 발생시킨다")
+  void saveWithSoftDeletedProjectAndMatchingIdThrowsVersionConflict() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
     ObjectNode externalLinks = objectMapper.createObjectNode();
     externalLinks.put("notion", "https://notion.so/example");
 
     Project newProject = Project.builder()
-        .id(1L)  // 같은 ID 설정
+        .id(1L)
+        .teamId(1L)
+        .title("새 프로젝트")
+        .description("새 설명")
+        .goal("새 목표")
+        .repositoryUrl("https://github.com/example/new-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    Project deletedProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("삭제된 프로젝트")
+        .description("설명")
+        .goal("목표")
+        .repositoryUrl("https://github.com/example/old-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("오프라인")
+        .deletedAt(LocalDateTime.now())
+        .build();
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
+
+    assertThatThrownBy(() -> repository.save(newProject))
+        .isInstanceOf(ProjectVersionConflictException.class);
+    verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
+  }
+
+  @Test
+  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있고 ID가 다르면 ProjectVersionConflictException을 발생시킨다")
+  void saveWithSoftDeletedProjectAndDifferentIdThrowsVersionConflict() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project newProject = Project.builder()
+        .id(null)  // ID가 null인 경우
+        .teamId(1L)
+        .title("새 프로젝트")
+        .description("새 설명")
+        .goal("새 목표")
+        .repositoryUrl("https://github.com/example/new-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    Project deletedProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("삭제된 프로젝트")
+        .description("설명")
+        .goal("목표")
+        .repositoryUrl("https://github.com/example/old-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("오프라인")
+        .deletedAt(LocalDateTime.now())
+        .build();
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
+
+    assertThatThrownBy(() -> repository.save(newProject))
+        .isInstanceOf(ProjectVersionConflictException.class);
+    verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
+  }
+
+  @Test
+  @DisplayName("reactivate는 삭제된 프로젝트를 재활성화한다")
+  void reactivateRestoresSoftDeletedProject() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project newProject = Project.builder()
         .teamId(1L)
         .title("새 프로젝트")
         .description("새 설명")
@@ -239,7 +325,7 @@ class ProjectRepositoryImplTest {
     given(jpaProjectRepository.saveAndFlush(any(ProjectJpaEntity.class)))
         .willReturn(ProjectJpaEntity.toEntity(reactivated, team));
 
-    Project result = repository.save(newProject);
+    Project result = repository.reactivate(1L, newProject);
 
     assertThat(result.getId()).isEqualTo(1L);
     assertThat(result.getTitle()).isEqualTo("새 프로젝트");
@@ -285,15 +371,14 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("save는 삭제된 프로젝트와 ID가 다른 프로젝트로 저장 시도하면 ProjectNotFoundException을 발생시킨다")
-  void saveWithDifferentIdThanDeletedProjectThrowsException() {
+  @DisplayName("reactivate는 존재하지 않는 프로젝트 ID로 호출하면 ProjectNotFoundException을 발생시킨다")
+  void reactivateWithNonExistentIdThrowsException() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
     ObjectNode externalLinks = objectMapper.createObjectNode();
     externalLinks.put("notion", "https://notion.so/example");
 
     Project newProject = Project.builder()
-        .id(1L)  // 다른 ID
         .teamId(1L)
         .title("새 프로젝트")
         .description("새 설명")
@@ -307,23 +392,54 @@ class ProjectRepositoryImplTest {
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
     given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
 
-    Project deletedProject = Project.builder()
-        .id(999L)  // 다른 ID의 삭제된 프로젝트
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> repository.reactivate(999L, newProject))
+        .isInstanceOf(ProjectNotFoundException.class);
+    verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
+  }
+
+  @Test
+  @DisplayName("reactivate는 이미 활성화된 프로젝트에 대해 호출하면 IllegalStateException을 발생시킨다")
+  void reactivateActiveProjectThrowsException() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project newProject = Project.builder()
         .teamId(1L)
-        .title("삭제된 프로젝트")
+        .title("새 프로젝트")
+        .description("새 설명")
+        .goal("새 목표")
+        .repositoryUrl("https://github.com/example/new-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    Project activeProject = Project.builder()
+        .id(1L)
+        .teamId(1L)
+        .title("활성 프로젝트")
         .description("설명")
         .goal("목표")
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
         .meetingStyle("오프라인")
-        .deletedAt(LocalDateTime.now())
+        .deletedAt(null)
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
-        .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(activeProject, team)));
 
-    assertThatThrownBy(() -> repository.save(newProject))
-        .isInstanceOf(ProjectNotFoundException.class);
+    assertThatThrownBy(() -> repository.reactivate(1L, newProject))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("이미 활성화된 프로젝트는 재활성화할 수 없습니다.");
     verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
   }
 

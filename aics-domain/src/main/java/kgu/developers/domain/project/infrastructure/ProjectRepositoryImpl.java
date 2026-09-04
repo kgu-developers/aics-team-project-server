@@ -41,18 +41,43 @@ public class ProjectRepositoryImpl implements ProjectRepository {
                         throw new ProjectAlreadyExistsException();
                     }
                 } else {
-                    if (!existing.getId().equals(project.getId())) {
-                        throw new ProjectNotFoundException();
-                    }
-                    existing.reactivate(project.getTitle(), project.getDescription(), project.getGoal(),
-                            project.getRepositoryUrl(), project.getExternalLinks(), project.getApprovalStatus(), project.getMeetingStyle());
-                    ProjectJpaEntity entity = ProjectJpaEntity.toEntity(existing, team);
-                    ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
-                    return savedEntity.toDomain();
+                    // 삭제된 프로젝트가 있는 경우 버전 충돌 처리
+                    throw new ProjectVersionConflictException();
                 }
             }
 
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(project, team);
+            ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
+            return savedEntity.toDomain();
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new ProjectVersionConflictException();
+        }
+    }
+
+    @Override
+    @Transactional
+    public Project reactivate(Long projectId, Project newProject) {
+        try {
+            TeamJpaEntity team = entityManager.find(
+                    TeamJpaEntity.class, newProject.getTeamId(), PESSIMISTIC_WRITE);
+            if (team == null || team.getDeletedAt() != null) {
+                throw new TeamNotFoundException();
+            }
+
+            Project existing = findIncludingDeletedByTeamId(newProject.getTeamId())
+                    .orElseThrow(ProjectNotFoundException::new);
+
+            if (existing.getDeletedAt() == null) {
+                throw new IllegalStateException("이미 활성화된 프로젝트는 재활성화할 수 없습니다.");
+            }
+
+            if (!existing.getId().equals(projectId)) {
+                throw new ProjectNotFoundException();
+            }
+
+            existing.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
+                    newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(), newProject.getMeetingStyle());
+            ProjectJpaEntity entity = ProjectJpaEntity.toEntity(existing, team);
             ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
             return savedEntity.toDomain();
         } catch (ObjectOptimisticLockingFailureException e) {
