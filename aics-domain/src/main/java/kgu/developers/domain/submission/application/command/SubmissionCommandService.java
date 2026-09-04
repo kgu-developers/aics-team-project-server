@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -48,6 +49,7 @@ import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 
 @Service
+@ConditionalOnProperty(prefix = "aws.s3", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 @Transactional
 public class SubmissionCommandService {
