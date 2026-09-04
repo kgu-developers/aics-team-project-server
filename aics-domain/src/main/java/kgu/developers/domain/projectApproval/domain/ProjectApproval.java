@@ -35,19 +35,19 @@ public class ProjectApproval {
                 .build();
     }
 
-    public void updateProjectId(Long projectId) {
-        this.projectId = requireNonNull(projectId, "projectId");
-    }
-
-    public void updateUserId(String userId) {
-        this.userId = requireNonNull(userId, "userId");
-    }
-
     public void updateApprovedAt(LocalDateTime approvedAt) {
         this.approvedAt = requireNonNull(approvedAt, "approvedAt");
     }
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 같은 리비전에서 무효화된 동의를 다시 살린다. 새 행을 넣지 않으므로 유니크 제약과 충돌하지 않는다.
+     */
+    public void reactivate(LocalDateTime approvedAt) {
+        this.deletedAt = null;
+        this.approvedAt = requireNonNull(approvedAt, "approvedAt");
     }
 }

@@ -10,6 +10,7 @@ import static java.util.Objects.requireNonNull;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Getter
 @Builder
@@ -30,7 +31,7 @@ public class Project {
 
     private LocalDateTime proposalCompletedAt;  // 제안 완료 시각
     private long proposalRevision;  // 동의 대상 제안서 리비전
-    private long version;
+    private Long version;  // 낙관적 잠금 버전
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
@@ -81,14 +82,11 @@ public class Project {
         this.approvalStatus = ApprovalStatus.APPROVED;
     }
 
+    /**
+     * 제안서 내용이 바뀌면 리비전을 올려 이전 리비전의 동의를 무효화한다.
+     */
     public void increaseProposalRevision() {
         this.proposalRevision++;
-    }
-
-    public void restore() {
-        this.deletedAt = null;
-        this.proposalCompletedAt = null;
-        this.approvalStatus = ApprovalStatus.DRAFT;
     }
 
     public boolean hasSameProposalContent(
@@ -99,15 +97,40 @@ public class Project {
         String repositoryUrl,
         JsonNode externalLinks
     ) {
-        return java.util.Objects.equals(this.title, title)
-            && java.util.Objects.equals(this.description, description)
-            && java.util.Objects.equals(this.goal, goal)
-            && java.util.Objects.equals(this.meetingStyle, meetingStyle)
-            && java.util.Objects.equals(this.repositoryUrl, repositoryUrl)
-            && java.util.Objects.equals(this.externalLinks, externalLinks);
+        return Objects.equals(this.title, title)
+            && Objects.equals(this.description, description)
+            && Objects.equals(this.goal, goal)
+            && Objects.equals(this.meetingStyle, meetingStyle)
+            && Objects.equals(this.repositoryUrl, repositoryUrl)
+            && Objects.equals(this.externalLinks, externalLinks);
     }
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 소프트 삭제된 프로젝트를 새 제안서로 되살린다.
+     * 되살아난 제안서는 새 리비전이므로 이전 리비전의 동의는 모두 무효가 된다.
+     */
+    public void reactivate(String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle) {
+        if (this.deletedAt == null) {
+            throw new IllegalStateException("삭제되지 않은 프로젝트는 복구할 수 없습니다.");
+        }
+        requireNonNull(title, "title");
+        requireNonNull(description, "description");
+        requireNonNull(goal, "goal");
+        requireNonNull(approvalStatus, "approvalStatus");
+
+        this.title = title;
+        this.description = description;
+        this.goal = goal;
+        this.repositoryUrl = repositoryUrl;
+        this.externalLinks = externalLinks;
+        this.approvalStatus = approvalStatus;
+        this.meetingStyle = meetingStyle;
+        this.proposalCompletedAt = null;
+        this.deletedAt = null;
+        this.proposalRevision++;
     }
 }

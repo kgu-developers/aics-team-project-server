@@ -147,7 +147,9 @@ class ProjectFacadeTest {
 
         projectFacade.approveProject(10L, MEMBER_ID);
 
-        then(projectApprovalCommandService).should().approve(10L, MEMBER_ID);
+        then(projectApprovalCommandService).should()
+            .approve(org.mockito.ArgumentMatchers.eq(10L), org.mockito.ArgumentMatchers.eq(MEMBER_ID),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test

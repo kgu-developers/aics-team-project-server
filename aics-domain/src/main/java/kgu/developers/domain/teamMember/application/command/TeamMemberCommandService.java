@@ -105,6 +105,17 @@ public class TeamMemberCommandService {
     return claimed;
   }
 
+  public void withdrawFromTeam(Long sectionId, String userId) {
+    teamMemberRepository.findActiveBySectionIdAndUserId(sectionId, userId)
+        .ifPresent(teamMember -> {
+          try {
+            teamMemberRepository.deleteById(teamMember.getId());
+          } catch (TeamMemberNotFoundException ignored) {
+            // 동시 철회 요청이 먼저 삭제를 마쳤다면 원하는 최종 상태가 이미 충족됐다.
+          }
+        });
+  }
+
   private void validateUpdateAllowed(
       Team currentTeam, Long targetTeamId, String projectRole, Boolean isLeader) {
     if (currentTeam.getStatus() != Status.CONFIRMED) {

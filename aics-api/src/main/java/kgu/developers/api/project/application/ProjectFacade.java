@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Component
 @RequiredArgsConstructor
 @Transactional
@@ -62,7 +64,7 @@ public class ProjectFacade {
     public void approveProject(Long projectId, String userId) {
         Project project = projectQueryService.getProject(projectId);
         teamAccessValidator.validateMembership(project.getTeamId(), userId);
-        projectApprovalCommandService.approve(projectId, userId);
+        projectApprovalCommandService.approve(projectId, userId, LocalDateTime.now());
     }
 
     public ProjectApprovalSummaryResponse getApprovalSummary(Long projectId, String userId) {

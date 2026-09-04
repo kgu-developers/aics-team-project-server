@@ -1,10 +1,12 @@
 package teamMember.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -149,6 +151,41 @@ class TeamMemberCommandServiceTest {
 
         assertThat(claimed.isLeader()).isTrue();
         assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
+    }
+
+    @Test
+    @DisplayName("수강 철회 시 해당 분반의 활성 팀 소속을 삭제한다")
+    void withdrawFromTeam() {
+        TeamMember member = teamMember();
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+                .willReturn(Optional.of(member));
+
+        teamMemberCommandService.withdrawFromTeam(10L, "202699999");
+
+        verify(teamMemberRepository).deleteById(member.getId());
+    }
+
+    @Test
+    @DisplayName("수강 철회 학생에게 활성 팀 소속이 없으면 정상 종료한다")
+    void withdrawFromTeamWithoutActiveMembership() {
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+                .willReturn(Optional.empty());
+
+        teamMemberCommandService.withdrawFromTeam(10L, "202699999");
+
+        verify(teamMemberRepository, never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("withdrawFromTeam은 동시 요청이 팀원을 먼저 삭제해도 성공한다")
+    void withdrawFromTeamWhenConcurrentRequestAlreadyDeletedMember() {
+        TeamMember member = TeamMember.builder().id(1L).teamId(2L).userId("202699999").build();
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+            .willReturn(Optional.of(member));
+        willThrow(new TeamMemberNotFoundException()).given(teamMemberRepository).deleteById(member.getId());
+
+        assertThatCode(() -> teamMemberCommandService.withdrawFromTeam(10L, "202699999"))
+            .doesNotThrowAnyException();
     }
 
     @Test

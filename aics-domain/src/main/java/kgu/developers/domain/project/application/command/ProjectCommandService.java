@@ -38,19 +38,26 @@ public class ProjectCommandService {
         String repositoryUrl,
         JsonNode externalLinks
     ) {
+        // 팀당 프로젝트는 하나다. 조회-수정-저장이 갈라지지 않도록 팀 행을 먼저 잠근다.
         projectRepository.lockTeam(teamId);
 
-        return projectRepository.findAllByTeamIdIncludingDeletedForUpdate(teamId).stream()
-            .findFirst()
-            .map(project -> project.getDeletedAt() == null
-                ? updateProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks, false)
-                : restoreProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks))
-            .orElseGet(() -> projectRepository.save(Project.create(
+        Project existing = projectRepository.findIncludingDeletedByTeamId(teamId).orElse(null);
+        if (existing == null) {
+            return projectRepository.save(Project.create(
                 teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle
-            )));
+            ));
+        }
+        if (existing.getDeletedAt() != null) {
+            return reactivateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks);
+        }
+        return updateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks);
     }
 
-    private Project restoreProject(
+    /**
+     * 소프트 삭제된 프로젝트를 새 제안서로 되살린다.
+     * 되살린 제안서는 새 리비전이고, 이전 리비전의 동의는 모두 무효가 된다.
+     */
+    private Project reactivateProject(
         Project project,
         String title,
         String description,
@@ -59,8 +66,10 @@ public class ProjectCommandService {
         String repositoryUrl,
         JsonNode externalLinks
     ) {
-        project.restore();
-        return updateProject(project, title, description, goal, meetingStyle, repositoryUrl, externalLinks, true);
+        projectApprovalRepository.deleteAllByProjectId(project.getId());
+        return projectRepository.reactivate(project.getId(), Project.create(
+            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle
+        ));
     }
 
     private Project updateProject(
@@ -70,14 +79,13 @@ public class ProjectCommandService {
         String goal,
         String meetingStyle,
         String repositoryUrl,
-        JsonNode externalLinks,
-        boolean forceApprovalReset
+        JsonNode externalLinks
     ) {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
 
-        if (!forceApprovalReset && project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks)) {
+        if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks)) {
             return project;
         }
 

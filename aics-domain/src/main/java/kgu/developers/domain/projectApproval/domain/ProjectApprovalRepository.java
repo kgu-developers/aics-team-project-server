@@ -8,7 +8,10 @@ public interface ProjectApprovalRepository {
 
     Optional<ProjectApproval> findById(Long id);
 
-    boolean existsByProjectIdAndUserIdAndProposalRevision(Long projectId, String userId, long proposalRevision);
+    /**
+     * 해당 리비전의 동의 이력을 삭제된 것까지 포함해 잠근 채로 조회한다.
+     */
+    Optional<ProjectApproval> findIncludingDeleted(Long projectId, String userId, long proposalRevision);
 
     List<ProjectApproval> findAllByProjectId(Long projectId);
 

@@ -1,55 +1,59 @@
 package kgu.developers.domain.projectApproval.application.command;
 
 import java.time.LocalDateTime;
-import kgu.developers.domain.projectApproval.domain.ProjectApproval;
-import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
+import kgu.developers.domain.projectApproval.domain.ProjectApproval;
+import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
+import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class ProjectApprovalCommandService {
-
-    private static final String UNIQUE_APPROVAL_CONSTRAINT = "uk_project_approval_project_user";
-
     private final ProjectApprovalRepository projectApprovalRepository;
     private final ProjectRepository projectRepository;
+    private final UserRepository userRepository;
 
-    public void approve(Long projectId, String userId) {
+    /**
+     * 현재 제안서 리비전에 대한 동의를 남긴다.
+     * 같은 리비전에 무효화된 이력이 있으면 새로 넣지 않고 그 행을 되살린다.
+     */
+    public Long approve(Long projectId, String userId, LocalDateTime approvedAt) {
         Project project = projectRepository.findByIdForUpdate(projectId)
             .orElseThrow(ProjectNotFoundException::new);
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
-        long proposalRevision = project.getProposalRevision();
-        if (projectApprovalRepository.existsByProjectIdAndUserIdAndProposalRevision(projectId, userId, proposalRevision)) {
-            throw new DuplicateProjectApprovalException();
+        if (userRepository.findByStudentNumber(userId).isEmpty()) {
+            throw new UserNotFoundException();
         }
-        try {
-            projectApprovalRepository.save(ProjectApproval.create(projectId, userId, proposalRevision, LocalDateTime.now()));
-        } catch (DataIntegrityViolationException exception) {
-            if (!violatesUniqueApproval(exception)) {
-                throw exception;
-            }
-            throw new DuplicateProjectApprovalException(exception);
-        }
-    }
 
-    private boolean violatesUniqueApproval(Throwable exception) {
-        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException constraintViolation) {
-                return UNIQUE_APPROVAL_CONSTRAINT.equalsIgnoreCase(constraintViolation.getConstraintName());
+        long proposalRevision = project.getProposalRevision();
+        ProjectApproval existing = projectApprovalRepository
+            .findIncludingDeleted(projectId, userId, proposalRevision)
+            .orElse(null);
+        if (existing != null) {
+            if (existing.getDeletedAt() == null) {
+                throw new DuplicateProjectApprovalException();
             }
+            existing.reactivate(approvedAt);
+            return projectApprovalRepository.save(existing).getId();
         }
-        return false;
+
+        // 조회 후 저장은 check-then-act 라 동시 요청을 막지 못한다.
+        // 중복 차단의 최종 근거는 uk_project_approval_project_user 제약이고,
+        // 위반은 ProjectApprovalRepositoryImpl.save 가 DuplicateProjectApprovalException 으로 바꿔 던진다.
+        ProjectApproval projectApproval = ProjectApproval.create(projectId, userId, proposalRevision, approvedAt);
+        return projectApprovalRepository.save(projectApproval).getId();
     }
 }

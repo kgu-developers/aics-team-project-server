@@ -38,7 +38,7 @@ class ProjectCommandServiceTest {
     @Test
     @DisplayName("saveProject는 기존 제안서가 없으면 DRAFT 상태로 생성한다")
     void saveProject_createsProject() throws Exception {
-        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of());
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.empty());
         given(projectRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(invocation -> invocation.getArgument(0));
 
         Project result = saveProject();
@@ -52,7 +52,7 @@ class ProjectCommandServiceTest {
     void saveProject_updatesAndClearsApprovals() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
             .goal("기존 목표").approvalStatus(ApprovalStatus.APPROVED).build();
-        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(existing));
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
         given(projectRepository.save(existing)).willReturn(existing);
 
         Project result = saveProject();
@@ -69,7 +69,7 @@ class ProjectCommandServiceTest {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
             .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT).build();
-        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(existing));
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
 
         saveProject();
 
@@ -82,7 +82,7 @@ class ProjectCommandServiceTest {
     void saveProject_rejectsCompletedProject() throws Exception {
         Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(completed));
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
 
         assertThatThrownBy(this::saveProject).isInstanceOf(CustomException.class);
     }
@@ -131,16 +131,25 @@ class ProjectCommandServiceTest {
     void saveProject_restoresSoftDeletedProject() throws Exception {
         Project deleted = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
             .goal("기존 목표").approvalStatus(ApprovalStatus.DRAFT).deletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of(deleted));
-        given(projectRepository.save(deleted)).willReturn(deleted);
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(deleted));
+        given(projectRepository.reactivate(org.mockito.ArgumentMatchers.eq(10L), org.mockito.ArgumentMatchers.any()))
+            .willAnswer(invocation -> {
+                Project newProject = invocation.getArgument(1);
+                deleted.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
+                    newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(),
+                    newProject.getMeetingStyle());
+                return deleted;
+            });
 
         Project result = saveProject();
 
         assertThat(result.getId()).isEqualTo(10L);
         assertThat(result.getDeletedAt()).isNull();
         assertThat(result.getTitle()).isEqualTo("새 제목");
+        assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
         assertThat(result.getProposalRevision()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+        then(projectRepository).should(org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -159,14 +168,14 @@ class ProjectCommandServiceTest {
     @Test
     @DisplayName("saveProject는 조회 전에 팀 행을 잠가 최초 등록 경합을 막는다")
     void saveProject_locksTeamBeforeLookup() throws Exception {
-        given(projectRepository.findAllByTeamIdIncludingDeletedForUpdate(1L)).willReturn(List.of());
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.empty());
         given(projectRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(invocation -> invocation.getArgument(0));
 
         saveProject();
 
         org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(projectRepository);
         inOrder.verify(projectRepository).lockTeam(1L);
-        inOrder.verify(projectRepository).findAllByTeamIdIncludingDeletedForUpdate(1L);
+        inOrder.verify(projectRepository).findIncludingDeletedByTeamId(1L);
     }
 
     @Test
