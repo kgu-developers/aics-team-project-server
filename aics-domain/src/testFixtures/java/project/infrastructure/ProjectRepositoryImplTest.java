@@ -193,16 +193,17 @@ class ProjectRepositoryImplTest {
     ObjectNode externalLinks = objectMapper.createObjectNode();
     externalLinks.put("notion", "https://notion.so/example");
 
-    Project newProject = Project.create(
-        1L,
-        "새 프로젝트",
-        "새 설명",
-        "새 목표",
-        "https://github.com/example/new-repo",
-        externalLinks,
-        ApprovalStatus.DRAFT,
-        "온라인"
-    );
+    Project newProject = Project.builder()
+        .id(1L)  // 같은 ID 설정
+        .teamId(1L)
+        .title("새 프로젝트")
+        .description("새 설명")
+        .goal("새 목표")
+        .repositoryUrl("https://github.com/example/new-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
     given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
@@ -280,6 +281,49 @@ class ProjectRepositoryImplTest {
 
     assertThatThrownBy(() -> repository.save(reactivated))
         .isInstanceOf(ProjectAlreadyExistsException.class);
+    verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
+  }
+
+  @Test
+  @DisplayName("save는 삭제된 프로젝트와 ID가 다른 프로젝트로 저장 시도하면 ProjectNotFoundException을 발생시킨다")
+  void saveWithDifferentIdThanDeletedProjectThrowsException() {
+    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
+
+    ObjectNode externalLinks = objectMapper.createObjectNode();
+    externalLinks.put("notion", "https://notion.so/example");
+
+    Project newProject = Project.builder()
+        .id(1L)  // 다른 ID
+        .teamId(1L)
+        .title("새 프로젝트")
+        .description("새 설명")
+        .goal("새 목표")
+        .repositoryUrl("https://github.com/example/new-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.DRAFT)
+        .meetingStyle("온라인")
+        .build();
+
+    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
+    given(entityManager.find(TeamJpaEntity.class, 1L, PESSIMISTIC_WRITE)).willReturn(team);
+
+    Project deletedProject = Project.builder()
+        .id(999L)  // 다른 ID의 삭제된 프로젝트
+        .teamId(1L)
+        .title("삭제된 프로젝트")
+        .description("설명")
+        .goal("목표")
+        .repositoryUrl("https://github.com/example/old-repo")
+        .externalLinks(externalLinks)
+        .approvalStatus(ApprovalStatus.APPROVED)
+        .meetingStyle("오프라인")
+        .deletedAt(LocalDateTime.now())
+        .build();
+    given(jpaProjectRepository.findByTeamId(1L))
+        .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
+
+    assertThatThrownBy(() -> repository.save(newProject))
+        .isInstanceOf(ProjectNotFoundException.class);
     verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
   }
 

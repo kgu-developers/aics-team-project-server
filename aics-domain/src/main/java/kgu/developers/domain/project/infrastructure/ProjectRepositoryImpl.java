@@ -41,6 +41,9 @@ public class ProjectRepositoryImpl implements ProjectRepository {
                         throw new ProjectAlreadyExistsException();
                     }
                 } else {
+                    if (!existing.getId().equals(project.getId())) {
+                        throw new ProjectNotFoundException();
+                    }
                     existing.reactivate(project.getTitle(), project.getDescription(), project.getGoal(),
                             project.getRepositoryUrl(), project.getExternalLinks(), project.getApprovalStatus(), project.getMeetingStyle());
                     ProjectJpaEntity entity = ProjectJpaEntity.toEntity(existing, team);
