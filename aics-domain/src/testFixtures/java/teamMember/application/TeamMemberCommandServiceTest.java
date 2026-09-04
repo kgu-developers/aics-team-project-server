@@ -122,12 +122,11 @@ class TeamMemberCommandServiceTest {
     void claimLeader() {
         TeamMember member = teamMember();
         Team team = team(1L, Status.FORMING);
-        given(teamQueryService.getTeamById(1L)).willReturn(team);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.empty());
         given(teamMemberRepository.save(member)).willReturn(member);
 
-        TeamMember claimed = teamMemberCommandService.claimLeader(1L, "202699999");
+        TeamMember claimed = teamMemberCommandService.claimLeader(team, "202699999");
 
         assertThat(claimed.isLeader()).isTrue();
         assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
@@ -142,12 +141,11 @@ class TeamMemberCommandServiceTest {
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
                 .build();
         Team team = team(1L, Status.FORMING);
-        given(teamQueryService.getTeamById(1L)).willReturn(team);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(member));
         given(teamMemberRepository.save(member)).willReturn(member);
 
-        TeamMember claimed = teamMemberCommandService.claimLeader(1L, "202699999");
+        TeamMember claimed = teamMemberCommandService.claimLeader(team, "202699999");
 
         assertThat(claimed.isLeader()).isTrue();
         assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
@@ -157,11 +155,11 @@ class TeamMemberCommandServiceTest {
     @DisplayName("이미 팀장이 있으면 팀장 자진 선언은 409 예외를 던진다")
     void rejectsLeaderClaimWhenLeaderAlreadyExists() {
         TeamMember member = teamMember();
-        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        Team team = team(1L, Status.FORMING);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(leaderOf(1L, 2L)));
 
-        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(1L, "202699999"))
+        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(team, "202699999"))
                 .isInstanceOf(LeaderAlreadyExistsException.class);
 
         assertThat(member.isLeader()).isFalse();
@@ -171,9 +169,9 @@ class TeamMemberCommandServiceTest {
     @Test
     @DisplayName("확정된 팀에서는 팀장 자진 선언을 할 수 없다")
     void rejectsLeaderClaimOnConfirmedTeam() {
-        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.CONFIRMED));
+        Team team = team(1L, Status.CONFIRMED);
 
-        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(1L, "202699999"))
+        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(team, "202699999"))
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
 
         verify(teamMemberRepository, never()).findByTeamIdAndUserId(any(), any());
@@ -541,7 +539,6 @@ class TeamMemberCommandServiceTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch latch = new CountDownLatch(2);
         
-        given(teamQueryService.getTeamById(1L)).willReturn(formingTeam);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.empty());
         given(teamMemberRepository.save(member)).willReturn(member);
@@ -549,7 +546,7 @@ class TeamMemberCommandServiceTest {
         
         executor.submit(() -> {
             try {
-                teamMemberCommandService.claimLeader(1L, "202699999");
+                teamMemberCommandService.claimLeader(formingTeam, "202699999");
                 successCount.incrementAndGet();
             } catch (Exception e) {
                 failureCount.incrementAndGet();
