@@ -37,6 +37,9 @@ import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 @ExtendWith(MockitoExtension.class)
 class ProjectRepositoryImplTest {
 
+  // Mock 기반 단위 테스트. 실제 트랜잭션/@Version 동작은
+  // ProjectRepositoryJpaIntegrationTest(Testcontainers)에서 검증한다.
+
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @Mock
@@ -857,7 +860,7 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("실제 JPA 트랜잭션 시나리오: 조회 → 삭제 → 오래된 객체 저장 시 버전 충돌")
+  @DisplayName("save는 삭제된 프로젝트가 있는 상태에서 저장하면 ProjectVersionConflictException을 발생시킨다")
   void readDeleteThenSaveOldObjectScenario() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
@@ -928,7 +931,7 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("실제 JPA 트랜잭션 시나리오: 조회 → 수정 → 오래된 객체 저장 시 버전 충돌")
+  @DisplayName("save는 낙관적 잠금 예외가 올라오면 ProjectVersionConflictException으로 변환한다")
   void readUpdateThenSaveOldObjectScenario() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
@@ -1000,7 +1003,7 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("실제 JPA 트랜잭션 시나리오: 조회 → 삭제 → 재활성화 정상 동작")
+  @DisplayName("reactivate는 삭제된 프로젝트를 다시 활성 상태로 저장한다")
   void readDeleteThenReactivateScenario() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
@@ -1089,7 +1092,7 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("실제 JPA 트랜잭션 시나리오: 동시 수정 시 낙관적 잠금 충돌")
+  @DisplayName("save는 두 번째 저장에서 낙관적 잠금 예외가 나면 ProjectVersionConflictException을 발생시킨다")
   void concurrentUpdateScenario() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
