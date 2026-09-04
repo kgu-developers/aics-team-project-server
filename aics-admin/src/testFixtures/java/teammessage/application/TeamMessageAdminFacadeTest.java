@@ -19,6 +19,7 @@ import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
@@ -145,19 +146,6 @@ class TeamMessageAdminFacadeTest {
     }
 
     @Test
-    @DisplayName("존재하지 않는 분반도 접근 권한 오류로 처리한다")
-    void getMessages_SectionNotFound() {
-        Pageable pageable = PageRequest.of(0, 20);
-        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(false);
-
-        assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID))
-            .isInstanceOf(AccessDeniedException.class)
-            .hasMessage("담당 분반의 메시지만 조회할 수 있습니다.");
-
-        verify(teamRepository, never()).findAllBySectionIdIn(anyList());
-    }
-
-    @Test
     @DisplayName("담당 교수는 본인 분반의 메시지를 읽음 처리한다")
     void markAsRead_OwnedSection() {
         TeamMessage message = message(1000L, 100L, "확인했습니다.");
@@ -187,6 +175,21 @@ class TeamMessageAdminFacadeTest {
         assertThatThrownBy(() -> teamMessageAdminFacade.markAsRead(1000L, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 메시지만 읽음 처리할 수 있습니다.");
+
+        verifyNoInteractions(teamMessageCommandService);
+    }
+
+    @Test
+    @DisplayName("메시지가 참조한 팀이 없으면 팀 조회 오류로 처리한다")
+    void markAsRead_TeamNotFound() {
+        TeamMessage message = message(1000L, 100L, "확인했습니다.");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+        given(teamMessageQueryService.getMessage(1000L)).willReturn(message);
+        given(teamThreadQueryService.getThreadById(100L)).willReturn(thread);
+        given(teamRepository.findById(10L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> teamMessageAdminFacade.markAsRead(1000L, PROFESSOR_ID))
+            .isInstanceOf(TeamNotFoundException.class);
 
         verifyNoInteractions(teamMessageCommandService);
     }

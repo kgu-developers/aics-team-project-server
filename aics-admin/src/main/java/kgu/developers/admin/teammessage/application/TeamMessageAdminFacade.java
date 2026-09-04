@@ -12,6 +12,7 @@ import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
@@ -73,7 +74,7 @@ public class TeamMessageAdminFacade {
         TeamMessage message = teamMessageQueryService.getMessage(messageId);
         TeamThread thread = teamThreadQueryService.getThreadById(message.getThreadId());
         Team team = teamRepository.findById(thread.getTeamId())
-            .orElseThrow(() -> new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다."));
+            .orElseThrow(TeamNotFoundException::new);
 
         if (!sectionQueryService.isActiveSectionOwnedByProfessor(team.getSectionId(), professorId)) {
             throw new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다.");

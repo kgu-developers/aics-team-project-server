@@ -251,14 +251,7 @@ public class TeamMessageFacadeTest {
             .id(1L)
             .professorId(PROFESSOR_ID)
             .build());
-        fakeTeamRepository.save(Team.builder()
-            .id(1L)
-            .sectionId(1L)
-            .name("A팀")
-            .kickoffRule("규칙")
-            .meetingSchedule("매주 월요일")
-            .status(Status.CONFIRMED)
-            .build());
+        fakeTeamRepository.save(team(1L));
         TeamMessagePersistResponse posted = teamMessageFacade.postMessage(1L, USER_A, createRequest("확인 부탁드립니다."));
 
         // when & then
