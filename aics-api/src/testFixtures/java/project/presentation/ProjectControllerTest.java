@@ -21,6 +21,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -99,6 +101,29 @@ class ProjectControllerTest {
             .containsExactly("AI 학습 도우미", "학습 기록을 분석하는 서비스", "개인별 피드백 자동화");
         org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().externalLinks())
             .isEqualTo(request.externalLinks());
+    }
+
+    @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")
+    @CsvSource({"title, 201", "meetingStyle, 201", "repositoryUrl, 256"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 DB 길이 제한 초과 시 400을 반환한다")
+    void saveProjectRejectsTooLongField(String field, int length) throws Exception {
+        String tooLong = "a".repeat(length);
+        ProjectRequest request = new ProjectRequest(
+            "title".equals(field) ? tooLong : "AI 학습 도우미",
+            "학습 기록을 분석하는 서비스",
+            "개인별 피드백 자동화",
+            "meetingStyle".equals(field) ? tooLong : "매주 월요일 대면 회의",
+            "repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project",
+            objectMapper.readTree("[]")
+        );
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
     }
 
     @Test
