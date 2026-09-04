@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.meetingrecord.domain.MeetingAction;
@@ -47,6 +48,9 @@ public class MeetingActionJpaEntity extends BaseTimeEntity {
     @Column(name = "due_at")
     private LocalDateTime dueAt;
 
+    @Version
+    private long version;
+
     public MeetingAction toDomain() {
         return MeetingAction.builder()
             .id(this.id)
@@ -55,6 +59,7 @@ public class MeetingActionJpaEntity extends BaseTimeEntity {
             .content(this.content)
             .status(this.status)
             .dueAt(this.dueAt)
+            .version(this.version)
             .createdAt(this.getCreatedAt())
             .updatedAt(this.getUpdatedAt())
             .build();
@@ -68,6 +73,7 @@ public class MeetingActionJpaEntity extends BaseTimeEntity {
             .content(domain.getContent())
             .status(domain.getStatus())
             .dueAt(domain.getDueAt())
+            .version(domain.getVersion())
             .build();
     }
 }

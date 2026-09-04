@@ -46,6 +46,11 @@ public class FakeSectionRepository implements SectionRepository {
     }
 
     @Override
+    public Optional<Section> findActiveByIdForUpdate(Long id) {
+        return Optional.ofNullable(store.get(id)).filter(section -> section.getDeletedAt() == null);
+    }
+
+    @Override
     public List<SectionDetail> findAllByCourseId(Long courseId) {
         return store.values().stream()
             .filter(section -> section.getCourseId().equals(courseId))
@@ -79,5 +84,10 @@ public class FakeSectionRepository implements SectionRepository {
             .filter(section -> section.getDeletedAt() == null)
             .filter(section -> section.getProfessorId().equals(professorId))
             .isPresent();
+    }
+
+    @Override
+    public boolean lockActiveByIdAndProfessorId(Long id, String professorId) {
+        return existsActiveByIdAndProfessorId(id, professorId);
     }
 }

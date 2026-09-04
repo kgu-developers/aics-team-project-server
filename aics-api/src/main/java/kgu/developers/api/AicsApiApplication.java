@@ -8,7 +8,7 @@ import kgu.developers.infra.AicsConfigGroup;
 import kgu.developers.infra.EnableAicsConfig;
 
 @SpringBootApplication(scanBasePackages = "kgu.developers")
-@EnableAicsConfig({ AicsConfigGroup.JPA, AicsConfigGroup.JPA_AUDITING, AicsConfigGroup.PROPERTIES })
+@EnableAicsConfig({ AicsConfigGroup.JPA, AicsConfigGroup.JPA_AUDITING, AicsConfigGroup.PROPERTIES, AicsConfigGroup.S3 })
 @EnableScheduling
 public class AicsApiApplication {
 	public static void main(String[] args) {

@@ -2,6 +2,9 @@ package kgu.developers.domain.user.application.query;
 
 import java.util.List;
 
+import kgu.developers.domain.auth.domain.LoginRole;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.domain.user.exception.UserNotFoundException;
@@ -14,13 +17,33 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserQueryService {
     private final UserRepository userRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     public List<User> getAllUsers() {
         return userRepository.findAllOrderByStudentNumber();
     }
 
+    public List<User> getUsersByStudentNumbers(List<String> studentNumbers) {
+        return userRepository.findAllByStudentNumberIn(studentNumbers);
+    }
+
     public User getUserByStudentNumber(String studentNumber) {
         return userRepository.findByStudentNumber(studentNumber)
                 .orElseThrow(UserNotFoundException::new);
+    }
+
+    public LoginRole getUserRole(User user) {
+        return switch (user.getGlobalRole()) {
+            case ADMIN -> LoginRole.ADMIN;
+            case USER -> {
+                boolean assistant = enrollmentRepository.findAllByUserId(user.getStudentNumber()).stream()
+                        .anyMatch(Enrollment::isActiveAssistant);
+                yield assistant ? LoginRole.ASSISTANT : LoginRole.STUDENT;
+            }
+        };
+    }
+
+    public LoginRole getUserRoleByStudentNumber(String studentNumber) {
+        return getUserRole(getUserByStudentNumber(studentNumber));
     }
 }

@@ -34,6 +34,12 @@ subprojects {
 		mavenCentral()
 	}
 
+	dependencyManagement {
+		imports {
+			mavenBom 'software.amazon.awssdk:bom:2.29.9'
+		}
+	}
+
 	dependencies {
 		implementation 'org.springframework.boot:spring-boot-starter-web'
 		implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -59,6 +65,9 @@ subprojects {
 		implementation 'org.apache.poi:poi:5.5.0'
 		implementation 'org.apache.poi:poi-ooxml:5.5.0'
 
+		// S3Presigner 등 프리사인 관련 클래스는 별도 아티팩트가 아니라 이 s3 패키지 안에 있다.
+		implementation 'software.amazon.awssdk:s3'
+
 		testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
 		testFixturesImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -71,6 +80,7 @@ subprojects {
 		testFixturesImplementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
 		testFixturesImplementation 'io.jsonwebtoken:jjwt:0.9.1'
 		testFixturesImplementation 'org.springframework.boot:spring-boot-starter-data-redis'
+		testFixturesImplementation 'org.apache.poi:poi-ooxml:5.5.0'
 	}
 
 	test {

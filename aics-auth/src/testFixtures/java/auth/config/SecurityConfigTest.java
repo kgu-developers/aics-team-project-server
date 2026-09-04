@@ -29,6 +29,7 @@ import kgu.developers.auth.api.presentation.AuthControllerImpl;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.auth.config.SecurityConfig;
 import kgu.developers.common.config.CorsConfig;
+import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
@@ -66,7 +67,7 @@ class SecurityConfigTest {
   @Test
   @DisplayName("login은 CSRF 토큰 없이 통과한다")
   void loginWithoutCsrfToken() throws Exception {
-    given(authFacade.login(any())).willReturn(LoginResponse.of("access-token", "refresh-token"));
+    given(authFacade.login(any())).willReturn(LoginResponse.of("access-token", "refresh-token", LoginRole.STUDENT));
 
     mockMvc.perform(post(LOGIN_URL).contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))
         .andExpect(status().isOk());
@@ -92,7 +93,7 @@ class SecurityConfigTest {
   @Test
   @DisplayName("XSRF-TOKEN 쿠키는 세션 쿠키가 아니라 refresh 유효기간보다 오래 산다")
   void csrfCookieOutlivesBrowserSession() throws Exception {
-    given(authFacade.login(any())).willReturn(LoginResponse.of("access-token", "refresh-token"));
+    given(authFacade.login(any())).willReturn(LoginResponse.of("access-token", "refresh-token", LoginRole.STUDENT));
 
     Cookie csrfCookie = mockMvc
         .perform(post(LOGIN_URL).contentType(MediaType.APPLICATION_JSON).content(LOGIN_BODY))

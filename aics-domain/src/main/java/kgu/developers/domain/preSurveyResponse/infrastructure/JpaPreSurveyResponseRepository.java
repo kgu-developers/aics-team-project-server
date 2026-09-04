@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface JpaPreSurveyResponseRepository extends JpaRepository<PreSurveyResponseJpaEntity, Long> {
 	Optional<PreSurveyResponseJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
-	Optional<PreSurveyResponseJpaEntity> findByUserIdAndSectionIdAndDeletedAtIsNull(String userId, Long sectionId);
+	Optional<PreSurveyResponseJpaEntity> findFirstByUserIdAndSectionIdAndDeletedAtIsNullOrderByIdDesc(String userId, Long sectionId);
 
 	List<PreSurveyResponseJpaEntity> findAllBySectionIdAndDeletedAtIsNullOrderByUserIdAsc(Long sectionId);
 }

@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncement;
@@ -40,6 +41,12 @@ public class SectionAnnouncementJpaEntity extends BaseTimeEntity {
     @Column(name = "published_at", nullable = false)
     private LocalDateTime publishedAt;
 
+    @Column(name = "notified_at")
+    private LocalDateTime notifiedAt;
+
+    @Version
+    private long version;
+
     public SectionAnnouncement toDomain() {
         return SectionAnnouncement.builder()
             .id(this.id)
@@ -47,6 +54,8 @@ public class SectionAnnouncementJpaEntity extends BaseTimeEntity {
             .title(this.title)
             .content(this.content)
             .publishedAt(this.publishedAt)
+            .notifiedAt(this.notifiedAt)
+            .version(this.version)
             .createdAt(this.getCreatedAt())
             .updatedAt(this.getUpdatedAt())
             .build();
@@ -59,6 +68,8 @@ public class SectionAnnouncementJpaEntity extends BaseTimeEntity {
             .title(domain.getTitle())
             .content(domain.getContent())
             .publishedAt(domain.getPublishedAt())
+            .notifiedAt(domain.getNotifiedAt())
+            .version(domain.getVersion())
             .build();
     }
 }

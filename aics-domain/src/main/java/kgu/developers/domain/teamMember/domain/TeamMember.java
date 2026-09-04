@@ -12,6 +12,8 @@ import static lombok.AccessLevel.PROTECTED;
 @NoArgsConstructor(access = PROTECTED)
 public class TeamMember {
     private Long id;
+    private Long version;  // 낙관적 락 버전 (신규는 null)
+
     private Long teamId;
     private String userId;
     private boolean isLeader;
@@ -44,5 +46,11 @@ public class TeamMember {
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    public void reactivate(boolean isLeader, String projectRole) {
+        this.deletedAt = null;
+        this.isLeader = isLeader;
+        this.projectRole = projectRole;
     }
 }
