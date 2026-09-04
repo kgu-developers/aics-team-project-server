@@ -62,7 +62,7 @@ class PreSurveyResponseRepositoryImplTest {
 	void save() {
 		PreSurveyResponse response = PreSurveyResponse.create(USER_ID, SECTION_ID, roles(), TOPIC_OPINION, null);
 
-		given(jpaPreSurveyResponseRepository.save(any(PreSurveyResponseJpaEntity.class)))
+		given(jpaPreSurveyResponseRepository.saveAndFlush(any(PreSurveyResponseJpaEntity.class)))
 				.willReturn(PreSurveyResponseJpaEntity.toEntity(
 						storedBuilder(1L)
 								.submittedAt(response.getSubmittedAt())
@@ -75,7 +75,7 @@ class PreSurveyResponseRepositoryImplTest {
 
 		assertThat(saved.getId()).isEqualTo(1L);
 		ArgumentCaptor<PreSurveyResponseJpaEntity> captor = ArgumentCaptor.forClass(PreSurveyResponseJpaEntity.class);
-		verify(jpaPreSurveyResponseRepository).save(captor.capture());
+		verify(jpaPreSurveyResponseRepository).saveAndFlush(captor.capture());
 		assertThat(captor.getValue().getUserId()).isEqualTo(USER_ID);
 		assertThat(captor.getValue().getSectionId()).isEqualTo(SECTION_ID);
 	}
@@ -95,7 +95,7 @@ class PreSurveyResponseRepositoryImplTest {
 	@Test
 	@DisplayName("저장소 어댑터는 사용자와 섹션으로 삭제되지 않은 응답을 조회한다")
 	void findByUserIdAndSectionId() {
-		given(jpaPreSurveyResponseRepository.findByUserIdAndSectionIdAndDeletedAtIsNull(USER_ID, SECTION_ID))
+		given(jpaPreSurveyResponseRepository.findFirstByUserIdAndSectionIdAndDeletedAtIsNullOrderByIdDesc(USER_ID, SECTION_ID))
 				.willReturn(Optional.of(storedEntity(1L)));
 
 		Optional<PreSurveyResponse> found = repository.findByUserIdAndSectionId(USER_ID, SECTION_ID);
@@ -120,13 +120,13 @@ class PreSurveyResponseRepositoryImplTest {
 	@Test
 	@DisplayName("사용자·섹션 조회는 응답이 없으면 다른 조회 없이 빈 값만 반환한다")
 	void findByUserIdAndSectionId_ReturnsEmptyWithoutExtraQueries() {
-		given(jpaPreSurveyResponseRepository.findByUserIdAndSectionIdAndDeletedAtIsNull(USER_ID, SECTION_ID))
+		given(jpaPreSurveyResponseRepository.findFirstByUserIdAndSectionIdAndDeletedAtIsNullOrderByIdDesc(USER_ID, SECTION_ID))
 				.willReturn(Optional.empty());
 
 		Optional<PreSurveyResponse> existing = repository.findByUserIdAndSectionId(USER_ID, SECTION_ID);
 
 		assertThat(existing).isEmpty();
-		verify(jpaPreSurveyResponseRepository).findByUserIdAndSectionIdAndDeletedAtIsNull(USER_ID, SECTION_ID);
+		verify(jpaPreSurveyResponseRepository).findFirstByUserIdAndSectionIdAndDeletedAtIsNullOrderByIdDesc(USER_ID, SECTION_ID);
 		verifyNoMoreInteractions(jpaPreSurveyResponseRepository);
 	}
 }

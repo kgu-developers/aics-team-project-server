@@ -1,6 +1,7 @@
 package preSurveyResponse.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -11,20 +12,30 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakePreSurveyResponseRepository;
 
 class PreSurveyResponseCommandServiceTest {
 
+	private static final String USER_ID = "202012345";
+	private static final Long SECTION_ID = 1L;
+
 	private FakePreSurveyResponseRepository repository;
+	private FakeEnrollmentRepository enrollmentRepository;
 	private PreSurveyResponseCommandService commandService;
 	private ObjectMapper objectMapper;
 
 	@BeforeEach
 	void setUp() {
 		repository = new FakePreSurveyResponseRepository();
-		commandService = new PreSurveyResponseCommandService(repository);
+		enrollmentRepository = new FakeEnrollmentRepository();
+		enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
+		commandService = new PreSurveyResponseCommandService(repository, enrollmentRepository);
 		objectMapper = new ObjectMapper();
 	}
 
@@ -32,8 +43,8 @@ class PreSurveyResponseCommandServiceTest {
 	@DisplayName("submit은 사전조사 응답이 없으면 새로 생성한다")
 	void submit_CreateNew() throws Exception {
 		// given
-		String userId = "202012345";
-		Long sectionId = 1L;
+		String userId = USER_ID;
+		Long sectionId = SECTION_ID;
 		JsonNode roles = objectMapper.readTree("[\"BACKEND\", \"PM\"]");
 
 		// when
@@ -85,5 +96,17 @@ class PreSurveyResponseCommandServiceTest {
 		assertThat(result.getId()).isEqualTo(savedCompetitor.get().getId());
 		assertThat(result.getTopicOpinion()).isEqualTo("모바일 앱");
 		assertThat(result.getEtcOpinion()).isEqualTo("경쟁에서 재조회 후 갱신");
+	}
+
+	@Test
+	@DisplayName("submit은 그 분반에 Enrollment가 없는 사용자는 거부한다")
+	void submit_RejectsWhenEnrollmentMissing() throws Exception {
+		// given
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+
+		// when & then
+		assertThatThrownBy(() -> commandService.submit(
+				"202099999", SECTION_ID, roles, "웹 개발", "없음"))
+				.isInstanceOf(kgu.developers.domain.enrollment.exception.EnrollmentNotFoundException.class);
 	}
 }
