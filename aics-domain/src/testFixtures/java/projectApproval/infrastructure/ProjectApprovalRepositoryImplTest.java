@@ -91,6 +91,19 @@ class ProjectApprovalRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("save는 다른 무결성 위반은 원인을 유지한 채 다시 던진다")
+    void saveRethrowsOtherIntegrityViolation() {
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
+        DataIntegrityViolationException cause =
+                new DataIntegrityViolationException("fk_project_approval_project violation");
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
+                .willThrow(cause);
+
+        assertThatThrownBy(() -> projectApprovalRepository.save(approval))
+                .isSameAs(cause);
+    }
+
+    @Test
     @DisplayName("findById는 삭제되지 않은 프로젝트 동의를 조회한다")
     void findById() {
         given(jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(1L))
