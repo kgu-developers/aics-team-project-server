@@ -27,7 +27,7 @@ public class AuditLogCommandService {
         return auditLogRepository.save(AuditLog.create(
                 actorId,
                 sectionId,
-                eventType.name(),
+                eventType,
                 TargetType.TEAM,
                 teamId,
                 metadata

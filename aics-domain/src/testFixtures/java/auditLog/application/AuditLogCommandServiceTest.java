@@ -46,7 +46,7 @@ class AuditLogCommandServiceTest {
         assertThat(saved.getSectionId()).isEqualTo(10L);
         assertThat(saved.getTargetType()).isEqualTo(TargetType.TEAM);
         assertThat(saved.getTargetId()).isEqualTo(1L);
-        assertThat(saved.getEventType()).isEqualTo("TEAM_NAME_UPDATED");
+        assertThat(saved.getEventType()).isEqualTo(AuditLogEventType.TEAM_NAME_UPDATED);
         assertThat(saved.getMetadata().at("/after/name").asText()).isEqualTo("새 팀");
         verify(auditLogRepository).save(saved);
     }

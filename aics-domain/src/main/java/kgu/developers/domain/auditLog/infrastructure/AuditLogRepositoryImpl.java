@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.auditLog.domain.AuditLog;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -54,8 +55,8 @@ public class AuditLogRepositoryImpl implements AuditLogRepository {
 	}
 
 	@Override
-	public Page<AuditLog> findAllByEventType(String eventType, Pageable pageable) {
-		if (eventType == null || eventType.isBlank()) {
+	public Page<AuditLog> findAllByEventType(AuditLogEventType eventType, Pageable pageable) {
+		if (eventType == null) {
 			return Page.empty(pageable);
 		}
 		return jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNull(eventType, pageable)

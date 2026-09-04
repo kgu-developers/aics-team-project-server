@@ -16,7 +16,7 @@ public interface AuditLogRepository {
 
 	Page<AuditLog> findAllByActorId(String actorId, Pageable pageable);
 
-	Page<AuditLog> findAllByEventType(String eventType, Pageable pageable);
+	Page<AuditLog> findAllByEventType(AuditLogEventType eventType, Pageable pageable);
 
 	Page<AuditLog> findAllByTeam(Long sectionId, Long teamId, Pageable pageable);
 

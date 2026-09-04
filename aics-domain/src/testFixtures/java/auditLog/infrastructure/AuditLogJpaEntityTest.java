@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogMetadataInvalidException;
 import kgu.developers.domain.auditLog.infrastructure.AuditLogJpaEntity;
@@ -21,13 +22,13 @@ class AuditLogJpaEntityTest {
 	@DisplayName("AuditLog와 AuditLogJpaEntity 상호 변환 시 모든 필드가 올바르게 유지된다")
 	void conversionRoundTrip() {
 		JsonNode metadata = JsonConverter.parse("{\"reason\":\"policy violation\",\"severity\":\"HIGH\"}");
-		AuditLog origin = AuditLog.create("202012345", 1L, "USER_BAN", TargetType.USER, 55L, metadata);
+		AuditLog origin = AuditLog.create("202012345", 1L, AuditLogEventType.TEAM_UPDATED, TargetType.USER, 55L, metadata);
 
 		AuditLogJpaEntity entity = AuditLogJpaEntity.toEntity(origin);
 
 		assertThat(entity.getActorId()).isEqualTo("202012345");
 		assertThat(entity.getSectionId()).isEqualTo(1L);
-		assertThat(entity.getEventType()).isEqualTo("USER_BAN");
+		assertThat(entity.getEventType()).isEqualTo(AuditLogEventType.TEAM_UPDATED);
 		assertThat(entity.getTargetType()).isEqualTo(TargetType.USER.getCode());
 		assertThat(entity.getTargetId()).isEqualTo(55L);
 		assertThat(entity.getMetadata()).contains("\"severity\":\"HIGH\"");
@@ -48,7 +49,7 @@ class AuditLogJpaEntityTest {
 				.id(1L)
 				.actorId("202012345")
 				.sectionId(1L)
-				.eventType("USER_BAN")
+				.eventType(AuditLogEventType.TEAM_UPDATED)
 				.targetType(TargetType.USER.getCode())
 				.targetId(55L)
 				.metadata("{invalid_json_format")
@@ -68,7 +69,7 @@ class AuditLogJpaEntityTest {
 				.id(10L)
 				.actorId("202012345")
 				.sectionId(1L)
-				.eventType("EVENT")
+				.eventType(AuditLogEventType.TEAM_UPDATED)
 				.targetType(TargetType.USER)
 				.targetId(1L)
 				.metadata(JsonConverter.parse("{}"))
