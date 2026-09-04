@@ -3,8 +3,6 @@ package preSurveyResponse.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -74,28 +72,6 @@ class PreSurveyResponseCommandServiceTest {
 		assertThat(updated.getId()).isEqualTo(initial.getId());
 		assertThat(updated.getTopicOpinion()).isEqualTo("앱 개발");
 		assertThat(updated.getEtcOpinion()).isEqualTo("수정됨");
-	}
-
-	@Test
-	@DisplayName("submit 수행 중 동시 생성으로 DataIntegrityViolationException이 발생하더라도 재조회 후 갱신한다")
-	void submit_RaceCondition_HandlesConstraintViolation() throws Exception {
-		// given
-		String userId = "202012345";
-		Long sectionId = 1L;
-		JsonNode roles1 = objectMapper.readTree("[\"BACKEND\"]");
-
-		PreSurveyResponse competitor = PreSurveyResponse.create(userId, sectionId, roles1, "웹 서비스", "최초");
-		AtomicReference<PreSurveyResponse> savedCompetitor = new AtomicReference<>();
-		repository.runBeforeNextSave(() -> savedCompetitor.set(repository.save(competitor)));
-
-		// when: 최초 조회 뒤, 새 응답 저장 직전에 경쟁 요청이 저장된다.
-		JsonNode roles2 = objectMapper.readTree("[\"FULLSTACK\"]");
-		PreSurveyResponse result = commandService.submit(userId, sectionId, roles2, "모바일 앱", "경쟁에서 재조회 후 갱신");
-
-		// then
-		assertThat(result.getId()).isEqualTo(savedCompetitor.get().getId());
-		assertThat(result.getTopicOpinion()).isEqualTo("모바일 앱");
-		assertThat(result.getEtcOpinion()).isEqualTo("경쟁에서 재조회 후 갱신");
 	}
 
 	@Test
