@@ -34,6 +34,7 @@ import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.InvalidMilestoneRequestException;
 import kgu.developers.domain.milestone.exception.MilestoneConcurrentlyModifiedException;
@@ -64,7 +65,8 @@ class MilestoneFacadeTest {
                 "제안서",
                 "제안서 제출",
                 2,
-                scheduleRequest()
+                scheduleRequest(),
+                null
         );
         given(milestoneCommandService.createMilestone(
                 SECTION_ID,
@@ -72,7 +74,32 @@ class MilestoneFacadeTest {
                 "제안서",
                 "제안서 제출",
                 2,
-                schedule()
+                schedule(),
+                null
+        )).willReturn(MILESTONE_ID);
+
+        assertThat(milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request).id())
+                .isEqualTo(MILESTONE_ID);
+    }
+
+    @Test
+    @DisplayName("생성 요청에 마일스톤 유형을 지정하면 그대로 전달된다")
+    void createMilestoneWithType() {
+        MilestoneCreateRequest request = new MilestoneCreateRequest(
+                "최종보고서",
+                "최종보고서 제출",
+                15,
+                scheduleRequest(),
+                MilestoneType.FINAL_REPORT
+        );
+        given(milestoneCommandService.createMilestone(
+                SECTION_ID,
+                PROFESSOR_ID,
+                "최종보고서",
+                "최종보고서 제출",
+                15,
+                schedule(),
+                MilestoneType.FINAL_REPORT
         )).willReturn(MILESTONE_ID);
 
         assertThat(milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request).id())
@@ -110,7 +137,7 @@ class MilestoneFacadeTest {
     @Test
     @DisplayName("상세와 일정 수정에 분반 경계를 포함한다")
     void updateMilestone() {
-        MilestoneUpdateRequest request = new MilestoneUpdateRequest("중간보고서", null, scheduleRequest());
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest("중간보고서", null, scheduleRequest(), null);
 
         milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
@@ -120,7 +147,27 @@ class MilestoneFacadeTest {
                 MILESTONE_ID,
                 "중간보고서",
                 null,
-                schedule()
+                schedule(),
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("수정 요청에 마일스톤 유형을 지정하면 그대로 전달된다")
+    void updateMilestoneWithType() {
+        MilestoneUpdateRequest request =
+                new MilestoneUpdateRequest("중간보고서", null, scheduleRequest(), MilestoneType.MID_REPORT);
+
+        milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
+
+        verify(milestoneCommandService).updateMilestone(
+                SECTION_ID,
+                PROFESSOR_ID,
+                MILESTONE_ID,
+                "중간보고서",
+                null,
+                schedule(),
+                MilestoneType.MID_REPORT
         );
     }
 
@@ -216,7 +263,8 @@ class MilestoneFacadeTest {
                 "제안서",
                 "제안서 제출",
                 2,
-                scheduleRequest()
+                scheduleRequest(),
+                null
         );
         willThrow(new DuplicateMilestoneWeekException())
                 .given(milestoneCommandService)
@@ -226,7 +274,8 @@ class MilestoneFacadeTest {
                         "제안서",
                         "제안서 제출",
                         2,
-                        schedule()
+                        schedule(),
+                        null
                 );
 
         assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
@@ -283,7 +332,7 @@ class MilestoneFacadeTest {
                 null,
                 null
         );
-        MilestoneCreateRequest request = new MilestoneCreateRequest("제안서", null, 2, invalidSchedule);
+        MilestoneCreateRequest request = new MilestoneCreateRequest("제안서", null, 2, invalidSchedule, null);
 
         assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))
                 .isInstanceOf(InvalidMilestoneRequestException.class);
