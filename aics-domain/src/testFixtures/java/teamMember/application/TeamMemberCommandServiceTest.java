@@ -1,10 +1,12 @@
 package teamMember.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -174,6 +176,18 @@ class TeamMemberCommandServiceTest {
         teamMemberCommandService.withdrawFromTeam(10L, "202699999");
 
         verify(teamMemberRepository, never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("withdrawFromTeam은 동시 요청이 팀원을 먼저 삭제해도 성공한다")
+    void withdrawFromTeamWhenConcurrentRequestAlreadyDeletedMember() {
+        TeamMember member = TeamMember.builder().id(1L).teamId(2L).userId("202699999").build();
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+            .willReturn(Optional.of(member));
+        willThrow(new TeamMemberNotFoundException()).given(teamMemberRepository).deleteById(member.getId());
+
+        assertThatCode(() -> teamMemberCommandService.withdrawFromTeam(10L, "202699999"))
+            .doesNotThrowAnyException();
     }
 
     @Test
