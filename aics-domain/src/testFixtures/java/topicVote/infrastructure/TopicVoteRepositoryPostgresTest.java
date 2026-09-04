@@ -1,6 +1,5 @@
 package topicVote.infrastructure;
 
-import kgu.developers.domain.topicVote.application.command.TopicVoteCommandService;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.exception.TopicVoteNotFoundException;
 import kgu.developers.domain.topicVote.infrastructure.JpaTopicVoteRepository;
@@ -40,7 +39,7 @@ import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTest
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create")  // 실 DB이므로 스키마 생성을 명시해야 한다
 @AutoConfigureTestDatabase(replace = NONE)
-@Import({TopicVoteRepositoryImpl.class, TopicVoteCommandService.class})
+@Import(TopicVoteRepositoryImpl.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)  // 실제 커밋을 봐야 하므로 테스트 트랜잭션을 쓰지 않는다
 @DirtiesContext
 class TopicVoteRepositoryPostgresTest {
@@ -72,9 +71,6 @@ class TopicVoteRepositoryPostgresTest {
     private static final Long CANDIDATE_A = 10L;
     private static final Long CANDIDATE_B = 20L;
     private static final String VOTER = "20230001";
-
-    @Autowired
-    private TopicVoteCommandService topicVoteCommandService;
 
     @Autowired
     private TopicVoteRepositoryImpl topicVoteRepository;
@@ -119,8 +115,8 @@ class TopicVoteRepositoryPostgresTest {
                 """, String.class);
         assertThat(constraint).isEqualTo("UNIQUE (team_id, voter_user_id)");
 
-        topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
-        topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
+        topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
+        topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_A, VOTER);
 
         // 삭제된 행이 여전히 키를 점유하므로 맨 INSERT 는 반드시 실패한다 -> 재활성화가 필요한 이유
         assertThatThrownBy(() -> jdbc.update("""
@@ -133,9 +129,9 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("1인 1표: 같은 팀의 다른 후보에 투표하면 표가 늘지 않고 후보만 바뀐다")
     void oneVotePerPersonPerTeam() {
-        TopicVote first = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+        TopicVote first = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
 
-        TopicVote changed = topicVoteCommandService.vote(TEAM, CANDIDATE_B, VOTER);
+        TopicVote changed = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_B, VOTER));
 
         assertThat(activeVotesOf(VOTER)).isEqualTo(1);
         assertThat(changed.getId()).isEqualTo(first.getId());   // 새 행이 아니라 같은 행
@@ -147,9 +143,9 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("같은 후보에 다시 투표하면 멱등이다")
     void repeatedVoteForSameCandidateIsIdempotent() {
-        TopicVote first = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+        TopicVote first = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
 
-        TopicVote again = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+        TopicVote again = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
 
         assertThat(again.getId()).isEqualTo(first.getId());
         assertThat(activeVotesOf(VOTER)).isEqualTo(1);
@@ -159,11 +155,11 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("투표 취소 후 다시 투표하면 삭제된 행이 재활성화된다 (다른 후보여도 된다)")
     void revoteAfterCancelReactivatesRow() {
-        TopicVote first = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
-        topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
+        TopicVote first = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
+        topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_A, VOTER);
         assertThat(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM, VOTER)).isEmpty();
 
-        TopicVote second = topicVoteCommandService.vote(TEAM, CANDIDATE_B, VOTER);
+        TopicVote second = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_B, VOTER));
 
         assertThat(second.getId()).isEqualTo(first.getId());   // 새 INSERT 가 아니라 기존 행 재활성화
         assertThat(second.getDeletedAt()).isNull();
@@ -174,8 +170,8 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("팀이 다르면 같은 사람도 각 팀에서 한 표씩 가진다")
     void voteIsScopedPerTeam() {
-        topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
-        topicVoteCommandService.vote(OTHER_TEAM, CANDIDATE_B, VOTER);
+        topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
+        topicVoteRepository.upsert(TopicVote.create(OTHER_TEAM, CANDIDATE_B, VOTER));
 
         assertThat(activeVotesOf(VOTER)).isEqualTo(2);
         assertThat(topicVoteRepository.findByTeamIdAndVoterUserId(TEAM, VOTER)).isPresent();
@@ -191,7 +187,7 @@ class TopicVoteRepositoryPostgresTest {
 
         List<Callable<TopicVote>> tasks = java.util.Collections.nCopies(threads, () -> {
             barrier.await();
-            return topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+            return topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
         });
 
         List<Future<TopicVote>> results = pool.invokeAll(tasks);
@@ -209,13 +205,13 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("존재하지 않거나 이미 취소된 투표를 취소하면 TopicVoteNotFoundException")
     void cancelMissingOrAlreadyDeletedVote() {
-        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER))
+        assertThatThrownBy(() -> topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_A, VOTER))
                 .isInstanceOf(TopicVoteNotFoundException.class);
 
-        TopicVote vote = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
-        topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
+        TopicVote vote = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
+        topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_A, VOTER);
 
-        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER))
+        assertThatThrownBy(() -> topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_A, VOTER))
                 .isInstanceOf(TopicVoteNotFoundException.class);
         assertThatThrownBy(() -> topicVoteRepository.deleteById(vote.getId()))
                 .isInstanceOf(TopicVoteNotFoundException.class);
@@ -224,9 +220,9 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("후보가 다르면 취소되지 않고 기존 표가 유지된다")
     void cancelWithMismatchedCandidateKeepsVote() {
-        topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+        topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
 
-        assertThatThrownBy(() -> topicVoteCommandService.cancelVote(TEAM, CANDIDATE_B, VOTER))
+        assertThatThrownBy(() -> topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_B, VOTER))
                 .isInstanceOf(TopicVoteNotFoundException.class);
 
         assertThat(activeVotesOf(VOTER)).isEqualTo(1);
@@ -236,7 +232,7 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("조회 후 다른 요청이 행을 바꾸면 취소는 낙관적 락에 걸려 TopicVoteNotFoundException")
     void staleCancelFailsWithNotFound() throws Exception {
-        TopicVote vote = topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+        TopicVote vote = topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
 
         assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             // 영속성 컨텍스트에 버전 0 인 상태로 올려둔다
@@ -266,7 +262,7 @@ class TopicVoteRepositoryPostgresTest {
     @Test
     @DisplayName("동시 취소: 낙관적 락으로 한 번만 성공하고 나머지는 TopicVoteNotFoundException")
     void concurrentCancelSucceedsOnlyOnce() throws Exception {
-        topicVoteCommandService.vote(TEAM, CANDIDATE_A, VOTER);
+        topicVoteRepository.upsert(TopicVote.create(TEAM, CANDIDATE_A, VOTER));
 
         int threads = 8;
         CyclicBarrier barrier = new CyclicBarrier(threads);
@@ -275,7 +271,7 @@ class TopicVoteRepositoryPostgresTest {
         List<Callable<Boolean>> tasks = java.util.Collections.nCopies(threads, () -> {
             barrier.await();
             try {
-                topicVoteCommandService.cancelVote(TEAM, CANDIDATE_A, VOTER);
+                topicVoteRepository.deleteByTeamIdAndCandidateIdAndVoterUserId(TEAM, CANDIDATE_A, VOTER);
                 return true;
             } catch (TopicVoteNotFoundException e) {
                 return false;
