@@ -36,15 +36,11 @@ public class ProjectRepositoryImpl implements ProjectRepository {
 
             Project existing = findIncludingDeletedByTeamId(project.getTeamId()).orElse(null);
             if (existing != null) {
-                if (existing.getDeletedAt() == null) {
-                    if (!existing.getId().equals(project.getId())) {
-                        throw new ProjectAlreadyExistsException();
-                    }
-                } else {
-                    if (project.getId() != null && project.getId().equals(existing.getId())) {
-                        throw new ProjectVersionConflictException();
-                    }
+                if (existing.getDeletedAt() != null) {
                     throw new ProjectVersionConflictException();
+                }
+                if (!existing.getId().equals(project.getId())) {
+                    throw new ProjectAlreadyExistsException();
                 }
             }
 

@@ -182,6 +182,12 @@ class ProjectRepositoryJpaIntegrationTest {
 
     assertThatThrownBy(() -> repository.save(oldProject))
         .isInstanceOf(ProjectVersionConflictException.class);
+
+    // 삭제 상태가 그대로 유지되어야 한다
+    ProjectJpaEntity current = tx.execute(status ->
+        entityManager.find(ProjectJpaEntity.class, projectId));
+    assertThat(current.getDeletedAt()).isNotNull();
+    assertThat(current.getTitle()).isEqualTo("원본 프로젝트");
   }
 
   @Test

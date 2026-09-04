@@ -905,6 +905,7 @@ class ProjectRepositoryImplTest {
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
         .meetingStyle("온라인")
+        .version(1L)
         .deletedAt(LocalDateTime.now())
         .build();
     
