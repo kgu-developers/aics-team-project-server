@@ -13,6 +13,8 @@ import mock.repository.FakeMeetingRecordRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 class MeetingRecordQueryServiceTest {
 
@@ -79,5 +81,42 @@ class MeetingRecordQueryServiceTest {
         // then
         assertThat(results).hasSize(1);
         assertThat(results.get(0).getPhase()).isEqualTo(MeetingPhase.FINAL);
+    }
+
+    @Test
+    @DisplayName("통합 조회는 회의 시간이 같으면 식별자 내림차순으로 안정 정렬한다")
+    void getMeetingRecords_SameMeetingAt_OrdersByIdDescending() {
+        LocalDateTime meetingAt = LocalDateTime.of(2026, 8, 25, 19, 30);
+        MeetingRecord first = fakeMeetingRecordRepository.save(
+            MeetingRecord.create(1L, MeetingPhase.MID_CHECK, "202412345", meetingAt, "온라인", "첫 회의", List.of())
+        );
+        MeetingRecord second = fakeMeetingRecordRepository.save(
+            MeetingRecord.create(2L, MeetingPhase.MID_CHECK, "202412346", meetingAt, "온라인", "두 번째 회의", List.of())
+        );
+
+        var result = queryService.getMeetingRecords(
+            List.of(1L, 2L),
+            PageRequest.of(0, 20, Sort.by(Sort.Order.desc("meetingAt"), Sort.Order.desc("id")))
+        );
+
+        assertThat(result.getContent())
+            .extracting(MeetingRecord::getId)
+            .containsExactly(second.getId(), first.getId());
+    }
+
+    @Test
+    @DisplayName("통합 조회는 Pageable의 정렬 조건을 반영한다")
+    void getMeetingRecords_AppliesPageableSort() {
+        MeetingRecord first = save(1L, MeetingPhase.PROPOSAL);
+        MeetingRecord second = save(2L, MeetingPhase.FINAL);
+
+        var result = queryService.getMeetingRecords(
+            List.of(1L, 2L),
+            PageRequest.of(0, 20, Sort.by(Sort.Order.asc("id")))
+        );
+
+        assertThat(result.getContent())
+            .extracting(MeetingRecord::getId)
+            .containsExactly(first.getId(), second.getId());
     }
 }

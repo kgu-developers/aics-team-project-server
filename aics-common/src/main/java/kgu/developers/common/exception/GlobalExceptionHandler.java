@@ -16,6 +16,7 @@ import org.springframework.beans.TypeMismatchException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +29,6 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-// TODO: aics-auth 구현 시 ACCESS_DENIED 코드를 실제 권한 체계(예: 관리자 전용 API)에 맞춰 세분화한다.
 @Slf4j
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -43,11 +43,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(FORBIDDEN).body(response);
     }
 
-    // 원본 제약 이름(테이블/컬럼명)이 클라이언트에 노출되지 않도록 고정 메시지만 응답하고,
-    // 실제 원인은 서버 로그에만 남긴다.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
         log.warn("[{}] {}", DATA_CONFLICT.getCode(), exception.getMostSpecificCause().getMessage());
+        ErrorResponse response = new ErrorResponse(DATA_CONFLICT.getCode(), DATA_CONFLICT.getMessage());
+        return ResponseEntity.status(DATA_CONFLICT.getStatus()).body(response);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(OptimisticLockingFailureException exception) {
+        log.warn("[{}] {}", DATA_CONFLICT.getCode(), exception.getMessage());
         ErrorResponse response = new ErrorResponse(DATA_CONFLICT.getCode(), DATA_CONFLICT.getMessage());
         return ResponseEntity.status(DATA_CONFLICT.getStatus()).body(response);
     }

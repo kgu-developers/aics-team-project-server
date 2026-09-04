@@ -2,6 +2,7 @@ package meetingrecord.infrastructure;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -15,6 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
@@ -155,5 +159,26 @@ class MeetingRecordRepositoryImplTest {
 
     // then
     verify(jpaMeetingRecordRepository, never()).findByIdForUpdate(any());
+  }
+
+  @Test
+  @DisplayName("findAllByTeamIdIn은 페이지의 회의록에 참가자 목록을 함께 조립한다")
+  public void findAllByTeamIdIn_MapsParticipants() {
+    // given
+    var pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "meetingAt"));
+    MeetingRecordJpaEntity entity = savedEntity();
+    given(jpaMeetingRecordRepository.findAllByTeamIdIn(List.of(10L), pageable))
+        .willReturn(new PageImpl<>(List.of(entity), pageable, 1));
+    given(jpaMeetingParticipantRepository.findAllByMeetingRecordIdIn(List.of(1L)))
+        .willReturn(List.of(participantEntity(100L, "202412345")));
+
+    // when
+    var result = meetingRecordRepositoryImpl.findAllByTeamIdIn(List.of(10L), pageable);
+
+    // then
+    assertThat(result.getContent()).singleElement().satisfies(meetingRecord -> {
+      assertThat(meetingRecord.getTeamId()).isEqualTo(10L);
+      assertThat(meetingRecord.getParticipantCount()).isEqualTo(1);
+    });
   }
 }

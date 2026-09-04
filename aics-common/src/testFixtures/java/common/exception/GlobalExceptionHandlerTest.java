@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.MediaType;
@@ -89,6 +90,11 @@ class GlobalExceptionHandlerTest {
           "ERROR: duplicate key value violates unique constraint \"user_pkey\"");
     }
 
+    @GetMapping("/stale")
+    void stale() {
+      throw new OptimisticLockingFailureException("Row was updated or deleted by another transaction");
+    }
+
     @GetMapping("/denied")
     void denied() {
       throw new AccessDeniedException("본인의 비밀번호만 변경할 수 있습니다.");
@@ -149,6 +155,15 @@ class GlobalExceptionHandlerTest {
         .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
         .andExpect(jsonPath("$.message").value("요청이 기존 데이터와 충돌합니다."))
         .andExpect(jsonPath("$.message").value(not(containsString("user_pkey"))));
+  }
+
+  @Test
+  @DisplayName("낙관적 락 충돌은 500이 아니라 409로 응답한다")
+  void handlesOptimisticLockingFailure() throws Exception {
+    mockMvc.perform(get("/stale"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("DATA_CONFLICT"))
+        .andExpect(jsonPath("$.message").value("요청이 기존 데이터와 충돌합니다."));
   }
 
   @Test
