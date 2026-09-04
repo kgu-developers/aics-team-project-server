@@ -41,7 +41,9 @@ public class ProjectRepositoryImpl implements ProjectRepository {
                         throw new ProjectAlreadyExistsException();
                     }
                 } else {
-                    // 삭제된 프로젝트가 있는 경우 버전 충돌 처리
+                    if (project.getId() != null && project.getId().equals(existing.getId())) {
+                        throw new ProjectVersionConflictException();
+                    }
                     throw new ProjectVersionConflictException();
                 }
             }
