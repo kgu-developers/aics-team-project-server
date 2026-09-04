@@ -45,6 +45,8 @@ public class ProjectFacade {
 
     public void completeProposal(Long projectId, String userId) {
         Project project = projectQueryService.getProject(projectId);
+        
+        projectCommandService.lockTeam(project.getTeamId());
         teamAccessValidator.validateTeamLeader(project.getTeamId(), userId);
 
         projectCommandService.completeProposal(projectId);

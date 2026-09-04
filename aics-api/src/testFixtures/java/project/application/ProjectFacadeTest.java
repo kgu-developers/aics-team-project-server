@@ -19,6 +19,7 @@ import kgu.developers.domain.projectApproval.application.command.ProjectApproval
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -80,6 +81,20 @@ class ProjectFacadeTest {
     }
 
     @Test
+    @DisplayName("completeProposal은 팀 행을 잠근 뒤 팀장 권한과 동의 목록을 확인한다")
+    void completeProposal_locksTeamBeforeValidation() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+
+        projectFacade.completeProposal(10L, MEMBER_ID);
+
+        InOrder inOrder = org.mockito.Mockito.inOrder(projectCommandService, teamAccessValidator);
+        inOrder.verify(projectCommandService).lockTeam(TEAM_ID);
+        inOrder.verify(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+        inOrder.verify(projectCommandService).completeProposal(10L);
+    }
+
+    @Test
     @DisplayName("completeProposal은 팀장이 아니면 접근을 거부한다")
     void completeProposal_deniesNonLeader() {
         given(projectQueryService.getProject(10L)).willReturn(project());
@@ -88,6 +103,7 @@ class ProjectFacadeTest {
 
         assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class);
+        then(projectCommandService).should(org.mockito.Mockito.never()).completeProposal(10L);
     }
 
     @Test

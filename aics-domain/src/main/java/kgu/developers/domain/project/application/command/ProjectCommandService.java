@@ -99,6 +99,10 @@ public class ProjectCommandService {
         projectApprovalRepository.deleteAllByProjectId(projectId);
     }
 
+    public void lockTeam(Long teamId) {
+        projectRepository.lockTeam(teamId);
+    }
+
     public void completeProposal(Long projectId) {
         Project project = projectRepository.findByIdForUpdate(projectId)
             .orElseThrow(ProjectNotFoundException::new);
