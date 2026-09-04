@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
+import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
@@ -33,6 +34,7 @@ public class TeamMessageAdminFacade {
     private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("id"));
 
     private final SectionRepository sectionRepository;
+    private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
     private final TeamThreadQueryService teamThreadQueryService;
     private final TeamMessageCommandService teamMessageCommandService;
@@ -73,10 +75,9 @@ public class TeamMessageAdminFacade {
         Team team = teamRepository.findById(thread.getTeamId())
             .orElseThrow(() -> new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다."));
 
-        sectionRepository.findById(team.getSectionId())
-            .map(SectionDetail::section)
-            .filter(section -> professorId.equals(section.getProfessorId()))
-            .orElseThrow(() -> new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다."));
+        if (!sectionQueryService.isActiveSectionOwnedByProfessor(team.getSectionId(), professorId)) {
+            throw new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다.");
+        }
 
         teamMessageCommandService.markAsRead(messageId, professorId);
     }
@@ -88,10 +89,9 @@ public class TeamMessageAdminFacade {
                 .toList();
         }
 
-        Section section = sectionRepository.findById(sectionId)
-            .map(SectionDetail::section)
-            .filter(foundSection -> professorId.equals(foundSection.getProfessorId()))
-            .orElseThrow(() -> new AccessDeniedException("담당 분반의 메시지만 조회할 수 있습니다."));
-        return List.of(section);
+        if (!sectionQueryService.isActiveSectionOwnedByProfessor(sectionId, professorId)) {
+            throw new AccessDeniedException("담당 분반의 메시지만 조회할 수 있습니다.");
+        }
+        return List.of(sectionQueryService.getSectionById(sectionId).section());
     }
 }

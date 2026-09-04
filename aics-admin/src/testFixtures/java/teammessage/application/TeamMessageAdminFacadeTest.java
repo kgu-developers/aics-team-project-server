@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import kgu.developers.admin.teammessage.application.TeamMessageAdminFacade;
+import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
@@ -43,6 +44,9 @@ class TeamMessageAdminFacadeTest {
 
     @Mock
     private SectionRepository sectionRepository;
+
+    @Mock
+    private SectionQueryService sectionQueryService;
 
     @Mock
     private TeamRepository teamRepository;
@@ -101,11 +105,37 @@ class TeamMessageAdminFacadeTest {
     }
 
     @Test
+    @DisplayName("담당 분반을 지정하면 해당 분반 메시지만 조회한다")
+    void getMessages_OwnedSection() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Pageable latestFirstPageable = PageRequest.of(
+            0,
+            20,
+            Sort.by(Sort.Order.desc("id"))
+        );
+        Section section = section(1L, "1151", PROFESSOR_ID);
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of());
+        given(teamThreadQueryService.getThreads(List.of())).willReturn(List.of());
+        given(teamMessageQueryService.getMessages(List.of(), latestFirstPageable))
+            .willReturn(new PageImpl<>(List.of(), latestFirstPageable, 0));
+        given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of())).willReturn(Set.of());
+        given(teamMessageQueryService.countUnread(List.of(), PROFESSOR_ID)).willReturn(0L);
+
+        var response = teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).isEmpty();
+        assertThat(response.unreadCount()).isZero();
+        verify(teamRepository).findAllBySectionIdIn(List.of(1L));
+    }
+
+    @Test
     @DisplayName("다른 교수의 분반 메시지는 조회할 수 없다")
     void getMessages_ForeignSection() {
         Pageable pageable = PageRequest.of(0, 20);
-        given(sectionRepository.findById(1L))
-            .willReturn(Optional.of(detail(section(1L, "1151", "다른 교수"))));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(false);
 
         assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
@@ -118,7 +148,7 @@ class TeamMessageAdminFacadeTest {
     @DisplayName("존재하지 않는 분반도 접근 권한 오류로 처리한다")
     void getMessages_SectionNotFound() {
         Pageable pageable = PageRequest.of(0, 20);
-        given(sectionRepository.findById(1L)).willReturn(Optional.empty());
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(false);
 
         assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
@@ -133,11 +163,10 @@ class TeamMessageAdminFacadeTest {
         TeamMessage message = message(1000L, 100L, "확인했습니다.");
         TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
         Team team = team(10L, 1L, "A팀");
-        Section section = section(1L, "1151", PROFESSOR_ID);
         given(teamMessageQueryService.getMessage(1000L)).willReturn(message);
         given(teamThreadQueryService.getThreadById(100L)).willReturn(thread);
         given(teamRepository.findById(10L)).willReturn(Optional.of(team));
-        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
 
         teamMessageAdminFacade.markAsRead(1000L, PROFESSOR_ID);
 
@@ -150,11 +179,10 @@ class TeamMessageAdminFacadeTest {
         TeamMessage message = message(1000L, 100L, "확인했습니다.");
         TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
         Team team = team(10L, 1L, "A팀");
-        Section section = section(1L, "1151", "다른 교수");
         given(teamMessageQueryService.getMessage(1000L)).willReturn(message);
         given(teamThreadQueryService.getThreadById(100L)).willReturn(thread);
         given(teamRepository.findById(10L)).willReturn(Optional.of(team));
-        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(false);
 
         assertThatThrownBy(() -> teamMessageAdminFacade.markAsRead(1000L, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
