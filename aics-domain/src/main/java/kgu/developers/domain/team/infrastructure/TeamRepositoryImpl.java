@@ -13,6 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -62,6 +63,7 @@ public class TeamRepositoryImpl implements TeamRepository {
         return jpaTeamRepository.findAllByIdInAndDeletedAtIsNull(ids)
                 .stream()
                 .map(TeamJpaEntity::toDomain)
+                .sorted(Comparator.comparing(Team::getId))
                 .toList();
     }
 
