@@ -1,6 +1,8 @@
 package topicvote.application.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -8,6 +10,9 @@ import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
+import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
+import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 import kgu.developers.domain.topicVote.application.command.TopicVoteCommandService;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
@@ -25,12 +30,23 @@ class TopicVoteCommandServiceTest {
     private static final String VOTER_USER_ID = "202412345";
 
     private TopicVoteRepository topicVoteRepository;
+    private TopicCandidateRepository topicCandidateRepository;
     private TopicVoteCommandService topicVoteCommandService;
 
     @BeforeEach
     void setUp() {
         topicVoteRepository = mock(TopicVoteRepository.class);
-        topicVoteCommandService = new TopicVoteCommandService(topicVoteRepository);
+        topicCandidateRepository = mock(TopicCandidateRepository.class);
+        topicVoteCommandService = new TopicVoteCommandService(topicVoteRepository, topicCandidateRepository);
+        givenActiveCandidate(CANDIDATE_ID, TEAM_ID);
+        givenActiveCandidate(CHANGED_CANDIDATE_ID, TEAM_ID);
+    }
+
+    private void givenActiveCandidate(Long candidateId, Long teamId) {
+        given(topicCandidateRepository.findByIdForUpdate(candidateId)).willReturn(Optional.of(
+            TopicCandidate.builder().id(candidateId).teamId(teamId).proposerUserId(VOTER_USER_ID)
+                .title("주제 " + candidateId).description("설명").build()
+        ));
     }
 
     @Test
@@ -128,6 +144,30 @@ class TopicVoteCommandServiceTest {
         assertThat(result).isSameAs(deletedVote);
         assertThat(result.getDeletedAt()).isNull();
         verify(topicVoteRepository).save(any(TopicVote.class));
+    }
+
+    @Test
+    @DisplayName("vote는 저장 직전 후보가 삭제되어 있으면 투표를 저장하지 않는다")
+    void vote_Throws_WhenCandidateDeletedBeforeSave() {
+        // given
+        given(topicCandidateRepository.findByIdForUpdate(CANDIDATE_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID))
+            .isInstanceOf(TopicCandidateNotFoundException.class);
+        verify(topicVoteRepository, never()).save(any(TopicVote.class));
+    }
+
+    @Test
+    @DisplayName("vote는 후보가 다른 팀 소속이면 투표를 저장하지 않는다")
+    void vote_Throws_WhenCandidateBelongsToAnotherTeam() {
+        // given
+        givenActiveCandidate(CANDIDATE_ID, 99L);
+
+        // when & then
+        assertThatThrownBy(() -> topicVoteCommandService.vote(TEAM_ID, CANDIDATE_ID, VOTER_USER_ID))
+            .isInstanceOf(TopicCandidateNotFoundException.class);
+        verify(topicVoteRepository, never()).save(any(TopicVote.class));
     }
 
     @Test

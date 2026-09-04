@@ -1,6 +1,9 @@
 package kgu.developers.domain.topicVote.application.command;
 
 import java.util.Optional;
+import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
+import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
+import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import kgu.developers.domain.topicVote.exception.TopicVoteCandidateChangedException;
@@ -16,9 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class TopicVoteCommandService {
 
     private final TopicVoteRepository topicVoteRepository;
+    private final TopicCandidateRepository topicCandidateRepository;
 
     @Transactional
     public TopicVote vote(Long teamId, Long candidateId, String voterUserId) {
+        validateActiveCandidate(teamId, candidateId);
+
         Optional<TopicVote> existingVote = topicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId);
         if (existingVote.isPresent()) {
             TopicVote vote = existingVote.get();
@@ -60,6 +66,17 @@ public class TopicVoteCommandService {
         }
         existingVote.delete();
         topicVoteRepository.save(existingVote);
+    }
+
+    // 파사드의 후보 조회와 투표 저장 사이에 후보가 삭제될 수 있으므로, 투표 트랜잭션
+    // 안에서 팀 행을 잠근 채 다시 확인한다. 후보의 teamId 는 #62 이후 불변이라,
+    // 팀이 다르면 다른 팀 기준으로 소속이 검증된 요청이다.
+    private void validateActiveCandidate(Long teamId, Long candidateId) {
+        TopicCandidate candidate = topicCandidateRepository.findByIdForUpdate(candidateId)
+            .orElseThrow(TopicCandidateNotFoundException::new);
+        if (!candidate.getTeamId().equals(teamId)) {
+            throw new TopicCandidateNotFoundException();
+        }
     }
 
     private TopicVote changeVoteCandidate(TopicVote existingVote, Long candidateId) {
