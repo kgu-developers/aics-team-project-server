@@ -139,7 +139,7 @@ public class SubmissionFacade {
             List<MultipartFile> files
     ) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateActiveTeamMembership(submission, userId);
+        validateSubmitAllowed(submission, userId);
 
         if (files != null && !files.isEmpty()
                 && (fileArtifactIds == null || fileArtifactIds.size() != files.size())) {
@@ -319,6 +319,18 @@ public class SubmissionFacade {
             }
         }
         submissionCommandService.assignPresentationOrders(milestoneId, orderByTeamId);
+    }
+
+    // 최종보고서 파일 제출은 팀장만 가능하다(프론트 요구사항). 그 외 마일스톤은
+    // 기존대로 활성 팀원이면 누구나 제출할 수 있다.
+    private void validateSubmitAllowed(Submission submission, String userId) {
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        if (milestone.getType() == MilestoneType.FINAL_REPORT) {
+            validateLeader(submission, userId);
+        } else {
+            validateActiveTeamMembership(submission, userId);
+        }
     }
 
     // 탈퇴했거나 조교로 전환된 기존 팀장이 계속 완료 처리할 수 있던 구멍을 막기 위해,
