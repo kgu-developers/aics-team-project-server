@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/sections")
+@RequestMapping("/api/v1/admin/oop/sections")
 public class SectionAdminControllerImpl implements SectionAdminController {
 
     private final SectionAdminFacade sectionAdminFacade;

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/courses")
+@RequestMapping("/api/v1/admin/oop/courses")
 public class CourseControllerImpl implements CourseController {
 
   private final CourseFacade courseFacade;

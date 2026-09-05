@@ -35,7 +35,7 @@ import kgu.developers.domain.user.domain.UserGlobalRole;
 @ExtendWith(MockitoExtension.class)
 class SectionControllerTest {
 
-    private static final String BASE_URL = "/api/v1/sections";
+    private static final String BASE_URL = "/api/v1/oop/sections";
     private static final String STUDENT_NUMBER = "202699999";
 
     @Mock

@@ -50,7 +50,7 @@ class UserControllerTest {
   @Test
   @DisplayName("본인 학번이면 비밀번호를 변경한다")
   void updateOwnPassword() throws Exception {
-    mockMvc.perform(put("/api/v1/users/{studentNumber}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .with(csrf())
             .with(user(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
@@ -64,7 +64,7 @@ class UserControllerTest {
   @Test
   @DisplayName("CSRF 토큰이 없으면 403을 응답하고 변경하지 않는다")
   void updateWithoutCsrfToken() throws Exception {
-    mockMvc.perform(put("/api/v1/users/{studentNumber}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .with(user(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
@@ -76,7 +76,7 @@ class UserControllerTest {
   @Test
   @DisplayName("현재 비밀번호가 빠지면 400을 응답하고 변경하지 않는다")
   void updateWithoutCurrentPassword() throws Exception {
-    mockMvc.perform(put("/api/v1/users/{studentNumber}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .with(csrf())
             .with(user(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
@@ -92,7 +92,7 @@ class UserControllerTest {
   void updateWithMaxByteLengthPassword() throws Exception {
     String password = "가".repeat(24); // 72 bytes
 
-    mockMvc.perform(put("/api/v1/users/{studentNumber}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .with(csrf())
             .with(user(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +109,7 @@ class UserControllerTest {
   void updateWithTooManyBytesPassword() throws Exception {
     String password = "가".repeat(25); // 75 bytes, 25 chars so @Size(max = 64) is not triggered
 
-    mockMvc.perform(put("/api/v1/users/{studentNumber}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .with(csrf())
             .with(user(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
@@ -123,7 +123,7 @@ class UserControllerTest {
   @Test
   @DisplayName("다른 사람 학번이면 403을 응답하고 변경하지 않는다")
   void updateOthersPassword() throws Exception {
-    mockMvc.perform(put("/api/v1/users/{studentNumber}/password", OTHER_STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", OTHER_STUDENT_NUMBER)
             .with(csrf())
             .with(user(STUDENT_NUMBER))
             .contentType(MediaType.APPLICATION_JSON)
@@ -136,7 +136,7 @@ class UserControllerTest {
   @Test
   @DisplayName("토큰이 없으면 401을 응답한다")
   void updateWithoutToken() throws Exception {
-    mockMvc.perform(put("/api/v1/users/{studentNumber}/password", STUDENT_NUMBER)
+    mockMvc.perform(put("/api/v1/oop/users/{studentNumber}/password", STUDENT_NUMBER)
             .with(csrf())
             .contentType(MediaType.APPLICATION_JSON)
             .content(BODY))
@@ -161,7 +161,7 @@ class UserControllerTest {
 
     when(userFacade.getMe(STUDENT_NUMBER)).thenReturn(mockResponse);
 
-    mockMvc.perform(get("/api/v1/users/me")
+    mockMvc.perform(get("/api/v1/oop/users/me")
             .with(user(STUDENT_NUMBER)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.studentNumber").value(STUDENT_NUMBER))
@@ -175,7 +175,7 @@ class UserControllerTest {
   @Test
   @DisplayName("토큰이 없으면 내 정보 조회 시 401을 응답한다")
   void getMeWithoutToken() throws Exception {
-    mockMvc.perform(get("/api/v1/users/me"))
+    mockMvc.perform(get("/api/v1/oop/users/me"))
         .andExpect(status().isUnauthorized());
 
     verify(userFacade, never()).getMe(any());

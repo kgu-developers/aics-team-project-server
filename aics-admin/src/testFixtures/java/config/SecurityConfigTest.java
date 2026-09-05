@@ -46,7 +46,7 @@ import kgu.developers.globalutils.jwt.TokenRevocationStore;
 })
 class SecurityConfigTest {
 
-  private static final String ADMIN_URL = "/api/v1/admin/users";
+  private static final String ADMIN_URL = "/api/v1/admin/oop/users";
   private static final String STUDENT_NUMBER = "202699999";
   private static final String ORIGIN = "http://localhost:5173";
 

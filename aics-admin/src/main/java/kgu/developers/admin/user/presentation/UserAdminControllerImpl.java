@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/users")
+@RequestMapping("/api/v1/admin/oop/users")
 public class UserAdminControllerImpl implements UserAdminController {
 
   private final UserAdminFacade userAdminFacade;
