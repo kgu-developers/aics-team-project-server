@@ -7,9 +7,8 @@ import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeReque
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicFinalizeResponse;
-import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
-import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.topicCandidate.application.command.TopicCandidateCommandService;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
@@ -29,7 +28,7 @@ public class TopicCandidateFacade {
     private final TopicCandidateCommandService topicCandidateCommandService;
     private final TopicCandidateRepository topicCandidateRepository;
     private final TopicVoteRepository topicVoteRepository;
-    private final ProjectRepository projectRepository;
+    private final ProjectCommandService projectCommandService;
     private final TeamAccessValidator teamAccessValidator;
 
     public TopicCandidateListResponse getTopicCandidates(Long teamId, String userId) {
@@ -68,23 +67,13 @@ public class TopicCandidateFacade {
             throw new AccessDeniedException("해당 팀의 주제 후보만 확정할 수 있습니다.");
         }
 
-        Project project = projectRepository.findAllByTeamId(teamId).stream()
-            .findFirst()
-            .orElseGet(() -> Project.create(
-                teamId,
-                topicCandidate.getTitle(),
-                topicCandidate.getDescription(),
-                request.goal(),
-                null,
-                null,
-                ApprovalStatus.DRAFT,
-                null
-            ));
-        project.updateTitle(topicCandidate.getTitle());
-        project.updateDescription(topicCandidate.getDescription());
-        project.updateGoal(request.goal());
-        project.updateTopicCandidateId(topicCandidate.getId());
-        Project savedProject = projectRepository.save(project);
+        Project savedProject = projectCommandService.finalizeTopic(
+            teamId,
+            topicCandidate.getId(),
+            topicCandidate.getTitle(),
+            topicCandidate.getDescription(),
+            request.goal()
+        );
         return TopicFinalizeResponse.of(savedProject, topicCandidate);
     }
 }

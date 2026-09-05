@@ -187,6 +187,35 @@ class ProjectCommandServiceTest {
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
     }
 
+    @Test
+    @DisplayName("finalizeTopic은 주제를 바꾸면 리비전을 올리고 기존 동의를 무효화한다")
+    void finalizeTopic_bumpsRevisionAndClearsApprovals() {
+        Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
+            .goal("기존 목표").meetingStyle("대면").approvalStatus(ApprovalStatus.APPROVED).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+
+        Project result = projectCommandService.finalizeTopic(1L, 7L, "확정 제목", "확정 설명", "확정 목표");
+
+        assertThat(result.getTitle()).isEqualTo("확정 제목");
+        assertThat(result.getTopicCandidateId()).isEqualTo(7L);
+        assertThat(result.getMeetingStyle()).isEqualTo("대면");
+        assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
+        assertThat(result.getProposalRevision()).isEqualTo(1L);
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+    }
+
+    @Test
+    @DisplayName("finalizeTopic은 완료된 제안서의 주제를 바꿀 수 없다")
+    void finalizeTopic_rejectsCompletedProject() {
+        Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
+
+        assertThatThrownBy(() -> projectCommandService.finalizeTopic(1L, 7L, "확정 제목", "확정 설명", "확정 목표"))
+            .isInstanceOf(CustomException.class);
+    }
+
     private Project saveProject() throws Exception {
         return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
             "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));

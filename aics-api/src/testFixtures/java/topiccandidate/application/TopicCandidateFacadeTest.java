@@ -17,7 +17,7 @@ import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import kgu.developers.domain.project.domain.Project;
-import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicFinalizeResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +31,7 @@ class TopicCandidateFacadeTest {
 
     private TopicCandidateRepository topicCandidateRepository;
     private TopicVoteRepository topicVoteRepository;
-    private ProjectRepository projectRepository;
+    private ProjectCommandService projectCommandService;
     private TopicCandidateCommandService topicCandidateCommandService;
     private TeamAccessValidator teamAccessValidator;
     private TopicCandidateFacade topicCandidateFacade;
@@ -40,14 +40,14 @@ class TopicCandidateFacadeTest {
     void setUp() {
         topicCandidateRepository = mock(TopicCandidateRepository.class);
         topicVoteRepository = mock(TopicVoteRepository.class);
-        projectRepository = mock(ProjectRepository.class);
+        projectCommandService = mock(ProjectCommandService.class);
         topicCandidateCommandService = mock(TopicCandidateCommandService.class);
         teamAccessValidator = mock(TeamAccessValidator.class);
         topicCandidateFacade = new TopicCandidateFacade(
             topicCandidateCommandService,
             topicCandidateRepository,
             topicVoteRepository,
-            projectRepository,
+            projectCommandService,
             teamAccessValidator
         );
     }
@@ -130,8 +130,8 @@ class TopicCandidateFacadeTest {
     }
 
     @Test
-    @DisplayName("finalizeTopic은 팀장이 선택한 후보 제목으로 프로젝트를 생성한다")
-    void finalizeTopic_CreatesProjectWithCandidateTitle() {
+    @DisplayName("finalizeTopic은 확정 후보 내용을 ProjectCommandService에 위임한다")
+    void finalizeTopic_DelegatesToProjectCommandService() {
         // given
         TopicCandidate topicCandidate = candidate(1L, "AI 기반 학습 도우미", "학생별 맞춤형 학습 계획을 지원합니다.");
         Project savedProject = Project.builder()
@@ -139,11 +139,12 @@ class TopicCandidateFacadeTest {
             .teamId(TEAM_ID)
             .title(topicCandidate.getTitle())
             .description(topicCandidate.getDescription())
-            .goal(topicCandidate.getDescription())
+            .goal("AI 기반 학습 도우미 개발")
             .build();
         given(topicCandidateRepository.findById(topicCandidate.getId())).willReturn(java.util.Optional.of(topicCandidate));
-        given(projectRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of());
-        given(projectRepository.save(org.mockito.ArgumentMatchers.any(Project.class))).willReturn(savedProject);
+        given(projectCommandService.finalizeTopic(
+            TEAM_ID, topicCandidate.getId(), topicCandidate.getTitle(), topicCandidate.getDescription(), "AI 기반 학습 도우미 개발"
+        )).willReturn(savedProject);
 
         // when
         TopicFinalizeResponse result = topicCandidateFacade.finalizeTopic(
@@ -155,50 +156,9 @@ class TopicCandidateFacadeTest {
             .extracting(TopicFinalizeResponse::projectId, TopicFinalizeResponse::candidateId, TopicFinalizeResponse::title)
             .containsExactly(2L, topicCandidate.getId(), topicCandidate.getTitle());
         verify(teamAccessValidator).validateLeaderWithTeamLock(TEAM_ID, CURRENT_USER_ID);
-        verify(projectRepository).save(org.mockito.ArgumentMatchers.argThat(project ->
-            project.getTeamId().equals(TEAM_ID)
-                && project.getTitle().equals(topicCandidate.getTitle())
-                && project.getDescription().equals(topicCandidate.getDescription())
-                && project.getGoal().equals("AI 기반 학습 도우미 개발")
-        ));
-    }
-
-    @Test
-    @DisplayName("finalizeTopic은 기존 프로젝트가 있으면 제목과 설명·목표를 새 후보로 갱신한다")
-    void finalizeTopic_UpdatesExistingProjectDescriptionAndGoal() {
-        // given
-        TopicCandidate firstCandidate = candidate(1L, "첫 번째 주제", "첫 번째 설명");
-        TopicCandidate secondCandidate = candidate(2L, "두 번째 주제", "두 번째 설명");
-        Project existingProject = Project.builder()
-            .id(3L)
-            .teamId(TEAM_ID)
-            .title(firstCandidate.getTitle())
-            .description(firstCandidate.getDescription())
-            .goal(firstCandidate.getDescription())
-            .build();
-        Project updatedProject = Project.builder()
-            .id(3L)
-            .teamId(TEAM_ID)
-            .title(secondCandidate.getTitle())
-            .description(secondCandidate.getDescription())
-            .goal(secondCandidate.getDescription())
-            .build();
-        given(topicCandidateRepository.findById(secondCandidate.getId())).willReturn(java.util.Optional.of(secondCandidate));
-        given(projectRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(existingProject));
-        given(projectRepository.save(org.mockito.ArgumentMatchers.any(Project.class))).willReturn(updatedProject);
-
-        // when
-        topicCandidateFacade.finalizeTopic(
-            TEAM_ID, CURRENT_USER_ID, new TopicFinalizeRequest(secondCandidate.getId(), "팀 프로젝트 관리 시스템")
+        verify(projectCommandService).finalizeTopic(
+            TEAM_ID, topicCandidate.getId(), topicCandidate.getTitle(), topicCandidate.getDescription(), "AI 기반 학습 도우미 개발"
         );
-
-        // then
-        verify(teamAccessValidator).validateLeaderWithTeamLock(TEAM_ID, CURRENT_USER_ID);
-        verify(projectRepository).save(org.mockito.ArgumentMatchers.argThat(project ->
-            project.getTitle().equals(secondCandidate.getTitle())
-                && project.getDescription().equals(secondCandidate.getDescription())
-                && project.getGoal().equals("팀 프로젝트 관리 시스템")
-        ));
     }
 
     private TopicCandidate candidate(Long id, String title, String description) {

@@ -53,6 +53,30 @@ public class ProjectCommandService {
         return updateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks);
     }
 
+    public Project finalizeTopic(Long teamId, Long topicCandidateId, String title, String description, String goal) {
+        projectRepository.lockTeam(teamId);
+
+        Project active = projectRepository.findIncludingDeletedByTeamId(teamId)
+            .filter(project -> project.getDeletedAt() == null)
+            .orElse(null);
+
+        Project project = saveProject(
+            teamId,
+            title,
+            description,
+            goal,
+            active == null ? null : active.getMeetingStyle(),
+            active == null ? null : active.getRepositoryUrl(),
+            active == null ? null : active.getExternalLinks()
+        );
+
+        if (topicCandidateId.equals(project.getTopicCandidateId())) {
+            return project;
+        }
+        project.updateTopicCandidateId(topicCandidateId);
+        return projectRepository.save(project);
+    }
+
     /**
      * 소프트 삭제된 프로젝트를 새 제안서로 되살린다.
      * 되살린 제안서는 새 리비전이고, 이전 리비전의 동의는 모두 무효가 된다.
