@@ -15,6 +15,7 @@ public class MeetingRecord {
 
     private Long id;
     private Long teamId;
+    private String title;
     private MeetingPhase phase;
     private String authorId;
     private LocalDateTime meetingAt;
@@ -27,6 +28,7 @@ public class MeetingRecord {
 
     public static MeetingRecord create(
         Long teamId,
+        String title,
         MeetingPhase phase,
         String authorId,
         LocalDateTime meetingAt,
@@ -36,6 +38,7 @@ public class MeetingRecord {
     ) {
         return MeetingRecord.builder()
             .teamId(teamId)
+            .title(title)
             .phase(phase)
             .authorId(authorId)
             .meetingAt(meetingAt)
@@ -52,6 +55,10 @@ public class MeetingRecord {
         return new ArrayList<>(new LinkedHashSet<>(userIds)).stream()
             .map(userId -> MeetingParticipant.create(meetingRecordId, userId))
             .toList();
+    }
+
+    public void updateTitle(String title) {
+        this.title = title;
     }
 
     public void updateMeetingAt(LocalDateTime meetingAt) {

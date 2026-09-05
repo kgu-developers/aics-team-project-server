@@ -10,6 +10,7 @@ import kgu.developers.api.meetingrecord.presentation.request.MeetingActionCreate
 import kgu.developers.api.meetingrecord.presentation.request.MeetingActionUpdateRequest;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionListResponse;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionResponse;
+import kgu.developers.api.meetingrecord.presentation.response.TeamMeetingActionListResponse;
 import kgu.developers.domain.meetingrecord.domain.MeetingActionStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -68,8 +69,8 @@ public interface MeetingActionController {
             Assignee : 담당자명
             """
     )
-    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = MeetingActionListResponse.class)))
-    ResponseEntity<MeetingActionListResponse> getTeamActions(
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TeamMeetingActionListResponse.class)))
+    ResponseEntity<TeamMeetingActionListResponse> getTeamActions(
         @PathVariable Long teamId,
         @RequestParam(required = false) MeetingActionStatus status,
         Authentication authentication

@@ -27,7 +27,7 @@ class MeetingActionCommandServiceTest {
 
     private Long createMeetingAction() {
         return commandService.createMeetingAction(
-            1L, "202412345", "내용", MeetingActionStatus.IN_PROGRESS, LocalDateTime.now()
+            1L, "202412345", "내용", LocalDateTime.now()
         );
     }
 
