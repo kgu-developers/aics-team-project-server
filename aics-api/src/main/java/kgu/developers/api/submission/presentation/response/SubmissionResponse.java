@@ -41,10 +41,14 @@ public record SubmissionResponse(
         LocalDateTime completedAt,
 
         @Schema(description = "완료 처리한 팀장 학번(미완료면 null)")
-        String completedBy
+        String completedBy,
+
+        @Schema(description = "팀원 확인 현황(최종보고서 마일스톤에서만 값이 채워짐, 그 외엔 null)")
+        SubmissionMemberConsentResponse memberConsent
 ) {
 
-    public static SubmissionResponse of(Submission submission, boolean canSubmitNow, boolean hasPendingReview) {
+    public static SubmissionResponse of(
+            Submission submission, boolean canSubmitNow, boolean hasPendingReview, SubmissionMemberConsentResponse memberConsent) {
         return SubmissionResponse.builder()
                 .id(submission.getId())
                 .teamId(submission.getTeamId())
@@ -56,6 +60,7 @@ public record SubmissionResponse(
                 .presentationOrder(submission.getPresentationOrder())
                 .completedAt(submission.getCompletedAt())
                 .completedBy(submission.getCompletedBy())
+                .memberConsent(memberConsent)
                 .build();
     }
 }

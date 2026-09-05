@@ -98,13 +98,13 @@ public class SubmissionFacade {
         }
 
         Submission submission = submissionQueryService.getOrCreateSubmission(member.getTeamId(), milestoneId);
-        return toResponse(submission);
+        return toResponse(submission, userId);
     }
 
     public SubmissionResponse getSubmission(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
-        return toResponse(submission);
+        return toResponse(submission, userId);
     }
 
     public SubmissionVersionListResponse getVersions(Long submissionId, String userId) {
@@ -139,7 +139,7 @@ public class SubmissionFacade {
             List<MultipartFile> files
     ) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateSubmitAllowed(submission, userId);
+        Milestone milestone = validateSubmitAllowed(submission, userId);
 
         if (files != null && !files.isEmpty()
                 && (fileArtifactIds == null || fileArtifactIds.size() != files.size())) {
@@ -170,7 +170,15 @@ public class SubmissionFacade {
         }
 
         submissionCommandService.submitVersion(submissionId, userId, description, changeNote, inputs);
-        return toResponse(submissionQueryService.getSubmission(submissionId));
+
+        // 최종보고서는 팀장만 제출할 수 있고(validateSubmitAllowed), 팀장의 제출 자체를
+        // 팀장 본인 확인 1건으로 간주한다(프론트 요구사항) — 제출 직후 화면에 0/N이 아니라
+        // 1/N로 보이게 하기 위해 여기서 바로 등록한다.
+        if (milestone.getType() == MilestoneType.FINAL_REPORT) {
+            submissionCommandService.confirmAsMember(submissionId, userId);
+        }
+
+        return toResponse(submissionQueryService.getSubmission(submissionId), userId);
     }
 
     public SubmissionMemberConsentResponse getMemberConsent(Long submissionId, String userId) {
@@ -224,7 +232,7 @@ public class SubmissionFacade {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateLeader(submission, userId);
         submissionCommandService.completeSubmission(submissionId, userId);
-        return toResponse(submissionQueryService.getSubmission(submissionId));
+        return toResponse(submissionQueryService.getSubmission(submissionId), userId);
     }
 
     public SubmissionResponse reopenSubmission(Long submissionId, String professorId, SubmissionReopenRequest request) {
@@ -235,7 +243,7 @@ public class SubmissionFacade {
             throw new SubmissionAccessDeniedException();
         }
         submissionCommandService.reopenSubmission(submissionId, professorId, request.revisionDueAt());
-        return toResponse(submissionQueryService.getSubmission(submissionId));
+        return toResponse(submissionQueryService.getSubmission(submissionId), professorId);
     }
 
     // 발표 공개자료는 다른 팀도 상시 열람 가능(PRD 그대로) — 로그인만 하면 되고 팀 소속 검증은 안 한다.
@@ -356,7 +364,7 @@ public class SubmissionFacade {
 
     // 최종보고서 파일 제출은 팀장만 가능하다(프론트 요구사항). 그 외 마일스톤은
     // 기존대로 활성 팀원이면 누구나 제출할 수 있다.
-    private void validateSubmitAllowed(Submission submission, String userId) {
+    private Milestone validateSubmitAllowed(Submission submission, String userId) {
         Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
                 .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
         if (milestone.getType() == MilestoneType.FINAL_REPORT) {
@@ -364,6 +372,7 @@ public class SubmissionFacade {
         } else {
             validateActiveTeamMembership(submission, userId);
         }
+        return milestone;
     }
 
     // 탈퇴했거나 조교로 전환된 기존 팀장이 계속 완료 처리할 수 있던 구멍을 막기 위해,
@@ -377,12 +386,26 @@ public class SubmissionFacade {
         }
     }
 
-    private SubmissionResponse toResponse(Submission submission) {
+    private SubmissionResponse toResponse(Submission submission, String userId) {
         return SubmissionResponse.of(
                 submission,
                 submissionQueryService.canSubmitNow(submission),
-                submissionQueryService.hasPendingReview(submission)
+                submissionQueryService.hasPendingReview(submission),
+                buildMemberConsentForResponse(submission, userId)
         );
+    }
+
+    // toResponse에 임베드할 때만 최종보고서 마일스톤으로 한정한다 — 그 외 마일스톤은 이 게이트
+    // 자체가 없으므로(PRD, 최종보고서 전용) null로 둔다. 전용 확인/취소 API(getMemberConsent 등)는
+    // 마일스톤 타입과 무관하게 항상 계산하므로 그쪽 buildMemberConsent()는 그대로 두고,
+    // 여기서만 감싸서 게이트를 추가한다.
+    private SubmissionMemberConsentResponse buildMemberConsentForResponse(Submission submission, String userId) {
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        if (milestone.getType() != MilestoneType.FINAL_REPORT) {
+            return null;
+        }
+        return buildMemberConsent(submission, userId);
     }
 
     private SubmissionArtifactResponse toArtifactResponse(SubmissionArtifact artifact) {
