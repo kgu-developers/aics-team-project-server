@@ -20,10 +20,10 @@ public record SectionAdminResponse(
     @Schema(requiredMode = REQUIRED)
     CourseResponse course,
 
-    @Schema(description = "과목 코드", example = "CS101", requiredMode = REQUIRED)
+    @Schema(description = "과목 코드", example = "1154", requiredMode = REQUIRED)
     String code,
 
-    @Schema(description = "분반명", example = "01", requiredMode = REQUIRED)
+    @Schema(description = "분반명", example = "월123/1154", requiredMode = REQUIRED)
     String name,
 
     @Schema(description = "수업시간", example = "월123", requiredMode = REQUIRED)
