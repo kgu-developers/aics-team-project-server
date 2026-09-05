@@ -25,7 +25,7 @@ class SectionMappingTest {
     void roundTrip() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 2, 9, 0);
         LocalDateTime until = LocalDateTime.of(2026, 6, 20, 18, 0);
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, until);
+        Section section = Section.create("202012345", 1L, "1154", "월3,4/1154", "월3,4", 40, from, until);
 
         Section mapped = SectionJpaEntity.toEntity(section, course, professor).toDomain();
 
@@ -40,8 +40,8 @@ class SectionMappingTest {
                 .id(1L)
                 .professorId("202012345")
                 .courseId(1L)
-                .code("CS101")
-                .name("01분반")
+                .code("1154")
+                .name("월3,4/1154")
                 .classTime("월3,4")
                 .capacity(40)
                 .createdAt(createdAt)
@@ -55,7 +55,7 @@ class SectionMappingTest {
     @Test
     @DisplayName("삭제된 Section은 deletedAt이 엔티티로 전달된다")
     void carriesDeletedAt() {
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null);
+        Section section = Section.create("202012345", 1L, "1154", "월3,4/1154", "월3,4", 40, null, null);
         section.delete();
 
         assertThat(SectionJpaEntity.toEntity(section, course, professor).getDeletedAt())
@@ -65,7 +65,7 @@ class SectionMappingTest {
     @Test
     @DisplayName("정원이 음수이면 Section 생성에 실패한다")
     void rejectsNegativeCapacity() {
-        assertThatThrownBy(() -> Section.create("202012345", 1L, "CS101", "01분반", "월3,4", -1, null, null))
+        assertThatThrownBy(() -> Section.create("202012345", 1L, "1154", "월3,4/1154", "월3,4", -1, null, null))
                 .isInstanceOf(InvalidCapacityException.class);
     }
 
@@ -75,14 +75,14 @@ class SectionMappingTest {
         LocalDateTime from = LocalDateTime.of(2026, 3, 2, 9, 0);
         LocalDateTime until = from.minusDays(1);
 
-        assertThatThrownBy(() -> Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, until))
+        assertThatThrownBy(() -> Section.create("202012345", 1L, "1154", "월3,4/1154", "월3,4", 40, from, until))
                 .isInstanceOf(InvalidContactVisiblePeriodException.class);
     }
 
     @Test
     @DisplayName("updateCapacity로 음수 정원을 설정할 수 없다")
     void rejectsNegativeCapacityOnUpdate() {
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null);
+        Section section = Section.create("202012345", 1L, "1154", "월3,4/1154", "월3,4", 40, null, null);
 
         assertThatThrownBy(() -> section.updateCapacity(-1))
                 .isInstanceOf(InvalidCapacityException.class);
@@ -94,7 +94,7 @@ class SectionMappingTest {
     void rejectsReversedContactVisiblePeriodOnUpdate() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 2, 9, 0);
         LocalDateTime until = LocalDateTime.of(2026, 6, 20, 18, 0);
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, until);
+        Section section = Section.create("202012345", 1L, "1154", "월3,4/1154", "월3,4", 40, from, until);
 
         assertThatThrownBy(() -> section.updateContactVisiblePeriod(until.plusDays(1), until))
                 .isInstanceOf(InvalidContactVisiblePeriodException.class);
@@ -108,7 +108,7 @@ class SectionMappingTest {
     @DisplayName("기존 기간보다 뒤로 통째로 옮기는 수정은 허용된다")
     void allowsShiftingContactVisiblePeriodForward() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+        Section section = Section.create("202012345", 1L, "1154", "월3,4/1154", "월3,4", 40, from, from.plusDays(1));
 
         section.updateContactVisiblePeriod(from.plusDays(2), from.plusDays(3));
 
