@@ -40,9 +40,6 @@ public class SectionJpaEntity extends BaseTimeEntity {
   @Column(nullable = false, length = 32)
   private String code;
 
-  @Column(nullable = false, length = 64)
-  private String name;
-
   @Column(nullable = false, length = 128)
   private String classTime;
 
@@ -63,7 +60,6 @@ public class SectionJpaEntity extends BaseTimeEntity {
         .professorId(professor.getStudentNumber())
         .courseId(course.getId())
         .code(code)
-        .name(name)
         .classTime(classTime)
         .capacity(capacity)
         .contactVisibleFrom(contactVisibleFrom)
@@ -85,7 +81,6 @@ public class SectionJpaEntity extends BaseTimeEntity {
         .professor(professor)
         .course(course)
         .code(section.getCode())
-        .name(section.getName())
         .classTime(section.getClassTime())
         .capacity(section.getCapacity())
         .contactVisibleFrom(section.getContactVisibleFrom())

@@ -85,7 +85,6 @@ class SectionAdminFacadeTest {
                 .professorId(PROFESSOR_ID)
                 .courseId(1L)
                 .code("1154")
-                .name("월3,4/1154")
                 .classTime("월3,4")
                 .capacity(40)
                 .contactVisibleFrom(FROM)
@@ -101,8 +100,8 @@ class SectionAdminFacadeTest {
     @DisplayName("createSection은 요청 값을 커맨드 서비스에 넘기고 id를 응답한다")
     void createSection() {
         SectionAdminRequest request =
-                new SectionAdminRequest(PROFESSOR_ID, 1L, "1154", "월3,4/1154", "월3,4", 40, FROM, UNTIL);
-        given(sectionCommandService.createSection(PROFESSOR_ID, 1L, "1154", "월3,4/1154", "월3,4", 40, FROM, UNTIL))
+                new SectionAdminRequest(PROFESSOR_ID, 1L, "1154", "월3,4", 40, FROM, UNTIL);
+        given(sectionCommandService.createSection(PROFESSOR_ID, 1L, "1154", "월3,4", 40, FROM, UNTIL))
                 .willReturn(1L);
 
         assertThat(sectionAdminFacade.createSection(request).id()).isEqualTo(1L);
@@ -222,9 +221,9 @@ class SectionAdminFacadeTest {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
 
         sectionAdminFacade.updateSection(1L,
-                new SectionAdminUpdateRequest(null, null, null, "02분반", null, null));
+                new SectionAdminUpdateRequest(null, null, null, "화5,6", null));
 
-        verify(sectionCommandService).updateSection(section, null, null, null, "02분반", null, null, null, null);
+        verify(sectionCommandService).updateSection(section, null, null, null, "화5,6", null, null, null);
     }
 
     @Test
@@ -237,7 +236,7 @@ class SectionAdminFacadeTest {
                 .willReturn(detail(before), detail(after));
 
         assertThat(sectionAdminFacade.updateSection(1L,
-                new SectionAdminUpdateRequest(null, null, "1155", null, null, null)).name())
+                new SectionAdminUpdateRequest(null, null, "1155", null, null)).name())
                 .isEqualTo("월3,4/1155");
     }
 

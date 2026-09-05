@@ -51,7 +51,6 @@ class SectionFacadeTest {
                 .professorId(STUDENT_NUMBER)
                 .courseId(1L)
                 .code("1154")
-                .name("월34/1154")
                 .classTime("월34")
                 .capacity(40)
                 .contactVisibleFrom(LocalDateTime.of(2026, 3, 2, 0, 0))

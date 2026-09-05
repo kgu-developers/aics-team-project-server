@@ -22,10 +22,6 @@ public record SectionAdminRequest(
     @NotBlank
     String code,
 
-    @Schema(description = "요일·시간/과목번호 표시 문자열", example = "월123/1154", requiredMode = REQUIRED)
-    @NotBlank
-    String name,
-
     @Schema(description = "수업시간", example = "월123", requiredMode = REQUIRED)
     @NotBlank
     String classTime,

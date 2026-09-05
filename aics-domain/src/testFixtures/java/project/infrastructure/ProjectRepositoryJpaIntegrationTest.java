@@ -118,7 +118,6 @@ class ProjectRepositoryJpaIntegrationTest {
           .professor(professor)
           .course(course)
           .code("SEC-01")
-          .name("1분반")
           .classTime("월 1-3")
           .capacity(30)
           .build();

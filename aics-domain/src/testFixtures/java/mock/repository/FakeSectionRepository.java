@@ -25,7 +25,6 @@ public class FakeSectionRepository implements SectionRepository {
             .professorId(section.getProfessorId())
             .courseId(section.getCourseId())
             .code(section.getCode())
-            .name(section.getName())
             .classTime(section.getClassTime())
             .capacity(section.getCapacity())
             .contactVisibleFrom(section.getContactVisibleFrom())

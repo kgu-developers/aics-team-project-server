@@ -20,7 +20,6 @@ public class Section {
   private Long courseId; // 강좌 id
 
   private String code; // 과목번호
-  private String name; // 요일·시간/과목번호
   private String classTime; // 수업시간
   private Integer capacity; // 정원
 
@@ -31,13 +30,12 @@ public class Section {
   private LocalDateTime updatedAt;
   private LocalDateTime deletedAt;
 
-  public static Section create(String professorId, Long courseId, String code, String name, String classTime,
+  public static Section create(String professorId, Long courseId, String code, String classTime,
       Integer capacity, LocalDateTime contactVisibleFrom, LocalDateTime contactVisibleUntil) {
     Section section = Section.builder()
         .professorId(professorId)
         .courseId(courseId)
         .code(code)
-        .name(name)
         .classTime(classTime)
         .build();
     section.updateCapacity(capacity);
@@ -55,10 +53,6 @@ public class Section {
 
   public void updateCode(String code) {
     this.code = code;
-  }
-
-  public void updateName(String name) {
-    this.name = name;
   }
 
   public void updateClassTime(String classTime) {

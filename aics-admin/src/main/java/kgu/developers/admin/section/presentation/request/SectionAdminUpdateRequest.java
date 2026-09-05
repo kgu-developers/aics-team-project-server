@@ -19,10 +19,6 @@ public record SectionAdminUpdateRequest(
     @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String code,
 
-    @Schema(description = "요일·시간/과목번호 표시 문자열", example = "월123/1154")
-    @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
-    String name,
-
     @Schema(description = "수업시간", example = "월123")
     @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String classTime,
