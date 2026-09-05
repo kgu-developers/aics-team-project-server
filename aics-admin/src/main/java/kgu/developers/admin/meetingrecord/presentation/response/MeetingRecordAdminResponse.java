@@ -1,9 +1,12 @@
 package kgu.developers.admin.meetingrecord.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+import static java.util.stream.Collectors.joining;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
+import java.util.stream.Stream;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.section.domain.Section;
@@ -52,7 +55,9 @@ public record MeetingRecordAdminResponse(
         return MeetingRecordAdminResponse.builder()
             .id(meetingRecord.getId())
             .sectionId(section.getId())
-            .sectionName(section.getName())
+            .sectionName(Stream.of(section.getClassTime(), section.getCode())
+                .filter(Objects::nonNull)
+                .collect(joining("/")))
             .teamId(team.getId())
             .teamName(team.getName())
             .phase(meetingRecord.getPhase())
