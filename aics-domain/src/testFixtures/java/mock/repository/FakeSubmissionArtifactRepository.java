@@ -41,4 +41,11 @@ public class FakeSubmissionArtifactRepository implements SubmissionArtifactRepos
             .filter(artifact -> artifact.getVersionId().equals(versionId))
             .toList();
     }
+
+    @Override
+    public List<SubmissionArtifact> findAllByVersionIdIn(List<Long> versionIds) {
+        return store.values().stream()
+            .filter(artifact -> versionIds.contains(artifact.getVersionId()))
+            .toList();
+    }
 }
