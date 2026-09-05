@@ -25,6 +25,7 @@ import kgu.developers.api.submission.presentation.response.MilestonePresentation
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionArtifactResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionMemberConfirmationListResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
@@ -52,6 +53,7 @@ import kgu.developers.domain.submission.domain.ArtifactType;
 import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionArtifact;
 import kgu.developers.domain.submission.domain.SubmissionArtifactRepository;
+import kgu.developers.domain.submission.domain.SubmissionMemberConfirmation;
 import kgu.developers.domain.submission.domain.SubmissionMemberConfirmationRepository;
 import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.domain.SubmissionVersionRepository;
@@ -98,13 +100,13 @@ public class SubmissionFacade {
         }
 
         Submission submission = submissionQueryService.getOrCreateSubmission(member.getTeamId(), milestoneId);
-        return toResponse(submission);
+        return toResponse(submission, userId);
     }
 
     public SubmissionResponse getSubmission(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
-        return toResponse(submission);
+        return toResponse(submission, userId);
     }
 
     public SubmissionVersionListResponse getVersions(Long submissionId, String userId) {
@@ -139,7 +141,7 @@ public class SubmissionFacade {
             List<MultipartFile> files
     ) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        validateSubmitAllowed(submission, userId);
+        Milestone milestone = validateSubmitAllowed(submission, userId);
 
         if (files != null && !files.isEmpty()
                 && (fileArtifactIds == null || fileArtifactIds.size() != files.size())) {
@@ -170,7 +172,15 @@ public class SubmissionFacade {
         }
 
         submissionCommandService.submitVersion(submissionId, userId, description, changeNote, inputs);
-        return toResponse(submissionQueryService.getSubmission(submissionId));
+
+        // 최종보고서는 팀장만 제출할 수 있고(validateSubmitAllowed), 팀장의 제출 자체를
+        // 팀장 본인 확인 1건으로 간주한다(프론트 요구사항) — 제출 직후 화면에 0/N이 아니라
+        // 1/N로 보이게 하기 위해 여기서 바로 등록한다.
+        if (milestone.getType() == MilestoneType.FINAL_REPORT) {
+            submissionCommandService.confirmAsMember(submissionId, userId, true, true, null);
+        }
+
+        return toResponse(submissionQueryService.getSubmission(submissionId), userId);
     }
 
     public SubmissionMemberConfirmationListResponse getMemberConfirmations(Long submissionId, String userId) {
@@ -191,7 +201,7 @@ public class SubmissionFacade {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateLeader(submission, userId);
         submissionCommandService.completeSubmission(submissionId, userId);
-        return toResponse(submissionQueryService.getSubmission(submissionId));
+        return toResponse(submissionQueryService.getSubmission(submissionId), userId);
     }
 
     public SubmissionResponse reopenSubmission(Long submissionId, String professorId, SubmissionReopenRequest request) {
@@ -202,7 +212,7 @@ public class SubmissionFacade {
             throw new SubmissionAccessDeniedException();
         }
         submissionCommandService.reopenSubmission(submissionId, professorId, request.revisionDueAt());
-        return toResponse(submissionQueryService.getSubmission(submissionId));
+        return toResponse(submissionQueryService.getSubmission(submissionId), professorId);
     }
 
     // 발표 공개자료는 다른 팀도 상시 열람 가능(PRD 그대로) — 로그인만 하면 되고 팀 소속 검증은 안 한다.
@@ -323,7 +333,7 @@ public class SubmissionFacade {
 
     // 최종보고서 파일 제출은 팀장만 가능하다(프론트 요구사항). 그 외 마일스톤은
     // 기존대로 활성 팀원이면 누구나 제출할 수 있다.
-    private void validateSubmitAllowed(Submission submission, String userId) {
+    private Milestone validateSubmitAllowed(Submission submission, String userId) {
         Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
                 .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
         if (milestone.getType() == MilestoneType.FINAL_REPORT) {
@@ -331,6 +341,7 @@ public class SubmissionFacade {
         } else {
             validateActiveTeamMembership(submission, userId);
         }
+        return milestone;
     }
 
     // 탈퇴했거나 조교로 전환된 기존 팀장이 계속 완료 처리할 수 있던 구멍을 막기 위해,
@@ -344,12 +355,46 @@ public class SubmissionFacade {
         }
     }
 
-    private SubmissionResponse toResponse(Submission submission) {
+    private SubmissionResponse toResponse(Submission submission, String userId) {
         return SubmissionResponse.of(
                 submission,
                 submissionQueryService.canSubmitNow(submission),
-                submissionQueryService.hasPendingReview(submission)
+                submissionQueryService.hasPendingReview(submission),
+                buildMemberConsent(submission, userId)
         );
+    }
+
+    // 최종보고서 마일스톤에서만 팀원 확인 현황을 계산해 보여준다. 그 외 마일스톤은 이 게이트
+    // 자체가 없으므로(PRD, 최종보고서 전용) null로 둔다. 계산 기준은 completeSubmission의
+    // 완료게이트(validateAllActiveMembersConfirmed)와 동일 — 지금 활성 팀원을 매번 새로 세고,
+    // 지금 버전에 대한 확인만 인정한다(팀 변경/재제출 시 자동으로 재계산됨).
+    // 임시 구현 — KD3-161이 도메인을 단순화하면 그쪽 buildMemberConsent()로 정리 예정.
+    private SubmissionMemberConsentResponse buildMemberConsent(Submission submission, String userId) {
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        if (milestone.getType() != MilestoneType.FINAL_REPORT) {
+            return null;
+        }
+
+        Map<String, SubmissionMemberConfirmation> confirmationsByUserId = submissionMemberConfirmationRepository
+                .findAllBySubmissionId(submission.getId()).stream()
+                .collect(Collectors.toMap(SubmissionMemberConfirmation::getUserId, c -> c));
+
+        List<String> activeStudentIds = teamMemberRepository.findAllByTeamId(submission.getTeamId()).stream()
+                .map(TeamMember::getUserId)
+                .filter(memberId -> isActiveStudent(milestone.getSectionId(), memberId))
+                .toList();
+
+        int confirmedCount = (int) activeStudentIds.stream()
+                .filter(memberId -> isFullyConfirmedForCurrentVersion(confirmationsByUserId.get(memberId), submission.getCurrentVersion()))
+                .count();
+        boolean isConfirmedByMe = isFullyConfirmedForCurrentVersion(confirmationsByUserId.get(userId), submission.getCurrentVersion());
+
+        return SubmissionMemberConsentResponse.of(confirmedCount, activeStudentIds.size(), isConfirmedByMe);
+    }
+
+    private boolean isFullyConfirmedForCurrentVersion(SubmissionMemberConfirmation confirmation, int currentVersion) {
+        return confirmation != null && confirmation.confirmsVersion(currentVersion) && confirmation.isFullyConfirmed();
     }
 
     private SubmissionArtifactResponse toArtifactResponse(SubmissionArtifact artifact) {
