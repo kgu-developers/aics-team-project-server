@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JpaSubmissionArtifactRepository extends JpaRepository<SubmissionArtifactJpaEntity, Long> {
     List<SubmissionArtifactJpaEntity> findAllByVersionId(Long versionId);
+
+    List<SubmissionArtifactJpaEntity> findAllByVersionIdIn(List<Long> versionIds);
 }

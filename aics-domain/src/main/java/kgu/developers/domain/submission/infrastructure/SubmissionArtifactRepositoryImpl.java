@@ -29,4 +29,14 @@ public class SubmissionArtifactRepositoryImpl implements SubmissionArtifactRepos
                 .map(SubmissionArtifactJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<SubmissionArtifact> findAllByVersionIdIn(List<Long> versionIds) {
+        if (versionIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaSubmissionArtifactRepository.findAllByVersionIdIn(versionIds).stream()
+                .map(SubmissionArtifactJpaEntity::toDomain)
+                .toList();
+    }
 }
