@@ -22,7 +22,9 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     @Override
     public TopicCandidate save(TopicCandidate topicCandidate) {
         TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(topicCandidate);
-        return jpaTopicCandidateRepository.save(entity).toDomain();
+        TopicCandidateJpaEntity savedEntity = jpaTopicCandidateRepository.save(entity);
+        jpaTopicCandidateRepository.flush();
+        return savedEntity.toDomain();
     }
 
     @Override
@@ -70,5 +72,10 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
         return entities.stream()
                 .map(TopicCandidateJpaEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public boolean existsByTeamIdAndProposerUserId(Long teamId, String proposerUserId) {
+        return jpaTopicCandidateRepository.existsByTeamIdAndProposerUserIdAndDeletedAtIsNull(teamId, proposerUserId);
     }
 }

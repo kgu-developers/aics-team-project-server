@@ -39,6 +39,10 @@ public class ProjectJpaEntity extends BaseTimeEntity {
             foreignKey = @ForeignKey(name = "fk_team_project"))
     private TeamJpaEntity team;
 
+    // 최종 확정된 주제 후보. 다른 애그리게이트라 연관관계 대신 식별자만 들고 있는다.
+    @Column(name = "topic_candidate_id")
+    private Long topicCandidateId;
+
     @Column(nullable = false, length = 200)
     private String title;
 
@@ -69,6 +73,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
         return Project.builder()
                 .id(id)
                 .teamId(team.getId())
+                .topicCandidateId(topicCandidateId)
                 .title(title)
                 .description(description)
                 .goal(goal)
@@ -88,6 +93,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
         ProjectJpaEntity entity = ProjectJpaEntity.builder()
                 .id(project.getId())
                 .team(team)
+                .topicCandidateId(project.getTopicCandidateId())
                 .title(project.getTitle())
                 .description(project.getDescription())
                 .goal(project.getGoal())

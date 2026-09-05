@@ -15,4 +15,6 @@ public interface TopicCandidateRepository {
     List<TopicCandidate> findByTeamId(Long teamId);
 
     List<TopicCandidate> findByProposerUserId(String proposerUserId);
+
+    boolean existsByTeamIdAndProposerUserId(Long teamId, String proposerUserId);
 }

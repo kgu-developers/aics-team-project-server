@@ -15,7 +15,8 @@ import static lombok.AccessLevel.PROTECTED;
 @Table(
     name = "\"topic_candidate\"",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_topic_candidate_team_title", columnNames = {"team_id", "title"})
+        @UniqueConstraint(name = "uk_topic_candidate_team_title", columnNames = {"team_id", "title"}),
+        @UniqueConstraint(name = "uk_topic_candidate_team_proposer", columnNames = {"team_id", "proposer_user_id"})
     },
     indexes = {
         @Index(columnList = "team_id", name = "idx_team_id"),
