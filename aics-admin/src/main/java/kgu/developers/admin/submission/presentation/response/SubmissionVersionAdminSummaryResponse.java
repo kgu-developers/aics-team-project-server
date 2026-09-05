@@ -2,7 +2,7 @@ package kgu.developers.admin.submission.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
@@ -24,14 +24,12 @@ public record SubmissionVersionAdminSummaryResponse(
         @Schema(description = "제출한 학번", example = "202412345", requiredMode = REQUIRED)
         String submittedBy,
 
-        @Schema(description = "제출 일시", example = "2026-09-02 14:00", requiredMode = REQUIRED)
-        String submittedAt,
+        @Schema(description = "제출 일시", requiredMode = REQUIRED)
+        LocalDateTime submittedAt,
 
         @Schema(description = "마감 이후 지각 제출 여부", example = "false", requiredMode = REQUIRED)
         boolean late
 ) {
-
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public static SubmissionVersionAdminSummaryResponse from(SubmissionVersion version) {
         return SubmissionVersionAdminSummaryResponse.builder()
@@ -39,7 +37,7 @@ public record SubmissionVersionAdminSummaryResponse(
                 .description(version.getDescription())
                 .changeNote(version.getChangeNote())
                 .submittedBy(version.getSubmittedBy())
-                .submittedAt(version.getSubmittedAt().format(FORMATTER))
+                .submittedAt(version.getSubmittedAt())
                 .late(version.isLate())
                 .build();
     }
