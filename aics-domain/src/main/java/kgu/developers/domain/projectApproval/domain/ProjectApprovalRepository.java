@@ -8,15 +8,18 @@ public interface ProjectApprovalRepository {
 
     Optional<ProjectApproval> findById(Long id);
 
-    boolean existsByProjectIdAndUserId(Long projectId, String userId);
-
-    Optional<ProjectApproval> findByProjectIdAndUserId(Long projectId, String userId);
-
-    Optional<ProjectApproval> findIncludingDeleted(Long projectId, String userId);
+    /**
+     * 해당 리비전의 동의 이력을 삭제된 것까지 포함해 잠근 채로 조회한다.
+     */
+    Optional<ProjectApproval> findIncludingDeleted(Long projectId, String userId, long proposalRevision);
 
     List<ProjectApproval> findAllByProjectId(Long projectId);
 
-    List<ProjectApproval> findAllByUserId(String userId);
+    List<ProjectApproval> findAllByProjectIdAndProposalRevision(Long projectId, long proposalRevision);
+
+    ApprovalCount countApprovalsByTeamMembers(Long projectId, Long teamId, long proposalRevision);
 
     void deleteById(Long id);
+
+    void deleteAllByProjectId(Long projectId);
 }
