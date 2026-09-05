@@ -21,7 +21,7 @@ public record SectionResponse(
     @Schema(description = "분반 코드", example = "1154", requiredMode = REQUIRED)
     String code,
 
-    @Schema(description = "요일·시간/분반명 표시 문자열", example = "월123/1154", requiredMode = REQUIRED)
+    @Schema(description = "요일·시간/분반코드 표시 문자열", example = "월123/1154", requiredMode = REQUIRED)
     String name,
 
     @Schema(description = "수업시간", example = "월123", requiredMode = REQUIRED)
