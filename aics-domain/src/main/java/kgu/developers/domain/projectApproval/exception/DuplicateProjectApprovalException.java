@@ -8,4 +8,8 @@ public class DuplicateProjectApprovalException extends CustomException {
     public DuplicateProjectApprovalException() {
         super(DUPLICATE_PROJECT_APPROVAL);
     }
+
+    public DuplicateProjectApprovalException(Throwable cause) {
+        super(DUPLICATE_PROJECT_APPROVAL, cause);
+    }
 }

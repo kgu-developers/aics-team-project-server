@@ -8,16 +8,19 @@ CREATE TABLE IF NOT EXISTS "project_approval" (
     updated_at TIMESTAMP(6) NOT NULL,
     project_id BIGINT NOT NULL,
     user_id VARCHAR(20) NOT NULL,
+    -- 동의한 제안서 리비전. project.proposal_revision 이 오르면 이전 리비전 동의는 자동으로 무효가 된다.
+    proposal_revision BIGINT NOT NULL DEFAULT 0,
     approved_at TIMESTAMP(6) NOT NULL,
     PRIMARY KEY (id),
-    -- 살아있는 동의는 (프로젝트, 학번)당 하나. createProjectApproval 의 조회 후 저장은
-    -- check-then-act 이라 동시 요청을 막지 못하므로, 중복 차단의 최종 근거는 이 제약이다.
+    -- 살아있는 동의는 (프로젝트, 학번, 리비전)당 하나. ProjectApprovalCommandService.approve 의
+    -- 조회 후 저장은 check-then-act 이라 동시 요청을 막지 못하므로, 중복 차단의 최종 근거는 이 제약이다.
     -- 위반 시 ProjectApprovalRepositoryImpl.save 가 DataIntegrityViolationException 을
     -- DuplicateProjectApprovalException 으로 바꿔 던진다.
     --
     -- deleted_at 을 무시하는 일반 유니크 제약인데도 재동의가 막히지 않는 이유는,
-    -- createProjectApproval 이 소프트 삭제된 이력을 찾으면 INSERT 대신 그 행을 재활성화하기 때문이다.
-    -- 즉 (project_id, user_id) 당 행은 영원히 하나이고, 그래서 부분 인덱스가 필요 없다.
+    -- approve 가 같은 리비전의 소프트 삭제된 이력을 찾으면 INSERT 대신 그 행을 재활성화하기 때문이다.
+    -- 즉 (project_id, user_id, proposal_revision) 당 행은 영원히 하나이고, 그래서 부분 인덱스가 필요 없다.
+    -- 제안서가 수정되면 리비전이 올라가므로 이전 리비전 행과는 애초에 충돌하지 않는다.
     -- 이 불변식이 깨지면(재활성화를 걷어내면) 제약도 함께 바꿔야 한다.
-    CONSTRAINT uk_project_approval_project_user UNIQUE (project_id, user_id)
+    CONSTRAINT uk_project_approval_project_user UNIQUE (project_id, user_id, proposal_revision)
 );

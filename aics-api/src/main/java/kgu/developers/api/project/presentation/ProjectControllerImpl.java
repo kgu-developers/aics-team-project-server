@@ -1,0 +1,73 @@
+package kgu.developers.api.project.presentation;
+
+import jakarta.validation.Valid;
+import kgu.developers.api.project.application.ProjectFacade;
+import kgu.developers.api.project.presentation.request.ProjectRequest;
+import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1")
+@RequiredArgsConstructor
+public class ProjectControllerImpl implements ProjectController {
+
+    private final ProjectFacade projectFacade;
+
+    @Override
+    @GetMapping("/teams/{teamId}/project")
+    public ResponseEntity<ProjectResponse> getProject(@PathVariable Long teamId, Authentication authentication) {
+        return ResponseEntity.ok(projectFacade.getProject(teamId, authentication.getName()));
+    }
+
+    @Override
+    @PutMapping("/teams/{teamId}/project")
+    public ResponseEntity<ProjectResponse> saveProject(
+        @PathVariable Long teamId,
+        @Valid @RequestBody ProjectRequest request,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(projectFacade.saveProject(teamId, authentication.getName(), request));
+    }
+
+    @Override
+    @DeleteMapping("/projects/{projectId}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Long projectId, Authentication authentication) {
+        projectFacade.deleteProject(projectId, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PatchMapping("/projects/{projectId}/proposal-complete")
+    public ResponseEntity<Void> completeProposal(@PathVariable Long projectId, Authentication authentication) {
+        projectFacade.completeProposal(projectId, authentication.getName());
+        return ResponseEntity.ok().build();
+    }
+
+    @Override
+    @PostMapping("/projects/{projectId}/approval")
+    public ResponseEntity<Void> approveProject(@PathVariable Long projectId, Authentication authentication) {
+        projectFacade.approveProject(projectId, authentication.getName());
+        return ResponseEntity.ok().build();
+    }
+
+    @Override
+    @GetMapping("/projects/{projectId}/approvals")
+    public ResponseEntity<ProjectApprovalSummaryResponse> getApprovalSummary(
+        @PathVariable Long projectId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(projectFacade.getApprovalSummary(projectId, authentication.getName()));
+    }
+}

@@ -65,6 +65,9 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(name = "proposal_completed_at")
     private LocalDateTime proposalCompletedAt;
 
+    @Column(name = "proposal_revision", nullable = false)
+    private long proposalRevision;
+
     public Project toDomain() {
         return Project.builder()
                 .id(id)
@@ -77,6 +80,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .approvalStatus(approvalStatus)
                 .meetingStyle(meetingStyle)
                 .proposalCompletedAt(proposalCompletedAt)
+                .proposalRevision(proposalRevision)
                 .version(version)
                 .createdAt(getCreatedAt())
                 .updatedAt(getUpdatedAt())
@@ -96,6 +100,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .approvalStatus(project.getApprovalStatus())
                 .meetingStyle(project.getMeetingStyle())
                 .proposalCompletedAt(project.getProposalCompletedAt())
+                .proposalRevision(project.getProposalRevision())
                 .version(project.getVersion())
                 .build();
         if (project.getId() != null) {

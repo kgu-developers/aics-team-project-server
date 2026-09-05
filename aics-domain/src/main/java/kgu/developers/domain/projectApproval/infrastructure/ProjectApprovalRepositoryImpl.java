@@ -6,8 +6,8 @@ import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
+import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
@@ -28,7 +28,7 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
             return jpaProjectApprovalRepository.saveAndFlush(entity).toDomain();
         } catch (DataIntegrityViolationException e) {
             if (isUniqueConstraintViolation(e)) {
-                throw new DuplicateProjectApprovalException();
+                throw new DuplicateProjectApprovalException(e);
             }
             throw e;
         }
@@ -55,19 +55,9 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     }
 
     @Override
-    public boolean existsByProjectIdAndUserId(Long projectId, String userId) {
-        return jpaProjectApprovalRepository.existsByProjectIdAndUserIdAndDeletedAtIsNull(projectId, userId);
-    }
-
-    @Override
-    public Optional<ProjectApproval> findByProjectIdAndUserId(Long projectId, String userId) {
-        return jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(projectId, userId)
-            .map(ProjectApprovalJpaEntity::toDomain);
-    }
-
-    @Override
-    public Optional<ProjectApproval> findIncludingDeleted(Long projectId, String userId) {
-        return jpaProjectApprovalRepository.findByProjectIdAndUserId(projectId, userId)
+    public Optional<ProjectApproval> findIncludingDeleted(Long projectId, String userId, long proposalRevision) {
+        return jpaProjectApprovalRepository
+            .findByProjectIdAndUserIdAndProposalRevision(projectId, userId, proposalRevision)
             .map(ProjectApprovalJpaEntity::toDomain);
     }
 
@@ -80,18 +70,29 @@ public class ProjectApprovalRepositoryImpl implements ProjectApprovalRepository 
     }
 
     @Override
-    public List<ProjectApproval> findAllByUserId(String userId) {
-        return jpaProjectApprovalRepository.findAllByUserIdAndDeletedAtIsNullOrderByProjectIdAsc(userId)
+    public List<ProjectApproval> findAllByProjectIdAndProposalRevision(Long projectId, long proposalRevision) {
+        return jpaProjectApprovalRepository
+            .findAllByProjectIdAndProposalRevisionAndDeletedAtIsNullOrderByUserIdAsc(projectId, proposalRevision)
             .stream()
             .map(ProjectApprovalJpaEntity::toDomain)
             .toList();
     }
 
     @Override
-    @Transactional
+    public ApprovalCount countApprovalsByTeamMembers(Long projectId, Long teamId, long proposalRevision) {
+        return jpaProjectApprovalRepository.countApprovalsByTeamMembers(projectId, teamId, proposalRevision);
+    }
+
+    @Override
     public void deleteById(Long id) {
         ProjectApprovalJpaEntity projectApproval = jpaProjectApprovalRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(ProjectApprovalNotFoundException::new);
+            .orElseThrow(ProjectApprovalNotFoundException::new);
         projectApproval.delete();
+        jpaProjectApprovalRepository.saveAndFlush(projectApproval);
+    }
+
+    @Override
+    public void deleteAllByProjectId(Long projectId) {
+        jpaProjectApprovalRepository.softDeleteAllByProjectId(projectId);
     }
 }

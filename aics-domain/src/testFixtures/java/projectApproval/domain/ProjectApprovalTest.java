@@ -15,7 +15,7 @@ class ProjectApprovalTest {
     @DisplayName("create는 전달받은 값으로 프로젝트 동의 정보를 생성한다")
     void create() {
         LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
+        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", 0L, approvedAt);
 
         assertThat(projectApproval.getProjectId()).isEqualTo(1L);
         assertThat(projectApproval.getUserId()).isEqualTo("202012345");
@@ -27,7 +27,7 @@ class ProjectApprovalTest {
     @DisplayName("updateApprovedAt은 동의일을 변경하되 식별자는 그대로 둔다")
     void update() {
         LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
+        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", 0L, approvedAt);
 
         LocalDateTime newApprovedAt = LocalDateTime.of(2026, 1, 20, 11, 0);
         projectApproval.updateApprovedAt(newApprovedAt);
@@ -41,7 +41,7 @@ class ProjectApprovalTest {
     @DisplayName("delete는 삭제 시각을 기록한다")
     void delete() {
         LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
+        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", 0L, approvedAt);
 
         projectApproval.delete();
 
@@ -52,7 +52,7 @@ class ProjectApprovalTest {
     @DisplayName("delete는 호출할 때마다 삭제 시각을 갱신한다")
     void deleteUpdatesTimestamp() {
         LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
+        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", 0L, approvedAt);
 
         projectApproval.delete();
         LocalDateTime firstDeletedAt = projectApproval.getDeletedAt();
@@ -67,7 +67,7 @@ class ProjectApprovalTest {
     @DisplayName("updateApprovedAt는 null이면 예외를 발생시킨다")
     void updateApprovedAtThrowsOnNull() {
         LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 15, 10, 0);
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", approvedAt);
+        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", 0L, approvedAt);
 
         org.junit.jupiter.api.Assertions.assertThrows(
             NullPointerException.class,
@@ -78,7 +78,7 @@ class ProjectApprovalTest {
     @Test
     @DisplayName("reactivate는 삭제 시각을 지우고 동의일을 갱신한다")
     void reactivate() {
-        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345",
+        ProjectApproval projectApproval = ProjectApproval.create(1L, "202012345", 0L,
             LocalDateTime.of(2026, 1, 15, 10, 0));
         projectApproval.delete();
 

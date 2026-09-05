@@ -1,5 +1,6 @@
 package projectApproval.infrastructure;
 
+import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApproval;
 import kgu.developers.domain.projectApproval.exception.DuplicateProjectApprovalException;
 import kgu.developers.domain.projectApproval.exception.ProjectApprovalNotFoundException;
@@ -37,12 +38,13 @@ class ProjectApprovalRepositoryImplTest {
     @Test
     @DisplayName("프로젝트 동의 저장소 어댑터는 저장 결과를 도메인으로 반환한다")
     void save() {
-        ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", 0L, LocalDateTime.now());
         given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
                 .willReturn(ProjectApprovalJpaEntity.builder()
                         .id(1L)
                         .projectId(1L)
                         .userId("20260001")
+                        .proposalRevision(0L)
                         .approvedAt(LocalDateTime.now())
                         .build());
 
@@ -56,6 +58,18 @@ class ProjectApprovalRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("save는 동의한 제안서 리비전을 그대로 저장한다")
+    void saveKeepsProposalRevision() {
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", 3L, LocalDateTime.now());
+        given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        ProjectApproval saved = projectApprovalRepository.save(approval);
+
+        assertThat(saved.getProposalRevision()).isEqualTo(3L);
+    }
+
+    @Test
     @DisplayName("save는 도메인의 deletedAt을 그대로 반영해 재활성화를 저장한다")
     void saveAppliesReactivatedDomain() {
         LocalDateTime now = LocalDateTime.now();
@@ -63,6 +77,7 @@ class ProjectApprovalRepositoryImplTest {
                 .id(1L)
                 .projectId(1L)
                 .userId("20260001")
+                .proposalRevision(2L)
                 .approvedAt(now.minusDays(1))
                 .deletedAt(now.minusDays(1))
                 .build();
@@ -77,23 +92,27 @@ class ProjectApprovalRepositoryImplTest {
         assertThat(captor.getValue().getId()).isEqualTo(1L);
         assertThat(captor.getValue().getDeletedAt()).isNull();
         assertThat(captor.getValue().getApprovedAt()).isEqualTo(now);
+        assertThat(captor.getValue().getProposalRevision()).isEqualTo(2L);
     }
 
     @Test
-    @DisplayName("save는 유니크 제약 위반을 DuplicateProjectApprovalException으로 변환한다")
+    @DisplayName("save는 유니크 제약 위반을 DuplicateProjectApprovalException으로 변환하고 원인을 보존한다")
     void saveTranslatesUniqueViolation() {
-        ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", 0L, LocalDateTime.now());
+        DataIntegrityViolationException violation =
+                new DataIntegrityViolationException("uk_project_approval_project_user");
         given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
-                .willThrow(new DataIntegrityViolationException("uk_project_approval_project_user"));
+                .willThrow(violation);
 
         assertThatThrownBy(() -> projectApprovalRepository.save(approval))
-                .isInstanceOf(DuplicateProjectApprovalException.class);
+                .isInstanceOf(DuplicateProjectApprovalException.class)
+                .hasCause(violation);
     }
 
     @Test
     @DisplayName("save는 다른 무결성 위반은 원인을 유지한 채 다시 던진다")
     void saveRethrowsOtherIntegrityViolation() {
-        ProjectApproval approval = ProjectApproval.create(1L, "20260001", LocalDateTime.now());
+        ProjectApproval approval = ProjectApproval.create(1L, "20260001", 0L, LocalDateTime.now());
         DataIntegrityViolationException cause =
                 new DataIntegrityViolationException("fk_project_approval_project violation");
         given(jpaProjectApprovalRepository.saveAndFlush(any(ProjectApprovalJpaEntity.class)))
@@ -133,35 +152,6 @@ class ProjectApprovalRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("existsByProjectIdAndUserId는 삭제되지 않은 동의 존재 여부를 확인한다")
-    void existsByProjectIdAndUserId() {
-        given(jpaProjectApprovalRepository.existsByProjectIdAndUserIdAndDeletedAtIsNull(1L, "20260001"))
-                .willReturn(true);
-
-        boolean exists = projectApprovalRepository.existsByProjectIdAndUserId(1L, "20260001");
-
-        assertThat(exists).isTrue();
-    }
-
-    @Test
-    @DisplayName("findByProjectIdAndUserId는 삭제되지 않은 동의를 조회한다")
-    void findByProjectIdAndUserId() {
-        given(jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(1L, "20260001"))
-                .willReturn(Optional.of(ProjectApprovalJpaEntity.builder()
-                        .id(1L)
-                        .projectId(1L)
-                        .userId("20260001")
-                        .approvedAt(LocalDateTime.now())
-                        .build()));
-
-        Optional<ProjectApproval> found = projectApprovalRepository.findByProjectIdAndUserId(1L, "20260001");
-
-        assertThat(found).isPresent();
-        assertThat(found.get().getProjectId()).isEqualTo(1L);
-        assertThat(found.get().getUserId()).isEqualTo("20260001");
-    }
-
-    @Test
     @DisplayName("findAllByProjectId는 삭제되지 않은 동의 목록을 userId 오름차순으로 조회한다")
     void findAllByProjectId() {
         given(jpaProjectApprovalRepository.findAllByProjectIdAndDeletedAtIsNullOrderByUserIdAsc(1L))
@@ -188,29 +178,33 @@ class ProjectApprovalRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("findAllByUserId는 삭제되지 않은 동의 목록을 projectId 오름차순으로 조회한다")
-    void findAllByUserId() {
-        given(jpaProjectApprovalRepository.findAllByUserIdAndDeletedAtIsNullOrderByProjectIdAsc("20260001"))
-                .willReturn(List.of(
-                        ProjectApprovalJpaEntity.builder()
-                                .id(1L)
-                                .projectId(1L)
-                                .userId("20260001")
-                                .approvedAt(LocalDateTime.now())
-                                .build(),
-                        ProjectApprovalJpaEntity.builder()
-                                .id(2L)
-                                .projectId(2L)
-                                .userId("20260001")
-                                .approvedAt(LocalDateTime.now())
-                                .build()
-                ));
+    @DisplayName("findAllByProjectIdAndProposalRevision은 해당 리비전의 동의만 조회한다")
+    void findAllByProjectIdAndProposalRevision() {
+        given(jpaProjectApprovalRepository
+                .findAllByProjectIdAndProposalRevisionAndDeletedAtIsNullOrderByUserIdAsc(1L, 2L))
+                .willReturn(List.of(ProjectApprovalJpaEntity.builder()
+                        .id(1L)
+                        .projectId(1L)
+                        .userId("20260001")
+                        .proposalRevision(2L)
+                        .approvedAt(LocalDateTime.now())
+                        .build()));
 
-        List<ProjectApproval> approvals = projectApprovalRepository.findAllByUserId("20260001");
+        List<ProjectApproval> approvals = projectApprovalRepository.findAllByProjectIdAndProposalRevision(1L, 2L);
 
-        assertThat(approvals).hasSize(2);
-        assertThat(approvals).extracting(ProjectApproval::getProjectId)
-                .containsExactly(1L, 2L);
+        assertThat(approvals).extracting(ProjectApproval::getProposalRevision).containsExactly(2L);
+    }
+
+    @Test
+    @DisplayName("countApprovalsByTeamMembers는 팀원 수와 해당 리비전 동의 수를 함께 센다")
+    void countApprovalsByTeamMembers() {
+        given(jpaProjectApprovalRepository.countApprovalsByTeamMembers(1L, 7L, 2L))
+                .willReturn(new ApprovalCount(3L, 1L));
+
+        ApprovalCount count = projectApprovalRepository.countApprovalsByTeamMembers(1L, 7L, 2L);
+
+        assertThat(count.totalMembers()).isEqualTo(3L);
+        assertThat(count.approvedMembers()).isEqualTo(1L);
     }
 
     @Test
@@ -256,11 +250,6 @@ class ProjectApprovalRepositoryImplTest {
 
         assertThat(entity.getDeletedAt()).isNotNull();
 
-        given(jpaProjectApprovalRepository.findByProjectIdAndUserIdAndDeletedAtIsNull(1L, "20260001"))
-                .willReturn(Optional.empty());
-        Optional<ProjectApproval> found = projectApprovalRepository.findByProjectIdAndUserId(1L, "20260001");
-        assertThat(found).isEmpty();
-
         given(jpaProjectApprovalRepository.findAllByProjectIdAndDeletedAtIsNullOrderByUserIdAsc(1L))
                 .willReturn(List.of());
         List<ProjectApproval> approvals = projectApprovalRepository.findAllByProjectId(1L);
@@ -268,22 +257,32 @@ class ProjectApprovalRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("findIncludingDeleted는 삭제된 동의도 함께 조회한다")
+    @DisplayName("deleteAllByProjectId는 프로젝트의 살아있는 동의를 한 번에 무효화한다")
+    void deleteAllByProjectId() {
+        projectApprovalRepository.deleteAllByProjectId(1L);
+
+        verify(jpaProjectApprovalRepository).softDeleteAllByProjectId(1L);
+    }
+
+    @Test
+    @DisplayName("findIncludingDeleted는 같은 리비전의 삭제된 동의도 함께 조회한다")
     void findIncludingDeleted() {
         LocalDateTime deletedAt = LocalDateTime.now().minusDays(1);
         ProjectApprovalJpaEntity entity = ProjectApprovalJpaEntity.builder()
                 .id(1L)
                 .projectId(1L)
                 .userId("20260001")
+                .proposalRevision(2L)
                 .approvedAt(deletedAt)
                 .build();
         entity.setDeletedAt(deletedAt);
-        given(jpaProjectApprovalRepository.findByProjectIdAndUserId(1L, "20260001"))
+        given(jpaProjectApprovalRepository.findByProjectIdAndUserIdAndProposalRevision(1L, "20260001", 2L))
                 .willReturn(Optional.of(entity));
 
-        Optional<ProjectApproval> found = projectApprovalRepository.findIncludingDeleted(1L, "20260001");
+        Optional<ProjectApproval> found = projectApprovalRepository.findIncludingDeleted(1L, "20260001", 2L);
 
         assertThat(found).isPresent();
         assertThat(found.get().getDeletedAt()).isEqualTo(deletedAt);
+        assertThat(found.get().getProposalRevision()).isEqualTo(2L);
     }
 }

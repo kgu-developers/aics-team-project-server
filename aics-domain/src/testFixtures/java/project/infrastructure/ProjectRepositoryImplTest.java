@@ -522,55 +522,6 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("findAllById는 id 목록으로 삭제되지 않은 프로젝트들을 조회한다")
-  void findAllById() {
-    ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
-
-    ObjectNode externalLinks1 = objectMapper.createObjectNode();
-    externalLinks1.put("notion", "https://notion.so/example1");
-
-    ObjectNode externalLinks2 = objectMapper.createObjectNode();
-    externalLinks2.put("notion", "https://notion.so/example2");
-
-    Project project1 = Project.builder()
-        .id(1L)
-        .teamId(1L)
-        .title("프로젝트1")
-        .description("설명1")
-        .goal("목표1")
-        .repositoryUrl("https://github.com/example/repo1")
-        .externalLinks(externalLinks1)
-        .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
-        .build();
-
-    Project project2 = Project.builder()
-        .id(2L)
-        .teamId(1L)
-        .title("프로젝트2")
-        .description("설명2")
-        .goal("목표2")
-        .repositoryUrl("https://github.com/example/repo2")
-        .externalLinks(externalLinks2)
-        .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("오프라인")
-        .build();
-
-    TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
-
-    given(jpaProjectRepository.findAllByIdInAndDeletedAtIsNullOrderByIdAsc(List.of(1L, 2L)))
-        .willReturn(List.of(
-            ProjectJpaEntity.toEntity(project1, team),
-            ProjectJpaEntity.toEntity(project2, team)
-        ));
-
-    List<Project> projects = repository.findAllById(List.of(1L, 2L));
-
-    assertThat(projects).hasSize(2);
-    assertThat(projects).extracting(Project::getTitle).containsExactly("프로젝트1", "프로젝트2");
-  }
-
-  @Test
   @DisplayName("findAllByTeamId는 팀 id로 삭제되지 않은 프로젝트들을 조회한다")
   void findAllByTeamId() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);

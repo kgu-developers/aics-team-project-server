@@ -74,7 +74,7 @@ class ProjectApprovalConcurrencyTest {
     void setUp() {
         jpaProjectApprovalRepository.deleteAll();
         Mockito.reset(projectRepository, userRepository);
-        given(projectRepository.findById(PROJECT_ID))
+        given(projectRepository.findByIdForUpdate(PROJECT_ID))
             .willReturn(Optional.of(Project.builder().id(PROJECT_ID).build()));
         given(userRepository.findByStudentNumber(STUDENT_NUMBER))
             .willReturn(Optional.of(User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "encoded",
@@ -93,6 +93,7 @@ class ProjectApprovalConcurrencyTest {
         ProjectApprovalJpaEntity deleted = ProjectApprovalJpaEntity.builder()
             .projectId(PROJECT_ID)
             .userId(STUDENT_NUMBER)
+            .proposalRevision(0L)
             .approvedAt(deletedAt)
             .build();
         deleted.setDeletedAt(deletedAt);
@@ -126,7 +127,7 @@ class ProjectApprovalConcurrencyTest {
                 executor.submit(() -> {
                     try {
                         start.await();
-                        projectApprovalCommandService.createProjectApproval(
+                        projectApprovalCommandService.approve(
                             PROJECT_ID, STUDENT_NUMBER, LocalDateTime.now());
                     } catch (Throwable e) {
                         failures.add(e);
@@ -153,7 +154,8 @@ class ProjectApprovalConcurrencyTest {
         HibernateJpaAutoConfiguration.class,
         TransactionAutoConfiguration.class
     })
-    @EntityScan(basePackageClasses = ProjectApprovalJpaEntity.class)
+    // countApprovalsByTeamMembers 가 TeamMemberJpaEntity 를 조인하므로 엔티티는 전부 스캔한다.
+    @EntityScan("kgu.developers")
     @EnableJpaRepositories(basePackageClasses = JpaProjectApprovalRepository.class)
     @Import(ProjectApprovalRepositoryImpl.class)
     static class TestConfig {
