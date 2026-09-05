@@ -18,11 +18,11 @@ public record SectionAdminRequest(
     @NotNull
     Long courseId,
 
-    @Schema(description = "과목 코드", example = "CS101", requiredMode = REQUIRED)
+    @Schema(description = "과목 코드", example = "1154", requiredMode = REQUIRED)
     @NotBlank
     String code,
 
-    @Schema(description = "분반명", example = "01", requiredMode = REQUIRED)
+    @Schema(description = "분반명", example = "월123/1154", requiredMode = REQUIRED)
     @NotBlank
     String name,
 

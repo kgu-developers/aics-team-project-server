@@ -1,8 +1,11 @@
 package kgu.developers.admin.section.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+import static java.util.stream.Collectors.joining;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.admin.course.presentation.response.CourseResponse;
@@ -20,10 +23,10 @@ public record SectionAdminResponse(
     @Schema(requiredMode = REQUIRED)
     CourseResponse course,
 
-    @Schema(description = "과목 코드", example = "CS101", requiredMode = REQUIRED)
+    @Schema(description = "분반 코드", example = "1154", requiredMode = REQUIRED)
     String code,
 
-    @Schema(description = "분반명", example = "01", requiredMode = REQUIRED)
+    @Schema(description = "요일·시간/분반코드 표시 문자열", example = "월123/1154", requiredMode = REQUIRED)
     String name,
 
     @Schema(description = "수업시간", example = "월123", requiredMode = REQUIRED)
@@ -46,7 +49,9 @@ public record SectionAdminResponse(
             UserAdminResponse.from(detail.professor()),
             CourseResponse.from(detail.course()),
             section.getCode(),
-            section.getName(),
+            Stream.of(section.getClassTime(), section.getCode())
+                .filter(Objects::nonNull)
+                .collect(joining("/")),
             section.getClassTime(),
             section.getCapacity(),
             section.getContactVisibleFrom(),

@@ -84,8 +84,8 @@ class SectionAdminFacadeTest {
                 .id(1L)
                 .professorId(PROFESSOR_ID)
                 .courseId(1L)
-                .code("CS101")
-                .name("01분반")
+                .code("1154")
+                .name("월3,4/1154")
                 .classTime("월3,4")
                 .capacity(40)
                 .contactVisibleFrom(FROM)
@@ -101,8 +101,8 @@ class SectionAdminFacadeTest {
     @DisplayName("createSection은 요청 값을 커맨드 서비스에 넘기고 id를 응답한다")
     void createSection() {
         SectionAdminRequest request =
-                new SectionAdminRequest(PROFESSOR_ID, 1L, "CS101", "01분반", "월3,4", 40, FROM, UNTIL);
-        given(sectionCommandService.createSection(PROFESSOR_ID, 1L, "CS101", "01분반", "월3,4", 40, FROM, UNTIL))
+                new SectionAdminRequest(PROFESSOR_ID, 1L, "1154", "월3,4/1154", "월3,4", 40, FROM, UNTIL);
+        given(sectionCommandService.createSection(PROFESSOR_ID, 1L, "1154", "월3,4/1154", "월3,4", 40, FROM, UNTIL))
                 .willReturn(1L);
 
         assertThat(sectionAdminFacade.createSection(request).id()).isEqualTo(1L);
@@ -113,7 +113,7 @@ class SectionAdminFacadeTest {
     void getSectionsById() {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section()));
 
-        assertThat(sectionAdminFacade.getSectionsById(1L).code()).isEqualTo("CS101");
+        assertThat(sectionAdminFacade.getSectionsById(1L).code()).isEqualTo("1154");
     }
 
     @Test
@@ -232,13 +232,13 @@ class SectionAdminFacadeTest {
     void updateSectionRespondsWithRefetchedSection() {
         Section before = section();
         Section after = section();
-        after.updateName("02분반");
+        after.updateCode("1155");
         given(sectionQueryService.getSectionById(1L))
                 .willReturn(detail(before), detail(after));
 
         assertThat(sectionAdminFacade.updateSection(1L,
-                new SectionAdminUpdateRequest(null, null, null, "02분반", null, null)).name())
-                .isEqualTo("02분반");
+                new SectionAdminUpdateRequest(null, null, "1155", null, null, null)).name())
+                .isEqualTo("월3,4/1155");
     }
 
     @Test
