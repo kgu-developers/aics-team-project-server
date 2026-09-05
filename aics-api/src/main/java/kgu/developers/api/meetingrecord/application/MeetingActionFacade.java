@@ -4,6 +4,7 @@ import kgu.developers.api.meetingrecord.presentation.request.MeetingActionCreate
 import kgu.developers.api.meetingrecord.presentation.request.MeetingActionUpdateRequest;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionListResponse;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionResponse;
+import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.domain.meetingrecord.application.command.MeetingActionCommandService;
 import kgu.developers.domain.meetingrecord.application.query.MeetingActionQueryService;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
@@ -26,10 +27,11 @@ public class MeetingActionFacade {
     private final MeetingActionQueryService meetingActionQueryService;
     private final MeetingRecordQueryService meetingRecordQueryService;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamAccessValidator teamAccessValidator;
 
     public MeetingActionListResponse getMeetingActions(Long meetingRecordId, String userId) {
         MeetingRecord meetingRecord = meetingRecordQueryService.getMeetingRecord(meetingRecordId);
-        validateTeamMembership(meetingRecord.getTeamId(), userId);
+        teamAccessValidator.validateMembershipOrProfessor(meetingRecord.getTeamId(), userId);
         return MeetingActionListResponse.from(meetingActionQueryService.getMeetingActions(meetingRecordId));
     }
 
@@ -69,7 +71,7 @@ public class MeetingActionFacade {
     }
 
     public MeetingActionListResponse getTeamActions(Long teamId, MeetingActionStatus status, String userId) {
-        validateTeamMembership(teamId, userId);
+        teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
         return MeetingActionListResponse.from(meetingActionQueryService.getTeamActions(teamId, status));
     }
 
