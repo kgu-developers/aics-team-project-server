@@ -232,13 +232,13 @@ class SectionAdminFacadeTest {
     void updateSectionRespondsWithRefetchedSection() {
         Section before = section();
         Section after = section();
-        after.updateName("02분반");
+        after.updateCode("1155");
         given(sectionQueryService.getSectionById(1L))
                 .willReturn(detail(before), detail(after));
 
         assertThat(sectionAdminFacade.updateSection(1L,
-                new SectionAdminUpdateRequest(null, null, null, "02분반", null, null)).name())
-                .isEqualTo("02분반");
+                new SectionAdminUpdateRequest(null, null, "1155", null, null, null)).name())
+                .isEqualTo("월3,4/1155");
     }
 
     @Test
