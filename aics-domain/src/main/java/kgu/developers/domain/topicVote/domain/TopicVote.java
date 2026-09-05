@@ -17,9 +17,11 @@ import java.time.LocalDateTime;
 public class TopicVote {
     private Long id;
 
-    private Long teamId;  // 팀 식별자
+    private Long teamId;  // 팀 식별자. 1인 1표의 범위다.
     private Long candidateId;  // 후보 식별자
     private String voterUserId;  // 투표자 학번
+
+    private long version;  // 낙관적 락 버전
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -33,23 +35,9 @@ public class TopicVote {
                 .build();
     }
 
-    public void updateCandidateId(Long candidateId) {
-        this.candidateId = candidateId;
-    }
-
-    public void updateTeamId(Long teamId) {
-        this.teamId = teamId;
-    }
-
-    public void updateVoterUserId(String voterUserId) {
-        this.voterUserId = voterUserId;
-    }
-
-    public void setDeletedAt(LocalDateTime deletedAt) {
-        this.deletedAt = deletedAt;
-    }
-
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
+
+    // 후보 변경/재투표는 도메인 수정자가 아니라 TopicVoteRepository.upsert 로만 한다.
 }

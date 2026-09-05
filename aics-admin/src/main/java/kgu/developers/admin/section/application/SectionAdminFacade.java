@@ -16,8 +16,10 @@ import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
 import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
+import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.application.command.SectionCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
+import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -33,6 +35,7 @@ public class SectionAdminFacade {
     private final EnrollmentQueryService enrollmentQueryService;
     private final EnrollmentCommandService enrollmentCommandService;
     private final TeamQueryService teamQueryService;
+    private final TeamMemberCommandService teamMemberCommandService;
 
     public SectionAdminPersistResponse createSection(SectionAdminRequest request) {
         Long id = sectionCommandService.createSection(
@@ -109,6 +112,9 @@ public class SectionAdminFacade {
     public EnrollmentAdminResponse updateEnrollment(Long sectionId, String studentNumber,
                                                     EnrollmentAdminUpdateRequest request) {
         enrollmentCommandService.updateEnrollment(sectionId, studentNumber, request.role(), request.status());
+        if (request.status() == Status.WITHDRAWN) {
+            teamMemberCommandService.withdrawFromTeam(sectionId, studentNumber);
+        }
         return EnrollmentAdminResponse.from(enrollmentQueryService.getEnrollment(sectionId, studentNumber));
     }
 

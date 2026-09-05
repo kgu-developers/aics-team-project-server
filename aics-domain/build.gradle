@@ -11,13 +11,15 @@ dependencies {
     implementation project(':aics-infra')
     implementation project(':aics-global-utils')
 
-    testFixturesImplementation 'org.testcontainers:junit-jupiter'
-    testFixturesImplementation 'org.testcontainers:postgresql'
-    testFixturesRuntimeOnly 'org.postgresql:postgresql'
+    testFixturesRuntimeOnly 'com.h2database:h2'
 
     testFixturesImplementation project(':aics-common')
     testFixturesImplementation project(':aics-infra')
     testFixturesImplementation project(':aics-global-utils')
+
+    testFixturesImplementation 'org.testcontainers:junit-jupiter'
+    testFixturesImplementation 'org.testcontainers:postgresql'
+    testFixturesRuntimeOnly 'org.postgresql:postgresql'
 }
 
 apply from: "../gradle/jacoco.gradle"

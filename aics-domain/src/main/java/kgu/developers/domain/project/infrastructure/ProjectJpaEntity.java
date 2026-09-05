@@ -2,17 +2,16 @@ package kgu.developers.domain.project.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
-import kgu.developers.domain.topicCandidate.infrastructure.TopicCandidateJpaEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -22,7 +21,7 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @Entity
-@Table(name = "project", uniqueConstraints = @UniqueConstraint(name = "uk_project_team", columnNames = "team_id"))
+@Table(name = "project", uniqueConstraints = @UniqueConstraint(name = "uk_project_team", columnNames = {"team_id", "deleted_at"}))
 @Builder
 @Getter
 @AllArgsConstructor
@@ -32,14 +31,13 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     @ManyToOne(fetch = LAZY, optional = false)
     @JoinColumn(name = "team_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_team_project"))
     private TeamJpaEntity team;
-
-    @ManyToOne(fetch = LAZY)
-    @JoinColumn(name = "topic_candidate_id", foreignKey = @ForeignKey(name = "fk_topic_candidate_project"))
-    private TopicCandidateJpaEntity topicCandidate;
 
     @Column(nullable = false, length = 200)
     private String title;
@@ -54,7 +52,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     private String repositoryUrl;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "JSON")
+    @Column(columnDefinition = "jsonb")
     private JsonNode externalLinks;
 
     @Enumerated(STRING)
@@ -71,7 +69,6 @@ public class ProjectJpaEntity extends BaseTimeEntity {
         return Project.builder()
                 .id(id)
                 .teamId(team.getId())
-                .topicCandidateId(topicCandidate == null ? null : topicCandidate.getId())
                 .title(title)
                 .description(description)
                 .goal(goal)
@@ -80,21 +77,17 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .approvalStatus(approvalStatus)
                 .meetingStyle(meetingStyle)
                 .proposalCompletedAt(proposalCompletedAt)
+                .version(version)
                 .createdAt(getCreatedAt())
                 .updatedAt(getUpdatedAt())
                 .deletedAt(getDeletedAt())
                 .build();
     }
 
-    public static ProjectJpaEntity toEntity(
-        Project project,
-        TeamJpaEntity team,
-        TopicCandidateJpaEntity topicCandidate
-    ) {
+    public static ProjectJpaEntity toEntity(Project project, TeamJpaEntity team) {
         ProjectJpaEntity entity = ProjectJpaEntity.builder()
                 .id(project.getId())
                 .team(team)
-                .topicCandidate(topicCandidate)
                 .title(project.getTitle())
                 .description(project.getDescription())
                 .goal(project.getGoal())
@@ -103,8 +96,11 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .approvalStatus(project.getApprovalStatus())
                 .meetingStyle(project.getMeetingStyle())
                 .proposalCompletedAt(project.getProposalCompletedAt())
+                .version(project.getVersion())
                 .build();
-        entity.createdAt = project.getCreatedAt();
+        if (project.getId() != null) {
+            entity.createdAt = project.getCreatedAt();
+        }
         entity.setDeletedAt(project.getDeletedAt());
         return entity;
     }

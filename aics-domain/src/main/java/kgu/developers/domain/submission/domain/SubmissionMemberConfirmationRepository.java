@@ -9,4 +9,6 @@ public interface SubmissionMemberConfirmationRepository {
     List<SubmissionMemberConfirmation> findAllBySubmissionId(Long submissionId);
 
     Optional<SubmissionMemberConfirmation> findBySubmissionIdAndUserId(Long submissionId, String userId);
+
+    void deleteBySubmissionIdAndUserId(Long submissionId, String userId);
 }

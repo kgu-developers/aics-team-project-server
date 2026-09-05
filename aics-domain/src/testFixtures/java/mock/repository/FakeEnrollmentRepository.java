@@ -54,6 +54,11 @@ public class FakeEnrollmentRepository implements EnrollmentRepository {
     }
 
     @Override
+    public Optional<Enrollment> findBySectionIdAndUserIdForUpdate(Long sectionId, String userId) {
+        return findBySectionIdAndUserId(sectionId, userId);
+    }
+
+    @Override
     public Optional<Enrollment> findIncludingDeleted(Long sectionId, String userId) {
         return store.values().stream()
             .filter(enrollment -> enrollment.getSectionId().equals(sectionId))

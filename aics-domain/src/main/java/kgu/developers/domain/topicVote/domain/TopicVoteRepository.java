@@ -4,27 +4,18 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TopicVoteRepository {
+    /** 신규 저장 전용. 투표/재투표에 쓰면 (team_id, voter_user_id) 유니크 제약에 걸린다 -> upsert 를 쓸 것. */
     TopicVote save(TopicVote topicVote);
 
     Optional<TopicVote> findById(Long id);
 
     List<TopicVote> findAllByCandidateId(Long candidateId);
 
-    List<TopicVote> findAllByCandidateIdIn(List<Long> candidateIds);
-
     Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId);
 
-    Optional<TopicVote> findByCandidateIdAndVoterUserId(Long candidateId, String voterUserId);
-
-    Optional<TopicVote> findByTeamIdAndVoterUserIdIncludingDeleted(Long teamId, String voterUserId);
-
-    Optional<TopicVote> findByTeamIdAndVoterUserIdWithLock(Long teamId, String voterUserId);
-
-    Optional<TopicVote> findByCandidateIdAndVoterUserIdWithLock(Long candidateId, String voterUserId);
+    TopicVote upsert(TopicVote topicVote);
 
     void deleteById(Long id);
 
-    void deleteByTeamIdAndVoterUserId(Long teamId, String voterUserId);
-
-    void deleteByCandidateIdAndVoterUserId(Long candidateId, String voterUserId);
+    void deleteByTeamIdAndCandidateIdAndVoterUserId(Long teamId, Long candidateId, String voterUserId);
 }

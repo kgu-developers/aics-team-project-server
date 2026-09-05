@@ -4,6 +4,7 @@ import kgu.developers.domain.topicVote.domain.TopicVote;
 import kgu.developers.domain.topicVote.domain.TopicVoteRepository;
 import kgu.developers.domain.topicVote.exception.TopicVoteNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,65 +38,42 @@ public class TopicVoteRepositoryImpl implements TopicVoteRepository {
     }
 
     @Override
-    public List<TopicVote> findAllByCandidateIdIn(List<Long> candidateIds) {
-        if (candidateIds.isEmpty()) {
-            return List.of();
-        }
-        return jpaTopicVoteRepository.findAllByCandidateIdInAndDeletedAtIsNull(candidateIds)
-                .stream()
-                .map(TopicVoteJpaEntity::toDomain)
-                .toList();
-    }
-
-    @Override
     public Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId) {
         return jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
                 .map(TopicVoteJpaEntity::toDomain);
     }
 
     @Override
-    public Optional<TopicVote> findByCandidateIdAndVoterUserId(Long candidateId, String voterUserId) {
-        return jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(candidateId, voterUserId)
-                .map(TopicVoteJpaEntity::toDomain);
-    }
-
-    @Override
-    public Optional<TopicVote> findByTeamIdAndVoterUserIdIncludingDeleted(Long teamId, String voterUserId) {
-        return jpaTopicVoteRepository.findByTeamIdAndVoterUserId(teamId, voterUserId)
-                .map(TopicVoteJpaEntity::toDomain);
-    }
-
-    @Override
-    public Optional<TopicVote> findByTeamIdAndVoterUserIdWithLock(Long teamId, String voterUserId) {
-        return jpaTopicVoteRepository.findByTeamIdAndVoterUserIdWithLock(teamId, voterUserId)
-                .map(TopicVoteJpaEntity::toDomain);
-    }
-
-    @Override
-    public Optional<TopicVote> findByCandidateIdAndVoterUserIdWithLock(Long candidateId, String voterUserId) {
-        return jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdWithLock(candidateId, voterUserId)
-                .map(TopicVoteJpaEntity::toDomain);
+    @Transactional
+    public TopicVote upsert(TopicVote topicVote) {
+        // RETURNING 으로 결과 행을 바로 받는다. 같은 트랜잭션에서 이 행을 미리 로딩했다면 영속성 컨텍스트의
+        // 옛 인스턴스가 반환되므로, 그런 호출자가 생기면 upsert 전에 clear/refresh 가 필요하다.
+        return jpaTopicVoteRepository
+                .upsert(topicVote.getTeamId(), topicVote.getCandidateId(), topicVote.getVoterUserId())
+                .toDomain();
     }
 
     @Override
     @Transactional
     public void deleteById(Long id) {
-        TopicVoteJpaEntity entity = jpaTopicVoteRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(TopicVoteNotFoundException::new);
+        softDelete(jpaTopicVoteRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(TopicVoteNotFoundException::new));
+    }
+
+    @Override
+    @Transactional
+    public void deleteByTeamIdAndCandidateIdAndVoterUserId(Long teamId, Long candidateId, String voterUserId) {
+        softDelete(jpaTopicVoteRepository
+                .findByTeamIdAndCandidateIdAndVoterUserIdAndDeletedAtIsNull(teamId, candidateId, voterUserId)
+                .orElseThrow(TopicVoteNotFoundException::new));
+    }
+
+    private void softDelete(TopicVoteJpaEntity entity) {
         entity.delete();
-    }
-
-    @Override
-    @Transactional
-    public void deleteByTeamIdAndVoterUserId(Long teamId, String voterUserId) {
-        jpaTopicVoteRepository.findByTeamIdAndVoterUserIdAndDeletedAtIsNull(teamId, voterUserId)
-                .ifPresent(TopicVoteJpaEntity::delete);
-    }
-
-    @Override
-    @Transactional
-    public void deleteByCandidateIdAndVoterUserId(Long candidateId, String voterUserId) {
-        jpaTopicVoteRepository.findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(candidateId, voterUserId)
-                .ifPresent(TopicVoteJpaEntity::delete);
+        try {
+            jpaTopicVoteRepository.flush();
+        } catch (OptimisticLockingFailureException e) {
+            throw new TopicVoteNotFoundException();   // 경쟁에서 진 취소 요청은 취소할 표가 없던 것과 같다
+        }
     }
 }

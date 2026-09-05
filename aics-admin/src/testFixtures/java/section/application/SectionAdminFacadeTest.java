@@ -2,6 +2,7 @@ package section.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
@@ -32,6 +33,7 @@ import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.application.command.SectionCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -59,6 +61,9 @@ class SectionAdminFacadeTest {
 
     @Mock
     private TeamQueryService teamQueryService;
+
+    @Mock
+    private TeamMemberCommandService teamMemberCommandService;
 
     @InjectMocks
     private SectionAdminFacade sectionAdminFacade;
@@ -149,6 +154,25 @@ class SectionAdminFacadeTest {
                     assertThat(response.status()).isEqualTo(Status.WITHDRAWN);
                 });
         verify(enrollmentCommandService).updateEnrollment(1L, "202699999", Role.ASSISTANT, Status.WITHDRAWN);
+        verify(teamMemberCommandService).withdrawFromTeam(1L, "202699999");
+    }
+
+    @Test
+    @DisplayName("수강 상태를 ACTIVE로 복구해도 이전 팀 소속은 자동 복구하지 않는다")
+    void reactivateEnrollmentDoesNotRestoreTeamMembership() {
+        EnrollmentAdminUpdateRequest request = new EnrollmentAdminUpdateRequest(null, Status.ACTIVE);
+        Enrollment updated = Enrollment.builder()
+                .id(1L).sectionId(1L).userId("202699999").role(Role.STUDENT).status(Status.ACTIVE).build();
+        User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
+                UserGlobalRole.USER, "010-1234-6789");
+        given(enrollmentQueryService.getEnrollment(1L, "202699999"))
+                .willReturn(new EnrollmentDetail(updated, student));
+
+        assertThat(sectionAdminFacade.updateEnrollment(1L, "202699999", request).status())
+                .isEqualTo(Status.ACTIVE);
+
+        verify(enrollmentCommandService).updateEnrollment(1L, "202699999", null, Status.ACTIVE);
+        verify(teamMemberCommandService, never()).withdrawFromTeam(1L, "202699999");
     }
 
     @Test

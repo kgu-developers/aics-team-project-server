@@ -19,7 +19,6 @@ public class Project {
     private Long id;
 
     private Long teamId;  // 팀 식별자
-    private Long topicCandidateId;  // 최종 확정 주제 후보 식별자
 
     private String title;  // 제목
     private String description;  // 설명
@@ -30,6 +29,7 @@ public class Project {
     private String meetingStyle;  // 회의방식
 
     private LocalDateTime proposalCompletedAt;  // 제안 완료 시각
+    private Long version;  // 낙관적 잠금 버전
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
@@ -49,10 +49,6 @@ public class Project {
 
     public void updateTitle(String title) {
         this.title = requireNonNull(title, "title");
-    }
-
-    public void updateTopicCandidateId(Long topicCandidateId) {
-        this.topicCandidateId = requireNonNull(topicCandidateId, "topicCandidateId");
     }
 
     public void updateDescription(String description) {
@@ -85,5 +81,25 @@ public class Project {
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    public void reactivate(String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle) {
+        if (this.deletedAt == null) {
+            throw new IllegalStateException("삭제되지 않은 프로젝트는 복구할 수 없습니다.");
+        }
+        requireNonNull(title, "title");
+        requireNonNull(description, "description");
+        requireNonNull(goal, "goal");
+        requireNonNull(approvalStatus, "approvalStatus");
+
+        this.title = title;
+        this.description = description;
+        this.goal = goal;
+        this.repositoryUrl = repositoryUrl;
+        this.externalLinks = externalLinks;
+        this.approvalStatus = approvalStatus;
+        this.meetingStyle = meetingStyle;
+        this.proposalCompletedAt = null;
+        this.deletedAt = null;
     }
 }

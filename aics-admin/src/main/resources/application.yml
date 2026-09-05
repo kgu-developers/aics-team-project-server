@@ -42,6 +42,17 @@ file:
    secret-key: ${FILE_SECRET_KEY}
    disallowed-extensions: exe, bat, sh, cmd, js, html, jsp, php, asp, aspx, dll, so, ps1, vbs, msi, htaccess, phtml, jar, war
 
+# SubmissionAdminFacade가 제출물 다운로드 URL을 만들 때 FileStorage(S3FileStorage) 빈이 필요하다
+# (PR #111, KD3-147). aics-api와 동일하게 켜야 한다 — 안 그러면 S3FileStorage 자체가
+# 안 만들어져서(@ConditionalOnProperty) 부팅이 실패한다.
+aws:
+  s3:
+    enabled: true
+    region: ${AWS_S3_REGION:ap-northeast-2}
+    bucket: ${AWS_S3_BUCKET:}
+    access-key: ${AWS_S3_ACCESS_KEY:}
+    secret-key: ${AWS_S3_SECRET_KEY:}
+
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json

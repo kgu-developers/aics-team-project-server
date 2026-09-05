@@ -3,9 +3,7 @@ package kgu.developers.domain.topicVote.infrastructure;
 import java.util.List;
 import java.util.Optional;
 
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,19 +12,20 @@ public interface JpaTopicVoteRepository extends JpaRepository<TopicVoteJpaEntity
 
     List<TopicVoteJpaEntity> findAllByCandidateIdAndDeletedAtIsNull(Long candidateId);
 
-    List<TopicVoteJpaEntity> findAllByCandidateIdInAndDeletedAtIsNull(List<Long> candidateIds);
-
     Optional<TopicVoteJpaEntity> findByTeamIdAndVoterUserIdAndDeletedAtIsNull(Long teamId, String voterUserId);
 
-    Optional<TopicVoteJpaEntity> findByCandidateIdAndVoterUserIdAndDeletedAtIsNull(Long candidateId, String voterUserId);
+    Optional<TopicVoteJpaEntity> findByTeamIdAndCandidateIdAndVoterUserIdAndDeletedAtIsNull(
+            Long teamId, Long candidateId, String voterUserId);
 
-    Optional<TopicVoteJpaEntity> findByTeamIdAndVoterUserId(Long teamId, String voterUserId);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT tv FROM TopicVoteJpaEntity tv WHERE tv.teamId = :teamId AND tv.voterUserId = :voterUserId")
-    Optional<TopicVoteJpaEntity> findByTeamIdAndVoterUserIdWithLock(@Param("teamId") Long teamId, @Param("voterUserId") String voterUserId);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT tv FROM TopicVoteJpaEntity tv WHERE tv.candidateId = :candidateId AND tv.voterUserId = :voterUserId AND tv.deletedAt IS NULL")
-    Optional<TopicVoteJpaEntity> findByCandidateIdAndVoterUserIdWithLock(@Param("candidateId") Long candidateId, @Param("voterUserId") String voterUserId);
+    @Query(value = """
+            INSERT INTO topic_vote (team_id, candidate_id, voter_user_id, version, created_at, updated_at)
+            VALUES (:teamId, :candidateId, :voterUserId, 0, now(), now())
+            ON CONFLICT (team_id, voter_user_id) DO UPDATE
+            SET candidate_id = EXCLUDED.candidate_id, deleted_at = NULL,
+                version = topic_vote.version + 1, updated_at = now()
+            RETURNING *
+            """, nativeQuery = true)
+    TopicVoteJpaEntity upsert(@Param("teamId") Long teamId,
+                              @Param("candidateId") Long candidateId,
+                              @Param("voterUserId") String voterUserId);
 }
