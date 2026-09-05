@@ -50,9 +50,9 @@ class SectionFacadeTest {
                 .id(1L)
                 .professorId(STUDENT_NUMBER)
                 .courseId(1L)
-                .code("CS101")
-                .name("01분반")
-                .classTime("월3,4")
+                .code("1154")
+                .name("월34/1154")
+                .classTime("월34")
                 .capacity(40)
                 .contactVisibleFrom(LocalDateTime.of(2026, 3, 2, 0, 0))
                 .contactVisibleUntil(LocalDateTime.of(2026, 6, 20, 18, 0))
@@ -73,6 +73,7 @@ class SectionFacadeTest {
                     assertThat(response.id()).isEqualTo(1L);
                     assertThat(response.courseName()).isEqualTo("객체지향프로그래밍");
                     assertThat(response.semester()).isEqualTo(SemesterType.SPRING);
+                    assertThat(response.name()).isEqualTo("월34/1154");
                 });
     }
 
@@ -81,6 +82,6 @@ class SectionFacadeTest {
     void getSectionById() {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail());
 
-        assertThat(sectionFacade.getSectionById(1L).code()).isEqualTo("CS101");
+        assertThat(sectionFacade.getSectionById(1L).code()).isEqualTo("1154");
     }
 }

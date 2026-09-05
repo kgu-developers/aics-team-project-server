@@ -60,9 +60,9 @@ class SectionControllerTest {
                 .id(1L)
                 .professorId(STUDENT_NUMBER)
                 .courseId(1L)
-                .code("CS101")
-                .name("01분반")
-                .classTime("월3,4")
+                .code("1154")
+                .name("월34/1154")
+                .classTime("월34")
                 .capacity(40)
                 .contactVisibleFrom(LocalDateTime.of(2026, 3, 2, 0, 0))
                 .contactVisibleUntil(LocalDateTime.of(2026, 6, 20, 18, 0))
@@ -112,7 +112,8 @@ class SectionControllerTest {
 
         mockMvc.perform(get(BASE_URL + "/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("CS101"))
+                .andExpect(jsonPath("$.code").value("1154"))
+                .andExpect(jsonPath("$.name").value("월34/1154"))
                 .andExpect(jsonPath("$.semester").value("SPRING"));
     }
 }
