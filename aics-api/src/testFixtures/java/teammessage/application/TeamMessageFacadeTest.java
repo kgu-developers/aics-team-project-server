@@ -13,6 +13,9 @@ import kgu.developers.api.teammessage.presentation.response.TeamMessagePageRespo
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePersistResponse;
 import kgu.developers.api.teammessage.presentation.response.UnreadMessageCountResponse;
 import kgu.developers.common.exception.CustomException;
+import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.team.domain.Status;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
@@ -23,6 +26,7 @@ import mock.repository.FakeSectionRepository;
 import mock.repository.FakeTeamMemberRepository;
 import mock.repository.FakeTeamMessageReadReceiptRepository;
 import mock.repository.FakeTeamMessageRepository;
+import mock.repository.FakeTeamMessageUnreadRepository;
 import mock.repository.FakeTeamRepository;
 import mock.repository.FakeTeamThreadRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,16 +35,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 public class TeamMessageFacadeTest {
 
     private static final String USER_A = "202412345";
     private static final String USER_B = "202412346";
     private static final String OUTSIDER = "202400000";
+    private static final String PROFESSOR_ID = "202699999";
 
     private TeamMessageFacade teamMessageFacade;
     private FakeTeamThreadRepository fakeTeamThreadRepository;
+    private FakeTeamRepository fakeTeamRepository;
+    private FakeSectionRepository fakeSectionRepository;
 
     @BeforeEach
     void init() {
@@ -48,19 +53,30 @@ public class TeamMessageFacadeTest {
         FakeTeamMessageRepository fakeTeamMessageRepository = new FakeTeamMessageRepository();
         FakeTeamMessageReadReceiptRepository fakeTeamMessageReadReceiptRepository = new FakeTeamMessageReadReceiptRepository();
         FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
-        FakeTeamRepository fakeTeamRepository = new FakeTeamRepository();
-        FakeSectionRepository fakeSectionRepository = new FakeSectionRepository();
+        fakeTeamRepository = new FakeTeamRepository();
+        fakeSectionRepository = new FakeSectionRepository();
 
         fakeTeamMemberRepository.save(TeamMember.create(1L, USER_A, false, "기록자"));
         fakeTeamMemberRepository.save(TeamMember.create(1L, USER_B, false, "발표자"));
         fakeTeamMemberRepository.save(TeamMember.create(2L, USER_A, false, "기록자"));
         fakeTeamMemberRepository.save(TeamMember.create(99L, USER_A, false, "기록자"));
 
+        fakeTeamRepository.save(team(1L));
+        fakeTeamRepository.save(team(2L));
+        fakeTeamRepository.save(team(99L));
+
         teamMessageFacade = new TeamMessageFacade(
             new TeamThreadCommandService(fakeTeamThreadRepository),
             new TeamThreadQueryService(fakeTeamThreadRepository),
             new TeamMessageCommandService(fakeTeamMessageRepository, fakeTeamMessageReadReceiptRepository),
-            new TeamMessageQueryService(fakeTeamMessageRepository, fakeTeamMessageReadReceiptRepository),
+            new TeamMessageQueryService(
+                fakeTeamMessageRepository,
+                fakeTeamMessageReadReceiptRepository,
+                new FakeTeamMessageUnreadRepository(
+                    fakeTeamMessageRepository,
+                    fakeTeamMessageReadReceiptRepository
+                )
+            ),
             new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository)
         );
     }
@@ -68,6 +84,17 @@ public class TeamMessageFacadeTest {
     private TeamMessageCreateRequest createRequest(String message) {
         return TeamMessageCreateRequest.builder()
             .message(message)
+            .build();
+    }
+
+    private Team team(Long id) {
+        return Team.builder()
+            .id(id)
+            .sectionId(1L)
+            .name("A팀")
+            .kickoffRule("규칙")
+            .meetingSchedule("매주 월요일")
+            .status(Status.CONFIRMED)
             .build();
     }
 
@@ -214,5 +241,31 @@ public class TeamMessageFacadeTest {
         // then
         assertEquals(1, result.contents().size());
         assertEquals(TeamMessageRelatedType.QUESTION, result.contents().get(0).relatedType());
+    }
+
+    @Test
+    @DisplayName("담당 교수도 학생용 팀 메시지 API에는 접근할 수 없다")
+    void teamOperations_ProfessorCannotAccessStudentApi() {
+        // given
+        fakeSectionRepository.save(Section.builder()
+            .id(1L)
+            .professorId(PROFESSOR_ID)
+            .build());
+        fakeTeamRepository.save(team(1L));
+        TeamMessagePersistResponse posted = teamMessageFacade.postMessage(1L, USER_A, createRequest("확인 부탁드립니다."));
+
+        // when & then
+        assertThatThrownBy(() -> teamMessageFacade.getMessages(
+            1L, null, PageRequest.of(0, 10), PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.updateImportant(posted.id(), true, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.markAsRead(posted.id(), PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.getUnreadCount(1L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> teamMessageFacade.postMessage(
+            1L, PROFESSOR_ID, createRequest("확인했습니다.")))
+            .isInstanceOf(AccessDeniedException.class);
     }
 }
