@@ -31,7 +31,7 @@ import kgu.developers.globalutils.jwt.JwtUtil;
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
 
-  private static final String URL = "/api/v1/oop/auth/login";
+  private static final String URL = "/api/v1/auth/login";
   private static final String BODY = """
       {"studentNumber":"202699999","password":"12345678"}""";
 
@@ -92,7 +92,7 @@ class AuthControllerTest {
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
 
-    MvcResult result = mockMvc.perform(post("/api/v1/oop/auth/refresh")
+    MvcResult result = mockMvc.perform(post("/api/v1/auth/refresh")
             .cookie(new Cookie("refreshToken", "old-refresh-token")))
         .andExpect(status().isOk())
         .andReturn();
@@ -111,14 +111,14 @@ class AuthControllerTest {
     given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
     given(jwtUtil.getRefreshTokenValidity()).willReturn(Duration.ofDays(14));
 
-    mockMvc.perform(post("/api/v1/oop/auth/refresh"))
+    mockMvc.perform(post("/api/v1/auth/refresh"))
         .andExpect(status().isOk());
   }
 
   @Test
   @DisplayName("logout은 두 토큰 쿠키를 Max-Age=0으로 만료시킨다")
   void logoutExpiresTokenCookies() throws Exception {
-    MvcResult result = mockMvc.perform(post("/api/v1/oop/auth/logout"))
+    MvcResult result = mockMvc.perform(post("/api/v1/auth/logout"))
         .andExpect(status().isOk())
         .andReturn();
 
@@ -135,7 +135,7 @@ class AuthControllerTest {
   @Test
   @DisplayName("logout은 refreshToken 쿠키를 파사드에 넘겨 서버측 폐기를 맡긴다")
   void logoutRevokesStoredToken() throws Exception {
-    mockMvc.perform(post("/api/v1/oop/auth/logout").cookie(new Cookie("refreshToken", "refresh-token")))
+    mockMvc.perform(post("/api/v1/auth/logout").cookie(new Cookie("refreshToken", "refresh-token")))
         .andExpect(status().isOk());
 
     verify(authFacade).logout("refresh-token");
@@ -144,7 +144,7 @@ class AuthControllerTest {
   @Test
   @DisplayName("logout은 쿠키나 토큰 없이 호출해도 200이다")
   void logoutWithoutCookies() throws Exception {
-    mockMvc.perform(post("/api/v1/oop/auth/logout"))
+    mockMvc.perform(post("/api/v1/auth/logout"))
         .andExpect(status().isOk());
   }
 

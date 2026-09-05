@@ -28,7 +28,7 @@ team-project-api.kgudevelopers.monster {
 		}
 	}
 
-	handle /api/v1/oop/auth/* {
+	handle /api/v1/auth/* {
 		reverse_proxy aics-auth:8082 {
 			import strip_forwarded_headers
 		}

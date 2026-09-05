@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop")
+@RequestMapping("/api/v1/admin")
 public class PreSurveyResponseAdminControllerImpl implements PreSurveyResponseAdminController {
 
     private final PreSurveyResponseAdminFacade preSurveyResponseAdminFacade;

@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop/meeting-records")
+@RequestMapping("/api/v1/admin/meeting-records")
 public class MeetingRecordAdminControllerImpl implements MeetingRecordAdminController {
 
     private final MeetingRecordAdminFacade meetingRecordAdminFacade;

@@ -31,7 +31,7 @@ import kgu.developers.domain.team.domain.Status;
 @ExtendWith(MockitoExtension.class)
 class TeamAdminControllerTest {
 
-	private static final String BASE_URL = "/api/v1/admin/oop";
+	private static final String BASE_URL = "/api/v1/admin";
 
 	@Mock
 	private TeamAdminFacade teamAdminFacade;
