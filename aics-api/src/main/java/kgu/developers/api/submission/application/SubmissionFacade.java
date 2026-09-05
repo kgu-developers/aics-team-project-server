@@ -19,12 +19,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
-import kgu.developers.api.submission.presentation.request.SubmissionMemberConfirmationRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionArtifactResponse;
-import kgu.developers.api.submission.presentation.response.SubmissionMemberConfirmationListResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
@@ -52,6 +51,7 @@ import kgu.developers.domain.submission.domain.ArtifactType;
 import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionArtifact;
 import kgu.developers.domain.submission.domain.SubmissionArtifactRepository;
+import kgu.developers.domain.submission.domain.SubmissionMemberConfirmation;
 import kgu.developers.domain.submission.domain.SubmissionMemberConfirmationRepository;
 import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.domain.SubmissionVersionRepository;
@@ -173,18 +173,51 @@ public class SubmissionFacade {
         return toResponse(submissionQueryService.getSubmission(submissionId));
     }
 
-    public SubmissionMemberConfirmationListResponse getMemberConfirmations(Long submissionId, String userId) {
+    public SubmissionMemberConsentResponse getMemberConsent(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
-        return SubmissionMemberConfirmationListResponse.from(
-                submissionMemberConfirmationRepository.findAllBySubmissionId(submissionId));
+        return buildMemberConsent(submission, userId);
     }
 
-    public void confirmAsMember(Long submissionId, String userId, SubmissionMemberConfirmationRequest request) {
+    public SubmissionMemberConsentResponse confirmAsMember(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
-        submissionCommandService.confirmAsMember(
-                submissionId, userId, request.confirmedFinalReport(), request.confirmedArtifacts(), request.oneLineReview());
+        submissionCommandService.confirmAsMember(submissionId, userId);
+        return buildMemberConsent(submission, userId);
+    }
+
+    public SubmissionMemberConsentResponse cancelConfirmation(Long submissionId, String userId) {
+        Submission submission = submissionQueryService.getSubmission(submissionId);
+        validateActiveTeamMembership(submission, userId);
+        submissionCommandService.cancelConfirmation(submissionId, userId);
+        return buildMemberConsent(submission, userId);
+    }
+
+    // 확인 인원/전체 인원/본인 확인 여부 요약. "확인함"은 별도 필드가 아니라 이 버전에 대한
+    // 확인 행이 존재하는지로 판단한다 — completeSubmission의 완료게이트(validateAllActiveMembersConfirmed)와
+    // 같은 기준이다(KD3-161).
+    private SubmissionMemberConsentResponse buildMemberConsent(Submission submission, String userId) {
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        Map<String, SubmissionMemberConfirmation> confirmationsByUserId = submissionMemberConfirmationRepository
+                .findAllBySubmissionId(submission.getId()).stream()
+                .collect(Collectors.toMap(SubmissionMemberConfirmation::getUserId, c -> c));
+
+        List<String> activeStudentIds = teamMemberRepository.findAllByTeamId(submission.getTeamId()).stream()
+                .map(TeamMember::getUserId)
+                .filter(memberId -> isActiveStudent(milestone.getSectionId(), memberId))
+                .toList();
+
+        int confirmedCount = (int) activeStudentIds.stream()
+                .filter(memberId -> isConfirmedForCurrentVersion(confirmationsByUserId.get(memberId), submission.getCurrentVersion()))
+                .count();
+        boolean isConfirmedByMe = isConfirmedForCurrentVersion(confirmationsByUserId.get(userId), submission.getCurrentVersion());
+
+        return SubmissionMemberConsentResponse.of(confirmedCount, activeStudentIds.size(), isConfirmedByMe);
+    }
+
+    private boolean isConfirmedForCurrentVersion(SubmissionMemberConfirmation confirmation, int currentVersion) {
+        return confirmation != null && confirmation.confirmsVersion(currentVersion);
     }
 
     public SubmissionResponse completeSubmission(Long submissionId, String userId) {
