@@ -211,6 +211,56 @@ class SubmissionFacadeTest {
     }
 
     @Test
+    @DisplayName("최종보고서는 팀장이 아니면 제출할 수 없다")
+    void submitVersion_RejectsNonLeaderForFinalReport() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+
+        assertThatThrownBy(() -> submissionFacade.submitVersion(
+                submission.getId(), MEMBER, "1차 제출", null, List.of(), List.of(), List.of()))
+                .isInstanceOf(SubmissionLeaderOnlyException.class);
+    }
+
+    @Test
+    @DisplayName("최종보고서는 팀장이면 제출할 수 있다")
+    void submitVersion_AllowsLeaderForFinalReport() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+
+        SubmissionResponse response = submissionFacade.submitVersion(
+                submission.getId(), LEADER, "1차 제출", null, List.of(), List.of(), List.of());
+
+        assertThat(response.currentVersion()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("최종보고서를 팀장이 제출하면 그 즉시 팀장 본인 확인이 1건 자동 등록된다")
+    void submitVersion_FinalReport_AutoConfirmsLeader() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+
+        SubmissionResponse response = submissionFacade.submitVersion(
+                submission.getId(), LEADER, "1차 제출", null, List.of(), List.of(), List.of());
+
+        assertThat(response.memberConsent()).isNotNull();
+        assertThat(response.memberConsent().confirmedCount()).isEqualTo(1);
+        assertThat(response.memberConsent().totalCount()).isEqualTo(2);
+        assertThat(response.memberConsent().isConfirmedByMe()).isTrue();
+    }
+
+    @Test
+    @DisplayName("일반 마일스톤 제출물 응답의 memberConsent는 null이다")
+    void submitVersion_GeneralMilestone_MemberConsentIsNull() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        SubmissionResponse response = submissionFacade.submitVersion(
+                submission.getId(), MEMBER, "1차 제출", null, List.of(), List.of(), List.of());
+
+        assertThat(response.memberConsent()).isNull();
+    }
+
+    @Test
     @DisplayName("아티팩트 종류(type)가 없으면 NPE 대신 400으로 거부된다")
     void submitVersion_RejectsMissingArtifactType() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
@@ -554,5 +604,12 @@ class SubmissionFacadeTest {
                 MILESTONE_ID, SECTION_ID, "발표", null, 2, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
                 MilestoneType.PRESENTATION);
+    }
+
+    private Milestone finalReportMilestone() {
+        return Milestone.restore(
+                MILESTONE_ID, SECTION_ID, "최종보고서", null, 2, MilestoneStatus.PUBLISHED,
+                new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
+                MilestoneType.FINAL_REPORT);
     }
 }
