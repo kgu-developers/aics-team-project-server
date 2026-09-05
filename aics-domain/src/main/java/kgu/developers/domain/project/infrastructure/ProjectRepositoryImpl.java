@@ -28,11 +28,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     @Transactional
     public Project save(Project project) {
         try {
-            TeamJpaEntity team = entityManager.find(
-                    TeamJpaEntity.class, project.getTeamId(), PESSIMISTIC_WRITE);
-            if (team == null || team.getDeletedAt() != null) {
-                throw new TeamNotFoundException();
-            }
+            TeamJpaEntity team = lockExistingTeam(project.getTeamId());
 
             Project existing = findIncludingDeletedByTeamId(project.getTeamId()).orElse(null);
             if (existing != null) {
@@ -56,11 +52,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     @Transactional
     public Project reactivate(Long projectId, Project newProject) {
         try {
-            TeamJpaEntity team = entityManager.find(
-                    TeamJpaEntity.class, newProject.getTeamId(), PESSIMISTIC_WRITE);
-            if (team == null || team.getDeletedAt() != null) {
-                throw new TeamNotFoundException();
-            }
+            TeamJpaEntity team = lockExistingTeam(newProject.getTeamId());
 
             Project existing = findIncludingDeletedByTeamId(newProject.getTeamId())
                     .orElseThrow(ProjectNotFoundException::new);
@@ -84,17 +76,28 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     }
 
     @Override
+    public void lockTeam(Long teamId) {
+        lockExistingTeam(teamId);
+    }
+
+    private TeamJpaEntity lockExistingTeam(Long teamId) {
+        TeamJpaEntity team = entityManager.find(TeamJpaEntity.class, teamId, PESSIMISTIC_WRITE);
+        if (team == null || team.getDeletedAt() != null) {
+            throw new TeamNotFoundException();
+        }
+        return team;
+    }
+
+    @Override
     public Optional<Project> findById(Long id) {
         return jpaProjectRepository.findByIdAndDeletedAtIsNull(id)
                 .map(ProjectJpaEntity::toDomain);
     }
 
     @Override
-    public List<Project> findAllById(List<Long> ids) {
-        return jpaProjectRepository.findAllByIdInAndDeletedAtIsNullOrderByIdAsc(ids)
-                .stream()
-                .map(ProjectJpaEntity::toDomain)
-                .toList();
+    public Optional<Project> findByIdForUpdate(Long id) {
+        return jpaProjectRepository.findByIdForUpdate(id)
+                .map(ProjectJpaEntity::toDomain);
     }
 
     @Override
