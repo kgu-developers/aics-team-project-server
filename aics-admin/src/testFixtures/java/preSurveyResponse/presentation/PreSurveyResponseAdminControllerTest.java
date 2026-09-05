@@ -28,7 +28,7 @@ import kgu.developers.common.exception.GlobalExceptionHandler;
 @ExtendWith(MockitoExtension.class)
 class PreSurveyResponseAdminControllerTest {
 
-    private static final String DOWNLOAD_URL = "/api/v1/admin/oop/sections/1/pre-survey-responses/download";
+    private static final String DOWNLOAD_URL = "/api/v1/admin/sections/1/pre-survey-responses/download";
     private static final String PROFESSOR_ID = "202699999";
     private static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 

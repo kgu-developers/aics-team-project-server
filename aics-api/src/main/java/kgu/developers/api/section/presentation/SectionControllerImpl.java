@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/oop/sections")
+@RequestMapping("/api/v1/sections")
 public class SectionControllerImpl implements SectionController {
 
     private final SectionFacade sectionFacade;

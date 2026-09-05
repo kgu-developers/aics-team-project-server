@@ -29,8 +29,8 @@ import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
 @ExtendWith(MockitoExtension.class)
 class TeamMemberControllerTest {
 
-	private static final String BASE_URL = "/api/v1/oop/teams/{teamId}/members/contacts";
-	private static final String MEMBERS_URL = "/api/v1/oop/teams/{teamId}/members";
+	private static final String BASE_URL = "/api/v1/teams/{teamId}/members/contacts";
+	private static final String MEMBERS_URL = "/api/v1/teams/{teamId}/members";
 	private static final String STUDENT_NUMBER = "202699999";
 
 	@Mock

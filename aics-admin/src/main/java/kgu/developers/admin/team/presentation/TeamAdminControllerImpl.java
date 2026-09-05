@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop")
+@RequestMapping("/api/v1/admin")
 public class TeamAdminControllerImpl implements TeamAdminController {
 
 	private final TeamAdminFacade teamAdminFacade;

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop/messages")
+@RequestMapping("/api/v1/admin/messages")
 public class TeamMessageAdminControllerImpl implements TeamMessageAdminController {
 
     private final TeamMessageAdminFacade teamMessageAdminFacade;

@@ -54,8 +54,8 @@ class SecurityConfigTest {
   static final String ISSUER = "kgudevelopers@gmail.com";
   static final String ORIGIN = "http://localhost:5173";
 
-  private static final String PROTECTED_URL = "/api/v1/oop/anything";
-  private static final String ME_URL = "/api/v1/oop/users/me";
+  private static final String PROTECTED_URL = "/api/v1/anything";
+  private static final String ME_URL = "/api/v1/users/me";
   private static final String STUDENT_NUMBER = "202699999";
 
   @SpringBootConfiguration

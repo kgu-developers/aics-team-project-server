@@ -44,7 +44,7 @@ import org.springframework.validation.beanvalidation.MethodValidationPostProcess
 @ExtendWith(MockitoExtension.class)
 class MidReportAdminControllerTest {
 
-    private static final String BASE_URL = "/api/v1/admin/oop/sections/1/teams/10/mid-report";
+    private static final String BASE_URL = "/api/v1/admin/sections/1/teams/10/mid-report";
     private static final String PROFESSOR_ID = "202699999";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

@@ -38,7 +38,7 @@ import kgu.developers.admin.importstatus.presentation.response.RosterImportStatu
 @ExtendWith(MockitoExtension.class)
 class RosterImportStatusControllerTest {
 
-    private static final String BASE_URL = "/api/v1/admin/oop/sections/1/roster-import-status";
+    private static final String BASE_URL = "/api/v1/admin/sections/1/roster-import-status";
     private static final String USER_ID = "202699999";
 
     @Mock

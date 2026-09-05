@@ -38,7 +38,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 @ExtendWith(MockitoExtension.class)
 class TeamMessageAdminControllerTest {
 
-    private static final String BASE_URL = "/api/v1/admin/oop/messages";
+    private static final String BASE_URL = "/api/v1/admin/messages";
     private static final String PROFESSOR_ID = "202699999";
 
     @Mock

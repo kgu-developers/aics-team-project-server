@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop/sections/{sectionId}/teams/{teamId}/mid-report")
+@RequestMapping("/api/v1/admin/sections/{sectionId}/teams/{teamId}/mid-report")
 public class MidReportAdminControllerImpl implements MidReportAdminController {
 
     private final MidReportAdminFacade midReportAdminFacade;

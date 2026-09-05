@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop")
+@RequestMapping("/api/v1/admin")
 public class TeamImportControllerImpl implements TeamImportController {
 
     private final TeamImportFacade teamImportFacade;

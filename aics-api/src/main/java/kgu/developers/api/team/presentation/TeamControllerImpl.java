@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/oop")
+@RequestMapping("/api/v1")
 public class TeamControllerImpl implements TeamController {
 
 	private final TeamFacade teamFacade;

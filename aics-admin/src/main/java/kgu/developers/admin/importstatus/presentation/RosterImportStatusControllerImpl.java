@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop")
+@RequestMapping("/api/v1/admin")
 public class RosterImportStatusControllerImpl implements RosterImportStatusController {
 
     private final RosterImportStatusFacade rosterImportStatusFacade;

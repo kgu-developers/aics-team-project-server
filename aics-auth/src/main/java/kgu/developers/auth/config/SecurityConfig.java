@@ -26,13 +26,13 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     return http
-        .csrf(CsrfConfig.spa("/api/v1/oop/auth/login"))
+        .csrf(CsrfConfig.spa("/api/v1/auth/login"))
         .cors(Customizer.withDefaults())
         .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
         .authorizeHttpRequests(auth -> auth
             .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-            .requestMatchers("/api/v1/oop/auth/login", "/api/v1/oop/auth/refresh",
-                "/api/v1/oop/auth/logout", "/swagger-ui/**", "/v3/api-docs/**",
+            .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh",
+                "/api/v1/auth/logout", "/swagger-ui/**", "/v3/api-docs/**",
                 "/auth-docs/**", "/auth-api-docs/**").permitAll()
             .anyRequest().authenticated())
         .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))
