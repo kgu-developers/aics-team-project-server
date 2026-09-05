@@ -19,8 +19,8 @@ public class Section {
   private String professorId; // 교수 학번
   private Long courseId; // 강좌 id
 
-  private String code; // 과목 코드
-  private String name; // 분반명
+  private String code; // 과목번호
+  private String name; // 요일·시간/과목번호
   private String classTime; // 수업시간
   private Integer capacity; // 정원
 

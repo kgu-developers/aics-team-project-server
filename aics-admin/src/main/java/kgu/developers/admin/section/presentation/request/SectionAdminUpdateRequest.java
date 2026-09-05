@@ -15,11 +15,11 @@ public record SectionAdminUpdateRequest(
     @Positive
     Long courseId,
 
-    @Schema(description = "과목 코드", example = "1154")
+    @Schema(description = "과목번호", example = "1154")
     @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String code,
 
-    @Schema(description = "분반명", example = "월123/1154")
+    @Schema(description = "요일·시간/과목번호 표시 문자열", example = "월123/1154")
     @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
     String name,
 
