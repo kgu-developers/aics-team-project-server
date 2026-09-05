@@ -24,6 +24,12 @@ public record SubmissionArtifactResponse(
         @Schema(description = "파일 이름(FILE일 때만)", example = "발표자료.pdf")
         String fileName,
 
+        @Schema(description = "파일 크기(바이트, FILE일 때만)", example = "1048576")
+        Long size,
+
+        @Schema(description = "파일 MIME 타입(FILE일 때만)", example = "application/pdf")
+        String mimeType,
+
         @Schema(description = "다운로드용 임시 URL(FILE일 때만, 15분 후 만료)")
         String downloadUrl,
 
@@ -40,6 +46,8 @@ public record SubmissionArtifactResponse(
                 .type(artifact.getType())
                 .fileId(artifact.getFileId())
                 .fileName(fileObject.getFileName())
+                .size(fileObject.getSize())
+                .mimeType(fileObject.getContentType())
                 .downloadUrl(downloadUrl)
                 .build();
     }

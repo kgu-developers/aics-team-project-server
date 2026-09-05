@@ -25,6 +25,9 @@ import kgu.developers.api.submission.presentation.request.SubmissionReopenReques
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionVersionSummaryResponse;
 import kgu.developers.domain.editlock.application.command.EditLockCommandService;
 import kgu.developers.domain.editlock.application.query.EditLockQueryService;
 import kgu.developers.domain.enrollment.domain.Enrollment;
@@ -47,6 +50,9 @@ import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 
 import mock.repository.FakeEditLockRepository;
 import mock.repository.FakeEnrollmentRepository;
@@ -60,6 +66,7 @@ import mock.repository.FakeSubmissionRepository;
 import mock.repository.FakeSubmissionVersionRepository;
 import mock.repository.FakeTeamMemberRepository;
 import mock.repository.FakeTeamRepository;
+import mock.repository.FakeUserRepository;
 
 class SubmissionFacadeTest {
 
@@ -103,6 +110,10 @@ class SubmissionFacadeTest {
         FakeEnrollmentRepository enrollmentRepository = new FakeEnrollmentRepository();
         enrollmentRepository.save(Enrollment.create(SECTION_ID, LEADER, Role.STUDENT, Status.ACTIVE));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE));
+        FakeUserRepository userRepository = new FakeUserRepository();
+        userRepository.save(User.create(LEADER, "leader@kyonggi.ac.kr", "팀장학생", "pw", UserGlobalRole.USER, "010-0000-0001"));
+        userRepository.save(User.create(MEMBER, "member@kyonggi.ac.kr", "팀원학생", "pw", UserGlobalRole.USER, "010-0000-0002"));
+        UserQueryService userQueryService = new UserQueryService(userRepository, enrollmentRepository);
         FakeRequiredArtifactRepository requiredArtifactRepository = new FakeRequiredArtifactRepository();
         teamRepository = new FakeTeamRepository();
         editLockRepository = new FakeEditLockRepository();
@@ -141,7 +152,8 @@ class SubmissionFacadeTest {
                 teamMemberRepository,
                 enrollmentRepository,
                 editLockQueryService,
-                sectionQueryService
+                sectionQueryService,
+                userQueryService
         );
     }
 
@@ -541,6 +553,57 @@ class SubmissionFacadeTest {
 
         assertThatThrownBy(() -> submissionFacade.getMyTeamSubmission(MILESTONE_ID, "202677775"))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("getVersion은 제출자 이름과 파일 아티팩트의 크기·MIME 타입·다운로드 URL을 함께 내려준다")
+    void getVersion_IncludesSubmitterNameAndFileMetadata() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        FileObject file = fileObjectRepository.save(
+                FileObject.create(MEMBER, "report-key", "report.pdf", "application/pdf", 2048L, false, null));
+        SubmissionVersion version = submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 1, "1차 제출", null, MEMBER, false));
+        submissionArtifactRepository.saveAll(
+                List.of(SubmissionArtifact.file(version.getId(), null, file.getId())));
+
+        SubmissionVersionDetailResponse response = submissionFacade.getVersion(submission.getId(), 1, MEMBER);
+
+        assertThat(response.id()).isEqualTo(version.getId());
+        assertThat(response.submittedBy().userId()).isEqualTo(MEMBER);
+        assertThat(response.submittedBy().name()).isEqualTo("팀원학생");
+        assertThat(response.updatedAt()).isNotNull();
+        assertThat(response.artifacts()).hasSize(1);
+        assertThat(response.artifacts().get(0).size()).isEqualTo(2048L);
+        assertThat(response.artifacts().get(0).mimeType()).isEqualTo("application/pdf");
+        assertThat(response.artifacts().get(0).downloadUrl()).isEqualTo("https://fake-storage.local/report-key");
+    }
+
+    @Test
+    @DisplayName("getVersions는 이력 각 버전마다 아티팩트와 제출자 이름을 함께 내려준다")
+    void getVersions_IncludesArtifactsAndSubmitterForEachVersion() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        FileObject file = fileObjectRepository.save(
+                FileObject.create(LEADER, "v1-key", "v1.zip", "application/zip", 4096L, false, null));
+        SubmissionVersion version1 = submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 1, "1차 제출", null, LEADER, false));
+        submissionArtifactRepository.saveAll(
+                List.of(SubmissionArtifact.file(version1.getId(), null, file.getId())));
+        submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 2, "2차 제출", "버그 수정", MEMBER, false));
+
+        SubmissionVersionListResponse response = submissionFacade.getVersions(submission.getId(), MEMBER);
+
+        assertThat(response.contents()).hasSize(2);
+        SubmissionVersionSummaryResponse first = response.contents().stream()
+                .filter(v -> v.version() == 1).findFirst().orElseThrow();
+        assertThat(first.submittedBy().name()).isEqualTo("팀장학생");
+        assertThat(first.artifacts()).hasSize(1);
+        SubmissionVersionSummaryResponse second = response.contents().stream()
+                .filter(v -> v.version() == 2).findFirst().orElseThrow();
+        assertThat(second.submittedBy().name()).isEqualTo("팀원학생");
+        assertThat(second.artifacts()).isEmpty();
     }
 
     private Milestone milestone() {

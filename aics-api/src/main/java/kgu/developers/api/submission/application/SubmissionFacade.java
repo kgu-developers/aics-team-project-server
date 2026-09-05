@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -67,6 +68,8 @@ import kgu.developers.domain.submission.exception.SubmissionPresentationImageOwn
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -87,6 +90,7 @@ public class SubmissionFacade {
     private final EnrollmentRepository enrollmentRepository;
     private final EditLockQueryService editLockQueryService;
     private final SectionQueryService sectionQueryService;
+    private final UserQueryService userQueryService;
 
     public SubmissionResponse getMyTeamSubmission(Long milestoneId, String userId) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
@@ -110,7 +114,18 @@ public class SubmissionFacade {
     public SubmissionVersionListResponse getVersions(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
-        return SubmissionVersionListResponse.from(submissionVersionRepository.findAllBySubmissionId(submissionId));
+
+        List<SubmissionVersion> versions = submissionVersionRepository.findAllBySubmissionId(submissionId);
+        List<Long> versionIds = versions.stream().map(SubmissionVersion::getId).toList();
+
+        Map<Long, List<SubmissionArtifactResponse>> artifactsByVersionId = submissionArtifactRepository
+                .findAllByVersionIdIn(versionIds).stream()
+                .map(this::toArtifactResponseWithVersionId)
+                .collect(Collectors.groupingBy(Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+
+        Map<String, User> submittersByUserId = resolveSubmitters(versions);
+
+        return SubmissionVersionListResponse.from(versions, artifactsByVersionId, submittersByUserId);
     }
 
     public SubmissionVersionDetailResponse getVersion(Long submissionId, int version, String userId) {
@@ -126,7 +141,24 @@ public class SubmissionFacade {
                 .map(this::toArtifactResponse)
                 .toList();
 
-        return SubmissionVersionDetailResponse.of(submissionVersion, artifacts);
+        User submitter = resolveSubmitters(List.of(submissionVersion)).get(submissionVersion.getSubmittedBy());
+        return SubmissionVersionDetailResponse.of(submissionVersion, submitter, artifacts);
+    }
+
+    private Map.Entry<Long, SubmissionArtifactResponse> toArtifactResponseWithVersionId(SubmissionArtifact artifact) {
+        return Map.entry(artifact.getVersionId(), toArtifactResponse(artifact));
+    }
+
+    private Map<String, User> resolveSubmitters(List<SubmissionVersion> versions) {
+        List<String> submitterIds = versions.stream()
+                .map(SubmissionVersion::getSubmittedBy)
+                .distinct()
+                .toList();
+        if (submitterIds.isEmpty()) {
+            return Map.of();
+        }
+        return userQueryService.getUsersByStudentNumbers(submitterIds).stream()
+                .collect(Collectors.toMap(User::getStudentNumber, Function.identity()));
     }
 
     public SubmissionResponse submitVersion(
