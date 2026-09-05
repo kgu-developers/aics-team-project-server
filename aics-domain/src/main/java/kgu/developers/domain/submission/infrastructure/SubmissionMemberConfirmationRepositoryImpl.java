@@ -32,4 +32,9 @@ public class SubmissionMemberConfirmationRepositoryImpl implements SubmissionMem
         return jpaRepository.findBySubmissionIdAndUserId(submissionId, userId)
                 .map(SubmissionMemberConfirmationJpaEntity::toDomain);
     }
+
+    @Override
+    public void deleteBySubmissionIdAndUserId(Long submissionId, String userId) {
+        jpaRepository.deleteBySubmissionIdAndUserId(submissionId, userId);
+    }
 }
