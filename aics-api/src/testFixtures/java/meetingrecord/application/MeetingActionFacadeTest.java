@@ -11,6 +11,7 @@ import kgu.developers.api.meetingrecord.presentation.request.MeetingActionCreate
 import kgu.developers.api.meetingrecord.presentation.request.MeetingActionUpdateRequest;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionListResponse;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionResponse;
+import kgu.developers.api.meetingrecord.presentation.response.TeamMeetingActionListResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.meetingrecord.application.command.MeetingActionCommandService;
@@ -23,11 +24,16 @@ import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
+import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakeMeetingActionRepository;
 import mock.repository.FakeMeetingRecordRepository;
 import mock.repository.FakeSectionRepository;
 import mock.repository.FakeTeamMemberRepository;
 import mock.repository.FakeTeamRepository;
+import mock.repository.FakeUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,12 +56,14 @@ public class MeetingActionFacadeTest {
         FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
         FakeTeamRepository fakeTeamRepository = new FakeTeamRepository();
         FakeSectionRepository fakeSectionRepository = new FakeSectionRepository();
+        FakeUserRepository fakeUserRepository = new FakeUserRepository();
         fakeTeamMemberRepository.save(TeamMember.create(1L, MEMBER, false, "기록자"));
         fakeSectionRepository.save(Section.builder().id(10L).professorId(PROFESSOR).build());
         fakeTeamRepository.save(Team.builder().id(1L).sectionId(10L).status(Status.CONFIRMED).build());
+        fakeUserRepository.save(User.create(MEMBER, "member@kyonggi.ac.kr", "회원", "pw", UserGlobalRole.USER, "010-0000-0000"));
 
         MeetingRecord meetingRecord = fakeMeetingRecordRepository.save(
-            MeetingRecord.create(1L, MeetingPhase.PROPOSAL, MEMBER, LocalDateTime.now(), "장소", "내용", List.of(MEMBER))
+            MeetingRecord.create(1L, "회의록 제목", MeetingPhase.PROPOSAL, MEMBER, LocalDateTime.now(), "장소", "내용", List.of(MEMBER))
         );
         meetingRecordId = meetingRecord.getId();
 
@@ -64,14 +72,14 @@ public class MeetingActionFacadeTest {
             new MeetingActionQueryService(fakeMeetingActionRepository),
             new MeetingRecordQueryService(fakeMeetingRecordRepository),
             fakeTeamMemberRepository,
-            new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository)
+            new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository),
+            new UserQueryService(fakeUserRepository, new FakeEnrollmentRepository())
         );
     }
 
     private MeetingActionCreateRequest buildCreateRequest() {
         return MeetingActionCreateRequest.builder()
             .content("작업 내용")
-            .status(MeetingActionStatus.IN_PROGRESS)
             .assigneeId(MEMBER)
             .build();
     }
@@ -85,7 +93,7 @@ public class MeetingActionFacadeTest {
         // then
         assertNotNull(result.id());
         assertEquals("작업 내용", result.content());
-        assertEquals(MeetingActionStatus.IN_PROGRESS, result.status());
+        assertEquals(MeetingActionStatus.TODO, result.status());
     }
 
     @Test
@@ -102,7 +110,6 @@ public class MeetingActionFacadeTest {
         // given
         MeetingActionCreateRequest request = MeetingActionCreateRequest.builder()
             .content("작업 내용")
-            .status(MeetingActionStatus.IN_PROGRESS)
             .assigneeId(OTHER_TEAM_STUDENT)
             .build();
 
@@ -175,7 +182,7 @@ public class MeetingActionFacadeTest {
         MeetingActionResponse updated = meetingActionFacade.updateMeetingAction(persisted.id(), MEMBER, updateRequest);
 
         // then
-        assertEquals(null, updated.assigneeId());
+        assertEquals(null, updated.assignee());
     }
 
     @Test
@@ -226,7 +233,7 @@ public class MeetingActionFacadeTest {
         meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
 
         // when
-        MeetingActionListResponse result = meetingActionFacade.getTeamActions(1L, null, MEMBER);
+        TeamMeetingActionListResponse result = meetingActionFacade.getTeamActions(1L, null,MEMBER);
 
         // then
         assertEquals(1, result.contents().size());
@@ -247,7 +254,7 @@ public class MeetingActionFacadeTest {
         meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
 
         // when
-        MeetingActionListResponse result = meetingActionFacade.getTeamActions(1L, null, PROFESSOR);
+        TeamMeetingActionListResponse result = meetingActionFacade.getTeamActions(1L, null,PROFESSOR);
 
         // then
         assertEquals(1, result.contents().size());

@@ -27,6 +27,10 @@ public class MeetingRecordQueryService {
         return meetingRecordRepository.findAllByTeamId(teamId, phase);
     }
 
+    public List<MeetingRecord> getMeetingRecords(List<Long> ids) {
+        return meetingRecordRepository.findAllByIdIn(ids);
+    }
+
     public Page<MeetingRecord> getMeetingRecords(List<Long> teamIds, Pageable pageable) {
         return meetingRecordRepository.findAllByTeamIdIn(teamIds, pageable);
     }

@@ -41,6 +41,7 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
         MeetingRecord saved = MeetingRecord.builder()
             .id(id)
             .teamId(meetingRecord.getTeamId())
+            .title(meetingRecord.getTitle())
             .phase(meetingRecord.getPhase())
             .authorId(meetingRecord.getAuthorId())
             .meetingAt(meetingRecord.getMeetingAt())
@@ -65,6 +66,13 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
         return store.values().stream()
             .filter(meetingRecord -> meetingRecord.getTeamId().equals(teamId))
             .filter(meetingRecord -> phase == null || meetingRecord.getPhase() == phase)
+            .toList();
+    }
+
+    @Override
+    public List<MeetingRecord> findAllByIdIn(List<Long> ids) {
+        return store.values().stream()
+            .filter(meetingRecord -> ids.contains(meetingRecord.getId()))
             .toList();
     }
 

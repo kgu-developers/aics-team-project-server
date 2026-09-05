@@ -8,6 +8,7 @@ import kgu.developers.api.meetingrecord.presentation.request.MeetingActionCreate
 import kgu.developers.api.meetingrecord.presentation.request.MeetingActionUpdateRequest;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionListResponse;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingActionResponse;
+import kgu.developers.api.meetingrecord.presentation.response.TeamMeetingActionListResponse;
 import kgu.developers.domain.meetingrecord.domain.MeetingActionStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -58,7 +59,7 @@ public class MeetingActionControllerImpl implements MeetingActionController {
 
     @Override
     @GetMapping("/teams/{teamId}/actions")
-    public ResponseEntity<MeetingActionListResponse> getTeamActions(
+    public ResponseEntity<TeamMeetingActionListResponse> getTeamActions(
         @PathVariable Long teamId,
         @RequestParam(required = false) MeetingActionStatus status,
         Authentication authentication

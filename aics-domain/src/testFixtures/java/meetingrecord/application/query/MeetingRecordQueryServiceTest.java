@@ -29,7 +29,7 @@ class MeetingRecordQueryServiceTest {
 
     private MeetingRecord save(Long teamId, MeetingPhase phase) {
         return fakeMeetingRecordRepository.save(
-            MeetingRecord.create(teamId, phase, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345"))
+            MeetingRecord.create(teamId, "회의록 제목", phase, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345"))
         );
     }
 
@@ -88,10 +88,10 @@ class MeetingRecordQueryServiceTest {
     void getMeetingRecords_SameMeetingAt_OrdersByIdDescending() {
         LocalDateTime meetingAt = LocalDateTime.of(2026, 8, 25, 19, 30);
         MeetingRecord first = fakeMeetingRecordRepository.save(
-            MeetingRecord.create(1L, MeetingPhase.MID_CHECK, "202412345", meetingAt, "온라인", "첫 회의", List.of())
+            MeetingRecord.create(1L, "첫 회의록", MeetingPhase.MID_CHECK, "202412345", meetingAt, "온라인", "첫 회의", List.of())
         );
         MeetingRecord second = fakeMeetingRecordRepository.save(
-            MeetingRecord.create(2L, MeetingPhase.MID_CHECK, "202412346", meetingAt, "온라인", "두 번째 회의", List.of())
+            MeetingRecord.create(2L, "두 번째 회의록", MeetingPhase.MID_CHECK, "202412346", meetingAt, "온라인", "두 번째 회의", List.of())
         );
 
         var result = queryService.getMeetingRecords(

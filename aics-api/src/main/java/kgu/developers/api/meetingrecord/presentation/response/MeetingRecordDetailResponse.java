@@ -19,6 +19,9 @@ public record MeetingRecordDetailResponse(
     @Schema(description = "팀 식별자", example = "10", requiredMode = REQUIRED)
     Long teamId,
 
+    @Schema(description = "회의록 제목", example = "3주차 정기 회의", requiredMode = REQUIRED)
+    String title,
+
     @Schema(description = "회의 단계(PROPOSAL:제안, MID_CHECK:중간, FINAL:최종)", example = "MID_CHECK", requiredMode = REQUIRED)
     MeetingPhase phase,
 
@@ -50,6 +53,7 @@ public record MeetingRecordDetailResponse(
         return MeetingRecordDetailResponse.builder()
             .id(meetingRecord.getId())
             .teamId(meetingRecord.getTeamId())
+            .title(meetingRecord.getTitle())
             .phase(meetingRecord.getPhase())
             .authorId(meetingRecord.getAuthorId())
             .meetingAt(meetingRecord.getMeetingAt().format(FORMATTER))

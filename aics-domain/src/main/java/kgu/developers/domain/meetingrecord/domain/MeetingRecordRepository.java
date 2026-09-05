@@ -13,6 +13,8 @@ public interface MeetingRecordRepository {
 
     List<MeetingRecord> findAllByTeamId(Long teamId, MeetingPhase phase);
 
+    List<MeetingRecord> findAllByIdIn(List<Long> ids);
+
     Page<MeetingRecord> findAllByTeamIdIn(List<Long> teamIds, Pageable pageable);
 
     void deleteById(Long id);

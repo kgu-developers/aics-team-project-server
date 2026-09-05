@@ -27,7 +27,7 @@ class MeetingRecordCommandServiceTest {
 
     private Long createMeetingRecord() {
         return commandService.createMeetingRecord(
-            1L, MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345")
+            1L, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345")
         );
     }
 
@@ -50,7 +50,7 @@ class MeetingRecordCommandServiceTest {
         Long id = createMeetingRecord();
 
         // when
-        commandService.updateMeetingRecord(id, null, "새 장소", MeetingPhase.FINAL, "새 내용", null);
+        commandService.updateMeetingRecord(id, null, null, "새 장소", MeetingPhase.FINAL, "새 내용", null);
 
         // then
         MeetingRecord updated = fakeMeetingRecordRepository.findById(id).orElseThrow();
@@ -64,7 +64,7 @@ class MeetingRecordCommandServiceTest {
     @DisplayName("updateMeetingRecord는 존재하지 않는 회의록이면 예외를 던진다")
     void updateMeetingRecord_NotFound_ThrowsException() {
         // when & then
-        assertThatThrownBy(() -> commandService.updateMeetingRecord(999L, null, null, null, "내용", null))
+        assertThatThrownBy(() -> commandService.updateMeetingRecord(999L, null, null, null, null, "내용", null))
             .isInstanceOf(CustomException.class);
     }
 
@@ -75,7 +75,7 @@ class MeetingRecordCommandServiceTest {
         Long id = createMeetingRecord();
 
         // when & then
-        assertThatThrownBy(() -> commandService.updateMeetingRecord(id, null, null, null, "   ", null))
+        assertThatThrownBy(() -> commandService.updateMeetingRecord(id, null, null, null, null, "   ", null))
             .isInstanceOf(CustomException.class);
     }
 

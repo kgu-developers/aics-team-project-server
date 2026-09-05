@@ -37,6 +37,9 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private Long teamId;
 
+    @Column(nullable = false, length = 200)
+    private String title;
+
     @Column(nullable = false, length = 20)
     @Enumerated(STRING)
     private MeetingPhase phase;
@@ -60,6 +63,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
         return MeetingRecord.builder()
             .id(this.id)
             .teamId(this.teamId)
+            .title(this.title)
             .phase(this.phase)
             .authorId(this.authorId)
             .meetingAt(this.meetingAt)
@@ -76,6 +80,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
         return MeetingRecordJpaEntity.builder()
             .id(domain.getId())
             .teamId(domain.getTeamId())
+            .title(domain.getTitle())
             .phase(domain.getPhase())
             .authorId(domain.getAuthorId())
             .meetingAt(domain.getMeetingAt())

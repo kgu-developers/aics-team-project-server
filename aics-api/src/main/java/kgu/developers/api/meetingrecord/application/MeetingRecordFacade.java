@@ -33,6 +33,7 @@ public class MeetingRecordFacade {
         validateTeamMembership(teamId, authorId);
         Long id = meetingRecordCommandService.createMeetingRecord(
             teamId,
+            request.title(),
             request.phase(),
             authorId,
             request.meetingAt(),
@@ -54,6 +55,7 @@ public class MeetingRecordFacade {
         validateTeamMembership(meetingRecord.getTeamId(), userId);
         meetingRecordCommandService.updateMeetingRecord(
             id,
+            request.title(),
             request.meetingAt(),
             request.location(),
             request.phase(),

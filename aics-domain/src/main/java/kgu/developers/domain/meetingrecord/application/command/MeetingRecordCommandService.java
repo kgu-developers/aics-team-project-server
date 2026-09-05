@@ -6,6 +6,7 @@ import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordInvalidContentException;
+import kgu.developers.domain.meetingrecord.exception.MeetingRecordInvalidTitleException;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class MeetingRecordCommandService {
 
     public Long createMeetingRecord(
         Long teamId,
+        String title,
         MeetingPhase phase,
         String authorId,
         LocalDateTime meetingAt,
@@ -27,12 +29,13 @@ public class MeetingRecordCommandService {
         String content,
         List<String> participantIds
     ) {
-        MeetingRecord meetingRecord = MeetingRecord.create(teamId, phase, authorId, meetingAt, location, content, participantIds);
+        MeetingRecord meetingRecord = MeetingRecord.create(teamId, title, phase, authorId, meetingAt, location, content, participantIds);
         return meetingRecordRepository.save(meetingRecord).getId();
     }
 
     public void updateMeetingRecord(
         Long id,
+        String title,
         LocalDateTime meetingAt,
         String location,
         MeetingPhase phase,
@@ -41,6 +44,12 @@ public class MeetingRecordCommandService {
     ) {
         MeetingRecord meetingRecord = findOrThrow(id);
 
+        if (title != null) {
+            if (title.isBlank()) {
+                throw new MeetingRecordInvalidTitleException();
+            }
+            meetingRecord.updateTitle(title);
+        }
         if (meetingAt != null) {
             meetingRecord.updateMeetingAt(meetingAt);
         }

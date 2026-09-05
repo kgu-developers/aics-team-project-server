@@ -1,7 +1,7 @@
 package kgu.developers.domain.meetingrecord.domain;
 
 public enum MeetingActionStatus {
-    DONE,
+    TODO,
     IN_PROGRESS,
-    EXCLUDED
+    DONE
 }
