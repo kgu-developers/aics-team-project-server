@@ -61,7 +61,7 @@ class MeetingRecordAdminControllerTest {
                 .param("sectionId", "1")
                 .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.contents[0].sectionName").value("1151"))
+            .andExpect(jsonPath("$.contents[0].sectionName").value("월3,4/1151"))
             .andExpect(jsonPath("$.contents[0].teamName").value("A팀"))
             .andExpect(jsonPath("$.pageable.totalElements").value(1));
 
@@ -123,7 +123,7 @@ class MeetingRecordAdminControllerTest {
         MeetingRecordAdminResponse content = MeetingRecordAdminResponse.builder()
             .id(1L)
             .sectionId(1L)
-            .sectionName("1151")
+            .sectionName("월3,4/1151")
             .teamId(10L)
             .teamName("A팀")
             .phase(MeetingPhase.MID_CHECK)

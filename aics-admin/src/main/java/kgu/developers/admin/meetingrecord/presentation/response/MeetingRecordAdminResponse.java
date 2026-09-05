@@ -19,7 +19,7 @@ public record MeetingRecordAdminResponse(
     @Schema(description = "분반 식별자", example = "10", requiredMode = REQUIRED)
     Long sectionId,
 
-    @Schema(description = "분반명", example = "1151", requiredMode = REQUIRED)
+    @Schema(description = "분반명", example = "월123/1154", requiredMode = REQUIRED)
     String sectionName,
 
     @Schema(description = "팀 식별자", example = "20", requiredMode = REQUIRED)
