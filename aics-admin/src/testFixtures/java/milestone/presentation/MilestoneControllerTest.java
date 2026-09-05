@@ -58,7 +58,7 @@ import kgu.developers.globalutils.jwt.TokenRevocationStore;
         "spring.security.user.password=admin"
 })
 class MilestoneControllerTest {
-    private static final String MILESTONES_URL = "/api/v1/admin/oop/sections/1/milestones";
+    private static final String MILESTONES_URL = "/api/v1/admin/sections/1/milestones";
 
     @SpringBootConfiguration
     static class TestApp {
@@ -332,7 +332,7 @@ class MilestoneControllerTest {
     @WithMockUser(roles = "ADMIN")
     @DisplayName("0 이하의 분반 식별자는 400을 응답한다")
     void invalidSectionId() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/oop/sections/0/milestones"))
+        mockMvc.perform(get("/api/v1/admin/sections/0/milestones"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
     }

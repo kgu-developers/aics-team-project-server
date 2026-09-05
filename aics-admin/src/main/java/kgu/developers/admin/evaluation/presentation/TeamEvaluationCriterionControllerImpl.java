@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop/sections/{sectionId}/team-evaluation-criteria")
+@RequestMapping("/api/v1/admin/sections/{sectionId}/team-evaluation-criteria")
 public class TeamEvaluationCriterionControllerImpl implements TeamEvaluationCriterionController {
 
   private final TeamEvaluationCriterionFacade facade;

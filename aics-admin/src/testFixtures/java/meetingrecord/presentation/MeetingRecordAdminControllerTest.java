@@ -37,7 +37,7 @@ import org.springframework.validation.beanvalidation.MethodValidationPostProcess
 @ExtendWith(MockitoExtension.class)
 class MeetingRecordAdminControllerTest {
 
-    private static final String BASE_URL = "/api/v1/admin/oop/meeting-records";
+    private static final String BASE_URL = "/api/v1/admin/meeting-records";
     private static final String PROFESSOR_ID = "202699999";
 
     @Mock

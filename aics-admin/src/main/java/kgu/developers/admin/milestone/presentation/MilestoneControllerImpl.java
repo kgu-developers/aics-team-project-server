@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop/sections/{sectionId}/milestones")
+@RequestMapping("/api/v1/admin/sections/{sectionId}/milestones")
 public class MilestoneControllerImpl implements MilestoneController {
     private final MilestoneFacade milestoneFacade;
 

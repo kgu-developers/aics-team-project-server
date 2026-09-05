@@ -30,7 +30,7 @@ import kgu.developers.common.exception.GlobalExceptionHandler;
 @WithMockUser(username = "202012345")
 class PreSurveyResponseControllerValidationTest {
 
-	private static final String SUBMIT_URL = "/api/v1/oop/sections/{sectionId}/pre-survey/responses";
+	private static final String SUBMIT_URL = "/api/v1/sections/{sectionId}/pre-survey/responses";
 
 	@SpringBootConfiguration
 	static class TestApp {
