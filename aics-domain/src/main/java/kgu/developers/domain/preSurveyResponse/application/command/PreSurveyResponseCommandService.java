@@ -8,7 +8,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.exception.EnrollmentNotFoundException;
+import kgu.developers.domain.notification.application.command.NotificationOutboxService;
+import kgu.developers.domain.notification.domain.NotificationType;
+import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponseRepository;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerInvalidException;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerRequestNotFoundException;
@@ -19,6 +23,8 @@ import lombok.RequiredArgsConstructor;
 public class PreSurveyResponseCommandService {
   private final PreSurveyResponseRepository preSurveyResponseRepository;
   private final EnrollmentRepository enrollmentRepository;
+  private final NotificationOutboxService notificationOutboxService;
+  private final UserQueryService userQueryService;
 
   // 같은 사용자·분반 조합의 동시 제출은 Enrollment 행을 먼저 잠가(비관적 락) 직렬화한다 — DB
   // 유니크 제약(database/pre_survey_response.sql)은 Flyway로 자동 적용되지 않아 배포 DB에 실제로
@@ -39,14 +45,24 @@ public class PreSurveyResponseCommandService {
     PreSurveyResponse existing = preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)
         .orElse(null);
 
+    String previousPeerUserId = existing == null ? null : existing.getPreferredPeerUserId();
+    kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus previousPeerStatus = 
+        existing == null ? null : existing.getPreferredPeerStatus();
+
+    PreSurveyResponse saved;
     if (existing != null) {
       existing.update(preferredRoles, topicOpinion, etcOpinion, preferredPeerUserId);
-      return preSurveyResponseRepository.save(existing);
+      saved = preSurveyResponseRepository.save(existing);
+    } else {
+      saved = PreSurveyResponse.create(userId, sectionId, preferredRoles, topicOpinion,
+        etcOpinion, preferredPeerUserId);
+      saved = preSurveyResponseRepository.save(saved);
     }
 
-    PreSurveyResponse response = PreSurveyResponse.create(userId, sectionId, preferredRoles, topicOpinion,
-        etcOpinion, preferredPeerUserId);
-    return preSurveyResponseRepository.save(response);
+    // 트랜잭션 안에서 알림 아웃박스에 기록
+    createNotificationOutboxesForPeerChange(saved, previousPeerUserId, previousPeerStatus, userId);
+
+    return saved;
   }
 
   /**
@@ -68,7 +84,20 @@ public class PreSurveyResponseCommandService {
     }
 
     request.decidePreferredPeer(accepted);
-    return preSurveyResponseRepository.save(request);
+    PreSurveyResponse saved = preSurveyResponseRepository.save(request);
+
+    // 트랜잭션 안에서 알림 아웃박스에 기록
+    String peerUserName = userQueryService.getUserByStudentNumber(peerUserId).getName();
+    notificationOutboxService.createNotificationOutbox(
+        requesterUserId,
+        NotificationType.PRE_SURVEY_PREFERRED_PEER_DECIDED,
+        saved.getId(),
+        accepted ? "조원 지목 수락" : "조원 지목 거절",
+        String.format("%s 님이 회원님의 조원 지목을 %s했습니다.", peerUserName, accepted ? "수락" : "거절"),
+        null
+    );
+
+    return saved;
   }
 
   private void validatePreferredPeer(String userId, Long sectionId, String preferredPeerUserId) {
@@ -82,6 +111,43 @@ public class PreSurveyResponseCommandService {
         .orElseThrow(PreSurveyResponsePreferredPeerInvalidException::new);
     if (!peer.isActiveStudent()) {
       throw new PreSurveyResponsePreferredPeerInvalidException();
+    }
+  }
+
+  /**
+   * 지목 대상이 실제로 바뀐 경우에만 아웃박스에 기록한다. 대상 변경은 이전 대상에게는 취소, 새 대상에게는 요청이라
+   * 양쪽 모두 기록한다. 대상이 그대로면(의견만 고친 재제출) 아무것도 기록하지 않는다.
+   */
+  private void createNotificationOutboxesForPeerChange(PreSurveyResponse saved, String previousPeerUserId, PreferredPeerStatus previousPeerStatus, String userId) {
+    String peerUserId = saved.getPreferredPeerUserId();
+    if (java.util.Objects.equals(previousPeerUserId, peerUserId)) {
+      return;
+    }
+
+    String userName = userQueryService.getUserByStudentNumber(userId).getName();
+
+    // 이미 거절한 상대에게 "그 지목이 취소됐다"고 보내지 않는다.
+    boolean previouslyRejected = previousPeerStatus == PreferredPeerStatus.REJECTED;
+    if (previousPeerUserId != null && !previouslyRejected) {
+      notificationOutboxService.createNotificationOutbox(
+          previousPeerUserId,
+          NotificationType.PRE_SURVEY_PREFERRED_PEER_CANCELLED,
+          saved.getId(),
+          "조원 지목 취소",
+          String.format("%s 님이 회원님에 대한 조원 지목을 취소했습니다.", userName),
+          null
+      );
+    }
+
+    if (peerUserId != null) {
+      notificationOutboxService.createNotificationOutbox(
+          peerUserId,
+          NotificationType.PRE_SURVEY_PREFERRED_PEER_REQUESTED,
+          saved.getId(),
+          "조원 지목 요청",
+          String.format("%s 님이 회원님을 조원으로 지목했습니다.", userName),
+          null
+      );
     }
   }
 }

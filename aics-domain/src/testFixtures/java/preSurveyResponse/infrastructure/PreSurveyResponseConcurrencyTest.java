@@ -76,18 +76,24 @@ class PreSurveyResponseConcurrencyTest {
     // 잃어버린 갱신이 드러날 확률을 올린다. 락을 빼면 이 횟수 안에서 반드시 깨지는 걸 확인했다.
     private static final int RACE_ROUNDS = 20;
 
+    @Autowired
+    private mock.repository.FakeUserQueryService fakeUserQueryService;
+
     @BeforeEach
     void setUp() {
         jpaPreSurveyResponseRepository.deleteAll();
         jpaEnrollmentRepository.deleteAll();
         enrollmentRepository.save(Enrollment.create(SECTION_ID, REQUESTER, Role.STUDENT, Status.ACTIVE));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER, Role.STUDENT, Status.ACTIVE));
+        fakeUserQueryService.save(kgu.developers.domain.user.domain.User.create(REQUESTER, "requester@test.com", "Requester", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
+        fakeUserQueryService.save(kgu.developers.domain.user.domain.User.create(PEER, "peer@test.com", "Peer", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
     }
 
     @AfterEach
     void tearDown() {
         jpaPreSurveyResponseRepository.deleteAll();
         jpaEnrollmentRepository.deleteAll();
+        fakeUserQueryService.clear();
     }
 
     /**
@@ -168,8 +174,20 @@ class PreSurveyResponseConcurrencyTest {
         @Bean
         PreSurveyResponseCommandService preSurveyResponseCommandService(
             PreSurveyResponseRepository preSurveyResponseRepository,
-            EnrollmentRepository enrollmentRepository) {
-            return new PreSurveyResponseCommandService(preSurveyResponseRepository, enrollmentRepository);
+            EnrollmentRepository enrollmentRepository,
+            kgu.developers.domain.notification.application.command.NotificationOutboxService notificationOutboxService,
+            kgu.developers.domain.user.application.query.UserQueryService userQueryService) {
+            return new PreSurveyResponseCommandService(preSurveyResponseRepository, enrollmentRepository, notificationOutboxService, userQueryService);
+        }
+
+        @Bean
+        kgu.developers.domain.notification.application.command.NotificationOutboxService notificationOutboxService() {
+            return new mock.repository.FakeNotificationOutboxService();
+        }
+
+        @Bean
+        kgu.developers.domain.user.application.query.UserQueryService userQueryService() {
+            return new mock.repository.FakeUserQueryService();
         }
     }
 }

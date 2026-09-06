@@ -19,7 +19,9 @@ import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerInvalidException;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerRequestNotFoundException;
 import mock.repository.FakeEnrollmentRepository;
+import mock.repository.FakeNotificationOutboxService;
 import mock.repository.FakePreSurveyResponseRepository;
+import mock.repository.FakeUserQueryService;
 
 class PreSurveyResponseCommandServiceTest {
 
@@ -29,6 +31,8 @@ class PreSurveyResponseCommandServiceTest {
 
 	private FakePreSurveyResponseRepository repository;
 	private FakeEnrollmentRepository enrollmentRepository;
+	private FakeNotificationOutboxService notificationOutboxService;
+	private FakeUserQueryService userQueryService;
 	private PreSurveyResponseCommandService commandService;
 	private ObjectMapper objectMapper;
 
@@ -36,8 +40,11 @@ class PreSurveyResponseCommandServiceTest {
 	void setUp() {
 		repository = new FakePreSurveyResponseRepository();
 		enrollmentRepository = new FakeEnrollmentRepository();
+		notificationOutboxService = new FakeNotificationOutboxService();
+		userQueryService = new FakeUserQueryService();
 		enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
-		commandService = new PreSurveyResponseCommandService(repository, enrollmentRepository);
+		userQueryService.save(kgu.developers.domain.user.domain.User.create(USER_ID, "user@test.com", "Test User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
+		commandService = new PreSurveyResponseCommandService(repository, enrollmentRepository, notificationOutboxService, userQueryService);
 		objectMapper = new ObjectMapper();
 	}
 
@@ -105,6 +112,7 @@ class PreSurveyResponseCommandServiceTest {
 	@DisplayName("지목당한 학생이 수락하면 지목한 쪽 응답의 상태가 ACCEPTED가 된다")
 	void decidePreferredPeer_Accept() throws Exception {
 		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
+		userQueryService.save(kgu.developers.domain.user.domain.User.create(PEER_ID, "peer@test.com", "Peer User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
 		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
 		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
 
@@ -117,6 +125,7 @@ class PreSurveyResponseCommandServiceTest {
 	@DisplayName("이미 처리했거나 나를 지목하지 않은 신청은 수락·거절할 수 없다")
 	void decidePreferredPeer_RejectsNonPending() throws Exception {
 		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
+		userQueryService.save(kgu.developers.domain.user.domain.User.create(PEER_ID, "peer@test.com", "Peer User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
 		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
 		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
 		commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, false);

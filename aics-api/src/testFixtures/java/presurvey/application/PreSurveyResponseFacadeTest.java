@@ -27,7 +27,7 @@ import kgu.developers.api.preSurveyResponse.application.PreSurveyResponseFacade;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
 import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
-import kgu.developers.domain.notification.application.command.NotificationCommandService;
+import kgu.developers.domain.notification.application.command.NotificationOutboxService;
 import kgu.developers.domain.notification.domain.NotificationType;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
@@ -63,10 +63,13 @@ class PreSurveyResponseFacadeTest {
 	private EnrollmentQueryService enrollmentQueryService;
 
 	@Mock
-	private NotificationCommandService notificationCommandService;
+	private NotificationOutboxService notificationOutboxService;
 
 	@Mock
 	private UserQueryService userQueryService;
+
+	@Mock
+	private UserQueryService commandUserQueryService;
 
 	private PreSurveyResponseFacade preSurveyResponseFacade;
 
@@ -74,12 +77,11 @@ class PreSurveyResponseFacadeTest {
 	void init() {
 		FakePreSurveyResponseRepository repository = new FakePreSurveyResponseRepository();
 		preSurveyResponseFacade = new PreSurveyResponseFacade(
-				new PreSurveyResponseCommandService(repository, enrollmentRepository),
+				new PreSurveyResponseCommandService(repository, enrollmentRepository, notificationOutboxService, commandUserQueryService),
 				new PreSurveyResponseQueryService(repository),
 				enrollmentRepository,
 				enrollmentQueryService,
-				userQueryService,
-				notificationCommandService
+				userQueryService
 		);
 		given(userQueryService.getUserByStudentNumber(STUDENT))
 				.willReturn(User.create(STUDENT, "student@kyonggi.ac.kr", STUDENT_NAME, "password", UserGlobalRole.USER, null));
@@ -105,6 +107,13 @@ class PreSurveyResponseFacadeTest {
 		}
 		given(userQueryService.getUserByStudentNumber(PEER))
 				.willReturn(User.create(PEER, "peer@kyonggi.ac.kr", PEER_NAME, "password", UserGlobalRole.USER, null));
+		// Stub for the command service's user query service
+		given(commandUserQueryService.getUserByStudentNumber(STUDENT))
+				.willReturn(User.create(STUDENT, "student@kyonggi.ac.kr", STUDENT_NAME, "password", UserGlobalRole.USER, null));
+		given(commandUserQueryService.getUserByStudentNumber(PEER))
+				.willReturn(User.create(PEER, "peer@kyonggi.ac.kr", PEER_NAME, "password", UserGlobalRole.USER, null));
+		given(commandUserQueryService.getUserByStudentNumber(OTHER_PEER))
+				.willReturn(User.create(OTHER_PEER, "other@kyonggi.ac.kr", "Other", "password", UserGlobalRole.USER, null));
 	}
 
 	private PreSurveyResponseSubmitRequest request(List<String> roles, String topicOpinion) {
@@ -200,7 +209,7 @@ class PreSurveyResponseFacadeTest {
 	void submitNotifiesPreferredPeer() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
 
-		then(notificationCommandService).should().createNotification(
+		then(notificationOutboxService).should().createNotificationOutbox(
 				eq(PEER),
 				eq(NotificationType.PRE_SURVEY_PREFERRED_PEER_REQUESTED),
 				any(),
@@ -213,25 +222,25 @@ class PreSurveyResponseFacadeTest {
 	@DisplayName("같은 학생을 지목한 채 의견만 고쳐 재제출하면 알림이 다시 가지 않는다")
 	void resubmitWithSamePeerDoesNotNotifyAgain() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
-		clearInvocations(notificationCommandService);
+		clearInvocations(notificationOutboxService);
 
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("FRONTEND"), "주제 바꿈", PEER));
 
-		then(notificationCommandService).shouldHaveNoInteractions();
+		then(notificationOutboxService).shouldHaveNoInteractions();
 	}
 
 	@Test
 	@DisplayName("지목 대상을 바꾸면 새 대상에게는 요청, 이전 대상에게는 취소 알림이 간다")
 	void changingPeerNotifiesBothSides() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
-		clearInvocations(notificationCommandService);
+		clearInvocations(notificationOutboxService);
 
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", OTHER_PEER));
 
-		then(notificationCommandService).should().createNotification(
+		then(notificationOutboxService).should().createNotificationOutbox(
 				eq(OTHER_PEER), eq(NotificationType.PRE_SURVEY_PREFERRED_PEER_REQUESTED),
 				any(), any(), any(), isNull());
-		then(notificationCommandService).should().createNotification(
+		then(notificationOutboxService).should().createNotificationOutbox(
 				eq(PEER), eq(NotificationType.PRE_SURVEY_PREFERRED_PEER_CANCELLED),
 				any(), eq("조원 지목 취소"), any(), isNull());
 	}
@@ -240,11 +249,11 @@ class PreSurveyResponseFacadeTest {
 	@DisplayName("지목을 취소하면(대상 null) 지목당했던 학생에게 취소 알림이 간다")
 	void cancellingPeerNotifiesPreviousPeer() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
-		clearInvocations(notificationCommandService);
+		clearInvocations(notificationOutboxService);
 
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", null));
 
-		then(notificationCommandService).should().createNotification(
+		then(notificationOutboxService).should().createNotificationOutbox(
 				eq(PEER),
 				eq(NotificationType.PRE_SURVEY_PREFERRED_PEER_CANCELLED),
 				any(),
@@ -258,11 +267,11 @@ class PreSurveyResponseFacadeTest {
 	void cancellingAfterRejectionDoesNotNotify() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
 		preSurveyResponseFacade.decidePreferredPeer(PEER, SECTION_ID, STUDENT, false);
-		clearInvocations(notificationCommandService);
+		clearInvocations(notificationOutboxService);
 
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", null));
 
-		then(notificationCommandService).shouldHaveNoInteractions();
+		then(notificationOutboxService).shouldHaveNoInteractions();
 	}
 
 	@Test
@@ -270,11 +279,11 @@ class PreSurveyResponseFacadeTest {
 	void cancellingAfterAcceptanceNotifies() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
 		preSurveyResponseFacade.decidePreferredPeer(PEER, SECTION_ID, STUDENT, true);
-		clearInvocations(notificationCommandService);
+		clearInvocations(notificationOutboxService);
 
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", null));
 
-		then(notificationCommandService).should().createNotification(
+		then(notificationOutboxService).should().createNotificationOutbox(
 				eq(PEER), eq(NotificationType.PRE_SURVEY_PREFERRED_PEER_CANCELLED),
 				any(), eq("조원 지목 취소"), any(), isNull());
 	}
@@ -283,11 +292,11 @@ class PreSurveyResponseFacadeTest {
 	@DisplayName("수락하면 지목한 학생에게 수락 알림이 간다")
 	void acceptNotifiesRequester() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
-		clearInvocations(notificationCommandService);
+		clearInvocations(notificationOutboxService);
 
 		preSurveyResponseFacade.decidePreferredPeer(PEER, SECTION_ID, STUDENT, true);
 
-		then(notificationCommandService).should().createNotification(
+		then(notificationOutboxService).should().createNotificationOutbox(
 				eq(STUDENT),
 				eq(NotificationType.PRE_SURVEY_PREFERRED_PEER_DECIDED),
 				any(),
@@ -300,11 +309,11 @@ class PreSurveyResponseFacadeTest {
 	@DisplayName("거절하면 지목한 학생에게 거절 알림이 간다")
 	void rejectNotifiesRequester() {
 		preSurveyResponseFacade.submit(SECTION_ID, STUDENT, request(List.of("BACKEND"), "웹 서비스", PEER));
-		clearInvocations(notificationCommandService);
+		clearInvocations(notificationOutboxService);
 
 		preSurveyResponseFacade.decidePreferredPeer(PEER, SECTION_ID, STUDENT, false);
 
-		then(notificationCommandService).should().createNotification(
+		then(notificationOutboxService).should().createNotificationOutbox(
 				eq(STUDENT),
 				eq(NotificationType.PRE_SURVEY_PREFERRED_PEER_DECIDED),
 				any(),
