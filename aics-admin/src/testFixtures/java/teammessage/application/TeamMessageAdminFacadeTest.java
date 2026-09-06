@@ -194,8 +194,8 @@ class TeamMessageAdminFacadeTest {
         verifyNoInteractions(teamMessageCommandService);
     }
 
-    private Section section(Long id, String name, String professorId) {
-        return Section.builder().id(id).name(name).professorId(professorId).build();
+    private Section section(Long id, String code, String professorId) {
+        return Section.builder().id(id).code(code).professorId(professorId).build();
     }
 
     private SectionDetail detail(Section section) {
