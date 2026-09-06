@@ -41,7 +41,7 @@ public record PreSurveyResponseAdminResponse(
         @Schema(description = "희망 조원 지목 상태(PENDING/ACCEPTED/REJECTED). 지목하지 않았으면 null", example = "ACCEPTED")
         PreferredPeerStatus preferredPeerStatus,
 
-        @Schema(description = "서로 지목했는지 여부. 상대도 이 학생을 희망 조원으로 지목했으면 true", example = "true", requiredMode = REQUIRED)
+        @Schema(description = "서로 지목했거나 지목 대상이 수락하여 매칭된 경우 true", example = "true", requiredMode = REQUIRED)
         boolean mutual,
 
         @Schema(description = "제출일", example = "2026-08-21 14:00", requiredMode = REQUIRED)
