@@ -52,6 +52,14 @@ public class TeamMember {
         this.projectRole = projectRole;
     }
 
+    public void updatePhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public void updateGrade(String grade) {
+        this.grade = grade;
+    }
+
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }

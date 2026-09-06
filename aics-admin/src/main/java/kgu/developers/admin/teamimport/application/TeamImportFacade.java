@@ -163,6 +163,8 @@ public class TeamImportFacade {
                 }
                 row.assigned().updateIsLeader(row.leader());
                 row.assigned().updateProjectRole(row.projectRole());
+                row.assigned().updatePhoneNumber(row.phoneNumber());
+                row.assigned().updateGrade(row.grade());
                 teamMemberRepository.save(row.assigned());
                 appliedMembers++;
                 continue;
