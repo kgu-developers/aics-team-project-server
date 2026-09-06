@@ -9,6 +9,9 @@ import lombok.Builder;
 @Builder
 public record MeetingRecordUpdateRequest(
 
+    @Schema(description = "회의록 제목", example = "3주차 정기 회의(수정)")
+    String title,
+
     @Schema(description = "회의 일시", example = "2026-08-03T15:00:00")
     LocalDateTime meetingAt,
 

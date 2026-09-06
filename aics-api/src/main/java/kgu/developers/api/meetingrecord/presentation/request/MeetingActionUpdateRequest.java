@@ -11,7 +11,7 @@ public record MeetingActionUpdateRequest(
     @Schema(description = "작업 내용", example = "수정된 작업 내용")
     String content,
 
-    @Schema(description = "상태(DONE:완료, IN_PROGRESS:진행중, EXCLUDED:제외)", example = "DONE")
+    @Schema(description = "상태(TODO:시작 전, IN_PROGRESS:진행중, DONE:완료)", example = "DONE")
     MeetingActionStatus status,
 
     @Schema(description = "마감일시", example = "2026-08-29T12:00:00")

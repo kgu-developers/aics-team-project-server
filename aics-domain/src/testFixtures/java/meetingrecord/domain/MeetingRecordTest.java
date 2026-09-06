@@ -20,7 +20,7 @@ class MeetingRecordTest {
 
         // when
         MeetingRecord meetingRecord = MeetingRecord.create(
-            1L, MeetingPhase.PROPOSAL, "202412345", meetingAt, "온라인(Zoom)", "회의 내용",
+            1L, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", meetingAt, "온라인(Zoom)", "회의 내용",
             List.of("202412345", "202412345", "202412346")
         );
 
@@ -35,7 +35,7 @@ class MeetingRecordTest {
     @DisplayName("create는 참석자 목록이 null이면 빈 목록으로 생성한다")
     void create_NullParticipants_ResultsInEmptyList() {
         MeetingRecord meetingRecord = MeetingRecord.create(
-            1L, MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", null
+            1L, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", null
         );
 
         assertThat(meetingRecord.getParticipantCount()).isEqualTo(0);
@@ -46,7 +46,7 @@ class MeetingRecordTest {
     void updaters_UpdateFields() {
         // given
         MeetingRecord meetingRecord = MeetingRecord.create(
-            1L, MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345")
+            1L, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345")
         );
         LocalDateTime newMeetingAt = LocalDateTime.of(2026, 9, 1, 10, 0);
 
