@@ -85,7 +85,7 @@ class SectionRepositoryJpaIntegrationTest {
       entityManager.createQuery("delete from UserJpaEntity").executeUpdate();
 
       // 엔티티가 만드는 varchar(200)을 배포 DB와 같은 varchar(64) NOT NULL 로 좁힌다
-      entityManager.createNativeQuery("alter table section alter column name type varchar(64)")
+      entityManager.createNativeQuery("alter table section alter column name type varchar(200)")
           .executeUpdate();
       entityManager.createNativeQuery("alter table section alter column name set not null")
           .executeUpdate();
