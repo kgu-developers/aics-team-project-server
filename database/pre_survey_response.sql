@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS "pre_survey_response" (
     preferred_roles JSONB NOT NULL,
     topic_opinion TEXT,
     etc_opinion TEXT,
+    preferred_peer_user_id VARCHAR(20),
+    preferred_peer_status VARCHAR(20),
     PRIMARY KEY (id)
 );
 
@@ -25,4 +27,9 @@ CREATE INDEX IF NOT EXISTS idx_pre_survey_response_section
 
 COMMENT ON COLUMN "pre_survey_response".user_id IS 'User 외부 FK는 User 테이블 도입 후 적용한다.';
 COMMENT ON COLUMN "pre_survey_response".section_id IS 'Section 외부 FK는 Section 테이블 도입 후 적용한다.';
+CREATE INDEX IF NOT EXISTS idx_pre_survey_response_preferred_peer
+    ON "pre_survey_response" (section_id, preferred_peer_user_id, deleted_at);
+
 COMMENT ON COLUMN "pre_survey_response".preferred_roles IS '희망 역할 JSON. 형식은 도메인이 강제하지 않는다.';
+COMMENT ON COLUMN "pre_survey_response".preferred_peer_user_id IS '조원으로 희망해 지목한 학생 학번. 1명뿐이라 별도 테이블을 두지 않는다.';
+COMMENT ON COLUMN "pre_survey_response".preferred_peer_status IS 'PENDING/ACCEPTED/REJECTED. 지목이 없으면 NULL.';

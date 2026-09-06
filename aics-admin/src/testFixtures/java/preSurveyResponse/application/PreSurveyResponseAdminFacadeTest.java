@@ -45,7 +45,7 @@ class PreSurveyResponseAdminFacadeTest {
 
         JsonNode roles = objectMapper.readTree("[\"BACKEND\", \"PM\"]");
         preSurveyResponseRepository.save(
-                PreSurveyResponse.create("202412345", SECTION_ID, roles, "학사 알림 서비스", "금요일 회의 어려움"));
+                PreSurveyResponse.create("202412345", SECTION_ID, roles, "학사 알림 서비스", "금요일 회의 어려움", null));
 
         userQueryService = mock(UserQueryService.class);
         given(userQueryService.getUsersByStudentNumbers(List.of("202412345"))).willReturn(List.of(

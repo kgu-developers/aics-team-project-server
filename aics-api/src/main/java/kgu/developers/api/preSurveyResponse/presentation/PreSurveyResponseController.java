@@ -23,6 +23,9 @@ public interface PreSurveyResponseController {
         description = """
             Description : 분반 사전조사에 응답한다. 응답자는 요청 값이 아니라 인증된 사용자로 기록되며, 해당 분반 수강생만 제출할 수 있다.
                           이미 제출한 응답이 있으면 새 행을 만들지 않고 기존 응답을 덮어쓴다(재제출).
+                          조원으로 희망하는 학생 1명을 preferredPeerUserId 로 함께 지목한다. null 로 다시 제출하면 지목이 취소되고,
+                          다른 학생으로 바꾸면 지목 상태가 다시 PENDING 이 된다. 대상이 그대로면 상대의 수락·거절 결과는 유지된다.
+                          지목 상태는 (PENDING, ACCEPTED, REJECTED)이다.
             Assignee : 담당자명
             """
     )
@@ -37,6 +40,7 @@ public interface PreSurveyResponseController {
         summary = "내 사전조사 응답 조회 API",
         description = """
             Description : 인증된 사용자가 해당 분반에 제출한 사전조사 응답을 조회한다. 제출한 응답이 없으면 404 를 반환한다.
+                          지목 상태는 (PENDING, ACCEPTED, REJECTED)이다.
             Assignee : 담당자명
             """
     )

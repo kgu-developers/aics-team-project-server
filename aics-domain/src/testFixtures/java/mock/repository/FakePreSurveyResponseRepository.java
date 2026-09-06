@@ -40,6 +40,8 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 				.preferredRoles(response.getPreferredRoles())
 				.topicOpinion(response.getTopicOpinion())
 				.etcOpinion(response.getEtcOpinion())
+				.preferredPeerUserId(response.getPreferredPeerUserId())
+				.preferredPeerStatus(response.getPreferredPeerStatus())
 				.submittedAt(response.getSubmittedAt())
 				.createdAt(createdAt)
 				.updatedAt(LocalDateTime.now())
@@ -73,4 +75,5 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 				.sorted(Comparator.comparing(PreSurveyResponse::getUserId))
 				.toList();
 	}
+
 }

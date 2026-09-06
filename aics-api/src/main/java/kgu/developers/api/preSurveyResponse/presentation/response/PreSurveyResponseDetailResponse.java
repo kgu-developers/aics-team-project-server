@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.format.DateTimeFormatter;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 import lombok.Builder;
 
 @Builder
@@ -32,6 +33,12 @@ public record PreSurveyResponseDetailResponse(
     @Schema(description = "기타 의견", example = "금요일 오후에는 회의가 어렵습니다")
     String etcOpinion,
 
+    @Schema(description = "희망 조원 학번. 지목하지 않았으면 null", example = "202054321")
+    String preferredPeerUserId,
+
+    @Schema(description = "희망 조원 지목 상태(PENDING/ACCEPTED/REJECTED). 지목하지 않았으면 null", example = "PENDING")
+    PreferredPeerStatus preferredPeerStatus,
+
     @Schema(description = "제출일", example = "2026-08-21 14:00", requiredMode = REQUIRED)
     String submittedAt
 ) {
@@ -47,6 +54,8 @@ public record PreSurveyResponseDetailResponse(
             .preferredRoles(response.getPreferredRoles())
             .topicOpinion(response.getTopicOpinion())
             .etcOpinion(response.getEtcOpinion())
+            .preferredPeerUserId(response.getPreferredPeerUserId())
+            .preferredPeerStatus(response.getPreferredPeerStatus())
             .submittedAt(response.getSubmittedAt().format(FORMATTER))
             .build();
     }

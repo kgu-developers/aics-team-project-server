@@ -29,7 +29,8 @@ public class PreSurveyResponseFacade {
             sectionId,
             JsonConverter.toTree(request.preferredRoles(), PreSurveyResponsePreferredRolesInvalidException::new),
             request.topicOpinion(),
-            request.etcOpinion()
+            request.etcOpinion(),
+            request.preferredPeerUserId()
         ), userName(userId));
     }
 

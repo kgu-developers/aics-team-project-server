@@ -25,7 +25,7 @@ class PreSurveyResponseJpaEntityTest {
 		JsonNode roles = JsonConverter.parse("""
 				{"ranked":[{"role":"백엔드","priority":1,"experienced":true},\
 				{"role":"PM","priority":2,"experienced":false}]}""");
-		PreSurveyResponse origin = PreSurveyResponse.create("202012345", 1L, roles, "웹 서비스", null);
+		PreSurveyResponse origin = PreSurveyResponse.create("202012345", 1L, roles, "웹 서비스", null, "202054321");
 
 		PreSurveyResponseJpaEntity entity = PreSurveyResponseJpaEntity.toEntity(origin);
 		assertThat(entity.getPreferredRoles()).contains("\"role\":\"백엔드\"", "\"priority\":1");

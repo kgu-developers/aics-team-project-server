@@ -15,6 +15,7 @@ import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerInvalidException;
 import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakePreSurveyResponseRepository;
 
@@ -46,7 +47,7 @@ class PreSurveyResponseCommandServiceTest {
 		JsonNode roles = objectMapper.readTree("[\"BACKEND\", \"PM\"]");
 
 		// when
-		PreSurveyResponse response = commandService.submit(userId, sectionId, roles, "웹 개발", "특이사항 없음");
+		PreSurveyResponse response = commandService.submit(userId, sectionId, roles, "웹 개발", "특이사항 없음", null);
 
 		// then
 		assertThat(response.getId()).isNotNull();
@@ -62,11 +63,11 @@ class PreSurveyResponseCommandServiceTest {
 		String userId = "202012345";
 		Long sectionId = 1L;
 		JsonNode initialRoles = objectMapper.readTree("[\"BACKEND\"]");
-		PreSurveyResponse initial = commandService.submit(userId, sectionId, initialRoles, "웹 개발", "없음");
+		PreSurveyResponse initial = commandService.submit(userId, sectionId, initialRoles, "웹 개발", "없음", null);
 
 		// when
 		JsonNode updatedRoles = objectMapper.readTree("[\"FRONTEND\", \"DESIGN\"]");
-		PreSurveyResponse updated = commandService.submit(userId, sectionId, updatedRoles, "앱 개발", "수정됨");
+		PreSurveyResponse updated = commandService.submit(userId, sectionId, updatedRoles, "앱 개발", "수정됨", null);
 
 		// then
 		assertThat(updated.getId()).isEqualTo(initial.getId());
@@ -82,7 +83,18 @@ class PreSurveyResponseCommandServiceTest {
 
 		// when & then
 		assertThatThrownBy(() -> commandService.submit(
-				"202099999", SECTION_ID, roles, "웹 개발", "없음"))
+				"202099999", SECTION_ID, roles, "웹 개발", "없음", null))
 				.isInstanceOf(kgu.developers.domain.enrollment.exception.EnrollmentNotFoundException.class);
+	}
+
+	@Test
+	@DisplayName("본인이거나 같은 분반 수강생이 아닌 학생은 조원으로 지목할 수 없다")
+	void submit_RejectsInvalidPreferredPeer() throws Exception {
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+
+		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, null, null, USER_ID))
+				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
+		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, null, null, "202099999"))
+				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
 	}
 }
