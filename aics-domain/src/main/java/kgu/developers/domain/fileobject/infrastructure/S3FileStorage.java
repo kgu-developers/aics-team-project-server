@@ -1,6 +1,7 @@
 package kgu.developers.domain.fileobject.infrastructure;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.UUID;
 
@@ -63,6 +64,14 @@ public class S3FileStorage implements FileStorage {
                                 .build())
                         .build());
         return presigned.url().toString();
+    }
+
+    @Override
+    public InputStream download(String storageKey) {
+        return s3Client.getObject(GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(storageKey)
+                .build());
     }
 
     private String sanitize(String fileName) {

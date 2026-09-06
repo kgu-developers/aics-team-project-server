@@ -1,5 +1,7 @@
 package kgu.developers.domain.fileobject.domain;
 
+import java.io.InputStream;
+
 import org.springframework.web.multipart.MultipartFile;
 
 // 실제 파일 바이트를 어디에 저장하는지를 감추는 포트. 구현체(S3FileStorage 등)만 바뀌어도
@@ -8,4 +10,6 @@ public interface FileStorage {
     String upload(MultipartFile file);
 
     String presignedUrl(String storageKey);
+
+    InputStream download(String storageKey);
 }

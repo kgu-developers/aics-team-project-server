@@ -5,8 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,10 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
 import kgu.developers.admin.submission.application.SubmissionAdminFacade;
+import kgu.developers.admin.submission.application.SubmissionArtifactsZipDownload;
 import kgu.developers.admin.submission.presentation.response.SubmissionAdminListResponse;
 import kgu.developers.admin.submission.presentation.response.SubmissionAdminResponse;
 import kgu.developers.admin.submission.presentation.response.SubmissionVersionAdminDetailResponse;
 import kgu.developers.admin.submission.presentation.response.SubmissionVersionAdminListResponse;
+import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
@@ -25,6 +32,7 @@ import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.submission.application.query.SubmissionQueryService;
 import kgu.developers.domain.submission.domain.Submission;
+import kgu.developers.domain.submission.domain.SubmissionArtifact;
 import kgu.developers.domain.submission.domain.SubmissionStatus;
 import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
@@ -51,6 +59,8 @@ class SubmissionAdminFacadeTest {
     private FakeTeamRepository teamRepository;
     private FakeSubmissionRepository submissionRepository;
     private FakeSubmissionVersionRepository submissionVersionRepository;
+    private FakeSubmissionArtifactRepository submissionArtifactRepository;
+    private FakeFileObjectRepository fileObjectRepository;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -69,8 +79,8 @@ class SubmissionAdminFacadeTest {
 
         submissionRepository = new FakeSubmissionRepository();
         submissionVersionRepository = new FakeSubmissionVersionRepository();
-        FakeSubmissionArtifactRepository submissionArtifactRepository = new FakeSubmissionArtifactRepository();
-        FakeFileObjectRepository fileObjectRepository = new FakeFileObjectRepository();
+        submissionArtifactRepository = new FakeSubmissionArtifactRepository();
+        fileObjectRepository = new FakeFileObjectRepository();
         FakeFileStorage fileStorage = new FakeFileStorage();
 
         SubmissionQueryService submissionQueryService = new SubmissionQueryService(
@@ -181,6 +191,47 @@ class SubmissionAdminFacadeTest {
 
         assertThatThrownBy(() -> submissionAdminFacade.getVersion(submission.getId(), 99, PROFESSOR))
                 .isInstanceOf(SubmissionVersionNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("담당 교수는 최신 버전의 파일 아티팩트만 zip으로 일괄 다운로드할 수 있다(링크·텍스트는 제외)")
+    void downloadArtifactsZip_IncludesOnlyFileArtifacts() throws Exception {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        SubmissionVersion version = submissionVersionRepository.save(SubmissionVersion.create(
+                submission.getId(), 1, "설명", "변경사항", "202412345", false));
+        submission.recordNewVersion(version.getVersion());
+        submissionRepository.save(submission);
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        FileObject fileObject = fileObjectRepository.save(FileObject.create(
+                "202412345", "submissions/key-1", "발표자료.pdf", "application/pdf", 100L, false, null));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.file(version.getId(), null, fileObject.getId()),
+                SubmissionArtifact.link(version.getId(), null, "https://youtu.be/demo")
+        ));
+
+        SubmissionArtifactsZipDownload download = submissionAdminFacade
+                .downloadArtifactsZip(submission.getId(), PROFESSOR);
+
+        assertThat(download.fileName()).isEqualTo("A팀-submission.zip");
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        download.body().writeTo(buffer);
+        try (ZipInputStream zipInputStream = new ZipInputStream(
+                new ByteArrayInputStream(buffer.toByteArray()))) {
+            ZipEntry entry = zipInputStream.getNextEntry();
+            assertThat(entry.getName()).isEqualTo("발표자료.pdf");
+            assertThat(zipInputStream.getNextEntry()).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("담당 교수가 아니면 일괄 다운로드할 수 없다")
+    void downloadArtifactsZip_RejectsNonOwningProfessor() {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, OTHER_PROFESSOR)).willReturn(false);
+
+        assertThatThrownBy(() -> submissionAdminFacade.downloadArtifactsZip(submission.getId(), OTHER_PROFESSOR))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     private Milestone milestone() {

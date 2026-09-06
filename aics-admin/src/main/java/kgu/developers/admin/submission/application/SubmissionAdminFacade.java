@@ -1,10 +1,19 @@
 package kgu.developers.admin.submission.application;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import kgu.developers.admin.submission.presentation.response.SubmissionAdminListResponse;
 import kgu.developers.admin.submission.presentation.response.SubmissionAdminResponse;
@@ -98,6 +107,52 @@ public class SubmissionAdminFacade {
                 .toList();
 
         return SubmissionVersionAdminDetailResponse.of(submissionVersion, artifacts);
+    }
+
+    // 화면의 "일괄 다운로드"는 팀별 최신 제출 기준이라 버전을 따로 안 받고 currentVersion을 쓴다.
+    // FileObject 조회까지 트랜잭션 안에서 전부 끝내 확정 목록으로 만든 뒤, 실제 S3 다운로드는
+    // 트랜잭션 밖(응답 스트리밍 시점)에서 fileStorage만 호출하도록 분리했다.
+    public SubmissionArtifactsZipDownload downloadArtifactsZip(Long submissionId, String professorId) {
+        Submission submission = submissionQueryService.getSubmission(submissionId);
+        Team team = validateProfessorOwnsSubmission(submission, professorId);
+
+        SubmissionVersion submissionVersion = submissionVersionRepository
+                .findBySubmissionIdAndVersion(submissionId, submission.getCurrentVersion())
+                .orElseThrow(SubmissionVersionNotFoundException::new);
+
+        List<FileObject> fileObjects = submissionArtifactRepository
+                .findAllByVersionId(submissionVersion.getId()).stream()
+                .filter(artifact -> artifact.getType() == ArtifactType.FILE)
+                .map(artifact -> fileObjectRepository.findById(artifact.getFileId())
+                        .orElseThrow(FileObjectNotFoundException::new))
+                .toList();
+
+        String zipFileName = team.getName() + "-submission.zip";
+        return new SubmissionArtifactsZipDownload(zipFileName, outputStream -> writeZip(fileObjects, outputStream));
+    }
+
+    private void writeZip(List<FileObject> fileObjects, OutputStream outputStream) {
+        Set<String> usedNames = new HashSet<>();
+        try (ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream)) {
+            for (FileObject fileObject : fileObjects) {
+                zipOutputStream.putNextEntry(new ZipEntry(uniqueEntryName(usedNames, fileObject.getFileName())));
+                try (InputStream fileInputStream = fileStorage.download(fileObject.getStorageKey())) {
+                    fileInputStream.transferTo(zipOutputStream);
+                }
+                zipOutputStream.closeEntry();
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private String uniqueEntryName(Set<String> usedNames, String fileName) {
+        String candidate = (fileName == null || fileName.isBlank()) ? "file" : fileName;
+        int suffix = 2;
+        while (!usedNames.add(candidate)) {
+            candidate = fileName + "-" + suffix++;
+        }
+        return candidate;
     }
 
     private SubmissionArtifactAdminResponse toArtifactResponse(SubmissionArtifact artifact) {

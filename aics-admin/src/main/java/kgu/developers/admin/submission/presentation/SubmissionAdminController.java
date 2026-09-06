@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import kgu.developers.admin.submission.presentation.response.SubmissionAdminListResponse;
 import kgu.developers.admin.submission.presentation.response.SubmissionAdminResponse;
@@ -72,6 +73,20 @@ public interface SubmissionAdminController {
     ResponseEntity<SubmissionVersionAdminDetailResponse> getVersion(
         @Parameter(description = "제출 식별자") @PathVariable Long submissionId,
         @Parameter(description = "버전 번호") @PathVariable int version,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "제출물 일괄 다운로드(zip) API",
+        description = """
+            Description : 담당 교수가 최신 제출 버전에 포함된 파일 아티팩트(링크·텍스트 제외)를
+                zip 파일 하나로 묶어 다운로드한다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/zip"))
+    ResponseEntity<StreamingResponseBody> downloadArtifacts(
+        @Parameter(description = "제출 식별자") @PathVariable Long submissionId,
         Authentication authentication
     );
 }
