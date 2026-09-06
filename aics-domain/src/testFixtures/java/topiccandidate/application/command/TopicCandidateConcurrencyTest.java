@@ -3,6 +3,13 @@ package topiccandidate.application.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -37,6 +44,7 @@ import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -98,6 +106,7 @@ class TopicCandidateConcurrencyTest {
 
     @BeforeEach
     void seed() {
+        applyPartialUniqueIndexes();
         jdbcTemplate.update("DELETE FROM topic_vote");
         jdbcTemplate.update("DELETE FROM topic_candidate");
         transactionTemplate.executeWithoutResult(status -> {
@@ -224,18 +233,81 @@ class TopicCandidateConcurrencyTest {
     }
 
     @Test
-    @DisplayName("소프트 삭제된 행이 있어 사전 검사를 통과하더라도 DB 제약 위반 시 409 DuplicateTopicCandidateException으로 변환된다")
-    void createTopicCandidate_TranslatesProposerConstraintViolationTo409_WhenSoftDeletedExists() {
+    @DisplayName("후보를 삭제한 뒤에는 같은 사용자가 다른 제목으로 다시 등록할 수 있다")
+    void createTopicCandidate_AllowsResubmit_AfterSoftDelete() {
         // given: 사용자가 기존 주제를 등록한 후 소프트 삭제
         TopicCandidate candidate = topicCandidateCommandService.createTopicCandidate(
             teamId, PROPOSER_USER_ID, "기존 주제", "기존 설명"
         );
         topicCandidateCommandService.deleteTopicCandidate(candidate.getId());
 
-        // when & then: 동일 사용자가 새 제목으로 등록 시도 -> DB uk_topic_candidate_team_proposer 제약 위반 발생 -> 409 DuplicateTopicCandidateException 변환
-        assertThatThrownBy(() -> topicCandidateCommandService.createTopicCandidate(
+        // when: 삭제된 행은 부분 유니크 인덱스에서 빠지므로 자리를 점유하지 않는다
+        TopicCandidate resubmitted = topicCandidateCommandService.createTopicCandidate(
             teamId, PROPOSER_USER_ID, "새 주제", "새 설명"
-        )).isInstanceOf(DuplicateTopicCandidateException.class);
+        );
+
+        // then
+        assertThat(resubmitted.getId()).isNotEqualTo(candidate.getId());
+        assertThat(candidateCount(PROPOSER_USER_ID)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("삭제된 후보가 쓰던 제목은 다른 사용자가 다시 쓸 수 있다")
+    void createTopicCandidate_AllowsReusingTitle_OfSoftDeletedCandidate() {
+        TopicCandidate candidate = topicCandidateCommandService.createTopicCandidate(
+            teamId, PROPOSER_USER_ID, "기존 주제", "기존 설명"
+        );
+        topicCandidateCommandService.deleteTopicCandidate(candidate.getId());
+
+        TopicCandidate reused = topicCandidateCommandService.createTopicCandidate(
+            teamId, OTHER_PROPOSER_USER_ID, "기존 주제", "다른 설명"
+        );
+
+        assertThat(reused.getId()).isNotEqualTo(candidate.getId());
+        assertThat(totalCandidateCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("부분 유니크 인덱스가 활성 행만 막는다: 앱을 우회한 중복 INSERT 는 거절되고, 삭제 표시된 행은 허용된다")
+    void partialUniqueIndex_RejectsActiveDuplicateOnly() {
+        topicCandidateCommandService.createTopicCandidate(teamId, PROPOSER_USER_ID, "기존 주제", "기존 설명");
+
+        // 활성 행 중복은 DB 가 막는다 (앱 레벨 검사를 우회한 직접 INSERT)
+        assertThatThrownBy(() -> insertDirectly(PROPOSER_USER_ID, "다른 제목", null))
+            .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> insertDirectly(OTHER_PROPOSER_USER_ID, "기존 주제", null))
+            .isInstanceOf(DataIntegrityViolationException.class);
+
+        // 삭제 표시된 행은 같은 자리를 차지해도 된다
+        insertDirectly(PROPOSER_USER_ID, "기존 주제", LocalDateTime.now());
+        assertThat(candidateCount(PROPOSER_USER_ID)).isEqualTo(1);
+    }
+
+    private void insertDirectly(String proposerUserId, String title, LocalDateTime deletedAt) {
+        jdbcTemplate.update(
+            "INSERT INTO topic_candidate (team_id, proposer_user_id, title, description, created_at, updated_at, deleted_at)"
+                + " VALUES (?, ?, ?, '설명', now(), now(), ?)",
+            teamId, proposerUserId, title, deletedAt
+        );
+    }
+
+    // 부분 유니크 인덱스는 엔티티로 표현할 수 없어 ddl-auto 가 만들어주지 않는다.
+    // 운영과 같은 제약 아래에서 검증하려면 DDL 파일을 그대로 적용해야 한다(IF NOT EXISTS 라 반복 실행 안전).
+    private void applyPartialUniqueIndexes() {
+        Path current = Paths.get("").toAbsolutePath();
+        while (current != null) {
+            Path ddl = current.resolve("database").resolve("topic_candidate.sql");
+            if (Files.exists(ddl)) {
+                try {
+                    jdbcTemplate.execute(Files.readString(ddl, StandardCharsets.UTF_8));
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                return;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("database/topic_candidate.sql 을 찾지 못했다");
     }
 
     private Integer candidateCount(String proposerUserId) {

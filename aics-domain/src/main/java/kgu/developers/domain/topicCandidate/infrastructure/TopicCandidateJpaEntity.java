@@ -13,11 +13,9 @@ import static lombok.AccessLevel.PROTECTED;
 
 @Entity
 @Table(
+    // 유니크 규칙은 엔티티로 표현할 수 없다. 소프트 삭제된 후보가 자리를 점유하면 재제출이 영구히 막히므로
+    // deleted_at IS NULL 부분 유니크 인덱스로 걸며, DDL 은 database/topic_candidate.sql 에 있다.
     name = "\"topic_candidate\"",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_topic_candidate_team_title", columnNames = {"team_id", "title"}),
-        @UniqueConstraint(name = "uk_topic_candidate_team_proposer", columnNames = {"team_id", "proposer_user_id"})
-    },
     indexes = {
         @Index(columnList = "team_id", name = "idx_team_id"),
         @Index(columnList = "proposer_user_id", name = "idx_proposer_user_id")

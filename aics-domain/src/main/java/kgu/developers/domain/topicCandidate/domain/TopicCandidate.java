@@ -47,11 +47,4 @@ public class TopicCandidate {
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
-
-    public void reactivate(String proposerUserId, String description) {
-        this.proposerUserId = requireNonNull(proposerUserId, "proposerUserId");
-        this.description = requireNonNull(description, "description");
-        this.deletedAt = null;
-        this.updatedAt = LocalDateTime.now();
-    }
 }

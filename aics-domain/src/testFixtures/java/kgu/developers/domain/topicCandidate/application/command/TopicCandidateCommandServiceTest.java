@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
+import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateException;
 import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateTitleException;
 import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 
@@ -35,7 +36,7 @@ class TopicCandidateCommandServiceTest {
     @Test
     @DisplayName("등록은 같은 팀에 살아있는 같은 제목이 있으면 거절한다")
     void createRejectsDuplicateActiveTitle() {
-        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "중복 제목"))
+        given(topicCandidateRepository.findByTeamIdAndTitleForUpdate(100L, "중복 제목"))
                 .willReturn(Optional.of(candidate(1L, "중복 제목")));
 
         assertThatThrownBy(() ->
@@ -48,7 +49,7 @@ class TopicCandidateCommandServiceTest {
     @Test
     @DisplayName("등록은 같은 제목이 없으면 새 후보를 저장한다")
     void createSavesNewCandidateWhenNoneExists() {
-        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "새 제목"))
+        given(topicCandidateRepository.findByTeamIdAndTitleForUpdate(100L, "새 제목"))
                 .willReturn(Optional.empty());
         given(topicCandidateRepository.save(any(TopicCandidate.class)))
                 .willReturn(candidate(2L, "새 제목"));
@@ -63,22 +64,34 @@ class TopicCandidateCommandServiceTest {
     }
 
     @Test
-    @DisplayName("등록은 소프트 삭제된 후보를 되살리며 새 제안자와 설명을 반영한다")
-    void createReactivatesDeletedCandidate() {
-        TopicCandidate deleted = candidate(2L, "삭제된 제목");
-        deleted.delete();
-        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
-                .willReturn(Optional.of(deleted));
-        given(topicCandidateRepository.save(any(TopicCandidate.class))).willReturn(deleted);
+    @DisplayName("등록은 소프트 삭제된 후보가 점유하던 제목도 새 후보로 다시 쓴다")
+    void createReusesTitleOfDeletedCandidate() {
+        // 소프트 삭제된 행은 부분 유니크 인덱스에서 빠지므로 조회에도 잡히지 않는다.
+        given(topicCandidateRepository.findByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
+                .willReturn(Optional.empty());
+        given(topicCandidateRepository.save(any(TopicCandidate.class))).willReturn(candidate(3L, "삭제된 제목"));
 
         TopicCandidate created = topicCandidateCommandService.createTopicCandidate(100L, "20230002", "삭제된 제목", "새 설명");
 
-        assertThat(created.getId()).isEqualTo(2L);
+        assertThat(created.getId()).isEqualTo(3L);
         TopicCandidate saved = savedCandidate();
-        assertThat(saved.getId()).isEqualTo(2L);
-        assertThat(saved.getDeletedAt()).isNull();
+        assertThat(saved.getId()).isNull();
         assertThat(saved.getProposerUserId()).isEqualTo("20230002");
         assertThat(saved.getDescription()).isEqualTo("새 설명");
+    }
+
+    @Test
+    @DisplayName("등록은 같은 팀에 살아있는 내 후보가 있으면 거절한다")
+    void createRejectsWhenProposerAlreadyHasActiveCandidate() {
+        given(topicCandidateRepository.findByTeamIdAndTitleForUpdate(100L, "새 제목"))
+                .willReturn(Optional.empty());
+        given(topicCandidateRepository.existsByTeamIdAndProposerUserId(100L, "20230002")).willReturn(true);
+
+        assertThatThrownBy(() ->
+                topicCandidateCommandService.createTopicCandidate(100L, "20230002", "새 제목", "설명"))
+                .isInstanceOf(DuplicateTopicCandidateException.class);
+
+        verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
     }
 
     @Test
@@ -125,7 +138,7 @@ class TopicCandidateCommandServiceTest {
     void updateChecksTitleToo() {
         given(topicCandidateRepository.findByIdForUpdate(2L))
                 .willReturn(Optional.of(candidate(2L, "내 제목")));
-        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "남의 제목"))
+        given(topicCandidateRepository.findByTeamIdAndTitleForUpdate(100L, "남의 제목"))
                 .willReturn(Optional.of(candidate(1L, "남의 제목")));
 
         assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(2L, "남의 제목", null))
@@ -135,18 +148,16 @@ class TopicCandidateCommandServiceTest {
     }
 
     @Test
-    @DisplayName("수정은 소프트 삭제된 행이 점유한 제목도 중복으로 본다")
-    void updateRejectsTitleHeldByDeletedCandidate() {
-        TopicCandidate deleted = candidate(1L, "삭제된 제목");
-        deleted.delete();
-        given(topicCandidateRepository.findByIdForUpdate(2L)).willReturn(Optional.of(candidate(2L, "내 제목")));
-        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
-                .willReturn(Optional.of(deleted));
+    @DisplayName("수정은 소프트 삭제된 행이 남긴 제목을 다시 쓸 수 있다")
+    void updateAllowsTitleLeftByDeletedCandidate() {
+        TopicCandidate mine = candidate(2L, "내 제목");
+        given(topicCandidateRepository.findByIdForUpdate(2L)).willReturn(Optional.of(mine));
+        given(topicCandidateRepository.findByTeamIdAndTitleForUpdate(100L, "삭제된 제목"))
+                .willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> topicCandidateCommandService.updateTopicCandidate(2L, "삭제된 제목", null))
-                .isInstanceOf(DuplicateTopicCandidateTitleException.class);
+        topicCandidateCommandService.updateTopicCandidate(2L, "삭제된 제목", null);
 
-        verify(topicCandidateRepository, never()).save(any(TopicCandidate.class));
+        assertThat(savedCandidate().getTitle()).isEqualTo("삭제된 제목");
     }
 
     @Test
@@ -154,7 +165,7 @@ class TopicCandidateCommandServiceTest {
     void updateAllowsKeepingOwnTitle() {
         TopicCandidate mine = candidate(1L, "내 제목");
         given(topicCandidateRepository.findByIdForUpdate(1L)).willReturn(Optional.of(mine));
-        given(topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "내 제목"))
+        given(topicCandidateRepository.findByTeamIdAndTitleForUpdate(100L, "내 제목"))
                 .willReturn(Optional.of(mine));
 
         topicCandidateCommandService.updateTopicCandidate(1L, "내 제목", "새 설명");
