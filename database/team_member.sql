@@ -13,6 +13,13 @@ ALTER TABLE team_member ALTER COLUMN version SET NOT NULL;
 
 COMMENT ON COLUMN team_member.version IS '낙관적 락. Hibernate 가 채우므로 수동 INSERT 금지.';
 
+-- 전화번호와 학년 컬럼 추가
+ALTER TABLE team_member ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20);
+ALTER TABLE team_member ADD COLUMN IF NOT EXISTS grade VARCHAR(10);
+
+COMMENT ON COLUMN team_member.phone_number IS '팀원 전화번호';
+COMMENT ON COLUMN team_member.grade IS '팀원 학년';
+
 -- 엔티티의 @UniqueConstraint(전체 열 대상)에서 부분 인덱스로 교체한 것이므로, 기존 제약을 먼저 지운다.
 -- 남겨두면 삭제된 팀원이 자리를 계속 점유해, 팀에서 뺐다가 같은 팀에 다시 넣을 때 항상 409 가 난다.
 ALTER TABLE team_member DROP CONSTRAINT IF EXISTS uk_team_member_team_user;

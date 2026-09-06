@@ -22,6 +22,12 @@ public record TeamImportRow(
     @Schema(description = "프로젝트 내 역할", example = "백엔드")
     String projectRole,
 
+    @Schema(description = "전화번호", example = "010-1234-5678")
+    String phoneNumber,
+
+    @Schema(description = "학년", example = "3")
+    String grade,
+
     @Schema(description = "행 상태", example = "VALID")
     RowStatus status,
 
@@ -29,6 +35,6 @@ public record TeamImportRow(
     String message
 ) {
     public TeamImportRow with(RowStatus status, String message) {
-        return new TeamImportRow(rowNumber, teamName, studentNumber, name, leader, projectRole, status, message);
+        return new TeamImportRow(rowNumber, teamName, studentNumber, name, leader, projectRole, phoneNumber, grade, status, message);
     }
 }

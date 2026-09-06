@@ -186,11 +186,11 @@ public class TeamImportFacade {
                 continue;
             }
             if (existing != null) {
-                existing.reactivate(row.leader(), row.projectRole());
+                existing.reactivate(row.leader(), row.projectRole(), row.phoneNumber(), row.grade());
                 teamMemberRepository.save(existing);
             } else {
                 teamMemberRepository.save(
-                    TeamMember.create(teamId, row.studentNumber(), row.leader(), row.projectRole()));
+                    TeamMember.create(teamId, row.studentNumber(), row.leader(), row.projectRole(), row.phoneNumber(), row.grade()));
             }
             appliedMembers++;
         }
@@ -201,7 +201,7 @@ public class TeamImportFacade {
 
     // 반영할 행. assigned는 이미 이 분반의 팀에 속해 있어 갱신할 팀원이고, null이면 새로 편성한다
     private record PlannedRow(String teamName, String studentNumber, boolean leader, String projectRole,
-        TeamMember assigned) {
+        String phoneNumber, String grade, TeamMember assigned) {
     }
 
     private int plan(ImportBatch batch, Map<String, Long> teamIds, Map<String, TeamMember> activeAssignedOf,
@@ -233,7 +233,7 @@ public class TeamImportFacade {
             }
 
             planned.add(new PlannedRow(teamName, studentNumber, row.path("leader").asBoolean(),
-                row.path("projectRole").asText(), assigned));
+                row.path("projectRole").asText(), row.path("phoneNumber").asText(), row.path("grade").asText(), assigned));
         }
         return skipped;
     }

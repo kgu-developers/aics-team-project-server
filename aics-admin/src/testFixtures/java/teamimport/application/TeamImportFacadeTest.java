@@ -720,7 +720,7 @@ public class TeamImportFacadeTest {
 
   private TeamImportRow row(int rowNumber, String teamName, String studentNumber, boolean leader,
       String projectRole, RowStatus status) {
-    return new TeamImportRow(rowNumber, teamName, studentNumber, "이름", leader, projectRole, status, null);
+    return new TeamImportRow(rowNumber, teamName, studentNumber, "이름", leader, projectRole, null, null, status, null);
   }
 
   private ImportBatch batch(int invalid, List<TeamImportRow> rows) {

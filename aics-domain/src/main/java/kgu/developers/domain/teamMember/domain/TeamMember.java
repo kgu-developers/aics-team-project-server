@@ -18,18 +18,26 @@ public class TeamMember {
     private String userId;
     private boolean isLeader;
     private String projectRole;
+    private String phoneNumber;
+    private String grade;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
-    public static TeamMember create(Long teamId, String userId, boolean isLeader, String projectRole) {
+    public static TeamMember create(Long teamId, String userId, boolean isLeader, String projectRole, String phoneNumber, String grade) {
         return TeamMember.builder()
                 .teamId(teamId)
                 .userId(userId)
                 .isLeader(isLeader)
                 .projectRole(projectRole)
+                .phoneNumber(phoneNumber)
+                .grade(grade)
                 .build();
+    }
+
+    public static TeamMember create(Long teamId, String userId, boolean isLeader, String projectRole) {
+        return create(teamId, userId, isLeader, projectRole, null, null);
     }
 
     public void updateTeamId(Long teamId) {
@@ -48,9 +56,15 @@ public class TeamMember {
         this.deletedAt = LocalDateTime.now();
     }
 
-    public void reactivate(boolean isLeader, String projectRole) {
+    public void reactivate(boolean isLeader, String projectRole, String phoneNumber, String grade) {
         this.deletedAt = null;
         this.isLeader = isLeader;
         this.projectRole = projectRole;
+        this.phoneNumber = phoneNumber;
+        this.grade = grade;
+    }
+
+    public void reactivate(boolean isLeader, String projectRole) {
+        reactivate(isLeader, projectRole, null, null);
     }
 }
