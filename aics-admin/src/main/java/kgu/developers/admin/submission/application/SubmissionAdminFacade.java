@@ -135,7 +135,8 @@ public class SubmissionAdminFacade {
         Set<String> usedNames = new HashSet<>();
         try (ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream)) {
             for (FileObject fileObject : fileObjects) {
-                zipOutputStream.putNextEntry(new ZipEntry(uniqueEntryName(usedNames, fileObject.getFileName())));
+                String entryName = uniqueEntryName(usedNames, sanitizeEntryName(fileObject.getFileName()));
+                zipOutputStream.putNextEntry(new ZipEntry(entryName));
                 try (InputStream fileInputStream = fileStorage.download(fileObject.getStorageKey())) {
                     fileInputStream.transferTo(zipOutputStream);
                 }
@@ -146,12 +147,37 @@ public class SubmissionAdminFacade {
         }
     }
 
-    private String uniqueEntryName(Set<String> usedNames, String fileName) {
-        String candidate = (fileName == null || fileName.isBlank()) ? "file" : fileName;
-        int suffix = 2;
-        while (!usedNames.add(candidate)) {
-            candidate = fileName + "-" + suffix++;
+    // DB에 저장된 원본 파일명은 업로드 시점에 클라이언트가 임의로 지정한 값이라 신뢰할 수 없다.
+    // "../../etc/passwd"나 "..\\foo" 같은 값을 그대로 ZipEntry 이름에 쓰면, 압축 해제 환경에
+    // 따라 지정한 폴더 밖에 파일을 쓰는 zip slip(경로 이탈) 공격이 될 수 있다(sunzx0428 PR #138
+    // 리뷰 09-06). 경로 구분자를 전부 슬래시로 통일한 뒤 마지막 구성요소만 남기면 "../"류
+    // 상위 디렉터리 이동은 전부 사라지고, 남은 이름에서 제어문자까지 제거한다.
+    private String sanitizeEntryName(String fileName) {
+        if (fileName == null) {
+            return "file";
         }
+        String normalized = fileName.replace('\\', '/');
+        int lastSlash = normalized.lastIndexOf('/');
+        String baseName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+        baseName = baseName.replaceAll("[\\x00-\\x1F\\x7F]", "").strip();
+        if (baseName.isBlank() || baseName.equals(".") || baseName.equals("..")) {
+            return "file";
+        }
+        return baseName;
+    }
+
+    private String uniqueEntryName(Set<String> usedNames, String fileName) {
+        if (usedNames.add(fileName)) {
+            return fileName;
+        }
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        String extension = dot > 0 ? fileName.substring(dot) : "";
+        String candidate;
+        int suffix = 2;
+        do {
+            candidate = base + "-" + suffix++ + extension;
+        } while (!usedNames.add(candidate));
         return candidate;
     }
 

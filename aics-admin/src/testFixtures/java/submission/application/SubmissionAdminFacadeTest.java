@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
@@ -222,6 +223,71 @@ class SubmissionAdminFacadeTest {
             assertThat(entry.getName()).isEqualTo("발표자료.pdf");
             assertThat(zipInputStream.getNextEntry()).isNull();
         }
+    }
+
+    @Test
+    @DisplayName("경로 이탈 형태의 파일명은 zip 엔트리에서 안전한 이름으로 정리된다")
+    void downloadArtifactsZip_SanitizesPathTraversalFileNames() throws Exception {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        SubmissionVersion version = submissionVersionRepository.save(SubmissionVersion.create(
+                submission.getId(), 1, "설명", "변경사항", "202412345", false));
+        submission.recordNewVersion(version.getVersion());
+        submissionRepository.save(submission);
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        FileObject unixTraversal = fileObjectRepository.save(FileObject.create(
+                "202412345", "submissions/key-1", "../../etc/passwd", "text/plain", 10L, false, null));
+        FileObject windowsTraversal = fileObjectRepository.save(FileObject.create(
+                "202412345", "submissions/key-2", "..\\..\\evil.pdf", "application/pdf", 10L, false, null));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.file(version.getId(), null, unixTraversal.getId()),
+                SubmissionArtifact.file(version.getId(), null, windowsTraversal.getId())
+        ));
+
+        SubmissionArtifactsZipDownload download = submissionAdminFacade
+                .downloadArtifactsZip(submission.getId(), PROFESSOR);
+
+        List<String> entryNames = zipEntryNames(download);
+        assertThat(entryNames).containsExactlyInAnyOrder("passwd", "evil.pdf");
+        assertThat(entryNames).noneMatch(name -> name.contains("..") || name.contains("/") || name.contains("\\"));
+    }
+
+    @Test
+    @DisplayName("같은 이름의 파일이 여러 개면 zip 엔트리 이름에 접미사가 붙어 겹치지 않는다")
+    void downloadArtifactsZip_DeduplicatesSameFileNames() throws Exception {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        SubmissionVersion version = submissionVersionRepository.save(SubmissionVersion.create(
+                submission.getId(), 1, "설명", "변경사항", "202412345", false));
+        submission.recordNewVersion(version.getVersion());
+        submissionRepository.save(submission);
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        FileObject first = fileObjectRepository.save(FileObject.create(
+                "202412345", "submissions/key-1", "report.pdf", "application/pdf", 10L, false, null));
+        FileObject second = fileObjectRepository.save(FileObject.create(
+                "202412345", "submissions/key-2", "report.pdf", "application/pdf", 20L, false, null));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.file(version.getId(), null, first.getId()),
+                SubmissionArtifact.file(version.getId(), null, second.getId())
+        ));
+
+        SubmissionArtifactsZipDownload download = submissionAdminFacade
+                .downloadArtifactsZip(submission.getId(), PROFESSOR);
+
+        assertThat(zipEntryNames(download)).containsExactlyInAnyOrder("report.pdf", "report-2.pdf");
+    }
+
+    private List<String> zipEntryNames(SubmissionArtifactsZipDownload download) throws Exception {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        download.body().writeTo(buffer);
+        List<String> entryNames = new ArrayList<>();
+        try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(buffer.toByteArray()))) {
+            ZipEntry entry;
+            while ((entry = zipInputStream.getNextEntry()) != null) {
+                entryNames.add(entry.getName());
+            }
+        }
+        return entryNames;
     }
 
     @Test
