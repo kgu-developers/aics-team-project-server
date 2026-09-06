@@ -1,5 +1,6 @@
 package kgu.developers.domain.teamthread.application.query;
 
+import java.util.List;
 import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.teamthread.domain.TeamThreadRepository;
 import kgu.developers.domain.teamthread.exception.TeamThreadNotFoundException;
@@ -22,5 +23,9 @@ public class TeamThreadQueryService {
     public TeamThread getThreadById(Long id) {
         return teamThreadRepository.findById(id)
             .orElseThrow(TeamThreadNotFoundException::new);
+    }
+
+    public List<TeamThread> getThreads(List<Long> teamIds) {
+        return teamThreadRepository.findAllByTeamIdIn(teamIds);
     }
 }
