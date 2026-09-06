@@ -124,6 +124,18 @@ class SubmissionQueryServiceTest {
     }
 
     @Test
+    @DisplayName("수정 기한 없이 재오픈된 제출은 마감 전까지 다시 제출할 수 있다")
+    void canSubmitNow_TrueForReopenedSubmissionBeforeDueDateWithoutRevisionDueAt() {
+        Milestone milestone = milestone(5L, 2, schedule(LocalDateTime.now().plusDays(1), null, null));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+        submission.reopen("20260001", null);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isTrue();
+    }
+
+    @Test
     @DisplayName("완료된 제출은 공식 기간이 남아있어도 재오픈 전까지 제출할 수 없다(마일스톤 조회조차 필요 없다)")
     void canSubmitNow_FalseWhenAlreadyCompleted() {
         Submission submission = submission(5L);

@@ -114,7 +114,7 @@ public class SubmissionQueryService {
             return false;
         }
         if (submission.getStatus() == SubmissionStatus.REVISION_REQUESTED
-                && isBefore(now, schedule.revisionUntil())) {
+                && (isBefore(now, schedule.dueAt()) || isBefore(now, schedule.revisionUntil()))) {
             return true;
         }
         if (isBefore(now, schedule.dueAt())) {
