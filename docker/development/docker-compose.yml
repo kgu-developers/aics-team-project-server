@@ -51,6 +51,8 @@ services:
       AWS_S3_REGION: ${AWS_S3_REGION:-ap-northeast-2}
       AWS_S3_ACCESS_KEY: ${AWS_S3_ACCESS_KEY}
       AWS_S3_SECRET_KEY: ${AWS_S3_SECRET_KEY}
+    volumes:
+      - ./logs/api:/app/logs
     depends_on:
       - postgres
       - redis
@@ -76,6 +78,8 @@ services:
       AWS_S3_ACCESS_KEY: ${AWS_S3_ACCESS_KEY}
       AWS_S3_SECRET_KEY: ${AWS_S3_SECRET_KEY}
       SPRINGDOC_APIDOCS_PATH: /admin-api-docs
+    volumes:
+      - ./logs/admin:/app/logs
     depends_on:
       - postgres
       - redis
@@ -97,6 +101,8 @@ services:
       JWT_ISSUER: ${JWT_ISSUER}
       FILE_SECRET_KEY: ${FILE_SECRET_KEY}
       SPRINGDOC_APIDOCS_PATH: /auth-api-docs
+    volumes:
+      - ./logs/auth:/app/logs
     depends_on:
       - postgres
       - redis
