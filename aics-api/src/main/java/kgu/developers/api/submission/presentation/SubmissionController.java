@@ -20,11 +20,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
-import kgu.developers.api.submission.presentation.request.SubmissionMemberConfirmationRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
-import kgu.developers.api.submission.presentation.response.SubmissionMemberConfirmationListResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
@@ -101,12 +100,12 @@ public interface SubmissionController {
     @Operation(
         summary = "팀원 확인 현황 조회 API",
         description = """
-            Description : 최종보고서 제출에 대해 팀원 각자가 확인했는지 현황을 조회한다.
+            Description : 최종보고서 제출에 대해 팀원들이 얼마나 확인했는지 요약(확인 인원/전체 인원/본인 확인 여부)을 조회한다.
             Assignee : 담당자명
             """
     )
-    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = SubmissionMemberConfirmationListResponse.class)))
-    ResponseEntity<SubmissionMemberConfirmationListResponse> getMemberConfirmations(
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = SubmissionMemberConsentResponse.class)))
+    ResponseEntity<SubmissionMemberConsentResponse> getMemberConsent(
         @PathVariable Long submissionId,
         Authentication authentication
     );
@@ -114,14 +113,26 @@ public interface SubmissionController {
     @Operation(
         summary = "본인 확인 등록 API",
         description = """
-            Description : 최종보고서 내용·아티팩트를 확인했다고 등록한다(한 줄 소감 포함). 이미 등록했으면 덮어쓴다.
+            Description : 최종보고서를 확인했다고 등록한다(멱등 — 이미 지금 버전을 확인했으면 그대로 유지).
             Assignee : 담당자명
             """
     )
-    @ApiResponse(responseCode = "204")
-    ResponseEntity<Void> confirmAsMember(
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = SubmissionMemberConsentResponse.class)))
+    ResponseEntity<SubmissionMemberConsentResponse> confirmAsMember(
         @PathVariable Long submissionId,
-        @Valid @RequestBody SubmissionMemberConfirmationRequest request,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "본인 확인 취소 API",
+        description = """
+            Description : 등록했던 확인을 취소한다(멱등 — 확인한 적 없어도 그대로 성공).
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = SubmissionMemberConsentResponse.class)))
+    ResponseEntity<SubmissionMemberConsentResponse> cancelConfirmation(
+        @PathVariable Long submissionId,
         Authentication authentication
     );
 

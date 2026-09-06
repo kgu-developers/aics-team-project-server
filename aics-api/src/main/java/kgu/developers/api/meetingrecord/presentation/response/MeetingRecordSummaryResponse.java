@@ -14,6 +14,9 @@ public record MeetingRecordSummaryResponse(
     @Schema(description = "회의록 식별자", example = "1", requiredMode = REQUIRED)
     Long id,
 
+    @Schema(description = "회의록 제목", example = "3주차 정기 회의", requiredMode = REQUIRED)
+    String title,
+
     @Schema(description = "회의 단계(PROPOSAL:제안, MID_CHECK:중간, FINAL:최종)", example = "MID_CHECK", requiredMode = REQUIRED)
     MeetingPhase phase,
 
@@ -35,6 +38,7 @@ public record MeetingRecordSummaryResponse(
     public static MeetingRecordSummaryResponse from(MeetingRecord meetingRecord) {
         return MeetingRecordSummaryResponse.builder()
             .id(meetingRecord.getId())
+            .title(meetingRecord.getTitle())
             .phase(meetingRecord.getPhase())
             .meetingAt(meetingRecord.getMeetingAt().format(FORMATTER))
             .location(meetingRecord.getLocation())

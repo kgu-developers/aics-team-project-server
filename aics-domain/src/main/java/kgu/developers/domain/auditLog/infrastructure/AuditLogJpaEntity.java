@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogMetadataInvalidException;
 import lombok.AllArgsConstructor;
@@ -41,7 +42,8 @@ public class AuditLogJpaEntity extends BaseTimeEntity {
 	private Long sectionId;
 
 	@Column(nullable = false, length = 50)
-	private String eventType;
+	@Enumerated(EnumType.STRING)
+	private AuditLogEventType eventType;
 
 	@Column(nullable = false)
 	private Long targetType;

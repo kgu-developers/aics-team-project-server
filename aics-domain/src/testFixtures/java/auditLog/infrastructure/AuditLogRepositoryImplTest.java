@@ -22,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
 import kgu.developers.domain.auditLog.infrastructure.AuditLogJpaEntity;
@@ -42,7 +43,7 @@ class AuditLogRepositoryImplTest {
 				.id(1L)
 				.actorId("202012345")
 				.sectionId(10L)
-				.eventType("CREATE")
+				.eventType(AuditLogEventType.TEAM_UPDATED)
 				.targetType(TargetType.TEAM.getCode())
 				.targetId(5L)
 				.metadata("{}")
@@ -52,7 +53,7 @@ class AuditLogRepositoryImplTest {
 	@Test
 	@DisplayName("save는 전달받은 AuditLog를 엔티티로 변환하여 저장 후 도메인 객체로 반환한다")
 	void save() {
-		AuditLog auditLog = AuditLog.create("202012345", 10L, "CREATE", TargetType.TEAM, 5L, JsonConverter.parse("{}"));
+		AuditLog auditLog = AuditLog.create("202012345", 10L, AuditLogEventType.TEAM_UPDATED, TargetType.TEAM, 5L, JsonConverter.parse("{}"));
 		given(jpaAuditLogRepository.save(any())).willReturn(sampleEntity());
 
 		AuditLog saved = auditLogRepositoryImpl.save(auditLog);
@@ -103,13 +104,13 @@ class AuditLogRepositoryImplTest {
 	@DisplayName("findAllByEventType은 특정 이벤트 유형의 감사 로그 목록을 조회한다")
 	void findAllByEventType() {
 		Pageable pageable = PageRequest.of(0, 10);
-		given(jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNull("CREATE", pageable))
+		given(jpaAuditLogRepository.findAllByEventTypeAndDeletedAtIsNull(AuditLogEventType.TEAM_UPDATED, pageable))
 				.willReturn(new PageImpl<>(List.of(sampleEntity()), pageable, 1));
 
-		Page<AuditLog> result = auditLogRepositoryImpl.findAllByEventType("CREATE", pageable);
+		Page<AuditLog> result = auditLogRepositoryImpl.findAllByEventType(AuditLogEventType.TEAM_UPDATED, pageable);
 
 		assertThat(result.getTotalElements()).isEqualTo(1);
-		assertThat(result.getContent().get(0).getEventType()).isEqualTo("CREATE");
+		assertThat(result.getContent().get(0).getEventType()).isEqualTo(AuditLogEventType.TEAM_UPDATED);
 	}
 
 	@Test
@@ -174,7 +175,6 @@ class AuditLogRepositoryImplTest {
 		assertThat(auditLogRepositoryImpl.findAllByActorId(null, pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByActorId(" ", pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByEventType(null, pageable)).isEmpty();
-		assertThat(auditLogRepositoryImpl.findAllByEventType(" ", pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByTeam(null, 1L, pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByTeam(1L, null, pageable)).isEmpty();
 		assertThat(auditLogRepositoryImpl.findAllByTeamAndActorIdIn(null, 1L, List.of("202012345"))).isEmpty();

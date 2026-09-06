@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.auditLog.domain.TargetType;
 import lombok.Builder;
 
@@ -21,7 +22,7 @@ public record LatestActivityResponse(
                 },
                 requiredMode = REQUIRED
         )
-        String eventType,
+        AuditLogEventType eventType,
         @Schema(
                 description = "대상 유형",
                 example = "TEAM",

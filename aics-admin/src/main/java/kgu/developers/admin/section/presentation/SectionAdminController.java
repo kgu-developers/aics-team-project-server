@@ -138,7 +138,8 @@ public interface SectionAdminController {
     @Operation(summary = "분반 수강생 역할/상태 변경 API", description = """
             - Description : 이 API는 분반에 등록된 사용자의 역할 또는 상태를 부분 수정합니다.
             - 보낸 필드만 반영되고 생략한 필드는 그대로 유지됩니다.
-            - 상태는 ACTIVE(수강중)와 WITHDRAWN(탈퇴)를 오갈 수 있습니다. 명단에서 완전히 빼려면 별도 삭제가 필요합니다.
+            - 상태를 WITHDRAWN(탈퇴)으로 바꾸면 현재 팀 소속과 팀 API 접근 권한이 함께 제거됩니다.
+            - 팀과 기존 제출·평가 이력은 유지되며, ACTIVE(수강중)로 복구해도 이전 팀 소속은 자동 복구되지 않습니다.
         """)
     @ApiResponse(
         responseCode = "200",

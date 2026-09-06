@@ -1,10 +1,12 @@
 package teamMember.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -122,12 +124,11 @@ class TeamMemberCommandServiceTest {
     void claimLeader() {
         TeamMember member = teamMember();
         Team team = team(1L, Status.FORMING);
-        given(teamQueryService.getTeamById(1L)).willReturn(team);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.empty());
         given(teamMemberRepository.save(member)).willReturn(member);
 
-        TeamMember claimed = teamMemberCommandService.claimLeader(1L, "202699999");
+        TeamMember claimed = teamMemberCommandService.claimLeader(team, "202699999");
 
         assertThat(claimed.isLeader()).isTrue();
         assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
@@ -142,26 +143,60 @@ class TeamMemberCommandServiceTest {
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
                 .build();
         Team team = team(1L, Status.FORMING);
-        given(teamQueryService.getTeamById(1L)).willReturn(team);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(member));
         given(teamMemberRepository.save(member)).willReturn(member);
 
-        TeamMember claimed = teamMemberCommandService.claimLeader(1L, "202699999");
+        TeamMember claimed = teamMemberCommandService.claimLeader(team, "202699999");
 
         assertThat(claimed.isLeader()).isTrue();
         assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
     }
 
     @Test
+    @DisplayName("수강 철회 시 해당 분반의 활성 팀 소속을 삭제한다")
+    void withdrawFromTeam() {
+        TeamMember member = teamMember();
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+                .willReturn(Optional.of(member));
+
+        teamMemberCommandService.withdrawFromTeam(10L, "202699999");
+
+        verify(teamMemberRepository).deleteById(member.getId());
+    }
+
+    @Test
+    @DisplayName("수강 철회 학생에게 활성 팀 소속이 없으면 정상 종료한다")
+    void withdrawFromTeamWithoutActiveMembership() {
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+                .willReturn(Optional.empty());
+
+        teamMemberCommandService.withdrawFromTeam(10L, "202699999");
+
+        verify(teamMemberRepository, never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("withdrawFromTeam은 동시 요청이 팀원을 먼저 삭제해도 성공한다")
+    void withdrawFromTeamWhenConcurrentRequestAlreadyDeletedMember() {
+        TeamMember member = TeamMember.builder().id(1L).teamId(2L).userId("202699999").build();
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(10L, "202699999"))
+            .willReturn(Optional.of(member));
+        willThrow(new TeamMemberNotFoundException()).given(teamMemberRepository).deleteById(member.getId());
+
+        assertThatCode(() -> teamMemberCommandService.withdrawFromTeam(10L, "202699999"))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("이미 팀장이 있으면 팀장 자진 선언은 409 예외를 던진다")
     void rejectsLeaderClaimWhenLeaderAlreadyExists() {
         TeamMember member = teamMember();
-        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.FORMING));
+        Team team = team(1L, Status.FORMING);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.of(leaderOf(1L, 2L)));
 
-        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(1L, "202699999"))
+        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(team, "202699999"))
                 .isInstanceOf(LeaderAlreadyExistsException.class);
 
         assertThat(member.isLeader()).isFalse();
@@ -171,9 +206,9 @@ class TeamMemberCommandServiceTest {
     @Test
     @DisplayName("확정된 팀에서는 팀장 자진 선언을 할 수 없다")
     void rejectsLeaderClaimOnConfirmedTeam() {
-        given(teamQueryService.getTeamById(1L)).willReturn(team(1L, Status.CONFIRMED));
+        Team team = team(1L, Status.CONFIRMED);
 
-        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(1L, "202699999"))
+        assertThatThrownBy(() -> teamMemberCommandService.claimLeader(team, "202699999"))
                 .isInstanceOf(TeamAlreadyConfirmedException.class);
 
         verify(teamMemberRepository, never()).findByTeamIdAndUserId(any(), any());
@@ -541,7 +576,6 @@ class TeamMemberCommandServiceTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch latch = new CountDownLatch(2);
         
-        given(teamQueryService.getTeamById(1L)).willReturn(formingTeam);
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.empty());
         given(teamMemberRepository.save(member)).willReturn(member);
@@ -549,7 +583,7 @@ class TeamMemberCommandServiceTest {
         
         executor.submit(() -> {
             try {
-                teamMemberCommandService.claimLeader(1L, "202699999");
+                teamMemberCommandService.claimLeader(formingTeam, "202699999");
                 successCount.incrementAndGet();
             } catch (Exception e) {
                 failureCount.incrementAndGet();

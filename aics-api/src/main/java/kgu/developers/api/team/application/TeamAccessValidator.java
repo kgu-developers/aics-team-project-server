@@ -33,4 +33,13 @@ public class TeamAccessValidator {
         }
         throw new AccessDeniedException("해당 팀에 소속된 사용자 또는 담당 교수만 접근할 수 있습니다.");
     }
+
+    public void validateTeamLeader(Long teamId, String userId) {
+        boolean isLeader = teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
+            .map(member -> member.isLeader())
+            .orElse(false);
+        if (!isLeader) {
+            throw new AccessDeniedException("팀장만 이 작업을 수행할 수 있습니다.");
+        }
+    }
 }

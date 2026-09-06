@@ -21,9 +21,8 @@ public class MeetingActionCommandService {
             Long meetingRecordId,
             String assigneeId,
             String content,
-            MeetingActionStatus status,
             LocalDateTime dueAt) {
-        MeetingAction meetingAction = MeetingAction.create(meetingRecordId, assigneeId, content, status, dueAt);
+        MeetingAction meetingAction = MeetingAction.create(meetingRecordId, assigneeId, content, MeetingActionStatus.TODO, dueAt);
         return meetingActionRepository.save(meetingAction).getId();
     }
 

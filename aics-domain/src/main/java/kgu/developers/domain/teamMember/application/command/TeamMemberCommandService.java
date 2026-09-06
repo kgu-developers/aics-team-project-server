@@ -91,8 +91,8 @@ public class TeamMemberCommandService {
     return teamMemberRepository.save(teamMember);
   }
 
-  public TeamMember claimLeader(Long teamId, String userId) {
-    Team team = teamQueryService.getTeamById(teamId);
+  public TeamMember claimLeader(Team team, String userId) {
+    Long teamId = team.getId();
     team.validateNotConfirmed();
     TeamMember member = teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
         .orElseThrow(TeamMemberNotFoundException::new);
@@ -103,6 +103,17 @@ public class TeamMemberCommandService {
     team.updateStatus(Status.CONFIRMED);
     teamRepository.save(team);
     return claimed;
+  }
+
+  public void withdrawFromTeam(Long sectionId, String userId) {
+    teamMemberRepository.findActiveBySectionIdAndUserId(sectionId, userId)
+        .ifPresent(teamMember -> {
+          try {
+            teamMemberRepository.deleteById(teamMember.getId());
+          } catch (TeamMemberNotFoundException ignored) {
+            // 동시 철회 요청이 먼저 삭제를 마쳤다면 원하는 최종 상태가 이미 충족됐다.
+          }
+        });
   }
 
   private void validateUpdateAllowed(

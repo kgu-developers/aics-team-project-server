@@ -7,6 +7,7 @@ import kgu.developers.admin.teamMember.presentation.request.TeamMemberUpdateRequ
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,7 +28,9 @@ public class TeamMemberAdminControllerImpl implements TeamMemberAdminController 
 	public ResponseEntity<TeamMemberAdminResponse> updateTeamMember(
 			@Positive @PathVariable Long teamId,
 			@PathVariable String studentNumber,
-			@Valid @RequestBody TeamMemberUpdateRequest request) {
-		return ResponseEntity.ok(teamMemberAdminFacade.updateTeamMember(teamId, studentNumber, request));
+			@Valid @RequestBody TeamMemberUpdateRequest request,
+			Authentication authentication) {
+		return ResponseEntity.ok(teamMemberAdminFacade.updateTeamMember(
+			teamId, studentNumber, request, authentication.getName()));
 	}
 }

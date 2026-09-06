@@ -57,6 +57,22 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
     }
 
     @Override
+    public List<MeetingRecord> findAllByIdIn(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+
+        List<MeetingRecordJpaEntity> entities = jpaMeetingRecordRepository.findAllById(ids);
+        List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
+        Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId =
+            findParticipantsByMeetingRecordId(meetingRecordIds);
+
+        return entities.stream()
+            .map(entity -> entity.toDomain(participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of())))
+            .toList();
+    }
+
+    @Override
     public Page<MeetingRecord> findAllByTeamIdIn(List<Long> teamIds, Pageable pageable) {
         if (teamIds.isEmpty()) {
             return Page.empty(pageable);

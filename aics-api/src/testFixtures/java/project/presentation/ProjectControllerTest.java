@@ -1,0 +1,188 @@
+package project.presentation;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import kgu.developers.api.project.application.ProjectFacade;
+import kgu.developers.api.project.presentation.ProjectControllerImpl;
+import kgu.developers.api.project.presentation.request.ProjectRequest;
+import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
+import kgu.developers.domain.project.domain.ApprovalStatus;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+@ExtendWith(MockitoExtension.class)
+class ProjectControllerTest {
+
+    private static final Long TEAM_ID = 1L;
+    private static final String USER_ID = "202412345";
+
+    @Mock
+    private ProjectFacade projectFacade;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(new ProjectControllerImpl(projectFacade)).build();
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(USER_ID, null)
+        );
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/teams/{teamId}/project는 프로젝트 제안서를 반환한다")
+    void getProject() throws Exception {
+        given(projectFacade.getProject(TEAM_ID, USER_ID)).willReturn(response());
+
+        mockMvc.perform(get("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(10L))
+            .andExpect(jsonPath("$.teamId").value(TEAM_ID))
+            .andExpect(jsonPath("$.title").value("AI 학습 도우미"))
+            .andExpect(jsonPath("$.approvalStatus").value("DRAFT"));
+
+        then(projectFacade).should().getProject(TEAM_ID, USER_ID);
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 요청 값을 제안서 등록에 전달한다")
+    void saveProject() throws Exception {
+        ProjectRequest request = new ProjectRequest(
+            "AI 학습 도우미",
+            "학습 기록을 분석하는 서비스",
+            "개인별 피드백 자동화",
+            "매주 월요일 대면 회의",
+            "https://github.com/kgu/project",
+            objectMapper.readTree("[{\"name\":\"Figma\",\"url\":\"https://figma.com/design\"}]")
+        );
+        given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
+            .willReturn(response());
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.title").value("AI 학습 도우미"));
+
+        ArgumentCaptor<ProjectRequest> requestCaptor = ArgumentCaptor.forClass(ProjectRequest.class);
+        then(projectFacade).should().saveProject(eq(TEAM_ID), eq(USER_ID), requestCaptor.capture());
+        org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue())
+            .extracting(ProjectRequest::title, ProjectRequest::description, ProjectRequest::goal)
+            .containsExactly("AI 학습 도우미", "학습 기록을 분석하는 서비스", "개인별 피드백 자동화");
+        org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().externalLinks())
+            .isEqualTo(request.externalLinks());
+    }
+
+    @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")
+    @CsvSource({"title, 201", "meetingStyle, 201", "repositoryUrl, 256"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 DB 길이 제한 초과 시 400을 반환한다")
+    void saveProjectRejectsTooLongField(String field, int length) throws Exception {
+        String tooLong = "a".repeat(length);
+        ProjectRequest request = new ProjectRequest(
+            "title".equals(field) ? tooLong : "AI 학습 도우미",
+            "학습 기록을 분석하는 서비스",
+            "개인별 피드백 자동화",
+            "meetingStyle".equals(field) ? tooLong : "매주 월요일 대면 회의",
+            "repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project",
+            objectMapper.readTree("[]")
+        );
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/projects/{projectId}/proposal-complete는 완료 처리를 요청한다")
+    void completeProposal() throws Exception {
+        mockMvc.perform(patch("/api/v1/projects/{projectId}/proposal-complete", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+
+        then(projectFacade).should().completeProposal(10L, USER_ID);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/projects/{projectId}/approval은 인증 사용자로 동의를 요청하고 200을 반환한다")
+    void approveProject() throws Exception {
+        mockMvc.perform(post("/api/v1/projects/{projectId}/approval", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+
+        then(projectFacade).should().approveProject(10L, USER_ID);
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/projects/{projectId}는 인증 사용자로 삭제를 요청하고 204를 반환한다")
+    void deleteProject() throws Exception {
+        mockMvc.perform(delete("/api/v1/projects/{projectId}", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isNoContent());
+
+        then(projectFacade).should().deleteProject(10L, USER_ID);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/projects/{projectId}/approvals는 팀원 동의 진행 현황을 반환한다")
+    void getApprovalSummary() throws Exception {
+        given(projectFacade.getApprovalSummary(10L, USER_ID))
+            .willReturn(ProjectApprovalSummaryResponse.of(2, 4));
+
+        mockMvc.perform(get("/api/v1/projects/{projectId}/approvals", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.approvedCount").value(2))
+            .andExpect(jsonPath("$.totalCount").value(4))
+            .andExpect(jsonPath("$.progress").value("2/4"));
+    }
+
+    private ProjectResponse response() throws Exception {
+        return ProjectResponse.builder()
+            .id(10L)
+            .teamId(TEAM_ID)
+            .title("AI 학습 도우미")
+            .description("학습 기록을 분석하는 서비스")
+            .goal("개인별 피드백 자동화")
+            .meetingStyle("매주 월요일 대면 회의")
+            .repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(objectMapper.readTree("[]"))
+            .approvalStatus(ApprovalStatus.DRAFT)
+            .build();
+    }
+}

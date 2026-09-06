@@ -9,4 +9,6 @@ public interface JpaSubmissionMemberConfirmationRepository extends JpaRepository
     List<SubmissionMemberConfirmationJpaEntity> findAllBySubmissionId(Long submissionId);
 
     Optional<SubmissionMemberConfirmationJpaEntity> findBySubmissionIdAndUserId(Long submissionId, String userId);
+
+    void deleteBySubmissionIdAndUserId(Long submissionId, String userId);
 }

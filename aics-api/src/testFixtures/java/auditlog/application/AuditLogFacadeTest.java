@@ -29,6 +29,7 @@ import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.auditLog.application.query.AuditLogQueryService;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -59,7 +60,7 @@ class AuditLogFacadeTest {
     @DisplayName("getTeamHistories는 해당 팀을 대상으로 한 변경 이력을 행위자 이름과 함께 반환한다")
     void getTeamHistories() {
         PageRequest pageable = PageRequest.of(0, 10);
-        AuditLog history = auditLog(1L, USER_A, "TEAM_NAME_UPDATED", TEAM, TEAM_ID,
+        AuditLog history = auditLog(1L, USER_A, AuditLogEventType.TEAM_NAME_UPDATED, TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 10, 0));
         given(teamAccessValidator.validateMembershipOrProfessor(TEAM_ID, USER_B)).willReturn(team());
         given(auditLogQueryService.getTeamHistories(SECTION_ID, TEAM_ID, pageable))
@@ -72,7 +73,7 @@ class AuditLogFacadeTest {
         verify(teamAccessValidator).validateMembershipOrProfessor(TEAM_ID, USER_B);
         assertThat(result.contents()).hasSize(1);
         assertThat(result.contents().get(0).actorName()).isEqualTo("김태양");
-        assertThat(result.contents().get(0).eventType()).isEqualTo("TEAM_NAME_UPDATED");
+        assertThat(result.contents().get(0).eventType()).isEqualTo(AuditLogEventType.TEAM_NAME_UPDATED);
         assertThat(result.pageable().totalElements()).isEqualTo(1);
     }
 
@@ -84,11 +85,11 @@ class AuditLogFacadeTest {
                 TeamMember.create(TEAM_ID, USER_B, true, "발표"),
                 TeamMember.create(TEAM_ID, USER_A, false, "기록")
         );
-        AuditLog older = auditLog(1L, USER_B, "TEAM_RULE_UPDATED", TEAM, TEAM_ID,
+        AuditLog older = auditLog(1L, USER_B, AuditLogEventType.TEAM_RULE_UPDATED, TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 9, 30));
-        AuditLog latest = auditLog(2L, USER_B, "TEAM_NAME_UPDATED", TEAM, TEAM_ID,
+        AuditLog latest = auditLog(2L, USER_B, AuditLogEventType.TEAM_NAME_UPDATED, TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 10, 30));
-        AuditLog outsider = auditLog(3L, "202699999", "TEAM_UPDATED", TEAM, TEAM_ID,
+        AuditLog outsider = auditLog(3L, "202699999", AuditLogEventType.TEAM_UPDATED, TEAM, TEAM_ID,
                 LocalDateTime.of(2026, 9, 1, 11, 0));
         given(teamAccessValidator.validateMembershipOrProfessor(TEAM_ID, USER_A)).willReturn(team());
         given(teamMemberQueryService.getTeamMembersByTeamId(TEAM_ID)).willReturn(members);
@@ -101,7 +102,7 @@ class AuditLogFacadeTest {
 
         assertThat(result.members()).extracting("userId").containsExactly(USER_B, USER_A);
         assertThat(result.members().get(0).lastLoginAt()).isEqualTo(loginAt);
-        assertThat(result.members().get(0).lastActivity().eventType()).isEqualTo("TEAM_NAME_UPDATED");
+        assertThat(result.members().get(0).lastActivity().eventType()).isEqualTo(AuditLogEventType.TEAM_NAME_UPDATED);
         assertThat(result.members().get(1).lastLoginAt()).isNull();
         assertThat(result.members().get(1).lastActivity()).isNull();
         verify(auditLogQueryService).getMemberActivities(SECTION_ID, TEAM_ID, List.of(USER_B, USER_A));
@@ -140,7 +141,7 @@ class AuditLogFacadeTest {
     private AuditLog auditLog(
             Long id,
             String actorId,
-            String eventType,
+            AuditLogEventType eventType,
             kgu.developers.domain.auditLog.domain.TargetType targetType,
             Long targetId,
             LocalDateTime createdAt

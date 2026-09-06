@@ -8,6 +8,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.user.domain.User;
 import lombok.Builder;
@@ -30,7 +31,7 @@ public record TeamHistoryResponse(
                 },
                 requiredMode = REQUIRED
         )
-        String eventType,
+        AuditLogEventType eventType,
         @Schema(
                 description = "대상 유형",
                 example = "TEAM",

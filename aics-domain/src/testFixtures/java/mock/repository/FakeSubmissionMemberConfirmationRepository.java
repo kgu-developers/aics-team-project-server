@@ -23,9 +23,6 @@ public class FakeSubmissionMemberConfirmationRepository implements SubmissionMem
             .submissionId(confirmation.getSubmissionId())
             .userId(confirmation.getUserId())
             .version(confirmation.getVersion())
-            .confirmedFinalReport(confirmation.isConfirmedFinalReport())
-            .confirmedArtifacts(confirmation.isConfirmedArtifacts())
-            .oneLineReview(confirmation.getOneLineReview())
             .confirmedAt(confirmation.getConfirmedAt())
             .build();
 
@@ -46,5 +43,11 @@ public class FakeSubmissionMemberConfirmationRepository implements SubmissionMem
             .filter(confirmation -> confirmation.getSubmissionId().equals(submissionId))
             .filter(confirmation -> confirmation.getUserId().equals(userId))
             .findFirst();
+    }
+
+    @Override
+    public void deleteBySubmissionIdAndUserId(Long submissionId, String userId) {
+        findBySubmissionIdAndUserId(submissionId, userId)
+            .ifPresent(confirmation -> store.remove(confirmation.getId()));
     }
 }

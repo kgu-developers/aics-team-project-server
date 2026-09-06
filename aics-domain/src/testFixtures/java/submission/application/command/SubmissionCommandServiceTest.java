@@ -365,16 +365,27 @@ class SubmissionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("본인 확인을 등록하면 나중에 다시 등록해도 하나로 덮어써진다")
-    void confirmAsMember_UpsertsSingleRecord() {
-        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, true, false, "1차");
-        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, true, true, "수정함");
+    @DisplayName("본인 확인을 등록하면 나중에 다시 등록해도(멱등) 하나의 행으로 남는다")
+    void confirmAsMember_IsIdempotent() {
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
 
         List<SubmissionMemberConfirmation> confirmations =
                 submissionMemberConfirmationRepository.findAllBySubmissionId(submission.getId());
         assertThat(confirmations).hasSize(1);
-        assertThat(confirmations.get(0).isConfirmedArtifacts()).isTrue();
-        assertThat(confirmations.get(0).getOneLineReview()).isEqualTo("수정함");
+        assertThat(confirmations.get(0).confirmsVersion(submission.getCurrentVersion())).isTrue();
+    }
+
+    @Test
+    @DisplayName("확인을 취소하면(멱등) 그 행이 없어지고, 확인한 적 없어도 취소는 그대로 성공한다")
+    void cancelConfirmation_RemovesRecordAndIsIdempotent() {
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
+
+        submissionCommandService.cancelConfirmation(submission.getId(), USER_ID);
+        assertThat(submissionMemberConfirmationRepository.findAllBySubmissionId(submission.getId())).isEmpty();
+
+        assertThat(catchThrowable(
+                () -> submissionCommandService.cancelConfirmation(submission.getId(), USER_ID))).isNull();
     }
 
     @Test
@@ -410,7 +421,7 @@ class SubmissionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("최종보고서 마일스톤은 활성 팀원 전원이 실제로(true/true) 확인해야 완료 처리된다")
+    @DisplayName("최종보고서 마일스톤은 활성 팀원 전원이 확인해야 완료 처리된다")
     void completeSubmission_RequiresAllActiveMembersConfirmed() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
@@ -422,23 +433,23 @@ class SubmissionCommandServiceTest {
         assertThatThrownBy(() -> submissionCommandService.completeSubmission(submission.getId(), USER_ID))
                 .isInstanceOf(SubmissionMemberConfirmationIncompleteException.class);
 
-        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, true, true, null);
-        submissionCommandService.confirmAsMember(submission.getId(), "202611111", true, true, null);
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
+        submissionCommandService.confirmAsMember(submission.getId(), "202611111");
 
         assertThat(catchThrowable(
                 () -> submissionCommandService.completeSubmission(submission.getId(), USER_ID))).isNull();
     }
 
     @Test
-    @DisplayName("확인 값이 하나라도 false면(형식적으로 등록만 했어도) 완료 게이트를 통과하지 못한다")
-    void completeSubmission_RejectsWhenConfirmationValuesAreFalse() {
+    @DisplayName("확인을 취소하면 다시 완료 게이트를 통과하지 못한다")
+    void completeSubmission_RejectsAfterConfirmationCancelled() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "최종보고서 제출", null, List.of());
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
 
-        // 확인 레코드는 존재하지만 실제 값은 false/false — "등록 여부"가 아니라 "값"을 봐야 한다.
-        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, false, false, null);
+        submissionCommandService.cancelConfirmation(submission.getId(), USER_ID);
 
         assertThatThrownBy(() -> submissionCommandService.completeSubmission(submission.getId(), USER_ID))
                 .isInstanceOf(SubmissionMemberConfirmationIncompleteException.class);
@@ -451,7 +462,7 @@ class SubmissionCommandServiceTest {
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "1차 제출", null, List.of());
-        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, true, true, null);
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
 
         // 재제출로 currentVersion이 올라감 — 1차 버전에 대한 확인은 2차 버전을 확인한 게 아니다.
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "2차 제출", null, List.of());
@@ -470,7 +481,7 @@ class SubmissionCommandServiceTest {
         enrollmentRepository.save(Enrollment.create(SECTION_ID, "202611111", Role.STUDENT, Status.WITHDRAWN));
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "최종보고서 제출", null, List.of());
 
-        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, true, true, null);
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
 
         assertThat(catchThrowable(
                 () -> submissionCommandService.completeSubmission(submission.getId(), USER_ID))).isNull();
@@ -487,7 +498,7 @@ class SubmissionCommandServiceTest {
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "최종보고서 제출", null, List.of());
 
         // 조교(202611111)는 확인을 아예 안 했지만, 활성 STUDENT(USER_ID)만 확인하면 게이트를 통과해야 한다.
-        submissionCommandService.confirmAsMember(submission.getId(), USER_ID, true, true, null);
+        submissionCommandService.confirmAsMember(submission.getId(), USER_ID);
 
         assertThat(catchThrowable(
                 () -> submissionCommandService.completeSubmission(submission.getId(), USER_ID))).isNull();

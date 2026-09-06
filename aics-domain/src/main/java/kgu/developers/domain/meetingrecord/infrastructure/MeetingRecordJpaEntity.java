@@ -37,6 +37,12 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private Long teamId;
 
+    // 개발 DB에 이미 title 없는 옛 회의록 행이 있을 수 있어(ddl-auto=update가 NOT NULL 컬럼
+    // 추가 자체를 실패시킴, sunzx0428 PR #118 리뷰) DB 컬럼은 nullable로 두고, "필수"는
+    // 애플리케이션 레벨(생성 시 @NotBlank, 수정 시 MeetingRecordInvalidTitleException)에서만 강제한다.
+    @Column(length = 200)
+    private String title;
+
     @Column(nullable = false, length = 20)
     @Enumerated(STRING)
     private MeetingPhase phase;
@@ -60,6 +66,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
         return MeetingRecord.builder()
             .id(this.id)
             .teamId(this.teamId)
+            .title(this.title)
             .phase(this.phase)
             .authorId(this.authorId)
             .meetingAt(this.meetingAt)
@@ -76,6 +83,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
         return MeetingRecordJpaEntity.builder()
             .id(domain.getId())
             .teamId(domain.getTeamId())
+            .title(domain.getTitle())
             .phase(domain.getPhase())
             .authorId(domain.getAuthorId())
             .meetingAt(domain.getMeetingAt())

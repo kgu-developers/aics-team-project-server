@@ -26,6 +26,12 @@ public class TeamQueryService {
                 .orElseThrow(TeamNotFoundException::new);
     }
 
+    @Transactional
+    public Team getTeamByIdForUpdate(Long id) {
+        return teamRepository.findByIdForUpdate(id)
+                .orElseThrow(TeamNotFoundException::new);
+    }
+
     public void validateContactVisible(Long teamId) {
         Team team = getTeamById(teamId);
         SectionDetail sectionDetail = sectionRepository.findById(team.getSectionId())

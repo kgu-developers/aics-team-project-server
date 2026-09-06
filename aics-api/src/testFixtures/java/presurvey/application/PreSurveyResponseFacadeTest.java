@@ -48,7 +48,7 @@ class PreSurveyResponseFacadeTest {
 	void init() {
 		FakePreSurveyResponseRepository repository = new FakePreSurveyResponseRepository();
 		preSurveyResponseFacade = new PreSurveyResponseFacade(
-				new PreSurveyResponseCommandService(repository),
+				new PreSurveyResponseCommandService(repository, enrollmentRepository),
 				new PreSurveyResponseQueryService(repository),
 				enrollmentRepository
 		);
@@ -60,6 +60,11 @@ class PreSurveyResponseFacadeTest {
 				.willReturn(Optional.of(Enrollment.create(SECTION_ID, WITHDRAWN_STUDENT, Role.STUDENT, Status.WITHDRAWN)));
 		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ASSISTANT))
 				.willReturn(Optional.of(Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE)));
+		// PreSurveyResponseCommandService.submit()이 동시제출 방지용으로 같은 Enrollment 행을
+		// findBySectionIdAndUserIdForUpdate로 다시 잠그므로(sunzx0428 PR #65 리뷰 09-03 대응),
+		// 위와 동일한 스텁을 이 메서드에도 걸어준다 — 정상 케이스(STUDENT)만 필요.
+		given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, STUDENT))
+				.willReturn(Optional.of(Enrollment.create(SECTION_ID, STUDENT, Role.STUDENT, Status.ACTIVE)));
 	}
 
 	private PreSurveyResponseSubmitRequest request(List<String> roles, String topicOpinion) {

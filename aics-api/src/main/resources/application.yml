@@ -2,6 +2,18 @@ server:
   port: 8080
   forward-headers-strategy: framework
 
+# KD3-168: docker logs는 컨테이너가 지워지면 같이 사라진다(컨테이너 이름충돌 장애 때 실제로 겪음).
+# 컨테이너 밖(호스트) 디렉토리에 마운트해서 컨테이너 수명과 무관하게 남긴다(docker-compose.yml 참고).
+# total-size-cap으로 디스크를 무한정 잡아먹지 않게 상한을 둔다(디스크 꽉참 장애 재발 방지).
+logging:
+  file:
+    name: /app/logs/aics-api.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+      total-size-cap: 200MB
+
 spring:
   application:
     name: aics-api

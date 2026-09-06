@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -73,5 +75,17 @@ class PreSurveyResponseJpaEntityTest {
 		assertThat(entity.getCreatedAt()).isEqualTo(createdAt);
 		assertThat(entity.getDeletedAt()).isEqualTo(deletedAt);
 		assertThat(entity.toDomain().getId()).isEqualTo(1L);
+	}
+
+	@Test
+	@DisplayName("엔티티는 소프트 삭제된 응답의 재제출을 막는 무조건 유니크 제약을 만들지 않는다")
+	void entityDoesNotHaveUnconditionalUniqueConstraintOnUserIdAndSectionId() {
+		Table tableAnnotation = PreSurveyResponseJpaEntity.class.getAnnotation(Table.class);
+		assertThat(tableAnnotation).isNotNull();
+		assertThat(tableAnnotation.uniqueConstraints()).isEmpty();
+		// uniqueConstraints() 대신 indexes()에 unique=true로 넣어도 같은 문제가 생기므로 같이 막는다
+		assertThat(tableAnnotation.indexes())
+				.as("indexes()에 unique=true인 인덱스가 있다: %s", (Object) tableAnnotation.indexes())
+				.noneMatch(Index::unique);
 	}
 }

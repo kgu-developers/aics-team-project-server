@@ -120,3 +120,31 @@ jobs:
               reload_attempt=$((reload_attempt + 1))
               sleep 1
             done
+
+            health_attempt=1
+            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+              wget -q -O /dev/null http://aics-api:8080/v3/api-docs \
+              && docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+                wget -q -O /dev/null http://aics-admin:8081/admin-api-docs \
+              && docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+                wget -q -O /dev/null http://aics-auth:8082/auth-api-docs; do
+              if [ "$health_attempt" -ge 90 ]; then
+                echo "애플리케이션 기동 확인에 실패했습니다." >&2
+                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
+                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} logs \
+                  --tail=200 aics-api aics-admin aics-auth
+                exit 1
+              fi
+
+              echo "애플리케이션 기동을 기다립니다. ($health_attempt/90)"
+              health_attempt=$((health_attempt + 1))
+              sleep 2
+            done
+
+            echo "API, Admin, Auth 애플리케이션 기동 확인을 완료했습니다."
+
+            echo "이미지 정리 전 디스크 사용량:"
+            df -h .
+            docker image prune -af
+            echo "이미지 정리 후 디스크 사용량:"
+            df -h .

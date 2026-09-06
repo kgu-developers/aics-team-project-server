@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,11 +21,10 @@ import kgu.developers.api.submission.application.SubmissionFacade;
 import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
-import kgu.developers.api.submission.presentation.request.SubmissionMemberConfirmationRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
-import kgu.developers.api.submission.presentation.response.SubmissionMemberConfirmationListResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
@@ -81,22 +81,29 @@ public class SubmissionControllerImpl implements SubmissionController {
 
     @Override
     @GetMapping("/submissions/{submissionId}/member-confirmations")
-    public ResponseEntity<SubmissionMemberConfirmationListResponse> getMemberConfirmations(
+    public ResponseEntity<SubmissionMemberConsentResponse> getMemberConsent(
         @PathVariable Long submissionId,
         Authentication authentication
     ) {
-        return ResponseEntity.ok(submissionFacade.getMemberConfirmations(submissionId, authentication.getName()));
+        return ResponseEntity.ok(submissionFacade.getMemberConsent(submissionId, authentication.getName()));
     }
 
     @Override
-    @PostMapping("/submissions/{submissionId}/member-confirmations")
-    public ResponseEntity<Void> confirmAsMember(
+    @PutMapping("/submissions/{submissionId}/member-confirmations/me")
+    public ResponseEntity<SubmissionMemberConsentResponse> confirmAsMember(
         @PathVariable Long submissionId,
-        @Valid @RequestBody SubmissionMemberConfirmationRequest request,
         Authentication authentication
     ) {
-        submissionFacade.confirmAsMember(submissionId, authentication.getName(), request);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(submissionFacade.confirmAsMember(submissionId, authentication.getName()));
+    }
+
+    @Override
+    @DeleteMapping("/submissions/{submissionId}/member-confirmations/me")
+    public ResponseEntity<SubmissionMemberConsentResponse> cancelConfirmation(
+        @PathVariable Long submissionId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(submissionFacade.cancelConfirmation(submissionId, authentication.getName()));
     }
 
     @Override

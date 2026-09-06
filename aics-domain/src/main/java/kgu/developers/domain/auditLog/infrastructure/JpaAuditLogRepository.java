@@ -7,6 +7,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
+
 public interface JpaAuditLogRepository extends JpaRepository<AuditLogJpaEntity, Long> {
 
 	Optional<AuditLogJpaEntity> findByIdAndDeletedAtIsNull(Long id);
@@ -15,7 +17,7 @@ public interface JpaAuditLogRepository extends JpaRepository<AuditLogJpaEntity, 
 
 	Page<AuditLogJpaEntity> findAllByActorIdAndDeletedAtIsNull(String actorId, Pageable pageable);
 
-	Page<AuditLogJpaEntity> findAllByEventTypeAndDeletedAtIsNull(String eventType, Pageable pageable);
+	Page<AuditLogJpaEntity> findAllByEventTypeAndDeletedAtIsNull(AuditLogEventType eventType, Pageable pageable);
 
 	Page<AuditLogJpaEntity> findAllBySectionIdAndTargetTypeAndTargetIdAndDeletedAtIsNull(
 			Long sectionId, Long targetType, Long targetId, Pageable pageable);

@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import kgu.developers.domain.auditLog.domain.AuditLog;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.auditLog.domain.AuditLogRepository;
 import kgu.developers.domain.auditLog.domain.TargetType;
 import kgu.developers.domain.auditLog.exception.AuditLogNotFoundException;
@@ -77,8 +78,8 @@ public class FakeAuditLogRepository implements AuditLogRepository {
 	}
 
 	@Override
-	public Page<AuditLog> findAllByEventType(String eventType, Pageable pageable) {
-		if (eventType == null || eventType.isBlank()) {
+	public Page<AuditLog> findAllByEventType(AuditLogEventType eventType, Pageable pageable) {
+		if (eventType == null) {
 			return Page.empty(pageable);
 		}
 		List<AuditLog> filtered = store.values().stream()

@@ -38,7 +38,7 @@ class MeetingActionQueryServiceTest {
 
     private MeetingRecord createMeetingRecord(Long teamId) {
         return fakeMeetingRecordRepository.save(
-            MeetingRecord.create(teamId, MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345"))
+            MeetingRecord.create(teamId, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용", List.of("202412345"))
         );
     }
 

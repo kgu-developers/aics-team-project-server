@@ -21,7 +21,7 @@ public class AuditLog {
     private String actorId;  // 행위자 학번
     private Long sectionId;  // 분반 식별자
 
-    private String eventType;  // 이벤트 유형
+    private AuditLogEventType eventType;  // 이벤트 유형
     private TargetType targetType;  // 대상 유형
     private Long targetId;  // 대상 식별자
     private JsonNode metadata;  // 부가정보
@@ -30,7 +30,7 @@ public class AuditLog {
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
-    public static AuditLog create(String actorId, Long sectionId, String eventType, TargetType targetType, Long targetId, JsonNode metadata) {
+    public static AuditLog create(String actorId, Long sectionId, AuditLogEventType eventType, TargetType targetType, Long targetId, JsonNode metadata) {
         return AuditLog.builder()
                 .actorId(requireNonNull(actorId, "actorId"))
                 .sectionId(requireNonNull(sectionId, "sectionId"))

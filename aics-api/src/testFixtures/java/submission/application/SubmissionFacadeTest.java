@@ -24,6 +24,7 @@ import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequ
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
 import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
+import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.domain.editlock.application.command.EditLockCommandService;
 import kgu.developers.domain.editlock.application.query.EditLockQueryService;
@@ -541,6 +542,45 @@ class SubmissionFacadeTest {
 
         assertThatThrownBy(() -> submissionFacade.getMyTeamSubmission(MILESTONE_ID, "202677775"))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("아무도 확인하지 않았으면 확인 인원 0명, 본인 확인 여부는 false로 조회된다")
+    void getMemberConsent_ReportsZeroBeforeAnyoneConfirms() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        SubmissionMemberConsentResponse response = submissionFacade.getMemberConsent(submission.getId(), MEMBER);
+
+        assertThat(response.confirmedCount()).isZero();
+        assertThat(response.totalCount()).isEqualTo(2);
+        assertThat(response.isConfirmedByMe()).isFalse();
+    }
+
+    @Test
+    @DisplayName("확인을 등록하면 확인 인원과 본인 확인 여부가 바로 반영된다")
+    void confirmAsMember_ReflectsInConsentImmediately() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        SubmissionMemberConsentResponse response = submissionFacade.confirmAsMember(submission.getId(), MEMBER);
+
+        assertThat(response.confirmedCount()).isEqualTo(1);
+        assertThat(response.totalCount()).isEqualTo(2);
+        assertThat(response.isConfirmedByMe()).isTrue();
+    }
+
+    @Test
+    @DisplayName("확인을 취소하면 확인 인원과 본인 확인 여부가 다시 줄어든다")
+    void cancelConfirmation_ReflectsInConsentImmediately() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        submissionFacade.confirmAsMember(submission.getId(), MEMBER);
+
+        SubmissionMemberConsentResponse response = submissionFacade.cancelConfirmation(submission.getId(), MEMBER);
+
+        assertThat(response.confirmedCount()).isZero();
+        assertThat(response.isConfirmedByMe()).isFalse();
     }
 
     private Milestone milestone() {

@@ -101,31 +101,32 @@ public class SubmissionCommandService {
         return version;
     }
 
-    // 팀원 본인의 확인을 등록/갱신한다(최종보고서 게이트용). 이미 확인한 적 있으면 덮어쓴다.
-    // 확인은 "지금 이 순간의 currentVersion"에 묶인다 — 재제출로 버전이 올라가면 예전 확인은
-    // 더 이상 이 게이트를 통과시키지 못한다(SubmissionMemberConfirmation.confirmsVersion 참고).
-    public SubmissionMemberConfirmation confirmAsMember(
-            Long submissionId,
-            String userId,
-            boolean confirmedFinalReport,
-            boolean confirmedArtifacts,
-            String oneLineReview
-    ) {
+    // 팀원 본인의 확인을 등록한다(최종보고서 게이트용, 멱등 — 이미 "지금 버전"을 확인했으면
+    // 아무것도 안 하고 그대로 둔다). 확인은 "지금 이 순간의 currentVersion"에 묶인다 — 재제출로
+    // 버전이 올라가면 예전 확인은 더 이상 이 게이트를 통과시키지 못하고, 다시 확인해야
+    // (SubmissionMemberConfirmation.confirmsVersion 참고) 이 메서드가 새 버전으로 갱신한다.
+    // "확인함" 자체는 별도 필드가 아니라 이 행의 존재로 표현한다(KD3-161).
+    public SubmissionMemberConfirmation confirmAsMember(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
-        SubmissionMemberConfirmation confirmation = submissionMemberConfirmationRepository
+        SubmissionMemberConfirmation existing = submissionMemberConfirmationRepository
                 .findBySubmissionIdAndUserId(submissionId, userId)
                 .orElse(null);
+        if (existing != null && existing.confirmsVersion(submission.getCurrentVersion())) {
+            return existing;
+        }
         SubmissionMemberConfirmation toSave = SubmissionMemberConfirmation.builder()
-                .id(confirmation != null ? confirmation.getId() : null)
+                .id(existing != null ? existing.getId() : null)
                 .submissionId(submissionId)
                 .userId(userId)
                 .version(submission.getCurrentVersion())
-                .confirmedFinalReport(confirmedFinalReport)
-                .confirmedArtifacts(confirmedArtifacts)
-                .oneLineReview(oneLineReview)
                 .confirmedAt(LocalDateTime.now())
                 .build();
         return submissionMemberConfirmationRepository.save(toSave);
+    }
+
+    // 등록했던 확인을 취소한다(멱등 — 확인한 적 없어도 그대로 성공, 삭제할 행이 없을 뿐).
+    public void cancelConfirmation(Long submissionId, String userId) {
+        submissionMemberConfirmationRepository.deleteBySubmissionIdAndUserId(submissionId, userId);
     }
 
     // 최종보고서 마일스톤이면 팀원 전원(WITHDRAWN 제외)이 "지금 버전"을 실제로(true/true) 확인해야 통과한다.
@@ -158,9 +159,7 @@ public class SubmissionCommandService {
                 .filter(member -> isActiveStudent(milestone.getSectionId(), member.getUserId()))
                 .allMatch(member -> {
                     SubmissionMemberConfirmation confirmation = confirmationsByUserId.get(member.getUserId());
-                    return confirmation != null
-                            && confirmation.confirmsVersion(submission.getCurrentVersion())
-                            && confirmation.isFullyConfirmed();
+                    return confirmation != null && confirmation.confirmsVersion(submission.getCurrentVersion());
                 });
 
         if (!allActiveMembersConfirmed) {

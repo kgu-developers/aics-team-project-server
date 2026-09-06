@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +28,7 @@ public interface PreSurveyResponseController {
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PreSurveyResponseDetailResponse.class)))
     ResponseEntity<PreSurveyResponseDetailResponse> submit(
-        @PathVariable Long sectionId,
+        @Positive @PathVariable Long sectionId,
         @Valid @RequestBody PreSurveyResponseSubmitRequest request,
         Authentication authentication
     );
@@ -41,7 +42,7 @@ public interface PreSurveyResponseController {
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PreSurveyResponseDetailResponse.class)))
     ResponseEntity<PreSurveyResponseDetailResponse> getMyResponse(
-        @RequestParam Long sectionId,
+        @Positive @RequestParam Long sectionId,
         Authentication authentication
     );
 }
