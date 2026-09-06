@@ -65,7 +65,7 @@ public record SectionResponse(
         return new SectionResponse(
             section.getId(),
             section.getCode(),
-            section.displayName(),
+            section.getName(),
             section.getClassTime(),
             section.getCapacity(),
             section.getContactVisibleFrom(),

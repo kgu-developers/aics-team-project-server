@@ -52,7 +52,7 @@ public record MeetingRecordAdminResponse(
         return MeetingRecordAdminResponse.builder()
             .id(meetingRecord.getId())
             .sectionId(section.getId())
-            .sectionName(section.displayName())
+            .sectionName(section.getName())
             .teamId(team.getId())
             .teamName(team.getName())
             .phase(meetingRecord.getPhase())

@@ -46,7 +46,7 @@ public record SectionAdminResponse(
             UserAdminResponse.from(detail.professor()),
             CourseResponse.from(detail.course()),
             section.getCode(),
-            section.displayName(),
+            section.getName(),
             section.getClassTime(),
             section.getCapacity(),
             section.getContactVisibleFrom(),

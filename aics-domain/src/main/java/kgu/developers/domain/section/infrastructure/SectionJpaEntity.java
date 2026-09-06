@@ -96,9 +96,9 @@ public class SectionJpaEntity extends BaseTimeEntity {
   }
 
   private static String legacyName(Section section) {
-    String displayName = section.displayName();
-    return displayName.length() <= 200
-        ? displayName
-        : displayName.substring(0, 200);
+    String name = section.getName();
+    return name.length() <= 200
+        ? name
+        : name.substring(0, 200);
   }
 }

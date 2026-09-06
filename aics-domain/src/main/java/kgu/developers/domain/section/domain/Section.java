@@ -47,7 +47,7 @@ public class Section {
   }
 
   /** 요일·시간/과목번호 표시 문자열. 응답과 레거시 section.name 컬럼이 함께 쓴다. */
-  public String displayName() {
+  public String getName() {
     return Stream.of(classTime, code)
         .filter(Objects::nonNull)
         .collect(joining("/"));
