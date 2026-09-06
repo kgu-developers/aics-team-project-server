@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicVote.domain.TopicVote;
 import lombok.Builder;
@@ -19,11 +20,11 @@ public record TopicCandidateListResponse(
 
     public static TopicCandidateListResponse of(List<TopicCandidate> candidates, List<TopicVote> votes, String userId) {
         Map<Long, Long> voteCounts = votes.stream()
-            .collect(java.util.stream.Collectors.groupingBy(TopicVote::getCandidateId, java.util.stream.Collectors.counting()));
+            .collect(Collectors.groupingBy(TopicVote::getCandidateId, Collectors.counting()));
         Set<Long> votedCandidateIds = votes.stream()
             .filter(vote -> vote.getVoterUserId().equals(userId))
             .map(TopicVote::getCandidateId)
-            .collect(java.util.stream.Collectors.toSet());
+            .collect(Collectors.toSet());
 
         return TopicCandidateListResponse.builder()
             .contents(candidates.stream()
