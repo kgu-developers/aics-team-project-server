@@ -1,6 +1,7 @@
 package kgu.developers.domain.preSurveyResponse.application.query;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,10 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class PreSurveyResponseQueryService {
 	private final PreSurveyResponseRepository preSurveyResponseRepository;
+
+	public Optional<PreSurveyResponse> findResponse(String userId, Long sectionId) {
+		return preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId);
+	}
 
 	public PreSurveyResponse getResponse(String userId, Long sectionId) {
 		return preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)

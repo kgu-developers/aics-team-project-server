@@ -49,12 +49,31 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 				.build();
 
 		store.put(id, saved);
-		return saved;
+		return copy(saved);
+	}
+
+	private static PreSurveyResponse copy(PreSurveyResponse response) {
+		return PreSurveyResponse.builder()
+				.id(response.getId())
+				.userId(response.getUserId())
+				.sectionId(response.getSectionId())
+				.preferredRoles(response.getPreferredRoles())
+				.topicOpinion(response.getTopicOpinion())
+				.etcOpinion(response.getEtcOpinion())
+				.preferredPeerUserId(response.getPreferredPeerUserId())
+				.preferredPeerStatus(response.getPreferredPeerStatus())
+				.submittedAt(response.getSubmittedAt())
+				.createdAt(response.getCreatedAt())
+				.updatedAt(response.getUpdatedAt())
+				.deletedAt(response.getDeletedAt())
+				.build();
 	}
 
 	@Override
 	public Optional<PreSurveyResponse> findById(Long id) {
-		return Optional.ofNullable(store.get(id)).filter(response -> response.getDeletedAt() == null);
+		return Optional.ofNullable(store.get(id))
+				.filter(response -> response.getDeletedAt() == null)
+				.map(FakePreSurveyResponseRepository::copy);
 	}
 
 	@Override
@@ -64,7 +83,8 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 				.filter(response -> response.getUserId().equals(userId))
 				.filter(response -> response.getSectionId().equals(sectionId))
 				.sorted(Comparator.comparing(PreSurveyResponse::getId).reversed())
-				.findFirst();
+				.findFirst()
+				.map(FakePreSurveyResponseRepository::copy);
 	}
 
 	@Override
@@ -73,6 +93,7 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 				.filter(response -> response.getDeletedAt() == null)
 				.filter(response -> response.getSectionId().equals(sectionId))
 				.sorted(Comparator.comparing(PreSurveyResponse::getUserId))
+				.map(FakePreSurveyResponseRepository::copy)
 				.toList();
 	}
 
