@@ -1,6 +1,7 @@
 package mock.repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,5 +40,12 @@ public class FakeTeamThreadRepository implements TeamThreadRepository {
         return store.values().stream()
             .filter(thread -> thread.getTeamId().equals(teamId))
             .findFirst();
+    }
+
+    @Override
+    public List<TeamThread> findAllByTeamIdIn(List<Long> teamIds) {
+        return store.values().stream()
+            .filter(thread -> teamIds.contains(thread.getTeamId()))
+            .toList();
     }
 }
