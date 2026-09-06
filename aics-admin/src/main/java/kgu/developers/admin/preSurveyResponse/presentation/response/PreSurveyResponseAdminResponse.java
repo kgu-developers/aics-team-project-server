@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 
 @Builder
 public record PreSurveyResponseAdminResponse(
@@ -31,13 +32,26 @@ public record PreSurveyResponseAdminResponse(
         @Schema(description = "기타 의견", example = "금요일 오후에는 회의가 어렵습니다")
         String etcOpinion,
 
+        @Schema(description = "희망 조원 학번. 지목하지 않았으면 null", example = "202054321")
+        String preferredPeerUserId,
+
+        @Schema(description = "희망 조원 이름. 지목하지 않았으면 null", example = "이영희")
+        String preferredPeerName,
+
+        @Schema(description = "희망 조원 지목 상태(PENDING/ACCEPTED/REJECTED). 지목하지 않았으면 null", example = "ACCEPTED")
+        PreferredPeerStatus preferredPeerStatus,
+
+        @Schema(description = "서로 지목했는지 여부. 상대도 이 학생을 희망 조원으로 지목했으면 true", example = "true", requiredMode = REQUIRED)
+        boolean mutual,
+
         @Schema(description = "제출일", example = "2026-08-21 14:00", requiredMode = REQUIRED)
         String submittedAt
 ) {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public static PreSurveyResponseAdminResponse from(PreSurveyResponse response, String userName) {
+    public static PreSurveyResponseAdminResponse from(PreSurveyResponse response, String userName,
+            String preferredPeerName, boolean mutual) {
         return PreSurveyResponseAdminResponse.builder()
                 .id(response.getId())
                 .userId(response.getUserId())
@@ -45,6 +59,10 @@ public record PreSurveyResponseAdminResponse(
                 .preferredRoles(response.getPreferredRoles())
                 .topicOpinion(response.getTopicOpinion())
                 .etcOpinion(response.getEtcOpinion())
+                .preferredPeerUserId(response.getPreferredPeerUserId())
+                .preferredPeerName(preferredPeerName)
+                .preferredPeerStatus(response.getPreferredPeerStatus())
+                .mutual(mutual)
                 .submittedAt(response.getSubmittedAt().format(FORMATTER))
                 .build();
     }

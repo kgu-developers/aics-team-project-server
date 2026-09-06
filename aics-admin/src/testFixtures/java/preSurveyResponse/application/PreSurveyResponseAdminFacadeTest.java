@@ -99,4 +99,29 @@ class PreSurveyResponseAdminFacadeTest {
 
         assertThat(response.contents()).isEmpty();
     }
+
+    @Test
+    @DisplayName("서로 지목하거나 한쪽이 수락한 경우 mutual 이 true다")
+    void getResponsesBySection_MarksMutualNominations() throws Exception {
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, PROFESSOR)).willReturn(true);
+        JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+        // A <-> B 는 서로 지목, C 는 A 를 지목하고 A 가 수락, D 는 A 를 짝사랑
+        preSurveyResponseRepository.save(PreSurveyResponse.create("A", Long.valueOf(2L), roles, null, null, "B"));
+        preSurveyResponseRepository.save(PreSurveyResponse.create("B", Long.valueOf(2L), roles, null, null, "A"));
+        PreSurveyResponse responseC = preSurveyResponseRepository.save(PreSurveyResponse.create("C", Long.valueOf(2L), roles, null, null, "A"));
+        responseC.decidePreferredPeer(true);
+        preSurveyResponseRepository.save(responseC);
+        preSurveyResponseRepository.save(PreSurveyResponse.create("D", Long.valueOf(2L), roles, null, null, "A"));
+        given(userQueryService.getUsersByStudentNumbers(List.of("A", "B", "C", "D"))).willReturn(List.of(
+                User.create("A", "a@kyonggi.ac.kr", "김철수", "password", UserGlobalRole.USER, null),
+                User.create("B", "b@kyonggi.ac.kr", "이영희", "password", UserGlobalRole.USER, null),
+                User.create("C", "c@kyonggi.ac.kr", "박민수", "password", UserGlobalRole.USER, null),
+                User.create("D", "d@kyonggi.ac.kr", "최수진", "password", UserGlobalRole.USER, null)));
+
+        PreSurveyResponseAdminListResponse response = preSurveyResponseAdminFacade.getResponsesBySection(2L, PROFESSOR);
+
+        assertThat(response.contents())
+                .extracting(r -> r.userId() + ":" + r.preferredPeerName() + ":" + r.mutual())
+                .containsExactly("A:이영희:true", "B:김철수:true", "C:김철수:true", "D:김철수:false");
+    }
 }
