@@ -20,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 import kgu.developers.api.preSurveyResponse.application.PreSurveyResponseFacade;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
+import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.enrollment.domain.Role;
@@ -48,6 +49,9 @@ class PreSurveyResponseFacadeTest {
 	private EnrollmentRepository enrollmentRepository;
 
 	@Mock
+	private EnrollmentQueryService enrollmentQueryService;
+
+	@Mock
 	private UserQueryService userQueryService;
 
 	private PreSurveyResponseFacade preSurveyResponseFacade;
@@ -59,6 +63,7 @@ class PreSurveyResponseFacadeTest {
 				new PreSurveyResponseCommandService(repository, enrollmentRepository),
 				new PreSurveyResponseQueryService(repository),
 				enrollmentRepository,
+				enrollmentQueryService,
 				userQueryService
 		);
 		given(userQueryService.getUserByStudentNumber(STUDENT))

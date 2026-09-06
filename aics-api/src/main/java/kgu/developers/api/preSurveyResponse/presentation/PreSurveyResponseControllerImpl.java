@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.api.preSurveyResponse.application.PreSurveyResponseFacade;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
+import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyClassmateListResponse;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -42,5 +43,16 @@ public class PreSurveyResponseControllerImpl implements PreSurveyResponseControl
         Authentication authentication
     ) {
         return ResponseEntity.ok(preSurveyResponseFacade.getMyResponse(authentication.getName(), sectionId));
+    }
+
+    @Override
+    @GetMapping("/sections/{sectionId}/pre-survey/classmates")
+    public ResponseEntity<PreSurveyClassmateListResponse> searchClassmates(
+        @Positive @PathVariable Long sectionId,
+        @RequestParam(required = false) String keyword,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+            preSurveyResponseFacade.searchClassmates(authentication.getName(), sectionId, keyword));
     }
 }

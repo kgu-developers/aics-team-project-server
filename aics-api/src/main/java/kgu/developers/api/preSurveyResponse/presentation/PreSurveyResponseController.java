@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
+import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyClassmateListResponse;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -47,6 +48,21 @@ public interface PreSurveyResponseController {
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PreSurveyResponseDetailResponse.class)))
     ResponseEntity<PreSurveyResponseDetailResponse> getMyResponse(
         @Positive @RequestParam Long sectionId,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "지목 가능한 같은 분반 학생 검색 API",
+        description = """
+            Description : 조원으로 지목할 수 있는 같은 분반 수강생을 이름 또는 학번으로 검색한다. 본인과 수강 중이 아닌 사람은 제외된다.
+                          keyword 를 비우면 분반 전체 명단을 반환한다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PreSurveyClassmateListResponse.class)))
+    ResponseEntity<PreSurveyClassmateListResponse> searchClassmates(
+        @Positive @PathVariable Long sectionId,
+        @RequestParam(required = false) String keyword,
         Authentication authentication
     );
 }
