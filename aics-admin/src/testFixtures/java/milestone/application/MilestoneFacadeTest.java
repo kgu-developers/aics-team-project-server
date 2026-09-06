@@ -75,7 +75,8 @@ class MilestoneFacadeTest {
                 "제안서 제출",
                 2,
                 schedule(),
-                null
+                null,
+                false
         )).willReturn(MILESTONE_ID);
 
         assertThat(milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request).id())
@@ -99,7 +100,34 @@ class MilestoneFacadeTest {
                 "최종보고서 제출",
                 15,
                 schedule(),
-                MilestoneType.FINAL_REPORT
+                MilestoneType.FINAL_REPORT,
+                false
+        )).willReturn(MILESTONE_ID);
+
+        assertThat(milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request).id())
+                .isEqualTo(MILESTONE_ID);
+    }
+
+    @Test
+    @DisplayName("생성 요청의 마감 전 재제출 허용 설정을 도메인 명령에 전달한다")
+    void createMilestoneWithResubmissionPolicy() {
+        MilestoneCreateRequest request = new MilestoneCreateRequest(
+                "제안서",
+                "제안서 제출",
+                2,
+                scheduleRequest(),
+                MilestoneType.PROPOSAL,
+                true
+        );
+        given(milestoneCommandService.createMilestone(
+                SECTION_ID,
+                PROFESSOR_ID,
+                "제안서",
+                "제안서 제출",
+                2,
+                schedule(),
+                MilestoneType.PROPOSAL,
+                true
         )).willReturn(MILESTONE_ID);
 
         assertThat(milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request).id())
@@ -117,6 +145,7 @@ class MilestoneFacadeTest {
 
         assertThat(response.title()).isEqualTo("제안서");
         assertThat(response.schedule().dueAt()).isEqualTo(DUE_AT);
+        assertThat(response.allowResubmissionBeforeDueAt()).isFalse();
         verify(milestoneAccessValidator).validateSectionAccess(SECTION_ID, PROFESSOR_ID);
     }
 
@@ -148,6 +177,7 @@ class MilestoneFacadeTest {
                 "중간보고서",
                 null,
                 schedule(),
+                null,
                 null
         );
     }
@@ -167,7 +197,33 @@ class MilestoneFacadeTest {
                 "중간보고서",
                 null,
                 schedule(),
-                MilestoneType.MID_REPORT
+                MilestoneType.MID_REPORT,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("수정 요청의 마감 전 재제출 허용 설정을 도메인 명령에 전달한다")
+    void updateMilestoneWithResubmissionPolicy() {
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "중간보고서",
+                null,
+                scheduleRequest(),
+                MilestoneType.MID_REPORT,
+                true
+        );
+
+        milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
+
+        verify(milestoneCommandService).updateMilestone(
+                SECTION_ID,
+                PROFESSOR_ID,
+                MILESTONE_ID,
+                "중간보고서",
+                null,
+                schedule(),
+                MilestoneType.MID_REPORT,
+                true
         );
     }
 
@@ -275,7 +331,8 @@ class MilestoneFacadeTest {
                         "제안서 제출",
                         2,
                         schedule(),
-                        null
+                        null,
+                        false
                 );
 
         assertThatThrownBy(() -> milestoneFacade.createMilestone(SECTION_ID, PROFESSOR_ID, request))

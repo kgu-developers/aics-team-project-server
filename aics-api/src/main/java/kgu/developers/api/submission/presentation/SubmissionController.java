@@ -79,8 +79,12 @@ public interface SubmissionController {
     @Operation(
         summary = "제출/재제출 API",
         description = """
-            Description : 새 버전을 제출한다(제출/수정/재제출 통합, multipart/form-data).
-            제출 가능 기간(마감/지각제출기간/수정기간, 또는 팀별 조기오픈 조건) 밖이면 403.
+            Description : 새 버전을 제출한다(최초 제출/수정 제출/재제출 통합, multipart/form-data).
+            최초 제출과 재제출은 서버가 현재 버전과 제출 상태로 구분한다.
+            마감 전 최초 제출은 항상 가능하고, 재제출은 마일스톤의 allowResubmissionBeforeDueAt이 true일 때만 가능하다.
+            마감 후 지각 제출 기간에는 아직 제출하지 않은 팀의 최초 제출만 가능하며, 해당 버전은 지각으로 기록된다.
+            revisionUntil은 REVISION_REQUESTED 상태의 수정 제출에만 적용되고, COMPLETED는 교수 재오픈 전까지 제출할 수 없다.
+            교수의 팀별 재오픈 기한(revisionDueAt)이 남아 있으면 공식 기간 종료 후에도 수정 제출할 수 있다.
             파일 아티팩트는 files 파트 + fileArtifactIds(같은 순서의 요구산출물 식별자 배열)로,
             링크·텍스트 아티팩트는 artifacts 파트(JSON 배열)로 보낸다.
             최종보고서(FINAL_REPORT) 마일스톤은 활성 팀장만 제출할 수 있고, 제출 직후 팀장 본인

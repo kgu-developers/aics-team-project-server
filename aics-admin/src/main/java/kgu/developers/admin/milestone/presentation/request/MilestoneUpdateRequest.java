@@ -32,6 +32,17 @@ public record MilestoneUpdateRequest(
                         "PRESENTATION", "PEER_EVALUATION", "GENERAL"
                 }
         )
-        MilestoneType type
+        MilestoneType type,
+
+        @Schema(description = "마감 전 재제출 허용 여부. 생략하면 기존 값을 유지한다.", example = "false")
+        Boolean allowResubmissionBeforeDueAt
 ) {
+    public MilestoneUpdateRequest(
+            String title,
+            String description,
+            MilestoneScheduleRequest schedule,
+            MilestoneType type
+    ) {
+        this(title, description, schedule, type, null);
+    }
 }

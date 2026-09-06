@@ -77,6 +77,10 @@ public class Submission {
         return this.status == SubmissionStatus.COMPLETED;
     }
 
+    public boolean hasNeverSubmitted() {
+        return this.currentVersion == 0 || this.status == SubmissionStatus.NOT_SUBMITTED;
+    }
+
     public void complete(String completedBy) {
         this.status = SubmissionStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();

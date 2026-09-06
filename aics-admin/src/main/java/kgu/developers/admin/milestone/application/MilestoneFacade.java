@@ -42,7 +42,8 @@ public class MilestoneFacade {
                     request.description(),
                     request.weekNumber(),
                     toSchedule(request.schedule()),
-                    request.type()
+                    request.type(),
+                    Boolean.TRUE.equals(request.allowResubmissionBeforeDueAt())
             );
             return MilestonePersistResponse.of(milestoneId);
         });
@@ -80,7 +81,8 @@ public class MilestoneFacade {
                 request.title(),
                 request.description(),
                 toSchedule(request.schedule()),
-                request.type()
+                request.type(),
+                request.allowResubmissionBeforeDueAt()
         ));
     }
 

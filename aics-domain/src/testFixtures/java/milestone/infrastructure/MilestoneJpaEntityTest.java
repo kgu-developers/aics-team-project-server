@@ -8,6 +8,7 @@ import jakarta.persistence.Table;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.infrastructure.MilestoneJpaEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,26 @@ class MilestoneJpaEntityTest {
         assertThat(restored.getWeekNumber()).isEqualTo(2);
         assertThat(restored.getStatus()).isEqualTo(MilestoneStatus.PUBLISHED);
         assertThat(restored.getSchedule()).isEqualTo(schedule);
+    }
+
+    @Test
+    @DisplayName("마일스톤 도메인과 JPA 엔티티를 변환해도 마감 전 재제출 허용 설정이 유지된다")
+    void keepsResubmissionPolicyDuringRoundTripMapping() {
+        Milestone milestone = Milestone.restore(
+                3L,
+                7L,
+                "프로젝트 제안서",
+                "제안서를 제출합니다.",
+                2,
+                MilestoneStatus.PUBLISHED,
+                schedule(),
+                MilestoneType.PROPOSAL,
+                true
+        );
+
+        Milestone restored = MilestoneJpaEntity.fromDomain(milestone).toDomain();
+
+        assertThat(restored.isAllowResubmissionBeforeDueAt()).isTrue();
     }
 
     @Test
