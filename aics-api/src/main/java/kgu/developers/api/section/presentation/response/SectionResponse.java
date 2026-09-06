@@ -1,11 +1,8 @@
 package kgu.developers.api.section.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
-import static java.util.stream.Collectors.joining;
 
 import java.time.LocalDateTime;
-import java.util.Objects;
-import java.util.stream.Stream;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.domain.course.domain.Course;
@@ -68,9 +65,7 @@ public record SectionResponse(
         return new SectionResponse(
             section.getId(),
             section.getCode(),
-            Stream.of(section.getClassTime(), section.getCode())
-                .filter(Objects::nonNull)
-                .collect(joining("/")),
+            section.displayName(),
             section.getClassTime(),
             section.getCapacity(),
             section.getContactVisibleFrom(),

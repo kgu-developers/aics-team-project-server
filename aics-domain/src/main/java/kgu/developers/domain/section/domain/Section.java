@@ -5,9 +5,12 @@ import kgu.developers.domain.section.exception.InvalidCapacityException;
 import kgu.developers.domain.section.exception.InvalidContactVisiblePeriodException;
 import lombok.*;
 
+import static java.util.stream.Collectors.joining;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 @Getter
 @Builder
@@ -41,6 +44,13 @@ public class Section {
     section.updateCapacity(capacity);
     section.updateContactVisiblePeriod(contactVisibleFrom, contactVisibleUntil);
     return section;
+  }
+
+  /** 요일·시간/과목번호 표시 문자열. 응답과 레거시 section.name 컬럼이 함께 쓴다. */
+  public String displayName() {
+    return Stream.of(classTime, code)
+        .filter(Objects::nonNull)
+        .collect(joining("/"));
   }
 
   public void updateProfessorId(String professorId) {
