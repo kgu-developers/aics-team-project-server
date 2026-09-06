@@ -104,6 +104,16 @@ jobs:
             export IMAGE_TAG=${{ github.sha }}
 
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull
+
+            # KD3-170: "docker compose up -d" 한 번에 재생성을 맡기면, 기존 컨테이너를
+            # 멈추고 지우는 것과 새 컨테이너에 원래 이름을 붙이는 것 사이에 타이밍 레이스가
+            # 생겨 "컨테이너 이름 충돌"로 배포가 실패하는 경우가 반복됐다(#106, #128, #132
+            # 배포 때 실제로 겪음 — 재현할 때마다 서버에 직접 들어가 멈춰있는 컨테이너를
+            # 수동으로 지워야 했음). stop/rm을 명시적인 별도 명령으로 분리하면 각 명령이
+            # 끝날 때까지 확실히 기다린 뒤 다음 단계로 넘어가므로 이 레이스 자체가 없어진다.
+            # postgres/redis/caddy/pgadmin은 매번 재시작할 필요가 없어 대상에서 제외한다.
+            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
+            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
               caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
