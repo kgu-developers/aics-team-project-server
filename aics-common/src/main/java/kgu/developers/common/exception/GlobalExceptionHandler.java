@@ -60,6 +60,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(CustomException.class)
     protected ResponseEntity<ExceptionResponse> handleCustomException(CustomException exception) {
         if (exception.isServerError()) {
+            // eventPublisher.publishEvent만으로는 이 이벤트를 실제로 받아서 로그를 남기는
+            // @EventListener가 프로젝트 전체에 하나도 없어서, 서버 에러가 나도 흔적이 전혀 안
+            // 남는 문제가 있었다(KD3-168). 리스너를 새로 만드는 대신, 원인 파악에 필요한
+            // 스택트레이스를 여기서 바로 남긴다.
+            log.error("[{}] 처리되지 않은 서버 에러", exception.getCode().getCode(), exception);
             eventPublisher.publishEvent(exception);
         }
         ExceptionResponse response = ExceptionResponse.from(exception);
@@ -68,6 +73,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<ExceptionResponse> handleException(Exception exception) {
+        // 위와 같은 이유로, 예상 못한 예외(CustomException이 아닌 모든 예외)도 여기서 직접
+        // 로그를 남긴다 — 그동안은 이 경로로 떨어진 에러가 요청 성공/실패 여부와 무관하게
+        // 어디에도 기록되지 않았다(KD3-168, 사전조사 조회 500 진단 중 발견).
+        log.error("처리되지 않은 예외", exception);
         eventPublisher.publishEvent(exception);
         return ResponseEntity.internalServerError().body(ExceptionResponse.from(SERVER_ERROR));
     }

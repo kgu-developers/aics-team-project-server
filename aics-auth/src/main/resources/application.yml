@@ -2,6 +2,16 @@ server:
   port: 8082
   forward-headers-strategy: framework
 
+# KD3-168 참고: aics-api/application.yml 주석 참고 — 이유 동일.
+logging:
+  file:
+    name: /app/logs/aics-auth.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+      total-size-cap: 200MB
+
 spring:
   application:
     name: aics-auth
