@@ -23,7 +23,6 @@ import static lombok.AccessLevel.PROTECTED;
 		name = "\"pre_survey_response\"",
 		indexes = {
 				@Index(name = "idx_pre_survey_response_section", columnList = "section_id, deleted_at"),
-				@Index(name = "idx_pre_survey_response_user_section", columnList = "user_id, section_id, deleted_at"),
 				@Index(name = "idx_pre_survey_response_preferred_peer", columnList = "section_id, preferred_peer_user_id, deleted_at")
 		}
 )
