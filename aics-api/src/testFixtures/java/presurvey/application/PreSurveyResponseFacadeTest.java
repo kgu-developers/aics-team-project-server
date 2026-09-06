@@ -28,6 +28,7 @@ import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResp
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseQueryService;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponseNotFoundException;
 import mock.repository.FakePreSurveyResponseRepository;
+import mock.repository.FakeUserRepository;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -49,7 +50,7 @@ class PreSurveyResponseFacadeTest {
 		FakePreSurveyResponseRepository repository = new FakePreSurveyResponseRepository();
 		preSurveyResponseFacade = new PreSurveyResponseFacade(
 				new PreSurveyResponseCommandService(repository, enrollmentRepository),
-				new PreSurveyResponseQueryService(repository),
+				new PreSurveyResponseQueryService(repository, enrollmentRepository, new FakeUserRepository()),
 				enrollmentRepository
 		);
 		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, STUDENT))

@@ -29,4 +29,20 @@ public interface PreSurveyResponseAdminController {
         @Parameter(description = "분반 식별자") @PathVariable Long sectionId,
         Authentication authentication
     );
+
+    @Operation(
+        summary = "담당 분반 사전조사 응답 엑셀 다운로드 API",
+        description = """
+            Description : 담당 교수가 분반 전체 학생의 사전조사 응답을 엑셀(xlsx) 파일 하나로 내려받는다.
+                시트에는 학번·이름·희망 역할·주제 의견·기타 의견·제출일이 학번 오름차순으로 담긴다.
+                미응답 학생도 제출일 칸에 "미제출"을 적은 빈 행으로 포함되며, 조교와 탈퇴한 수강생은 빠진다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200",
+        content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; charset=UTF-8"))
+    ResponseEntity<byte[]> downloadResponsesExcel(
+        @Parameter(description = "분반 식별자") @PathVariable Long sectionId,
+        Authentication authentication
+    );
 }
