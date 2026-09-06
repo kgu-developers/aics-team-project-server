@@ -137,7 +137,7 @@ class ProjectCommandServiceTest {
                 Project newProject = invocation.getArgument(1);
                 deleted.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
                     newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(),
-                    newProject.getMeetingStyle());
+                    newProject.getMeetingStyle(), newProject.getTopicCandidateId());
                 return deleted;
             });
 
