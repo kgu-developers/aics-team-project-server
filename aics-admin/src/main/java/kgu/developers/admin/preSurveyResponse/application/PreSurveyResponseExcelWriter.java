@@ -1,6 +1,7 @@
 package kgu.developers.admin.preSurveyResponse.application;
 
 import static java.util.stream.Collectors.joining;
+import static kgu.developers.admin.preSurveyResponse.presentation.response.PreSurveyResponseAdminListResponse.WITHDRAWN_USER_NAME;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -43,7 +44,8 @@ public final class PreSurveyResponseExcelWriter {
             for (PreSurveyResponseRow source : rows) {
                 Row row = sheet.createRow(rowNumber++);
                 row.createCell(0).setCellValue(source.userId());
-                row.createCell(1).setCellValue(source.name());  // 탈퇴로 사라진 계정이면 빈 칸
+                row.createCell(1).setCellValue(
+                        source.name() == null ? WITHDRAWN_USER_NAME : source.name());
 
                 PreSurveyResponse response = source.response();
                 if (response == null) {

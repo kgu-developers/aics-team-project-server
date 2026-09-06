@@ -9,8 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 import kgu.developers.admin.preSurveyResponse.presentation.response.PreSurveyResponseAdminListResponse;
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseQueryService;
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseRow;
+import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponseRepository;
 import kgu.developers.domain.section.application.query.SectionQueryService;
+import kgu.developers.domain.user.application.query.UserQueryService;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -19,12 +21,15 @@ public class PreSurveyResponseAdminFacade {
 
     private final SectionQueryService sectionQueryService;
     private final PreSurveyResponseRepository preSurveyResponseRepository;
+    private final UserQueryService userQueryService;
     private final PreSurveyResponseQueryService preSurveyResponseQueryService;
 
     @Transactional(readOnly = true)
     public PreSurveyResponseAdminListResponse getResponsesBySection(Long sectionId, String professorId) {
         validateSectionOwnedByProfessor(sectionId, professorId);
-        return PreSurveyResponseAdminListResponse.from(preSurveyResponseRepository.findAllBySectionId(sectionId));
+        List<PreSurveyResponse> responses = preSurveyResponseRepository.findAllBySectionId(sectionId);
+        List<String> userIds = responses.stream().map(PreSurveyResponse::getUserId).distinct().toList();
+        return PreSurveyResponseAdminListResponse.from(responses, userQueryService.getUsersByStudentNumbers(userIds));
     }
 
     // 엑셀 생성은 CPU·메모리 작업이라 트랜잭션 밖에서 한다. 조회는 각 도메인 서비스가 자기 트랜잭션에서

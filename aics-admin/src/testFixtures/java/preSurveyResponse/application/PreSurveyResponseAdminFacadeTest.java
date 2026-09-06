@@ -16,6 +16,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.List;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -30,7 +32,9 @@ import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
+import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 
 import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakePreSurveyResponseRepository;
@@ -43,6 +47,7 @@ class PreSurveyResponseAdminFacadeTest {
     private static final String OTHER_PROFESSOR = "professor2";
 
     private SectionQueryService sectionQueryService;
+    private UserQueryService userQueryService;
     private FakePreSurveyResponseRepository preSurveyResponseRepository;
     private FakeEnrollmentRepository enrollmentRepository;
     private PreSurveyResponseAdminFacade preSurveyResponseAdminFacade;
@@ -68,7 +73,13 @@ class PreSurveyResponseAdminFacadeTest {
         userRepository.save(User.builder().studentNumber("202412345").name("이석민").build());
         userRepository.save(User.builder().studentNumber("202498765").name("김철수").build());
 
+        userQueryService = mock(UserQueryService.class);
+        given(userQueryService.getUsersByStudentNumbers(List.of("202412345"))).willReturn(List.of(
+                User.create("202412345", "student@kyonggi.ac.kr", "김철수", "password", UserGlobalRole.USER, null)));
+        given(userQueryService.getUsersByStudentNumbers(List.of())).willReturn(List.of());
+
         preSurveyResponseAdminFacade = new PreSurveyResponseAdminFacade(sectionQueryService, preSurveyResponseRepository,
+                userQueryService,
                 new PreSurveyResponseQueryService(preSurveyResponseRepository, enrollmentRepository, userRepository));
     }
 
@@ -81,7 +92,20 @@ class PreSurveyResponseAdminFacadeTest {
 
         assertThat(response.contents()).hasSize(1);
         assertThat(response.contents().get(0).userId()).isEqualTo("202412345");
+        assertThat(response.contents().get(0).userName()).isEqualTo("김철수");
         assertThat(response.contents().get(0).topicOpinion()).isEqualTo("학사 알림 서비스");
+    }
+
+    @Test
+    @DisplayName("응답 후 탈퇴한 학생은 이름 자리에 대체 문구가 들어간다")
+    void getResponsesBySection_FillsNameForWithdrawnUser() {
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(userQueryService.getUsersByStudentNumbers(List.of("202412345"))).willReturn(List.of());
+
+        PreSurveyResponseAdminListResponse response = preSurveyResponseAdminFacade.getResponsesBySection(SECTION_ID, PROFESSOR);
+
+        assertThat(response.contents()).hasSize(1);
+        assertThat(response.contents().get(0).userName()).isEqualTo("(탈퇴한 사용자)");
     }
 
     @Test

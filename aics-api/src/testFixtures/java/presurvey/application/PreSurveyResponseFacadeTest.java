@@ -27,6 +27,9 @@ import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseQueryService;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponseNotFoundException;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 import mock.repository.FakePreSurveyResponseRepository;
 import mock.repository.FakeUserRepository;
 
@@ -40,8 +43,13 @@ class PreSurveyResponseFacadeTest {
 	private static final String WITHDRAWN_STUDENT = "202099999";
 	private static final String ASSISTANT = "202088888";
 
+	private static final String STUDENT_NAME = "김철수";
+
 	@Mock
 	private EnrollmentRepository enrollmentRepository;
+
+	@Mock
+	private UserQueryService userQueryService;
 
 	private PreSurveyResponseFacade preSurveyResponseFacade;
 
@@ -51,8 +59,11 @@ class PreSurveyResponseFacadeTest {
 		preSurveyResponseFacade = new PreSurveyResponseFacade(
 				new PreSurveyResponseCommandService(repository, enrollmentRepository),
 				new PreSurveyResponseQueryService(repository, enrollmentRepository, new FakeUserRepository()),
-				enrollmentRepository
+				enrollmentRepository,
+				userQueryService
 		);
+		given(userQueryService.getUserByStudentNumber(STUDENT))
+				.willReturn(User.create(STUDENT, "student@kyonggi.ac.kr", STUDENT_NAME, "password", UserGlobalRole.USER, null));
 		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, STUDENT))
 				.willReturn(Optional.of(Enrollment.create(SECTION_ID, STUDENT, Role.STUDENT, Status.ACTIVE)));
 		given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, OUTSIDER))
@@ -84,6 +95,7 @@ class PreSurveyResponseFacadeTest {
 
 		assertThat(result.id()).isNotNull();
 		assertThat(result.userId()).isEqualTo(STUDENT);
+		assertThat(result.userName()).isEqualTo(STUDENT_NAME);
 		assertThat(result.sectionId()).isEqualTo(SECTION_ID);
 		assertThat(result.preferredRoles().get(0).asText()).isEqualTo("BACKEND");
 		assertThat(result.topicOpinion()).isEqualTo("웹 서비스");
@@ -112,6 +124,7 @@ class PreSurveyResponseFacadeTest {
 		PreSurveyResponseDetailResponse result = preSurveyResponseFacade.getMyResponse(STUDENT, SECTION_ID);
 
 		assertThat(result.userId()).isEqualTo(STUDENT);
+		assertThat(result.userName()).isEqualTo(STUDENT_NAME);
 		assertThat(result.topicOpinion()).isEqualTo("웹 서비스");
 	}
 

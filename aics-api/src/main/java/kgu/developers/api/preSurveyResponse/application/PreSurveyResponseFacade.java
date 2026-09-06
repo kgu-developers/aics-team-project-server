@@ -8,6 +8,7 @@ import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseQueryService;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredRolesInvalidException;
+import kgu.developers.domain.user.application.query.UserQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,7 @@ public class PreSurveyResponseFacade {
     private final PreSurveyResponseCommandService preSurveyResponseCommandService;
     private final PreSurveyResponseQueryService preSurveyResponseQueryService;
     private final EnrollmentRepository enrollmentRepository;
+    private final UserQueryService userQueryService;
 
     public PreSurveyResponseDetailResponse submit(Long sectionId, String userId, PreSurveyResponseSubmitRequest request) {
         validateEnrollment(sectionId, userId);
@@ -28,12 +30,17 @@ public class PreSurveyResponseFacade {
             JsonConverter.toTree(request.preferredRoles(), PreSurveyResponsePreferredRolesInvalidException::new),
             request.topicOpinion(),
             request.etcOpinion()
-        ));
+        ), userName(userId));
     }
 
     public PreSurveyResponseDetailResponse getMyResponse(String userId, Long sectionId) {
         validateEnrollment(sectionId, userId);
-        return PreSurveyResponseDetailResponse.from(preSurveyResponseQueryService.getResponse(userId, sectionId));
+        return PreSurveyResponseDetailResponse.from(
+            preSurveyResponseQueryService.getResponse(userId, sectionId), userName(userId));
+    }
+
+    private String userName(String userId) {
+        return userQueryService.getUserByStudentNumber(userId).getName();
     }
 
     private void validateEnrollment(Long sectionId, String userId) {
