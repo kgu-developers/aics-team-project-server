@@ -1,17 +1,19 @@
 package kgu.developers.admin.preSurveyResponse.application;
 
+import java.util.List;
+
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.admin.preSurveyResponse.presentation.response.PreSurveyResponseAdminListResponse;
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseQueryService;
+import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseRow;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponseRepository;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import lombok.RequiredArgsConstructor;
 
 @Component
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class PreSurveyResponseAdminFacade {
 
@@ -19,16 +21,21 @@ public class PreSurveyResponseAdminFacade {
     private final PreSurveyResponseRepository preSurveyResponseRepository;
     private final PreSurveyResponseQueryService preSurveyResponseQueryService;
 
+    @Transactional(readOnly = true)
     public PreSurveyResponseAdminListResponse getResponsesBySection(Long sectionId, String professorId) {
         validateSectionOwnedByProfessor(sectionId, professorId);
         return PreSurveyResponseAdminListResponse.from(preSurveyResponseRepository.findAllBySectionId(sectionId));
     }
 
+    // 엑셀 생성은 CPU·메모리 작업이라 트랜잭션 밖에서 한다. 조회는 각 도메인 서비스가 자기 트랜잭션에서
+    // 끝내므로, 통합문서를 만드는 동안 DB 커넥션을 붙잡고 있지 않는다.
     public PreSurveyResponseExcelDownload downloadResponsesExcel(Long sectionId, String professorId) {
         validateSectionOwnedByProfessor(sectionId, professorId);
+        List<PreSurveyResponseRow> rows = preSurveyResponseQueryService.getSectionResponseRows(sectionId);
         String sectionName = sectionQueryService.getSectionById(sectionId).section().getName();
+
         return new PreSurveyResponseExcelDownload(sectionName + "-사전조사.xlsx",
-                preSurveyResponseQueryService.writeSectionResponsesExcel(sectionId));
+                PreSurveyResponseExcelWriter.write(rows));
     }
 
     private void validateSectionOwnedByProfessor(Long sectionId, String professorId) {
