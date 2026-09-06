@@ -89,6 +89,7 @@ class SubmissionFacadeTest {
     private FakeFileObjectRepository fileObjectRepository;
     private FakeSubmissionVersionRepository submissionVersionRepository;
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
+    private FakeUserRepository userRepository;
     private SubmissionFacade submissionFacade;
 
     @BeforeEach
@@ -112,7 +113,7 @@ class SubmissionFacadeTest {
         FakeEnrollmentRepository enrollmentRepository = new FakeEnrollmentRepository();
         enrollmentRepository.save(Enrollment.create(SECTION_ID, LEADER, Role.STUDENT, Status.ACTIVE));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE));
-        FakeUserRepository userRepository = new FakeUserRepository();
+        userRepository = new FakeUserRepository();
         userRepository.save(User.create(LEADER, "leader@kyonggi.ac.kr", "팀장학생", "pw", UserGlobalRole.USER, "010-0000-0001"));
         userRepository.save(User.create(MEMBER, "member@kyonggi.ac.kr", "팀원학생", "pw", UserGlobalRole.USER, "010-0000-0002"));
         UserQueryService userQueryService = new UserQueryService(userRepository, enrollmentRepository);
@@ -709,6 +710,20 @@ class SubmissionFacadeTest {
                 .filter(v -> v.version() == 2).findFirst().orElseThrow();
         assertThat(second.submittedBy().name()).isEqualTo("팀원학생");
         assertThat(second.artifacts()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("제출자가 그 뒤 탈퇴해도 제출 이력의 이름은 계속 조회된다")
+    void getVersion_KeepsSubmitterNameAfterWithdrawal() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 1, "1차 제출", null, MEMBER, false));
+        userRepository.findByStudentNumber(MEMBER).orElseThrow().delete();
+
+        SubmissionVersionDetailResponse response = submissionFacade.getVersion(submission.getId(), 1, LEADER);
+
+        assertThat(response.submittedBy().name()).isEqualTo("팀원학생");
     }
 
     private Milestone milestone() {

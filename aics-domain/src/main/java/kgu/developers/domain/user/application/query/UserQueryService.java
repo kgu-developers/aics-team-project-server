@@ -27,6 +27,13 @@ public class UserQueryService {
         return userRepository.findAllByStudentNumberIn(studentNumbers);
     }
 
+    // 제출 이력처럼 "그 시점에 누가 했는지"를 보여줘야 하는 화면은, 그 뒤 탈퇴(소프트 삭제)한
+    // 사용자라도 이름이 계속 보여야 한다 — findAllByStudentNumberIn은 deletedAt IS NULL만
+    // 찾아서 탈퇴한 제출자의 이름이 조용히 사라지는 문제가 있었다.
+    public List<User> getUsersByStudentNumbersIncludingDeleted(List<String> studentNumbers) {
+        return userRepository.findAllIncludingDeletedByStudentNumberIn(studentNumbers);
+    }
+
     public User getUserByStudentNumber(String studentNumber) {
         return userRepository.findByStudentNumber(studentNumber)
                 .orElseThrow(UserNotFoundException::new);

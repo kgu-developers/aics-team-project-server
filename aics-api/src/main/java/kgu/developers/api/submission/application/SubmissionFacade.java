@@ -150,6 +150,8 @@ public class SubmissionFacade {
         return Map.entry(artifact.getVersionId(), toArtifactResponse(artifact));
     }
 
+    // 제출 이력은 그 시점의 기록이라, 제출자가 그 뒤 탈퇴(소프트 삭제)했더라도 이름이 계속
+    // 보여야 한다 — 활성 사용자만 찾는 조회를 쓰면 탈퇴한 제출자의 이름이 조용히 null이 된다.
     private Map<String, User> resolveSubmitters(List<SubmissionVersion> versions) {
         List<String> submitterIds = versions.stream()
                 .map(SubmissionVersion::getSubmittedBy)
@@ -158,7 +160,7 @@ public class SubmissionFacade {
         if (submitterIds.isEmpty()) {
             return Map.of();
         }
-        return userQueryService.getUsersByStudentNumbers(submitterIds).stream()
+        return userQueryService.getUsersByStudentNumbersIncludingDeleted(submitterIds).stream()
                 .collect(Collectors.toMap(User::getStudentNumber, Function.identity()));
     }
 

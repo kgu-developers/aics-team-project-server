@@ -16,9 +16,12 @@ public record SubmissionSubmitterResponse(
         String name
 ) {
         public static SubmissionSubmitterResponse of(String userId, User user) {
+                // 제출 이력의 이름은 필수값이라 null을 내려보내면 안 된다. 소프트 삭제된 계정은
+                // 호출부(SubmissionFacade.resolveSubmitters)가 삭제 포함 조회로 찾아오지만, 완전
+                // 탈퇴(archiveAndHardDelete)로 계정 자체가 없어진 극단적인 경우에 대비한 안전망이다.
                 return SubmissionSubmitterResponse.builder()
                         .userId(userId)
-                        .name(user == null ? null : user.getName())
+                        .name(user == null ? "(탈퇴한 사용자)" : user.getName())
                         .build();
         }
 }
