@@ -6,6 +6,13 @@ on:
       - develop
   workflow_dispatch:
 
+# KD3-170: 이 워크플로의 실행 자체가 겹치면(#121, #128 배포에서 실제로 5분 이상
+# 동시 실행됨) 두 실행이 동시에 stop/rm/up을 수행할 수 있어 컨테이너 이름 충돌이
+# 재발한다. 배포를 한 번에 하나씩만 진행하도록 워크플로 단위로 직렬화한다.
+concurrency:
+  group: cloud-dev-deployment
+  cancel-in-progress: false
+
 jobs:
   build-docker-image:
     runs-on: ubuntu-latest
@@ -114,7 +121,25 @@ jobs:
             # postgres/redis/caddy/pgadmin은 매번 재시작할 필요가 없어 대상에서 제외한다.
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d
+
+            # KD3-170: up -d 가 일시적인 Docker 오류로 실패하면 set -e 로 바로
+            # 스크립트가 종료되어 애플리케이션 컨테이너가 없는 상태로 남는다.
+            # 일시적 실패에 한해 제한된 횟수로 재시도한다(새 이미지 자체의 부팅
+            # 실패까지 복구하는 롤백은 이 티켓 범위 밖).
+            up_attempt=1
+            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d; do
+              if [ "$up_attempt" -ge 5 ]; then
+                echo "docker compose up 실패 (재시도 $up_attempt회 초과)." >&2
+                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
+                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} logs --tail=200 aics-api aics-admin aics-auth
+                exit 1
+              fi
+
+              echo "docker compose up 실패, 재시도합니다. ($up_attempt/5)"
+              up_attempt=$((up_attempt + 1))
+              sleep 5
+            done
+
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
               caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
