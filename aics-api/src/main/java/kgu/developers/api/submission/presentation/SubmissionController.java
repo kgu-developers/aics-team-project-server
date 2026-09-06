@@ -83,6 +83,8 @@ public interface SubmissionController {
             제출 가능 기간(마감/지각제출기간/수정기간, 또는 팀별 조기오픈 조건) 밖이면 403.
             파일 아티팩트는 files 파트 + fileArtifactIds(같은 순서의 요구산출물 식별자 배열)로,
             링크·텍스트 아티팩트는 artifacts 파트(JSON 배열)로 보낸다.
+            최종보고서(FINAL_REPORT) 마일스톤은 활성 팀장만 제출할 수 있고, 제출 직후 팀장 본인
+            확인이 자동으로 등록된다(응답의 memberConsent에 반영).
             Assignee : 담당자명
             """
     )

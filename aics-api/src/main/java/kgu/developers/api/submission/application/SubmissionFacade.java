@@ -62,6 +62,7 @@ import kgu.developers.domain.submission.exception.SubmissionInvalidArtifactTypeE
 import kgu.developers.domain.submission.exception.SubmissionInvalidPresentationOrderException;
 import kgu.developers.domain.submission.exception.SubmissionInvalidScreensException;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
+import kgu.developers.domain.submission.exception.SubmissionMemberConfirmationNotApplicableException;
 import kgu.developers.domain.submission.exception.SubmissionMilestoneTypeMismatchException;
 import kgu.developers.domain.submission.exception.SubmissionPresentationImageOwnershipException;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
@@ -184,21 +185,35 @@ public class SubmissionFacade {
     public SubmissionMemberConsentResponse getMemberConsent(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
+        validateFinalReportMilestone(submission);
         return buildMemberConsent(submission, userId);
     }
 
     public SubmissionMemberConsentResponse confirmAsMember(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
+        validateFinalReportMilestone(submission);
         submissionCommandService.confirmAsMember(submissionId, userId);
-        return buildMemberConsent(submission, userId);
+        return buildMemberConsent(submissionQueryService.getSubmission(submissionId), userId);
     }
 
     public SubmissionMemberConsentResponse cancelConfirmation(Long submissionId, String userId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateActiveTeamMembership(submission, userId);
+        validateFinalReportMilestone(submission);
         submissionCommandService.cancelConfirmation(submissionId, userId);
-        return buildMemberConsent(submission, userId);
+        return buildMemberConsent(submissionQueryService.getSubmission(submissionId), userId);
+    }
+
+    // 확인 조회·등록·취소는 최종보고서 전용 게이트다(Swagger·SubmissionResponse.memberConsent에
+    // 이미 그렇게 문서화돼 있음) — 그 외 마일스톤에서 호출하면 확인 행이 생기지 않도록 여기서
+    // 막는다(sunzx0428 PR #122 리뷰 09-06, 이전엔 마일스톤 타입 검사가 아예 없었음).
+    private void validateFinalReportMilestone(Submission submission) {
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        if (milestone.getType() != MilestoneType.FINAL_REPORT) {
+            throw new SubmissionMemberConfirmationNotApplicableException();
+        }
     }
 
     // 확인 인원/전체 인원/본인 확인 여부 요약. "확인함"은 별도 필드가 아니라 이 버전에 대한

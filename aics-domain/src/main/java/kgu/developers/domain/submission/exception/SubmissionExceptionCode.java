@@ -13,7 +13,7 @@ public enum SubmissionExceptionCode implements ExceptionCode {
     SUBMISSION_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 버전을 찾을 수 없습니다."),
     SUBMISSION_NOT_ALLOWED_NOW(HttpStatus.FORBIDDEN, "지금은 제출할 수 있는 기간이 아닙니다."),
     SUBMISSION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "그 팀 소속만 접근할 수 있습니다."),
-    SUBMISSION_LEADER_ONLY(HttpStatus.FORBIDDEN, "팀장만 완료 처리할 수 있습니다."),
+    SUBMISSION_LEADER_ONLY(HttpStatus.FORBIDDEN, "팀장만 처리할 수 있습니다."),
     SUBMISSION_MEMBER_CONFIRMATION_INCOMPLETE(HttpStatus.PRECONDITION_REQUIRED, "팀원 전원이 아직 확인하지 않았습니다."),
     SUBMISSION_NOT_YET_SUBMITTED(HttpStatus.CONFLICT, "아직 제출되지 않아 완료 처리할 수 없습니다."),
     SUBMISSION_NOT_COMPLETED(HttpStatus.CONFLICT, "완료된 제출만 재오픈할 수 있습니다."),
@@ -24,7 +24,8 @@ public enum SubmissionExceptionCode implements ExceptionCode {
     SUBMISSION_MILESTONE_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, "발표(PRESENTATION) 마일스톤에서만 사용할 수 있습니다."),
     SUBMISSION_PRESENTATION_IMAGE_OWNERSHIP_INVALID(HttpStatus.BAD_REQUEST, "화면 이미지는 우리 제출물에 실제로 첨부된 파일만 지정할 수 있습니다."),
     SUBMISSION_INVALID_SCREENS(HttpStatus.BAD_REQUEST, "화면 목록(screens)은 {imageFileId, caption} 객체의 배열이어야 합니다."),
-    SUBMISSION_ARTIFACT_TYPE_REQUIRED(HttpStatus.BAD_REQUEST, "아티팩트 종류(type)는 필수입니다.");
+    SUBMISSION_ARTIFACT_TYPE_REQUIRED(HttpStatus.BAD_REQUEST, "아티팩트 종류(type)는 필수입니다."),
+    SUBMISSION_MEMBER_CONFIRMATION_NOT_APPLICABLE(HttpStatus.BAD_REQUEST, "최종보고서(FINAL_REPORT) 마일스톤에서만 사용할 수 있습니다.");
 
     private final HttpStatus status;
     private final String message;
