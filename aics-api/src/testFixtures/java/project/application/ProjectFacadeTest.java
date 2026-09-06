@@ -73,7 +73,7 @@ class ProjectFacadeTest {
     @DisplayName("completeProposal은 팀장이고 모든 팀원이 승인하면 완료 처리한다")
     void completeProposal() {
         given(projectQueryService.getProject(10L)).willReturn(project());
-        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
 
         projectFacade.completeProposal(10L, MEMBER_ID);
 
@@ -84,13 +84,13 @@ class ProjectFacadeTest {
     @DisplayName("completeProposal은 팀 행을 잠근 뒤 팀장 권한과 동의 목록을 확인한다")
     void completeProposal_locksTeamBeforeValidation() {
         given(projectQueryService.getProject(10L)).willReturn(project());
-        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
 
         projectFacade.completeProposal(10L, MEMBER_ID);
 
         InOrder inOrder = org.mockito.Mockito.inOrder(projectCommandService, teamAccessValidator);
         inOrder.verify(projectCommandService).lockTeam(TEAM_ID);
-        inOrder.verify(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+        inOrder.verify(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
         inOrder.verify(projectCommandService).completeProposal(10L);
     }
 
@@ -99,7 +99,7 @@ class ProjectFacadeTest {
     void completeProposal_deniesNonLeader() {
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
-            .given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+            .given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
 
         assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class);
@@ -110,7 +110,7 @@ class ProjectFacadeTest {
     @DisplayName("completeProposal은 동의 검증을 잠금 경계의 커맨드 서비스에 위임한다")
     void completeProposal_delegatesApprovalValidationToCommandService() {
         given(projectQueryService.getProject(10L)).willReturn(project());
-        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
         projectFacade.completeProposal(10L, MEMBER_ID);
 
         then(projectCommandService).should().completeProposal(10L);
@@ -120,7 +120,7 @@ class ProjectFacadeTest {
     @DisplayName("deleteProject는 팀장이면 제안서를 삭제한다")
     void deleteProject() {
         given(projectQueryService.getProject(10L)).willReturn(project());
-        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
 
         projectFacade.deleteProject(10L, MEMBER_ID);
 
@@ -132,7 +132,7 @@ class ProjectFacadeTest {
     void deleteProject_deniesNonLeader() {
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
-            .given(teamAccessValidator).validateTeamLeader(TEAM_ID, MEMBER_ID);
+            .given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
 
         assertThatThrownBy(() -> projectFacade.deleteProject(10L, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class);
