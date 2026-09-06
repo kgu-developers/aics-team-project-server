@@ -75,7 +75,11 @@ public interface MilestoneController {
             @Parameter(hidden = true) Authentication authentication
     );
 
-    @Operation(summary = "마일스톤 주차 일괄 변경")
+    @Operation(
+            summary = "마일스톤 주차 일괄 변경",
+            description = "주차는 표시·정렬 값만 변경하며 기존 제출·수정·평가 일정은 유지한다. "
+                    + "일정 변경은 마일스톤 내용과 일정 수정 API 또는 평가 기간 수정 API를 사용한다."
+    )
     @ApiResponse(responseCode = "409", description = "같은 분반의 주차가 이미 사용 중임")
     ResponseEntity<Void> updateWeekNumbers(
             @Parameter(description = "분반 ID", required = true) @Positive Long sectionId,

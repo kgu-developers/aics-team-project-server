@@ -23,7 +23,15 @@ public record MilestoneUpdateRequest(
         @NotNull
         MilestoneScheduleRequest schedule,
 
-        @Schema(description = "마일스톤 유형(안 보내면 기존 값 유지)", example = "FINAL_REPORT")
+        @Schema(
+                description = "마일스톤 유형(안 보내면 기존 값 유지). PRESENTATION 하나에서 dueAt은 발표자료 제출 마감, "
+                        + "evaluationOpensAt/evaluationClosesAt은 발표 평가 기간으로 사용한다. 상호 평가는 PEER_EVALUATION을 사용한다.",
+                example = "FINAL_REPORT",
+                allowableValues = {
+                        "PROPOSAL", "MID_REPORT", "FINAL_REPORT",
+                        "PRESENTATION", "PEER_EVALUATION", "GENERAL"
+                }
+        )
         MilestoneType type
 ) {
 }

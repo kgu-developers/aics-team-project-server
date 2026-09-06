@@ -5,5 +5,6 @@ public enum MilestoneType {
     MID_REPORT,
     FINAL_REPORT,
     PRESENTATION,
+    PEER_EVALUATION,
     GENERAL
 }
