@@ -1,5 +1,6 @@
 package mock.repository;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +29,8 @@ public class FakeSubmissionVersionRepository implements SubmissionVersionReposit
             .submittedBy(submissionVersion.getSubmittedBy())
             .submittedAt(submissionVersion.getSubmittedAt())
             .late(submissionVersion.isLate())
-            .createdAt(submissionVersion.getCreatedAt())
-            .updatedAt(submissionVersion.getUpdatedAt())
+            .createdAt(submissionVersion.getCreatedAt() != null ? submissionVersion.getCreatedAt() : LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
             .deletedAt(submissionVersion.getDeletedAt())
             .build();
 
