@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Positive;
 import kgu.developers.domain.milestone.application.command.MilestoneWeekNumberChange;
 
 public record MilestoneWeekNumbersRequest(
-        @Schema(description = "마일스톤별 변경 주차", requiredMode = REQUIRED)
+        @Schema(description = "마일스톤별 변경 주차. 주차를 변경해도 기존 일정은 유지된다.", requiredMode = REQUIRED)
         @NotEmpty
         List<@NotNull @Valid MilestoneWeekNumberItem> changes
 ) {

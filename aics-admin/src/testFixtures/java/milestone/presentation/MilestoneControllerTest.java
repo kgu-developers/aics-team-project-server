@@ -1,5 +1,6 @@
 package milestone.presentation;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -17,6 +18,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -31,10 +33,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.MilestoneControllerImpl;
+import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.common.exception.GlobalExceptionHandler;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
@@ -137,6 +141,33 @@ class MilestoneControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(10));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("상호 평가 마일스톤 유형을 생성 요청으로 전달할 수 있다")
+    void createPeerEvaluationMilestone() throws Exception {
+        given(milestoneFacade.createMilestone(eq(1L), eq("user"), any()))
+                .willReturn(MilestonePersistResponse.of(10L));
+
+        mockMvc.perform(post(MILESTONES_URL).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "상호 평가",
+                                  "weekNumber": 14,
+                                  "schedule": {
+                                    "dueAt": "2026-12-10T23:59:59"
+                                  },
+                                  "type": "PEER_EVALUATION"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<MilestoneCreateRequest> requestCaptor =
+                ArgumentCaptor.forClass(MilestoneCreateRequest.class);
+        verify(milestoneFacade).createMilestone(eq(1L), eq("user"), requestCaptor.capture());
+        assertThat(requestCaptor.getValue().type()).isEqualTo(MilestoneType.PEER_EVALUATION);
     }
 
     @Test

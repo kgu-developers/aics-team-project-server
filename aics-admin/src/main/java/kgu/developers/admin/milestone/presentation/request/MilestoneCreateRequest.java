@@ -28,8 +28,15 @@ public record MilestoneCreateRequest(
         @NotNull
         MilestoneScheduleRequest schedule,
 
-        @Schema(description = "마일스톤 유형(안 보내면 GENERAL). 최종보고서 완료게이트 등 B3 로직이 이 값으로 동작한다.",
-                example = "GENERAL")
+        @Schema(
+                description = "마일스톤 유형(안 보내면 GENERAL). PRESENTATION 하나에서 dueAt은 발표자료 제출 마감, "
+                        + "evaluationOpensAt/evaluationClosesAt은 발표 평가 기간으로 사용한다. 상호 평가는 PEER_EVALUATION을 사용한다.",
+                example = "GENERAL",
+                allowableValues = {
+                        "PROPOSAL", "MID_REPORT", "FINAL_REPORT",
+                        "PRESENTATION", "PEER_EVALUATION", "GENERAL"
+                }
+        )
         MilestoneType type
 ) {
 }

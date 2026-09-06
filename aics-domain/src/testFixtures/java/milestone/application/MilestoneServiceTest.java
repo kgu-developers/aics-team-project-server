@@ -169,6 +169,8 @@ class MilestoneServiceTest {
         Long first = createMilestone(1L, "제안서", 2);
         Long second = createMilestone(1L, "중간보고서", 4);
         Long unchanged = createMilestone(1L, "최종보고서", 8);
+        MilestoneSchedule firstSchedule = queryService.getMilestone(1L, first).getSchedule();
+        MilestoneSchedule secondSchedule = queryService.getMilestone(1L, second).getSchedule();
 
         commandService.updateWeekNumbers(1L, PROFESSOR_ID, List.of(
                 new MilestoneWeekNumberChange(first, 3),
@@ -177,6 +179,8 @@ class MilestoneServiceTest {
 
         assertThat(queryService.getMilestone(1L, first).getWeekNumber()).isEqualTo(3);
         assertThat(queryService.getMilestone(1L, second).getWeekNumber()).isEqualTo(6);
+        assertThat(queryService.getMilestone(1L, first).getSchedule()).isEqualTo(firstSchedule);
+        assertThat(queryService.getMilestone(1L, second).getSchedule()).isEqualTo(secondSchedule);
         assertThat(repository.lastSavedBatchIds).containsExactly(first, second);
     }
 
