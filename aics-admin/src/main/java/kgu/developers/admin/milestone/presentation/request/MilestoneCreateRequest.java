@@ -37,6 +37,19 @@ public record MilestoneCreateRequest(
                         "PRESENTATION", "PEER_EVALUATION", "GENERAL"
                 }
         )
-        MilestoneType type
+        MilestoneType type,
+
+        @Schema(description = "마감 전 재제출 허용 여부. 최초 제출은 이 값과 관계없이 허용한다.",
+                example = "false", defaultValue = "false")
+        Boolean allowResubmissionBeforeDueAt
 ) {
+    public MilestoneCreateRequest(
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneScheduleRequest schedule,
+            MilestoneType type
+    ) {
+        this(title, description, weekNumber, schedule, type, false);
+    }
 }

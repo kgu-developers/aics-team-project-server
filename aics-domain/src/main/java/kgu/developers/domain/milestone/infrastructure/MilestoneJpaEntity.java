@@ -90,6 +90,11 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
     @Column(name = "evaluation_closes_at")
     private LocalDateTime evaluationClosesAt;
 
+    @Builder.Default
+    @Column(name = "allow_resubmission_before_due_at", nullable = false,
+            columnDefinition = "boolean default false")
+    private boolean allowResubmissionBeforeDueAt = false;
+
     // B3가 "이 마일스톤이 최종보고서/발표용인지" 구분하려고 추가한 컬럼(태양님 확인 필요).
     // 기존 빌더 호출부가 안 깨지게 기본값을 GENERAL로 둔다.
     @Builder.Default
@@ -112,6 +117,7 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
                 .revisionUntil(schedule.revisionUntil())
                 .evaluationOpensAt(schedule.evaluationOpensAt())
                 .evaluationClosesAt(schedule.evaluationClosesAt())
+                .allowResubmissionBeforeDueAt(milestone.isAllowResubmissionBeforeDueAt())
                 .type(milestone.getType())
                 .build();
     }
@@ -135,6 +141,7 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
         revisionUntil = schedule.revisionUntil();
         evaluationOpensAt = schedule.evaluationOpensAt();
         evaluationClosesAt = schedule.evaluationClosesAt();
+        allowResubmissionBeforeDueAt = milestone.isAllowResubmissionBeforeDueAt();
         type = milestone.getType();
     }
 
@@ -154,7 +161,8 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
                         evaluationOpensAt,
                         evaluationClosesAt
                 ),
-                type
+                type,
+                allowResubmissionBeforeDueAt
         );
     }
 }

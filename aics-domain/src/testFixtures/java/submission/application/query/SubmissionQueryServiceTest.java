@@ -20,6 +20,7 @@ import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.submission.application.query.SubmissionQueryService;
 import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionRepository;
@@ -86,11 +87,50 @@ class SubmissionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("마감 전이면 제출할 수 있다")
+    @DisplayName("마감 전에는 처음 제출하는 팀이 제출할 수 있다")
     void canSubmitNow_TrueBeforeDueDate() {
         Milestone milestone = milestone(5L, 2, schedule(LocalDateTime.now().plusDays(1), null, null));
         given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
         Submission submission = submission(5L);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isTrue();
+    }
+
+    @Test
+    @DisplayName("마감 전 재제출을 허용하지 않은 마일스톤은 기존 제출 팀의 재제출을 막는다")
+    void canSubmitNow_FalseForResubmissionBeforeDueDateByDefault() {
+        Milestone milestone = milestone(5L, 2, schedule(LocalDateTime.now().plusDays(1), null, null));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isFalse();
+    }
+
+    @Test
+    @DisplayName("마감 전 재제출을 허용한 마일스톤은 기존 제출 팀의 재제출을 허용한다")
+    void canSubmitNow_TrueForResubmissionBeforeDueDateWhenAllowed() {
+        Milestone milestone = milestone(
+                5L,
+                2,
+                schedule(LocalDateTime.now().plusDays(1), null, null),
+                true
+        );
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isTrue();
+    }
+
+    @Test
+    @DisplayName("수정 기한 없이 재오픈된 제출은 마감 전까지 다시 제출할 수 있다")
+    void canSubmitNow_TrueForReopenedSubmissionBeforeDueDateWithoutRevisionDueAt() {
+        Milestone milestone = milestone(5L, 2, schedule(LocalDateTime.now().plusDays(1), null, null));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+        submission.reopen("20260001", null);
 
         assertThat(submissionQueryService.canSubmitNow(submission)).isTrue();
     }
@@ -141,7 +181,7 @@ class SubmissionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("지각제출기간이 남아있으면 마감이 지나도 제출할 수 있다")
+    @DisplayName("지각제출기간에는 아직 제출하지 않은 팀의 최초 제출을 허용한다")
     void canSubmitNow_TrueWithinLateSubmissionWindow() {
         LocalDateTime due = LocalDateTime.now().minusHours(1);
         LocalDateTime lateUntil = LocalDateTime.now().plusDays(1);
@@ -150,6 +190,46 @@ class SubmissionQueryServiceTest {
         Submission submission = submission(5L);
 
         assertThat(submissionQueryService.canSubmitNow(submission)).isTrue();
+    }
+
+    @Test
+    @DisplayName("지각제출기간에는 이미 제출한 팀의 재제출을 막는다")
+    void canSubmitNow_FalseForResubmissionWithinLateSubmissionWindow() {
+        LocalDateTime due = LocalDateTime.now().minusHours(1);
+        LocalDateTime lateUntil = LocalDateTime.now().plusDays(1);
+        Milestone milestone = milestone(5L, 2, schedule(due, lateUntil, null), true);
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isFalse();
+    }
+
+    @Test
+    @DisplayName("수정기간에는 수정 요청 상태인 제출만 다시 제출할 수 있다")
+    void canSubmitNow_TrueForRevisionRequestedWithinRevisionWindow() {
+        LocalDateTime past = LocalDateTime.now().minusHours(1);
+        LocalDateTime revisionUntil = LocalDateTime.now().plusDays(1);
+        Milestone milestone = milestone(5L, 2, schedule(past, past, revisionUntil));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+        submission.reopen("20260001", null);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isTrue();
+    }
+
+    @Test
+    @DisplayName("수정기간이 남아있어도 일반 제출 상태에는 제출을 허용하지 않는다")
+    void canSubmitNow_FalseForSubmittedWithinRevisionWindow() {
+        LocalDateTime past = LocalDateTime.now().minusHours(1);
+        LocalDateTime revisionUntil = LocalDateTime.now().plusDays(1);
+        Milestone milestone = milestone(5L, 2, schedule(past, past, revisionUntil));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isFalse();
     }
 
     @Test
@@ -214,7 +294,26 @@ class SubmissionQueryServiceTest {
     }
 
     private Milestone milestone(Long id, int weekNumber, MilestoneSchedule schedule) {
-        return Milestone.restore(id, SECTION_ID, "마일스톤", null, weekNumber, MilestoneStatus.PUBLISHED, schedule);
+        return milestone(id, weekNumber, schedule, false);
+    }
+
+    private Milestone milestone(
+            Long id,
+            int weekNumber,
+            MilestoneSchedule schedule,
+            boolean allowResubmissionBeforeDueAt
+    ) {
+        return Milestone.restore(
+                id,
+                SECTION_ID,
+                "마일스톤",
+                null,
+                weekNumber,
+                MilestoneStatus.PUBLISHED,
+                schedule,
+                MilestoneType.GENERAL,
+                allowResubmissionBeforeDueAt
+        );
     }
 
     private MilestoneSchedule schedule(LocalDateTime dueAt, LocalDateTime lateSubmissionUntil, LocalDateTime revisionUntil) {

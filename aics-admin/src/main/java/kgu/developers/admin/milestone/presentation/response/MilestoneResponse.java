@@ -30,7 +30,10 @@ public record MilestoneResponse(
         MilestoneScheduleResponse schedule,
 
         @Schema(description = "마일스톤 유형", example = "GENERAL", requiredMode = REQUIRED)
-        MilestoneType type
+        MilestoneType type,
+
+        @Schema(description = "마감 전 재제출 허용 여부", example = "false", requiredMode = REQUIRED)
+        boolean allowResubmissionBeforeDueAt
 ) {
     public static MilestoneResponse from(Milestone milestone) {
         return new MilestoneResponse(
@@ -41,7 +44,8 @@ public record MilestoneResponse(
                 milestone.getWeekNumber(),
                 milestone.getStatus(),
                 MilestoneScheduleResponse.from(milestone.getSchedule()),
-                milestone.getType()
+                milestone.getType(),
+                milestone.isAllowResubmissionBeforeDueAt()
         );
     }
 }

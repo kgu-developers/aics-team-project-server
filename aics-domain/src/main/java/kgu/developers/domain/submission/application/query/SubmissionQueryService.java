@@ -76,13 +76,13 @@ public class SubmissionQueryService {
             return false;
         }
         Milestone milestone = getMilestone(submission.getMilestoneId());
-        if (withinOwnWindow(milestone)) {
+        if (withinOwnWindow(milestone, submission)) {
             return true;
         }
         if (withinReopenedWindow(submission)) {
             return true;
         }
-        return nextMilestoneOpenedEarly(milestone, submission.getTeamId());
+        return nextMilestoneOpenedEarly(milestone, submission);
     }
 
     // 교수가 재오픈하면서 잡아준 재제출 기한이 아직 안 지났으면, 공식 기간이 끝났어도 허용한다.
@@ -104,7 +104,7 @@ public class SubmissionQueryService {
     }
 
     // 공개(PUBLISHED) 상태가 아니거나, 아직 opensAt 전이면 제출 기간 자체가 시작 안 한 것이다.
-    private boolean withinOwnWindow(Milestone milestone) {
+    private boolean withinOwnWindow(Milestone milestone, Submission submission) {
         if (milestone.getStatus() != MilestoneStatus.PUBLISHED) {
             return false;
         }
@@ -113,9 +113,14 @@ public class SubmissionQueryService {
         if (!hasOpened(now, schedule.opensAt())) {
             return false;
         }
-        return isBefore(now, schedule.dueAt())
-                || isBefore(now, schedule.lateSubmissionUntil())
-                || isBefore(now, schedule.revisionUntil());
+        if (submission.getStatus() == SubmissionStatus.REVISION_REQUESTED
+                && (isBefore(now, schedule.dueAt()) || isBefore(now, schedule.revisionUntil()))) {
+            return true;
+        }
+        if (isBefore(now, schedule.dueAt())) {
+            return submission.hasNeverSubmitted() || milestone.isAllowResubmissionBeforeDueAt();
+        }
+        return submission.hasNeverSubmitted() && isBefore(now, schedule.lateSubmissionUntil());
     }
 
     private boolean hasOpened(LocalDateTime now, LocalDateTime opensAt) {
@@ -127,7 +132,7 @@ public class SubmissionQueryService {
     // opensAt이 이미 지났으면(또는 애초에 없으면) "조기"라는 개념 자체가 성립하지 않으므로
     // withinOwnWindow의 판단에 맡기고 여기서는 항상 false를 준다 — 안 그러면 모든 기한이
     // 지난 뒤에도 이 조건만으로 계속 제출 가능 상태가 유지되는 문제가 생긴다.
-    private boolean nextMilestoneOpenedEarly(Milestone milestone, Long teamId) {
+    private boolean nextMilestoneOpenedEarly(Milestone milestone, Submission submission) {
         if (milestone.getStatus() != MilestoneStatus.PUBLISHED) {
             return false;
         }
@@ -148,9 +153,12 @@ public class SubmissionQueryService {
             return false;
         }
 
-        return submissionRepository.findByTeamIdAndMilestoneId(teamId, previous.get().getId())
+        boolean previousSubmitted = submissionRepository
+                .findByTeamIdAndMilestoneId(submission.getTeamId(), previous.get().getId())
                 .map(previousSubmission -> previousSubmission.getStatus() != SubmissionStatus.NOT_SUBMITTED)
                 .orElse(false);
+        return previousSubmitted
+                && (submission.hasNeverSubmitted() || milestone.isAllowResubmissionBeforeDueAt());
     }
 
     private boolean isBefore(LocalDateTime now, LocalDateTime bound) {

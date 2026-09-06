@@ -37,7 +37,8 @@ public class MilestoneCommandService {
             int weekNumber,
             MilestoneSchedule schedule
     ) {
-        return createMilestone(sectionId, professorId, title, description, weekNumber, schedule, MilestoneType.GENERAL);
+        return createMilestone(
+                sectionId, professorId, title, description, weekNumber, schedule, MilestoneType.GENERAL, false);
     }
 
     // B3(제출·이력·발표)가 마일스톤 유형(최종보고서/발표 등)을 실제로 지정할 수 있도록 추가한 오버로드.
@@ -51,9 +52,29 @@ public class MilestoneCommandService {
             MilestoneSchedule schedule,
             MilestoneType type
     ) {
+        return createMilestone(sectionId, professorId, title, description, weekNumber, schedule, type, false);
+    }
+
+    public Long createMilestone(
+            Long sectionId,
+            String professorId,
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneSchedule schedule,
+            MilestoneType type,
+            boolean allowResubmissionBeforeDueAt
+    ) {
         lockOwnedSection(sectionId, professorId);
         Milestone milestone = Milestone.create(
-                sectionId, title, description, weekNumber, schedule, type != null ? type : MilestoneType.GENERAL);
+                sectionId,
+                title,
+                description,
+                weekNumber,
+                schedule,
+                type != null ? type : MilestoneType.GENERAL,
+                allowResubmissionBeforeDueAt
+        );
         if (milestoneRepository.existsBySectionIdAndWeekNumber(sectionId, weekNumber)) {
             throw new DuplicateMilestoneWeekException();
         }
@@ -74,7 +95,7 @@ public class MilestoneCommandService {
             String description,
             MilestoneSchedule schedule
     ) {
-        updateMilestone(sectionId, professorId, milestoneId, title, description, schedule, null);
+        updateMilestone(sectionId, professorId, milestoneId, title, description, schedule, null, null);
     }
 
     // type이 null이면 기존 값을 유지한다(부분 수정) — null이 아니면 그 값으로 바꾼다.
@@ -87,6 +108,19 @@ public class MilestoneCommandService {
             MilestoneSchedule schedule,
             MilestoneType type
     ) {
+        updateMilestone(sectionId, professorId, milestoneId, title, description, schedule, type, null);
+    }
+
+    public void updateMilestone(
+            Long sectionId,
+            String professorId,
+            Long milestoneId,
+            String title,
+            String description,
+            MilestoneSchedule schedule,
+            MilestoneType type,
+            Boolean allowResubmissionBeforeDueAt
+    ) {
         lockOwnedSection(sectionId, professorId);
         Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         validateSchedule(schedule);
@@ -94,6 +128,9 @@ public class MilestoneCommandService {
         milestone.updateSchedule(schedule);
         if (type != null) {
             milestone.changeType(type);
+        }
+        if (allowResubmissionBeforeDueAt != null) {
+            milestone.changeAllowResubmissionBeforeDueAt(allowResubmissionBeforeDueAt);
         }
         milestoneRepository.save(milestone);
     }

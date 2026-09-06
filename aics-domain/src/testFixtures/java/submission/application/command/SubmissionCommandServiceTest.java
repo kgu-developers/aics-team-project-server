@@ -136,15 +136,27 @@ class SubmissionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("재제출하면 버전 번호가 이어서 올라간다")
+    @DisplayName("마감 전 재제출이 허용되면 버전 번호가 이어서 올라간다")
     void submitVersion_IncrementsVersionOnResubmit() {
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone(true)));
 
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "1차", null, List.of());
         SubmissionVersion second = submissionCommandService.submitVersion(
                 submission.getId(), USER_ID, "2차", "오타 수정", List.of());
 
         assertThat(second.getVersion()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("마감 전 재제출이 허용되지 않으면 두 번째 제출을 거부한다")
+    void submitVersion_RejectsResubmissionBeforeDueDateByDefault() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+
+        submissionCommandService.submitVersion(submission.getId(), USER_ID, "1차", null, List.of());
+
+        assertThatThrownBy(() -> submissionCommandService.submitVersion(
+                submission.getId(), USER_ID, "2차", "오타 수정", List.of()))
+                .isInstanceOf(SubmissionNotAllowedNowException.class);
     }
 
     @Test
@@ -458,7 +470,7 @@ class SubmissionCommandServiceTest {
     @Test
     @DisplayName("재제출로 버전이 올라가면 이전 버전에서 한 확인은 더 이상 유효하지 않다")
     void completeSubmission_InvalidatesConfirmationFromPreviousVersion() {
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone(true)));
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "1차 제출", null, List.of());
@@ -590,15 +602,26 @@ class SubmissionCommandServiceTest {
     }
 
     private Milestone openMilestone() {
+        return openMilestone(false);
+    }
+
+    private Milestone openMilestone(boolean allowResubmissionBeforeDueAt) {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "마일스톤", null, 2, MilestoneStatus.PUBLISHED,
-                new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null));
+                new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
+                MilestoneType.GENERAL,
+                allowResubmissionBeforeDueAt);
     }
 
     private Milestone finalReportMilestone() {
+        return finalReportMilestone(false);
+    }
+
+    private Milestone finalReportMilestone(boolean allowResubmissionBeforeDueAt) {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "최종보고서", null, 5, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
-                MilestoneType.FINAL_REPORT);
+                MilestoneType.FINAL_REPORT,
+                allowResubmissionBeforeDueAt);
     }
 }

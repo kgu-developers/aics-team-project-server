@@ -16,6 +16,7 @@ public final class Milestone {
     private MilestoneStatus status;
     private MilestoneSchedule schedule;
     private MilestoneType type;
+    private boolean allowResubmissionBeforeDueAt;
 
     private Milestone(
             Long id,
@@ -25,7 +26,8 @@ public final class Milestone {
             int weekNumber,
             MilestoneStatus status,
             MilestoneSchedule schedule,
-            MilestoneType type
+            MilestoneType type,
+            boolean allowResubmissionBeforeDueAt
     ) {
         this.id = validateOptionalId(id);
         this.sectionId = validateSectionId(sectionId);
@@ -35,6 +37,7 @@ public final class Milestone {
         this.status = validateStatus(status);
         this.schedule = validateSchedule(schedule);
         this.type = validateType(type);
+        this.allowResubmissionBeforeDueAt = allowResubmissionBeforeDueAt;
     }
 
     // B3(제출·이력·발표)가 "이 마일스톤이 최종보고서/발표용인지" 구분하려고 추가한 필드.
@@ -46,7 +49,7 @@ public final class Milestone {
             int weekNumber,
             MilestoneSchedule schedule
     ) {
-        return create(sectionId, title, description, weekNumber, schedule, MilestoneType.GENERAL);
+        return create(sectionId, title, description, weekNumber, schedule, MilestoneType.GENERAL, false);
     }
 
     public static Milestone create(
@@ -57,6 +60,18 @@ public final class Milestone {
             MilestoneSchedule schedule,
             MilestoneType type
     ) {
+        return create(sectionId, title, description, weekNumber, schedule, type, false);
+    }
+
+    public static Milestone create(
+            Long sectionId,
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneSchedule schedule,
+            MilestoneType type,
+            boolean allowResubmissionBeforeDueAt
+    ) {
         return new Milestone(
                 null,
                 sectionId,
@@ -65,7 +80,8 @@ public final class Milestone {
                 weekNumber,
                 MilestoneStatus.DRAFT,
                 schedule,
-                type
+                type,
+                allowResubmissionBeforeDueAt
         );
     }
 
@@ -78,7 +94,7 @@ public final class Milestone {
             MilestoneStatus status,
             MilestoneSchedule schedule
     ) {
-        return restore(id, sectionId, title, description, weekNumber, status, schedule, MilestoneType.GENERAL);
+        return restore(id, sectionId, title, description, weekNumber, status, schedule, MilestoneType.GENERAL, false);
     }
 
     public static Milestone restore(
@@ -91,10 +107,34 @@ public final class Milestone {
             MilestoneSchedule schedule,
             MilestoneType type
     ) {
+        return restore(id, sectionId, title, description, weekNumber, status, schedule, type, false);
+    }
+
+    public static Milestone restore(
+            Long id,
+            Long sectionId,
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneStatus status,
+            MilestoneSchedule schedule,
+            MilestoneType type,
+            boolean allowResubmissionBeforeDueAt
+    ) {
         if (id == null) {
             throw new IllegalArgumentException("마일스톤 식별자는 필수입니다.");
         }
-        return new Milestone(id, sectionId, title, description, weekNumber, status, schedule, type);
+        return new Milestone(
+                id,
+                sectionId,
+                title,
+                description,
+                weekNumber,
+                status,
+                schedule,
+                type,
+                allowResubmissionBeforeDueAt
+        );
     }
 
     public void updateDetails(String title, String description) {
@@ -123,6 +163,10 @@ public final class Milestone {
 
     public void changeType(MilestoneType type) {
         this.type = validateType(type);
+    }
+
+    public void changeAllowResubmissionBeforeDueAt(boolean allowResubmissionBeforeDueAt) {
+        this.allowResubmissionBeforeDueAt = allowResubmissionBeforeDueAt;
     }
 
     public boolean belongsToSection(Long sectionId) {
