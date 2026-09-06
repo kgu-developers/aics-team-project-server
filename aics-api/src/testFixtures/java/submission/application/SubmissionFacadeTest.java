@@ -46,6 +46,7 @@ import kgu.developers.domain.submission.domain.SubmissionArtifact;
 import kgu.developers.domain.submission.domain.SubmissionStatus;
 import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
+import kgu.developers.domain.submission.exception.SubmissionMemberConfirmationNotApplicableException;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 
@@ -209,6 +210,56 @@ class SubmissionFacadeTest {
 
         assertThat(response.currentVersion()).isEqualTo(1);
         assertThat(response.status()).isEqualTo(SubmissionStatus.SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("최종보고서는 팀장이 아니면 제출할 수 없다")
+    void submitVersion_RejectsNonLeaderForFinalReport() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+
+        assertThatThrownBy(() -> submissionFacade.submitVersion(
+                submission.getId(), MEMBER, "1차 제출", null, List.of(), List.of(), List.of()))
+                .isInstanceOf(SubmissionLeaderOnlyException.class);
+    }
+
+    @Test
+    @DisplayName("최종보고서는 팀장이면 제출할 수 있다")
+    void submitVersion_AllowsLeaderForFinalReport() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+
+        SubmissionResponse response = submissionFacade.submitVersion(
+                submission.getId(), LEADER, "1차 제출", null, List.of(), List.of(), List.of());
+
+        assertThat(response.currentVersion()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("최종보고서를 팀장이 제출하면 그 즉시 팀장 본인 확인이 1건 자동 등록된다")
+    void submitVersion_FinalReport_AutoConfirmsLeader() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+
+        SubmissionResponse response = submissionFacade.submitVersion(
+                submission.getId(), LEADER, "1차 제출", null, List.of(), List.of(), List.of());
+
+        assertThat(response.memberConsent()).isNotNull();
+        assertThat(response.memberConsent().confirmedCount()).isEqualTo(1);
+        assertThat(response.memberConsent().totalCount()).isEqualTo(2);
+        assertThat(response.memberConsent().isConfirmedByMe()).isTrue();
+    }
+
+    @Test
+    @DisplayName("일반 마일스톤 제출물 응답의 memberConsent는 null이다")
+    void submitVersion_GeneralMilestone_MemberConsentIsNull() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        SubmissionResponse response = submissionFacade.submitVersion(
+                submission.getId(), MEMBER, "1차 제출", null, List.of(), List.of(), List.of());
+
+        assertThat(response.memberConsent()).isNull();
     }
 
     @Test
@@ -548,7 +599,7 @@ class SubmissionFacadeTest {
     @DisplayName("아무도 확인하지 않았으면 확인 인원 0명, 본인 확인 여부는 false로 조회된다")
     void getMemberConsent_ReportsZeroBeforeAnyoneConfirms() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
 
         SubmissionMemberConsentResponse response = submissionFacade.getMemberConsent(submission.getId(), MEMBER);
 
@@ -561,7 +612,7 @@ class SubmissionFacadeTest {
     @DisplayName("확인을 등록하면 확인 인원과 본인 확인 여부가 바로 반영된다")
     void confirmAsMember_ReflectsInConsentImmediately() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
 
         SubmissionMemberConsentResponse response = submissionFacade.confirmAsMember(submission.getId(), MEMBER);
 
@@ -574,13 +625,27 @@ class SubmissionFacadeTest {
     @DisplayName("확인을 취소하면 확인 인원과 본인 확인 여부가 다시 줄어든다")
     void cancelConfirmation_ReflectsInConsentImmediately() {
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
         submissionFacade.confirmAsMember(submission.getId(), MEMBER);
 
         SubmissionMemberConsentResponse response = submissionFacade.cancelConfirmation(submission.getId(), MEMBER);
 
         assertThat(response.confirmedCount()).isZero();
         assertThat(response.isConfirmedByMe()).isFalse();
+    }
+
+    @Test
+    @DisplayName("최종보고서가 아닌 마일스톤에서는 확인 조회·등록·취소가 전부 거부된다")
+    void memberConfirmationApis_RejectNonFinalReportMilestone() {
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+
+        assertThatThrownBy(() -> submissionFacade.getMemberConsent(submission.getId(), MEMBER))
+                .isInstanceOf(SubmissionMemberConfirmationNotApplicableException.class);
+        assertThatThrownBy(() -> submissionFacade.confirmAsMember(submission.getId(), MEMBER))
+                .isInstanceOf(SubmissionMemberConfirmationNotApplicableException.class);
+        assertThatThrownBy(() -> submissionFacade.cancelConfirmation(submission.getId(), MEMBER))
+                .isInstanceOf(SubmissionMemberConfirmationNotApplicableException.class);
     }
 
     private Milestone milestone() {
@@ -594,5 +659,12 @@ class SubmissionFacadeTest {
                 MILESTONE_ID, SECTION_ID, "발표", null, 2, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
                 MilestoneType.PRESENTATION);
+    }
+
+    private Milestone finalReportMilestone() {
+        return Milestone.restore(
+                MILESTONE_ID, SECTION_ID, "최종보고서", null, 2, MilestoneStatus.PUBLISHED,
+                new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
+                MilestoneType.FINAL_REPORT);
     }
 }

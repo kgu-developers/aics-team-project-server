@@ -106,8 +106,12 @@ public class SubmissionCommandService {
     // 버전이 올라가면 예전 확인은 더 이상 이 게이트를 통과시키지 못하고, 다시 확인해야
     // (SubmissionMemberConfirmation.confirmsVersion 참고) 이 메서드가 새 버전으로 갱신한다.
     // "확인함" 자체는 별도 필드가 아니라 이 행의 존재로 표현한다(KD3-161).
+    // submitVersion/completeSubmission과 같은 잠금 규약: 완료 처리의 전원확인 검사와 경합해도
+    // "완료 처리는 통과했는데 확인 행은 사라진" 불일치 상태가 안 생기게 같은 Submission 행을
+    // 먼저 잠근다(sunzx0428 PR #122 리뷰 09-06).
     public SubmissionMemberConfirmation confirmAsMember(Long submissionId, String userId) {
-        Submission submission = submissionQueryService.getSubmission(submissionId);
+        Submission submission = submissionRepository.findByIdForUpdate(submissionId)
+                .orElseThrow(SubmissionNotFoundException::new);
         SubmissionMemberConfirmation existing = submissionMemberConfirmationRepository
                 .findBySubmissionIdAndUserId(submissionId, userId)
                 .orElse(null);
@@ -125,7 +129,12 @@ public class SubmissionCommandService {
     }
 
     // 등록했던 확인을 취소한다(멱등 — 확인한 적 없어도 그대로 성공, 삭제할 행이 없을 뿐).
+    // confirmAsMember와 같은 이유로 같은 Submission 행을 먼저 잠근다 — 완료 처리(전원확인 검사)와
+    // 동시에 실행돼도 둘 중 하나가 끝난 뒤에만 나머지가 진행되게 해서, "완료됐는데 확인은
+    // 불충분한" 상태가 생기지 않게 한다.
     public void cancelConfirmation(Long submissionId, String userId) {
+        submissionRepository.findByIdForUpdate(submissionId)
+                .orElseThrow(SubmissionNotFoundException::new);
         submissionMemberConfirmationRepository.deleteBySubmissionIdAndUserId(submissionId, userId);
     }
 
