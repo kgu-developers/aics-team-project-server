@@ -39,4 +39,13 @@ public class PreSurveyResponseRepositoryImpl implements PreSurveyResponseReposit
 				.map(PreSurveyResponseJpaEntity::toDomain)
 				.toList();
 	}
+
+	@Override
+	public List<PreSurveyResponse> findAllBySectionIdAndPreferredPeerUserId(Long sectionId, String preferredPeerUserId) {
+		return jpaPreSurveyResponseRepository
+				.findAllBySectionIdAndPreferredPeerUserIdAndDeletedAtIsNullOrderByUserIdAsc(sectionId, preferredPeerUserId)
+				.stream()
+				.map(PreSurveyResponseJpaEntity::toDomain)
+				.toList();
+	}
 }

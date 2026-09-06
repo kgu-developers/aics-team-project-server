@@ -15,13 +15,16 @@ import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerInvalidException;
+import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerRequestNotFoundException;
 import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakePreSurveyResponseRepository;
 
 class PreSurveyResponseCommandServiceTest {
 
 	private static final String USER_ID = "202012345";
+	private static final String PEER_ID = "202054321";
 	private static final Long SECTION_ID = 1L;
 
 	private FakePreSurveyResponseRepository repository;
@@ -96,5 +99,33 @@ class PreSurveyResponseCommandServiceTest {
 				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
 		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, null, null, "202099999"))
 				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
+	}
+
+	@Test
+	@DisplayName("지목당한 학생이 수락하면 지목한 쪽 응답의 상태가 ACCEPTED가 된다")
+	void decidePreferredPeer_Accept() throws Exception {
+		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
+
+		PreSurveyResponse decided = commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, true);
+
+		assertThat(decided.getPreferredPeerStatus()).isEqualTo(PreferredPeerStatus.ACCEPTED);
+	}
+
+	@Test
+	@DisplayName("이미 처리했거나 나를 지목하지 않은 신청은 수락·거절할 수 없다")
+	void decidePreferredPeer_RejectsNonPending() throws Exception {
+		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
+		commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, false);
+
+		// 이미 거절한 신청
+		assertThatThrownBy(() -> commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, true))
+				.isInstanceOf(PreSurveyResponsePreferredPeerRequestNotFoundException.class);
+		// 나를 지목하지 않은 응답
+		assertThatThrownBy(() -> commandService.decidePreferredPeer("202077777", SECTION_ID, USER_ID, true))
+				.isInstanceOf(PreSurveyResponsePreferredPeerRequestNotFoundException.class);
 	}
 }

@@ -71,10 +71,23 @@ class PreSurveyResponseTest {
 	}
 
 	@Test
+	@DisplayName("같은 학생을 지목한 채 재제출하면 상대가 내린 수락·거절이 유지된다")
+	void updateKeepsDecisionWhenPeerUnchanged() {
+		PreSurveyResponse response = PreSurveyResponse.create(
+				"202012345", 1L, JsonConverter.parse("[\"BACKEND\"]"), null, null, "202054321");
+		response.decidePreferredPeer(true);
+
+		response.update(JsonConverter.parse("[\"FRONTEND\"]"), "주제 바꿈", null, "202054321");
+
+		assertThat(response.getPreferredPeerStatus()).isEqualTo(PreferredPeerStatus.ACCEPTED);
+	}
+
+	@Test
 	@DisplayName("다른 학생으로 바꿔 지목하면 다시 대기 상태가 되고, null 이면 지목이 취소된다")
 	void updateResetsOrClearsPreferredPeer() {
 		PreSurveyResponse response = PreSurveyResponse.create(
 				"202012345", 1L, JsonConverter.parse("[\"BACKEND\"]"), null, null, "202054321");
+		response.decidePreferredPeer(true);
 
 		response.update(JsonConverter.parse("[\"BACKEND\"]"), null, null, "202011111");
 		assertThat(response.getPreferredPeerUserId()).isEqualTo("202011111");
@@ -83,5 +96,18 @@ class PreSurveyResponseTest {
 		response.update(JsonConverter.parse("[\"BACKEND\"]"), null, null, null);
 		assertThat(response.getPreferredPeerUserId()).isNull();
 		assertThat(response.getPreferredPeerStatus()).isNull();
+	}
+
+	@Test
+	@DisplayName("isPreferredPeerPendingFor는 대기 중인 지목 대상 본인에게만 참이다")
+	void isPreferredPeerPendingFor() {
+		PreSurveyResponse response = PreSurveyResponse.create(
+				"202012345", 1L, JsonConverter.parse("[\"BACKEND\"]"), null, null, "202054321");
+
+		assertThat(response.isPreferredPeerPendingFor("202054321")).isTrue();
+		assertThat(response.isPreferredPeerPendingFor("202011111")).isFalse();
+
+		response.decidePreferredPeer(false);
+		assertThat(response.isPreferredPeerPendingFor("202054321")).isFalse();
 	}
 }

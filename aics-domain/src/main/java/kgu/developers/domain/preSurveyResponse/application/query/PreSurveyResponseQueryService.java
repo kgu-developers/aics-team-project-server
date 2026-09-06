@@ -1,5 +1,7 @@
 package kgu.developers.domain.preSurveyResponse.application.query;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,5 +19,9 @@ public class PreSurveyResponseQueryService {
 	public PreSurveyResponse getResponse(String userId, Long sectionId) {
 		return preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)
 				.orElseThrow(PreSurveyResponseNotFoundException::new);
+	}
+
+	public List<PreSurveyResponse> getReceivedPreferredPeerRequests(String peerUserId, Long sectionId) {
+		return preSurveyResponseRepository.findAllBySectionIdAndPreferredPeerUserId(sectionId, peerUserId);
 	}
 }

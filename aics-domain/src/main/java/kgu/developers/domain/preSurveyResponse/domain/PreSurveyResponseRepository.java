@@ -11,4 +11,6 @@ public interface PreSurveyResponseRepository {
 	Optional<PreSurveyResponse> findByUserIdAndSectionId(String userId, Long sectionId);
 
 	List<PreSurveyResponse> findAllBySectionId(Long sectionId);
+
+	List<PreSurveyResponse> findAllBySectionIdAndPreferredPeerUserId(Long sectionId, String preferredPeerUserId);
 }

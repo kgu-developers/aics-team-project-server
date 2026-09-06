@@ -6,9 +6,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyClassmateListResponse;
+import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyPreferredPeerRequestListResponse;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -63,6 +65,47 @@ public interface PreSurveyResponseController {
     ResponseEntity<PreSurveyClassmateListResponse> searchClassmates(
         @Positive @PathVariable Long sectionId,
         @RequestParam(required = false) String keyword,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "나를 지목한 학생 목록 조회 API",
+        description = """
+            Description : 나를 희망 조원으로 지목한 같은 분반 학생 목록을 조회한다. 내가 사전조사를 제출하지 않았어도 조회할 수 있다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PreSurveyPreferredPeerRequestListResponse.class)))
+    ResponseEntity<PreSurveyPreferredPeerRequestListResponse> getReceivedPreferredPeerRequests(
+        @Positive @PathVariable Long sectionId,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "조원 지목 수락 API",
+        description = """
+            Description : 나를 지목한 학생의 신청을 수락한다. 대기 중(PENDING)인 신청이 아니면 404 를 반환한다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PreSurveyPreferredPeerRequestListResponse.class)))
+    ResponseEntity<PreSurveyPreferredPeerRequestListResponse> acceptPreferredPeerRequest(
+        @Positive @PathVariable Long sectionId,
+        @NotBlank @PathVariable String requesterUserId,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "조원 지목 거절 API",
+        description = """
+            Description : 나를 지목한 학생의 신청을 거절한다. 대기 중(PENDING)인 신청이 아니면 404 를 반환한다.
+            Assignee : 담당자명
+            """
+    )
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PreSurveyPreferredPeerRequestListResponse.class)))
+    ResponseEntity<PreSurveyPreferredPeerRequestListResponse> rejectPreferredPeerRequest(
+        @Positive @PathVariable Long sectionId,
+        @NotBlank @PathVariable String requesterUserId,
         Authentication authentication
     );
 }

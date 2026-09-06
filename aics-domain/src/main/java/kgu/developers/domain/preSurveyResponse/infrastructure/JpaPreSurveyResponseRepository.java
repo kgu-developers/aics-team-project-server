@@ -11,4 +11,7 @@ public interface JpaPreSurveyResponseRepository extends JpaRepository<PreSurveyR
 	Optional<PreSurveyResponseJpaEntity> findFirstByUserIdAndSectionIdAndDeletedAtIsNullOrderByIdDesc(String userId, Long sectionId);
 
 	List<PreSurveyResponseJpaEntity> findAllBySectionIdAndDeletedAtIsNullOrderByUserIdAsc(Long sectionId);
+
+	List<PreSurveyResponseJpaEntity> findAllBySectionIdAndPreferredPeerUserIdAndDeletedAtIsNullOrderByUserIdAsc(
+			Long sectionId, String preferredPeerUserId);
 }

@@ -76,4 +76,10 @@ public class FakePreSurveyResponseRepository implements PreSurveyResponseReposit
 				.toList();
 	}
 
+	@Override
+	public List<PreSurveyResponse> findAllBySectionIdAndPreferredPeerUserId(Long sectionId, String preferredPeerUserId) {
+		return findAllBySectionId(sectionId).stream()
+				.filter(response -> preferredPeerUserId.equals(response.getPreferredPeerUserId()))
+				.toList();
+	}
 }

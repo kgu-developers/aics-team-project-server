@@ -64,6 +64,16 @@ public class PreSurveyResponse {
         this.preferredPeerStatus = preferredPeerUserId == null ? null : PreferredPeerStatus.PENDING;
     }
 
+    /** 지목당한 학생의 수락·거절. 대상 본인이 맞는지, 아직 대기 중인지는 호출자가 검증한다. */
+    public void decidePreferredPeer(boolean accepted) {
+        this.preferredPeerStatus = accepted ? PreferredPeerStatus.ACCEPTED : PreferredPeerStatus.REJECTED;
+    }
+
+    public boolean isPreferredPeerPendingFor(String peerUserId) {
+        return this.preferredPeerStatus == PreferredPeerStatus.PENDING
+                && Objects.equals(this.preferredPeerUserId, peerUserId);
+    }
+
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }

@@ -11,6 +11,7 @@ import kgu.developers.domain.enrollment.exception.EnrollmentNotFoundException;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponseRepository;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerInvalidException;
+import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredPeerRequestNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -46,6 +47,28 @@ public class PreSurveyResponseCommandService {
     PreSurveyResponse response = PreSurveyResponse.create(userId, sectionId, preferredRoles, topicOpinion,
         etcOpinion, preferredPeerUserId);
     return preSurveyResponseRepository.save(response);
+  }
+
+  /**
+   * 지목당한 학생의 수락·거절. 지목한 쪽(requester)의 응답 행을 고치므로, 그쪽이 재제출로 대상을
+   * 바꾸는 것과 경합하지 않도록 requester 의 Enrollment 행을 잠근 뒤 상태를 다시 확인한다.
+   */
+  @Transactional
+  public PreSurveyResponse decidePreferredPeer(String peerUserId, Long sectionId, String requesterUserId,
+      boolean accepted) {
+    enrollmentRepository.findBySectionIdAndUserIdForUpdate(sectionId, requesterUserId)
+        .orElseThrow(PreSurveyResponsePreferredPeerRequestNotFoundException::new);
+
+    PreSurveyResponse request = preSurveyResponseRepository
+        .findByUserIdAndSectionId(requesterUserId, sectionId)
+        .orElseThrow(PreSurveyResponsePreferredPeerRequestNotFoundException::new);
+
+    if (!request.isPreferredPeerPendingFor(peerUserId)) {
+      throw new PreSurveyResponsePreferredPeerRequestNotFoundException();
+    }
+
+    request.decidePreferredPeer(accepted);
+    return preSurveyResponseRepository.save(request);
   }
 
   private void validatePreferredPeer(String userId, Long sectionId, String preferredPeerUserId) {

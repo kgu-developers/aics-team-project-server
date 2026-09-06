@@ -5,6 +5,7 @@ import java.util.Locale;
 
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyClassmateListResponse;
+import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyPreferredPeerRequestListResponse;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
@@ -13,6 +14,7 @@ import kgu.developers.domain.enrollment.domain.EnrollmentDetail;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseQueryService;
+import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredRolesInvalidException;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,24 @@ public class PreSurveyResponseFacade {
             .toList();
 
         return PreSurveyClassmateListResponse.from(matched);
+    }
+
+    public PreSurveyPreferredPeerRequestListResponse getReceivedPreferredPeerRequests(String userId, Long sectionId) {
+        validateEnrollment(sectionId, userId);
+
+        List<PreSurveyResponse> requests = preSurveyResponseQueryService
+            .getReceivedPreferredPeerRequests(userId, sectionId);
+        List<String> requesterIds = requests.stream().map(PreSurveyResponse::getUserId).toList();
+
+        return PreSurveyPreferredPeerRequestListResponse.from(
+            requests, userQueryService.getUsersByStudentNumbers(requesterIds));
+    }
+
+    public PreSurveyPreferredPeerRequestListResponse decidePreferredPeer(String userId, Long sectionId,
+        String requesterUserId, boolean accepted) {
+        validateEnrollment(sectionId, userId);
+        preSurveyResponseCommandService.decidePreferredPeer(userId, sectionId, requesterUserId, accepted);
+        return getReceivedPreferredPeerRequests(userId, sectionId);
     }
 
     private String userName(String userId) {
