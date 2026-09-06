@@ -19,6 +19,9 @@ public record PreSurveyResponseAdminResponse(
         @Schema(description = "응답자 학번", example = "202012345", requiredMode = REQUIRED)
         String userId,
 
+        @Schema(description = "응답자 이름", example = "김철수", requiredMode = REQUIRED)
+        String userName,
+
         @Schema(description = "희망 역할", example = "[\"BACKEND\", \"PM\"]", requiredMode = REQUIRED)
         JsonNode preferredRoles,
 
@@ -34,10 +37,11 @@ public record PreSurveyResponseAdminResponse(
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public static PreSurveyResponseAdminResponse from(PreSurveyResponse response) {
+    public static PreSurveyResponseAdminResponse from(PreSurveyResponse response, String userName) {
         return PreSurveyResponseAdminResponse.builder()
                 .id(response.getId())
                 .userId(response.getUserId())
+                .userName(userName)
                 .preferredRoles(response.getPreferredRoles())
                 .topicOpinion(response.getTopicOpinion())
                 .etcOpinion(response.getEtcOpinion())
