@@ -28,6 +28,7 @@ class PreSurveyResponseCommandServiceTest {
 
 	private static final String USER_ID = "202012345";
 	private static final String PEER_ID = "202054321";
+	private static final String OTHER_ID = "202077777";   // 지목과 무관한 같은 분반 수강생
 	private static final Long SECTION_ID = 1L;
 
 	private FakePreSurveyResponseRepository repository;
@@ -233,19 +234,36 @@ class PreSurveyResponseCommandServiceTest {
 	}
 
 	@Test
-	@DisplayName("이미 처리했거나 나를 지목하지 않은 신청은 수락·거절할 수 없다")
-	void decidePreferredPeer_RejectsNonPending() throws Exception {
-		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
-		userQueryService.save(kgu.developers.domain.user.domain.User.create(PEER_ID, "peer@test.com", "Peer User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
+	@DisplayName("이미 처리한 신청은 다시 수락·거절할 수 없다")
+	void decidePreferredPeer_RejectsAlreadyDecided() throws Exception {
+		savePeer(Role.STUDENT);
 		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
 		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
 		commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, false);
 
-		// 이미 거절한 신청
 		assertThatThrownBy(() -> commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, true))
 				.isInstanceOf(PreSurveyResponsePreferredPeerRequestNotFoundException.class);
-		// 나를 지목하지 않은 응답
-		assertThatThrownBy(() -> commandService.decidePreferredPeer("202077777", SECTION_ID, USER_ID, true))
+	}
+
+	/**
+	 * 지목 대상이 아닌 사람이 남의 신청을 가로채는 경우. 가로채는 쪽도 활성 수강생이라 Enrollment 검증은
+	 * 통과하고, isPreferredPeerPendingFor 의 대상 불일치 분기로만 막혀야 한다.
+	 */
+	@Test
+	@DisplayName("나를 지목한 신청이 아니면 수락·거절할 수 없다")
+	void decidePreferredPeer_RejectsStudentWhoIsNotTheTarget() throws Exception {
+		savePeer(Role.STUDENT);
+		enrollmentRepository.save(Enrollment.create(SECTION_ID, OTHER_ID, Role.STUDENT, Status.ACTIVE));
+		userQueryService.save(kgu.developers.domain.user.domain.User.create(OTHER_ID, "other@test.com", "Other User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		PreSurveyResponse request = commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
+
+		assertThatThrownBy(() -> commandService.decidePreferredPeer(OTHER_ID, SECTION_ID, USER_ID, true))
 				.isInstanceOf(PreSurveyResponsePreferredPeerRequestNotFoundException.class);
+
+		// 가로채기가 막혔으니 원래 신청은 PEER_ID 앞으로 그대로 대기 중이어야 한다
+		PreSurveyResponse reloaded = repository.findById(request.getId()).orElseThrow();
+		assertThat(reloaded.getPreferredPeerUserId()).isEqualTo(PEER_ID);
+		assertThat(reloaded.getPreferredPeerStatus()).isEqualTo(PreferredPeerStatus.PENDING);
 	}
 }
