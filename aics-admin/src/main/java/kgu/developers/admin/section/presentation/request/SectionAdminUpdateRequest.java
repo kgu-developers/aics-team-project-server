@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public record SectionAdminUpdateRequest(
     @Schema(description = "교수 학번", example = "202699999")
@@ -17,10 +18,12 @@ public record SectionAdminUpdateRequest(
 
     @Schema(description = "과목번호", example = "1154")
     @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
+    @Size(max = 50)
     String code,
 
     @Schema(description = "수업시간", example = "월123")
     @Pattern(regexp = ".*\\S.*", message = "값을 보냈다면 공백일 수 없습니다.")
+    @Size(max = 100)
     String classTime,
 
     @Schema(description = "정원", example = "40")

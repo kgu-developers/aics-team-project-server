@@ -1,6 +1,7 @@
 package section.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
 import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED;
 
@@ -15,6 +16,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -35,8 +37,9 @@ import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 
 /**
- * 배포 DB에는 응답에서 쓰지 않는 section.name 컬럼이 varchar(64) NOT NULL 로 남아 있다.
- * 그 스키마 그대로 실제 PostgreSQL(Testcontainers)에 재현해 신규 분반 생성이 되는지 검증한다.
+ * 배포 DB에는 응답에서 쓰지 않는 section.name 컬럼이 NOT NULL 로 남아 있고,
+ * 길이는 varchar(64)에서 varchar(200)으로 넓혔다.
+ * 그 스키마를 실제 PostgreSQL(Testcontainers)에 재현해 신규 분반 생성이 되는지 검증한다.
  */
 @DataJpaTest
 @Testcontainers
@@ -132,6 +135,33 @@ class SectionRepositoryJpaIntegrationTest {
     tx.executeWithoutResult(status -> repository.save(saved));
 
     assertThat(legacyName(saved.getId())).isEqualTo("화456/1154");
+  }
+
+  @Test
+  @DisplayName("레거시 varchar(64) 스키마에서는 최대 길이 name이 넘치고, varchar(200)으로 넓히면 저장된다")
+  void requiresWideningForMaxLengthName() {
+    // 요청에서 허용하는 최대 입력: classTime(100) + "/" + code(50) = 151자
+    String classTime = "월".repeat(100);
+    String code = "1".repeat(50);
+    String expected = classTime + "/" + code;
+
+    alterNameColumn("varchar(64)");
+    assertThatThrownBy(() -> tx.execute(status -> repository.save(
+        Section.create("202000001", courseId, code, classTime, 40, null, null))))
+        .isInstanceOf(DataIntegrityViolationException.class);
+
+    alterNameColumn("varchar(200)");
+    Section saved = tx.execute(status -> repository.save(
+        Section.create("202000001", courseId, code, classTime, 40, null, null)));
+
+    assertThat(expected).hasSize(151);
+    assertThat(legacyName(saved.getId())).isEqualTo(expected);
+  }
+
+  private void alterNameColumn(String type) {
+    tx.executeWithoutResult(status -> entityManager
+        .createNativeQuery("alter table section alter column name type " + type)
+        .executeUpdate());
   }
 
   private String legacyName(Long sectionId) {
