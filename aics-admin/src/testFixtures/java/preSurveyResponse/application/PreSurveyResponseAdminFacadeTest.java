@@ -137,7 +137,7 @@ class PreSurveyResponseAdminFacadeTest {
 
         PreSurveyResponseExcelDownload download = preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR);
 
-        assertThat(download.fileName()).isEqualTo("객체지향프로그래밍 01-사전조사.xlsx");
+        assertThat(download.fileName()).isEqualTo("월1,2_CS101-사전조사.xlsx");
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(download.content()))) {
             Sheet sheet = workbook.getSheetAt(0);
             assertThat(sheet.getRow(0).getCell(0).getStringCellValue()).isEqualTo("학번");
@@ -181,7 +181,8 @@ class PreSurveyResponseAdminFacadeTest {
 
     private SectionDetail sectionOwnedBy(String professorId) {
         return new SectionDetail(
-                Section.builder().id(SECTION_ID).professorId(professorId).name("객체지향프로그래밍 01").build(),
+                Section.builder().id(SECTION_ID).professorId(professorId)
+                        .classTime("월1,2").code("CS101").build(),
                 null, null);
     }
 }

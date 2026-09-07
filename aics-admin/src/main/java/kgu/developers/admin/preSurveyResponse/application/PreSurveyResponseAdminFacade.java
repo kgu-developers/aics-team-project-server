@@ -42,7 +42,8 @@ public class PreSurveyResponseAdminFacade {
         }
         List<PreSurveyResponseRow> rows = preSurveyResponseQueryService.getSectionResponseRows(sectionId);
 
-        return new PreSurveyResponseExcelDownload(section.getName() + "-사전조사.xlsx",
+        // 분반명은 "수업시간/과목번호" 형태라 경로 구분자를 파일명에 그대로 쓸 수 없다.
+        return new PreSurveyResponseExcelDownload(section.getName().replace('/', '_') + "-사전조사.xlsx",
                 PreSurveyResponseExcelWriter.write(rows));
     }
 
