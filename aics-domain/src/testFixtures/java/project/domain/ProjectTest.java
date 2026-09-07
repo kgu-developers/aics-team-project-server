@@ -252,7 +252,8 @@ class ProjectTest {
         "https://github.com/new/repo",
         newLinks,
         ApprovalStatus.APPROVED,
-        "오프라인"
+        "오프라인",
+        100L
     );
 
     assertThat(project.getDeletedAt()).isNull();
@@ -263,6 +264,7 @@ class ProjectTest {
     assertThat(project.getExternalLinks()).isEqualTo(newLinks);
     assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
     assertThat(project.getMeetingStyle()).isEqualTo("오프라인");
+    assertThat(project.getTopicCandidateId()).isEqualTo(100L);
     assertThat(project.getProposalCompletedAt()).isNull();
   }
 
@@ -274,20 +276,20 @@ class ProjectTest {
 
     ObjectNode externalLinks = objectMapper.createObjectNode();
 
-    assertThatThrownBy(() -> 
-        project.reactivate(null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인")
-    ).isInstanceOf(NullPointerException.class);
-
-    assertThatThrownBy(() -> 
-        project.reactivate("제목", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인")
-    ).isInstanceOf(NullPointerException.class);
-
-    assertThatThrownBy(() -> 
-        project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인")
+    assertThatThrownBy(() ->
+        project.reactivate(null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null)
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, "온라인")
+        project.reactivate("제목", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null)
+    ).isInstanceOf(NullPointerException.class);
+
+    assertThatThrownBy(() ->
+        project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null)
+    ).isInstanceOf(NullPointerException.class);
+
+    assertThatThrownBy(() ->
+        project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, "온라인", null)
     ).isInstanceOf(NullPointerException.class);
   }
 
@@ -305,7 +307,7 @@ class ProjectTest {
 
     assertThatThrownBy(() ->
         project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
-            newLinks, ApprovalStatus.APPROVED, "오프라인")
+            newLinks, ApprovalStatus.APPROVED, "오프라인", null)
     ).isInstanceOf(IllegalStateException.class);
 
     assertThat(project.getTitle()).isEqualTo(title);
@@ -329,7 +331,7 @@ class ProjectTest {
 
     assertThatThrownBy(() ->
         project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
-            newLinks, null, "오프라인")
+            newLinks, null, "오프라인", null)
     ).isInstanceOf(NullPointerException.class);
 
     assertThat(project.getTitle()).isEqualTo(title);

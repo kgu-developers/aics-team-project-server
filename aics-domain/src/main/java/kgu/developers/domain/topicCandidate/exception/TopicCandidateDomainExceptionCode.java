@@ -14,6 +14,7 @@ import lombok.Getter;
 public enum TopicCandidateDomainExceptionCode implements ExceptionCode {
     TOPIC_CANDIDATE_NOT_FOUND(NOT_FOUND, "해당 주제 후보를 찾을 수 없습니다."),
     DUPLICATE_TOPIC_CANDIDATE_TITLE(CONFLICT, "같은 팀에 이미 같은 제목의 주제 후보가 있습니다."),
+    DUPLICATE_TOPIC_CANDIDATE(CONFLICT, "이미 해당 팀에 등록한 주제 후보가 있습니다."),
     ;
 
     private final HttpStatus status;

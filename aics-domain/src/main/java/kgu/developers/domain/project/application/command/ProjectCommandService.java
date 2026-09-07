@@ -38,19 +38,53 @@ public class ProjectCommandService {
         String repositoryUrl,
         JsonNode externalLinks
     ) {
+        return saveProject(teamId, title, description, goal, meetingStyle, repositoryUrl, externalLinks, null);
+    }
+
+    public Project saveProject(
+        Long teamId,
+        String title,
+        String description,
+        String goal,
+        String meetingStyle,
+        String repositoryUrl,
+        JsonNode externalLinks,
+        Long topicCandidateId
+    ) {
         // 팀당 프로젝트는 하나다. 조회-수정-저장이 갈라지지 않도록 팀 행을 먼저 잠근다.
         projectRepository.lockTeam(teamId);
 
         Project existing = projectRepository.findIncludingDeletedByTeamId(teamId).orElse(null);
         if (existing == null) {
             return projectRepository.save(Project.create(
-                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle
+                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle, topicCandidateId
             ));
         }
         if (existing.getDeletedAt() != null) {
-            return reactivateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks);
+            return reactivateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks, topicCandidateId);
         }
-        return updateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks);
+        return updateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks, topicCandidateId);
+    }
+
+    public Project finalizeTopic(Long teamId, Long topicCandidateId, String title, String description, String goal) {
+        projectRepository.lockTeam(teamId);
+
+        Project active = projectRepository.findIncludingDeletedByTeamId(teamId)
+            .filter(project -> project.getDeletedAt() == null)
+            .orElse(null);
+
+        Project project = saveProject(
+            teamId,
+            title,
+            description,
+            goal,
+            active == null ? null : active.getMeetingStyle(),
+            active == null ? null : active.getRepositoryUrl(),
+            active == null ? null : active.getExternalLinks(),
+            topicCandidateId
+        );
+
+        return project;
     }
 
     /**
@@ -64,11 +98,12 @@ public class ProjectCommandService {
         String goal,
         String meetingStyle,
         String repositoryUrl,
-        JsonNode externalLinks
+        JsonNode externalLinks,
+        Long topicCandidateId
     ) {
         projectApprovalRepository.deleteAllByProjectId(project.getId());
         return projectRepository.reactivate(project.getId(), Project.create(
-            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle
+            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle, topicCandidateId
         ));
     }
 
@@ -79,13 +114,15 @@ public class ProjectCommandService {
         String goal,
         String meetingStyle,
         String repositoryUrl,
-        JsonNode externalLinks
+        JsonNode externalLinks,
+        Long topicCandidateId
     ) {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
 
-        if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks)) {
+        if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks) &&
+            (topicCandidateId == null || topicCandidateId.equals(project.getTopicCandidateId()))) {
             return project;
         }
 
@@ -95,6 +132,9 @@ public class ProjectCommandService {
         project.updateMeetingStyle(meetingStyle);
         project.updateRepositoryUrl(repositoryUrl);
         project.updateExternalLinks(externalLinks);
+        if (topicCandidateId != null) {
+            project.updateTopicCandidateId(topicCandidateId);
+        }
         project.updateApprovalStatus(ApprovalStatus.DRAFT);
         project.increaseProposalRevision();
         projectApprovalRepository.deleteAllByProjectId(project.getId());
