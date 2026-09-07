@@ -331,6 +331,29 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("apply는 UPDATE 행의 빈 전화번호·학년으로 기존 값을 지우지 않는다")
+  public void apply_KeepsExistingContactWhenSheetCellsAreBlank() {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    TeamMember member = TeamMember.create(10L, STUDENT_A, false, "백엔드", "010-1111-2222", "3");
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(member));
+    TeamImportRow blank = new TeamImportRow(2, "1팀", STUDENT_A, "이름", true, "프론트", "", "",
+        RowStatus.UPDATE, null);
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, List.of(blank))));
+
+    // when
+    facade.apply(1L, ASSISTANT);
+
+    // then
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getProjectRole()).isEqualTo("프론트");
+    assertThat(captor.getValue().getPhoneNumber()).isEqualTo("010-1111-2222");
+    assertThat(captor.getValue().getGrade()).isEqualTo("3");
+  }
+
+  @Test
   @DisplayName("preview는 팀원을 한 번에 조회해 기존 팀 편성을 검증한다")
   public void preview_ChecksExistingTeams() throws IOException {
     // given

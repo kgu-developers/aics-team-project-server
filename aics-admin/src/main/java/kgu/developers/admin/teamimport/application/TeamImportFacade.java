@@ -163,8 +163,14 @@ public class TeamImportFacade {
                 }
                 row.assigned().updateIsLeader(row.leader());
                 row.assigned().updateProjectRole(row.projectRole());
-                row.assigned().updatePhoneNumber(row.phoneNumber());
-                row.assigned().updateGrade(row.grade());
+                // 빈 셀(=null)은 "값 없음"이지 "지우기"가 아니다. 시트에 전화번호·학년 열이 아예
+                // 없으면 모든 행이 빈 값이 되어 기존에 저장된 값이 통째로 날아간다.
+                if (row.phoneNumber() != null) {
+                    row.assigned().updatePhoneNumber(row.phoneNumber());
+                }
+                if (row.grade() != null) {
+                    row.assigned().updateGrade(row.grade());
+                }
                 teamMemberRepository.save(row.assigned());
                 appliedMembers++;
                 continue;
@@ -201,6 +207,13 @@ public class TeamImportFacade {
         return new TeamImportApplyResponse(batch.getId(), createdTeams, appliedMembers, skipped);
     }
 
+    // 엑셀 빈 셀은 ""로 읽히지만 nullable 컬럼(전화번호·학년)에는 null로 저장한다.
+    // JSON null 은 asText()가 "null" 문자열을 돌려주므로 반드시 먼저 걸러낸다
+    private static String text(JsonNode row, String field) {
+        JsonNode node = row.path(field);
+        return node.isNull() || node.asText().isBlank() ? null : node.asText();
+    }
+
     // 반영할 행. assigned는 이미 이 분반의 팀에 속해 있어 갱신할 팀원이고, null이면 새로 편성한다
     private record PlannedRow(String teamName, String studentNumber, boolean leader, String projectRole,
         String phoneNumber, String grade, TeamMember assigned) {
@@ -235,7 +248,7 @@ public class TeamImportFacade {
             }
 
             planned.add(new PlannedRow(teamName, studentNumber, row.path("leader").asBoolean(),
-                row.path("projectRole").asText(), row.path("phoneNumber").asText(), row.path("grade").asText(), assigned));
+                row.path("projectRole").asText(), text(row, "phoneNumber"), text(row, "grade"), assigned));
         }
         return skipped;
     }
