@@ -186,6 +186,22 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("preview는 전화번호를 010-1234-5678 형식으로 맞춘다")
+  public void preview_NormalizesPhoneNumber() throws IOException {
+    // given
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
+
+    // when
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "01012345678", "3" },
+            new String[] { "1팀", STUDENT_B, "김철수", "", "프론트", "0212345678", "3" }));
+
+    // then
+    assertThat(response.rows().get(0).phoneNumber()).isEqualTo("010-1234-5678");
+    assertThat(response.rows().get(1).phoneNumber()).isEqualTo("02-1234-5678");
+  }
+
+  @Test
   @DisplayName("preview는 전화번호·학년 셀이 비어 있으면 변경으로 보지 않는다")
   public void preview_KeepsDuplicateWhenContactCellsAreBlank() throws IOException {
     // given

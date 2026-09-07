@@ -88,7 +88,20 @@ public final class TeamSheetReader {
                 "학년 형식이 올바르지 않습니다. (예: 1 또는 1학년)");
         }
 
-        return new TeamImportRow(rowNumber, teamName, studentNumber, name, leader, projectRole, phoneNumber, grade, VALID, null);
+        return new TeamImportRow(rowNumber, teamName, studentNumber, name, leader, projectRole,
+            format(phoneNumber), grade, VALID, null);
+    }
+
+    // 시트마다 제각각인 표기(01012345678, 010-12345678 ...)를 010-1234-5678 한 가지로 맞춘다.
+    // 형식 검증을 통과한 값만 들어오므로 자릿수는 믿고 잘라도 된다
+    private static String format(String phoneNumber) {
+        String digits = phoneNumber.replace("-", "");
+        if (digits.isEmpty()) {
+            return phoneNumber;
+        }
+        int head = digits.startsWith("02") ? 2 : 3;
+        int tail = digits.length() - 4;
+        return digits.substring(0, head) + "-" + digits.substring(head, tail) + "-" + digits.substring(tail);
     }
 
     private static TeamImportRow invalid(int rowNumber, String teamName, String studentNumber, String name,
