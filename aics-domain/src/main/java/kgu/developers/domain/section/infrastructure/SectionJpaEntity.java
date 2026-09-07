@@ -37,13 +37,13 @@ public class SectionJpaEntity extends BaseTimeEntity {
   @JoinColumn(name = "course_id", nullable = false, foreignKey = @ForeignKey(name = "fk_section_course"))
   private CourseJpaEntity course;
 
-  @Column(nullable = false, length = 32)
+  @Column(nullable = false, length = 50)
   private String code;
 
-  @Column(nullable = false, length = 64)
+  @Column(nullable = false, length = 200)
   private String name;
 
-  @Column(nullable = false, length = 128)
+  @Column(nullable = false, length = 100)
   private String classTime;
 
   @Column(nullable = false)
@@ -63,7 +63,6 @@ public class SectionJpaEntity extends BaseTimeEntity {
         .professorId(professor.getStudentNumber())
         .courseId(course.getId())
         .code(code)
-        .name(name)
         .classTime(classTime)
         .capacity(capacity)
         .contactVisibleFrom(contactVisibleFrom)
@@ -85,7 +84,7 @@ public class SectionJpaEntity extends BaseTimeEntity {
         .professor(professor)
         .course(course)
         .code(section.getCode())
-        .name(section.getName())
+        .name(legacyName(section))
         .classTime(section.getClassTime())
         .capacity(section.getCapacity())
         .contactVisibleFrom(section.getContactVisibleFrom())
@@ -94,5 +93,12 @@ public class SectionJpaEntity extends BaseTimeEntity {
     entity.createdAt = section.getCreatedAt();
     entity.setDeletedAt(section.getDeletedAt());
     return entity;
+  }
+
+  private static String legacyName(Section section) {
+    String name = section.getName();
+    return name.length() <= 200
+        ? name
+        : name.substring(0, 200);
   }
 }

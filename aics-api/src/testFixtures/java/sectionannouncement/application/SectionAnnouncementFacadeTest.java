@@ -47,7 +47,7 @@ public class SectionAnnouncementFacadeTest {
         fakeNotificationRepository = new FakeNotificationRepository();
 
         Section section = fakeSectionRepository.save(
-            Section.create(PROFESSOR, 1L, "DD015_1206", "1분반", "월 1교시", 40, null, null)
+            Section.create(PROFESSOR, 1L, "DD015_1206", "월 1교시", 40, null, null)
         );
         sectionId = section.getId();
 
