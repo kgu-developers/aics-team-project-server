@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.io.ByteArrayInputStream;
 
@@ -130,9 +133,7 @@ class PreSurveyResponseAdminFacadeTest {
     @Test
     @DisplayName("담당 교수는 분반 사전조사 응답을 엑셀로 다운로드할 수 있다")
     void downloadResponsesExcel_WritesHeaderAndRows() throws Exception {
-        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
-        given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(
-                new SectionDetail(Section.builder().id(SECTION_ID).name("객체지향프로그래밍 01").build(), null, null));
+        given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
 
         PreSurveyResponseExcelDownload download = preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR);
 
@@ -161,9 +162,26 @@ class PreSurveyResponseAdminFacadeTest {
     @Test
     @DisplayName("담당 교수가 아니면 엑셀을 다운로드할 수 없다")
     void downloadResponsesExcel_RejectsNonOwningProfessor() {
-        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, OTHER_PROFESSOR)).willReturn(false);
+        given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
 
         assertThatThrownBy(() -> preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, OTHER_PROFESSOR))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("엑셀 다운로드는 분반을 한 번만 조회한다")
+    void downloadResponsesExcel_ReadsSectionOnce() {
+        given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
+
+        preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR);
+
+        verify(sectionQueryService, times(1)).getSectionById(SECTION_ID);
+        verifyNoMoreInteractions(sectionQueryService);
+    }
+
+    private SectionDetail sectionOwnedBy(String professorId) {
+        return new SectionDetail(
+                Section.builder().id(SECTION_ID).professorId(professorId).name("객체지향프로그래밍 01").build(),
+                null, null);
     }
 }
