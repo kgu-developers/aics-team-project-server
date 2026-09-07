@@ -6,7 +6,10 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -39,6 +42,8 @@ import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundExcep
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -54,6 +59,7 @@ public class SubmissionAdminFacade {
     private final SubmissionArtifactRepository submissionArtifactRepository;
     private final FileObjectRepository fileObjectRepository;
     private final FileStorage fileStorage;
+    private final UserQueryService userQueryService;
 
     // 팀은 그 마일스톤을 아직 한 번도 조회 안 했으면 Submission 행 자체가 없다(lazy get-or-create).
     // 그대로 findAllByMilestoneId만 쓰면 그런 팀이 목록에서 통째로 빠지므로, 분반의 팀 전체를
@@ -90,7 +96,9 @@ public class SubmissionAdminFacade {
     public SubmissionVersionAdminListResponse getVersions(Long submissionId, String professorId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         validateProfessorOwnsSubmission(submission, professorId);
-        return SubmissionVersionAdminListResponse.from(submissionVersionRepository.findAllBySubmissionId(submissionId));
+
+        List<SubmissionVersion> versions = submissionVersionRepository.findAllBySubmissionId(submissionId);
+        return SubmissionVersionAdminListResponse.from(versions, resolveSubmitters(versions));
     }
 
     public SubmissionVersionAdminDetailResponse getVersion(Long submissionId, int version, String professorId) {
@@ -106,7 +114,23 @@ public class SubmissionAdminFacade {
                 .map(this::toArtifactResponse)
                 .toList();
 
-        return SubmissionVersionAdminDetailResponse.of(submissionVersion, artifacts);
+        User submitter = resolveSubmitters(List.of(submissionVersion)).get(submissionVersion.getSubmittedBy());
+        return SubmissionVersionAdminDetailResponse.of(submissionVersion, submitter, artifacts);
+    }
+
+    // 제출 이력은 그 시점의 기록이라, 제출자가 그 뒤 탈퇴(소프트 삭제)했더라도 이름이 계속
+    // 보여야 한다 — 활성 사용자만 찾는 조회를 쓰면 탈퇴한 제출자의 이름이 조용히 null이 된다
+    // (KD3-164, aics-api SubmissionFacade.resolveSubmitters와 같은 이유·같은 패턴).
+    private Map<String, User> resolveSubmitters(List<SubmissionVersion> versions) {
+        List<String> submitterIds = versions.stream()
+                .map(SubmissionVersion::getSubmittedBy)
+                .distinct()
+                .toList();
+        if (submitterIds.isEmpty()) {
+            return Map.of();
+        }
+        return userQueryService.getUsersByStudentNumbersIncludingDeleted(submitterIds).stream()
+                .collect(Collectors.toMap(User::getStudentNumber, Function.identity()));
     }
 
     // 화면의 "일괄 다운로드"는 팀별 최신 제출 기준이라 버전을 따로 안 받고 currentVersion을 쓴다.

@@ -39,13 +39,18 @@ import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 
+import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakeFileObjectRepository;
 import mock.repository.FakeFileStorage;
 import mock.repository.FakeSubmissionArtifactRepository;
 import mock.repository.FakeSubmissionRepository;
 import mock.repository.FakeSubmissionVersionRepository;
 import mock.repository.FakeTeamRepository;
+import mock.repository.FakeUserRepository;
 
 class SubmissionAdminFacadeTest {
 
@@ -62,6 +67,7 @@ class SubmissionAdminFacadeTest {
     private FakeSubmissionVersionRepository submissionVersionRepository;
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
     private FakeFileObjectRepository fileObjectRepository;
+    private FakeUserRepository userRepository;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -83,6 +89,10 @@ class SubmissionAdminFacadeTest {
         submissionArtifactRepository = new FakeSubmissionArtifactRepository();
         fileObjectRepository = new FakeFileObjectRepository();
         FakeFileStorage fileStorage = new FakeFileStorage();
+        userRepository = new FakeUserRepository();
+        userRepository.save(User.create(
+                "202412345", "member@kyonggi.ac.kr", "팀원학생", "pw", UserGlobalRole.USER, "010-0000-0001"));
+        UserQueryService userQueryService = new UserQueryService(userRepository, new FakeEnrollmentRepository());
 
         SubmissionQueryService submissionQueryService = new SubmissionQueryService(
                 submissionRepository, milestoneRepository,
@@ -96,7 +106,8 @@ class SubmissionAdminFacadeTest {
                 submissionVersionRepository,
                 submissionArtifactRepository,
                 fileObjectRepository,
-                fileStorage
+                fileStorage,
+                userQueryService
         );
     }
 
@@ -169,6 +180,8 @@ class SubmissionAdminFacadeTest {
         SubmissionVersionAdminListResponse response = submissionAdminFacade.getVersions(submission.getId(), PROFESSOR);
 
         assertThat(response.contents()).hasSize(1);
+        assertThat(response.contents().get(0).submittedBy().userId()).isEqualTo("202412345");
+        assertThat(response.contents().get(0).submittedBy().name()).isEqualTo("팀원학생");
     }
 
     @Test
@@ -182,6 +195,22 @@ class SubmissionAdminFacadeTest {
         SubmissionVersionAdminDetailResponse response = submissionAdminFacade.getVersion(submission.getId(), version.getVersion(), PROFESSOR);
 
         assertThat(response.version()).isEqualTo(1);
+        assertThat(response.submittedBy().userId()).isEqualTo("202412345");
+        assertThat(response.submittedBy().name()).isEqualTo("팀원학생");
+    }
+
+    @Test
+    @DisplayName("제출자가 그 뒤 탈퇴해도 제출 이력의 이름은 계속 조회된다")
+    void getVersion_KeepsSubmitterNameAfterWithdrawal() {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        SubmissionVersion version = submissionVersionRepository.save(SubmissionVersion.create(
+                submission.getId(), 1, "설명", "변경사항", "202412345", false));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        userRepository.findByStudentNumber("202412345").orElseThrow().delete();
+
+        SubmissionVersionAdminDetailResponse response = submissionAdminFacade.getVersion(submission.getId(), version.getVersion(), PROFESSOR);
+
+        assertThat(response.submittedBy().name()).isEqualTo("팀원학생");
     }
 
     @Test
