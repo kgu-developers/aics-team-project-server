@@ -84,11 +84,8 @@ class SectionRepositoryJpaIntegrationTest {
       entityManager.createQuery("delete from CourseJpaEntity").executeUpdate();
       entityManager.createQuery("delete from UserJpaEntity").executeUpdate();
 
-      // 엔티티가 만드는 varchar(200)을 배포 DB와 같은 varchar(64) NOT NULL 로 좁힌다
-      entityManager.createNativeQuery("alter table section alter column name type varchar(200)")
-          .executeUpdate();
-      entityManager.createNativeQuery("alter table section alter column name set not null")
-          .executeUpdate();
+      // 배포 DB의 name은 varchar(64) -> varchar(200)으로 넓혔고, NOT NULL은 유지된다.
+      // 엔티티가 그대로 varchar(200) NOT NULL을 만들므로 별도 alter 없이 배포 스키마와 같다.
 
       UserJpaEntity professor = UserJpaEntity.builder()
           .studentNumber("202000001")
