@@ -1,9 +1,11 @@
 package kgu.developers.domain.notification.infrastructure;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.domain.notification.domain.NotificationOutbox;
 import kgu.developers.domain.notification.domain.NotificationOutboxRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -18,22 +20,11 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
     }
 
     @Override
-    public List<NotificationOutbox> findPendingOrRetryableOutboxes(int maxRetries) {
-        return jpaNotificationOutboxRepository.findPendingOrRetryableOutboxes(maxRetries).stream()
+    public List<NotificationOutbox> lockPendingOrRetryableOutboxesBefore(int maxRetries, LocalDateTime before, int limit) {
+        return jpaNotificationOutboxRepository
+            .findPendingOrRetryableOutboxesBefore(maxRetries, before, PageRequest.ofSize(limit)).stream()
             .map(NotificationOutboxJpaEntity::toDomain)
             .toList();
-    }
-
-    @Override
-    public List<NotificationOutbox> findPendingOrRetryableOutboxesBefore(int maxRetries, java.time.LocalDateTime before) {
-        return jpaNotificationOutboxRepository.findPendingOrRetryableOutboxesBefore(maxRetries, before).stream()
-            .map(NotificationOutboxJpaEntity::toDomain)
-            .toList();
-    }
-
-    @Override
-    public long countPendingOrRetryableOutboxes(int maxRetries) {
-        return jpaNotificationOutboxRepository.countPendingOrRetryableOutboxes(maxRetries);
     }
 
     @Override

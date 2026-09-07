@@ -27,10 +27,7 @@ public class NotificationOutboxProcessor {
     @Transactional
     public void processOutbox() {
         List<NotificationOutbox> pendingOutboxes = notificationOutboxRepository
-            .findPendingOrRetryableOutboxesBefore(MAX_RETRIES, LocalDateTime.now().minusSeconds(10))
-            .stream()
-            .limit(BATCH_SIZE)
-            .toList();
+            .lockPendingOrRetryableOutboxesBefore(MAX_RETRIES, LocalDateTime.now().minusSeconds(10), BATCH_SIZE);
 
         if (pendingOutboxes.isEmpty()) {
             return;
@@ -77,7 +74,7 @@ public class NotificationOutboxProcessor {
                 log.warn("Outbox entry {} failed (attempt {}/{}): {}", 
                     outbox.getId(), outbox.getRetryCount(), MAX_RETRIES, e.getMessage());
             }
-            throw e; // 트랜잭션 롤백을 위해 예외 다시 던지기
+            throw e;
         }
     }
 }
