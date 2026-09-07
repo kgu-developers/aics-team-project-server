@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
 import kgu.developers.domain.submission.domain.SubmissionVersion;
+import kgu.developers.domain.user.domain.User;
 
 @Builder
 public record SubmissionVersionAdminSummaryResponse(
@@ -21,8 +22,8 @@ public record SubmissionVersionAdminSummaryResponse(
         @Schema(description = "이번 버전에서 뭘 바꿨는지(PR 히스토리 스타일)", example = "회원가입 화면 유효성 검사 로직 추가")
         String changeNote,
 
-        @Schema(description = "제출한 학번", example = "202412345", requiredMode = REQUIRED)
-        String submittedBy,
+        @Schema(description = "제출한 사람", requiredMode = REQUIRED)
+        SubmissionSubmitterAdminResponse submittedBy,
 
         @Schema(description = "제출 일시", requiredMode = REQUIRED)
         LocalDateTime submittedAt,
@@ -31,12 +32,12 @@ public record SubmissionVersionAdminSummaryResponse(
         boolean late
 ) {
 
-    public static SubmissionVersionAdminSummaryResponse from(SubmissionVersion version) {
+    public static SubmissionVersionAdminSummaryResponse from(SubmissionVersion version, User submitter) {
         return SubmissionVersionAdminSummaryResponse.builder()
                 .version(version.getVersion())
                 .description(version.getDescription())
                 .changeNote(version.getChangeNote())
-                .submittedBy(version.getSubmittedBy())
+                .submittedBy(SubmissionSubmitterAdminResponse.of(version.getSubmittedBy(), submitter))
                 .submittedAt(version.getSubmittedAt())
                 .late(version.isLate())
                 .build();
