@@ -332,12 +332,20 @@ public class TeamImportFacade {
             // 빈 셀은 ""로 읽히고 DB에는 null로 들어갈 수 있어서, 둘을 같은 값으로 본다
             if (assigned.isLeader() == row.leader()
                 && Objects.toString(assigned.getProjectRole(), "")
-                    .equals(Objects.toString(row.projectRole(), ""))) {
+                    .equals(Objects.toString(row.projectRole(), ""))
+                && keeps(assigned.getPhoneNumber(), row.phoneNumber())
+                && keeps(assigned.getGrade(), row.grade())) {
                 return row.with(DUPLICATE, "이미 이 팀에 편성되어 있습니다.");
             }
-            return row.with(UPDATE, "팀장·역할이 바뀌어 갱신 예정입니다.");
+            return row.with(UPDATE, "팀장·역할·전화번호·학년이 바뀌어 갱신 예정입니다.");
         }
         return row;
+    }
+
+    // 빈 셀은 "값 없음"이라 apply에서 갱신하지 않으므로(빈 값으로 기존 값을 지우지 않는다)
+    // 여기서도 변경으로 보지 않는다
+    private static boolean keeps(String current, String cell) {
+        return cell == null || cell.isBlank() || cell.equals(Objects.toString(current, ""));
     }
 
     /**

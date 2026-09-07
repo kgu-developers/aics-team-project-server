@@ -169,6 +169,40 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("preview는 전화번호·학년만 바뀌어도 UPDATE로 분류한다")
+  public void preview_ClassifiesContactChangeAsUpdate() throws IOException {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드", "010-1111-2222", "3")));
+
+    // when: 팀장·역할은 그대로고 전화번호만 바뀐다
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "010-3333-4444", "3" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.UPDATE);
+  }
+
+  @Test
+  @DisplayName("preview는 전화번호·학년 셀이 비어 있으면 변경으로 보지 않는다")
+  public void preview_KeepsDuplicateWhenContactCellsAreBlank() throws IOException {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드", "010-1111-2222", "3")));
+
+    // when
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "", "" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.DUPLICATE);
+  }
+
+  @Test
   @DisplayName("preview는 이미 팀장이 있는 팀에 다른 팀장을 세우려 하면 거부한다")
   public void preview_RejectsLeaderPromotionWhenTeamHasLeader() throws IOException {
     // given
@@ -776,7 +810,9 @@ public class TeamImportFacadeTest {
     try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
       Sheet sheet = workbook.createSheet();
       String[][] all = new String[rows.length + 1][];
-      all[0] = new String[] { "팀명", "학번", "성명", "팀장", "역할" };
+      all[0] = rows[0].length > 5
+          ? new String[] { "팀명", "학번", "성명", "팀장", "역할", "전화번호", "학년" }
+          : new String[] { "팀명", "학번", "성명", "팀장", "역할" };
       System.arraycopy(rows, 0, all, 1, rows.length);
       for (int i = 0; i < all.length; i++) {
         Row row = sheet.createRow(i);
