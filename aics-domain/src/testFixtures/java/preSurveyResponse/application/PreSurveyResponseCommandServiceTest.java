@@ -109,6 +109,55 @@ class PreSurveyResponseCommandServiceTest {
 	}
 
 	@Test
+	@DisplayName("수강 철회한 학생은 조원으로 지목할 수 없다")
+	void submit_RejectsWithdrawnPreferredPeer() throws Exception {
+		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.WITHDRAWN));
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+
+		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID))
+				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
+	}
+
+	@Test
+	@DisplayName("조교는 조원으로 지목할 수 없다")
+	void submit_RejectsAssistantPreferredPeer() throws Exception {
+		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.ASSISTANT, Status.ACTIVE));
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+
+		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID))
+				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
+	}
+
+	@Test
+	@DisplayName("지목 대상이 나중에 수강 철회하면 의견만 고치는 재제출도 막힌다")
+	void submit_RejectsResubmitAfterPeerWithdraws() throws Exception {
+		Enrollment peer = enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
+		userQueryService.save(kgu.developers.domain.user.domain.User.create(PEER_ID, "peer@test.com", "Peer User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
+
+		withdraw(peer);
+
+		// validatePreferredPeer 는 대상이 그대로여도 매번 돈다. 지목을 풀어야만(null) 재제출할 수 있다.
+		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, "의견 수정", null, PEER_ID))
+				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
+		assertThat(commandService.submit(USER_ID, SECTION_ID, roles, "의견 수정", null, null).getPreferredPeerUserId())
+				.isNull();
+	}
+
+	/** Fake 는 id 로 덮어쓰므로 같은 id 로 저장해야 상태 변경이 된다. Enrollment.create 는 새 id 를 받아 행이 하나 더 생긴다. */
+	private void withdraw(Enrollment enrollment) {
+		enrollmentRepository.save(Enrollment.builder()
+				.id(enrollment.getId())
+				.sectionId(enrollment.getSectionId())
+				.userId(enrollment.getUserId())
+				.role(enrollment.getRole())
+				.status(Status.WITHDRAWN)
+				.createdAt(enrollment.getCreatedAt())
+				.build());
+	}
+
+	@Test
 	@DisplayName("지목당한 학생이 수락하면 지목한 쪽 응답의 상태가 ACCEPTED가 된다")
 	void decidePreferredPeer_Accept() throws Exception {
 		enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));

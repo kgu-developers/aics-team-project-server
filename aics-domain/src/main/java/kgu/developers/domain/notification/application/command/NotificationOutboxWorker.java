@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-class NotificationOutboxWorker {
+public class NotificationOutboxWorker {
 
     private final NotificationOutboxRepository notificationOutboxRepository;
     private final NotificationRepository notificationRepository;
