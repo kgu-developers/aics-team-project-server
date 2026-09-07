@@ -67,6 +67,9 @@ public final class PreSurveyResponseExcelWriter {
 
     // 희망 역할은 형식 제약이 없는 jsonb라 배열이면 사람이 읽을 수 있게 풀고, 그 외 형태는 원본 그대로 적는다.
     private static String preferredRoles(JsonNode preferredRoles) {
+        if (preferredRoles == null) {
+            return "";
+        }
         if (!preferredRoles.isArray()) {
             return preferredRoles.toString();
         }
