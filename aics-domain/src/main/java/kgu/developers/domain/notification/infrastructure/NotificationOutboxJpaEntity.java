@@ -10,21 +10,21 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import kgu.developers.common.domain.BaseTimeEntity;
-import kgu.developers.domain.notification.domain.Notification;
+import kgu.developers.domain.notification.domain.NotificationOutbox;
 import kgu.developers.domain.notification.domain.NotificationType;
+import kgu.developers.domain.notification.domain.OutboxStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "\"notification\"")
+@Table(name = "\"notification_outbox\"")
 @Builder
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
-public class NotificationJpaEntity extends BaseTimeEntity {
+public class NotificationOutboxJpaEntity {
 
     @Id
     @GeneratedValue(strategy = IDENTITY)
@@ -33,12 +33,10 @@ public class NotificationJpaEntity extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false, length = 20)
     private String userId;
 
-    // 가장 긴 enum 이름이 35자(PRE_SURVEY_PREFERRED_PEER_REQUESTED)라 30이면 저장에서 터진다.
     @Column(nullable = false, length = 50)
     @Enumerated(STRING)
     private NotificationType type;
 
-    // 원본 엔티티 id(예: SectionAnnouncement.id). 통합 쪽지함에서 원본 이동/중복 판단의 근거.
     @Column(name = "source_id")
     private Long sourceId;
 
@@ -50,11 +48,27 @@ public class NotificationJpaEntity extends BaseTimeEntity {
 
     private String link;
 
-    @Column(name = "is_read", nullable = false)
-    private boolean isRead;
+    @Column(nullable = false, length = 20)
+    @Enumerated(STRING)
+    private OutboxStatus status;
 
-    public Notification toDomain() {
-        return Notification.builder()
+    @Column(name = "created_at", nullable = false)
+    private java.time.LocalDateTime createdAt;
+
+    @Column(name = "processed_at")
+    private java.time.LocalDateTime processedAt;
+
+    @Column(name = "next_attempt_at")
+    private java.time.LocalDateTime nextAttemptAt;
+
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount;
+
+    @Column(name = "error_message", columnDefinition = "text")
+    private String errorMessage;
+
+    public NotificationOutbox toDomain() {
+        return NotificationOutbox.builder()
             .id(this.id)
             .userId(this.userId)
             .type(this.type)
@@ -62,14 +76,17 @@ public class NotificationJpaEntity extends BaseTimeEntity {
             .title(this.title)
             .message(this.message)
             .link(this.link)
-            .isRead(this.isRead)
-            .createdAt(this.getCreatedAt())
-            .updatedAt(this.getUpdatedAt())
+            .status(this.status)
+            .createdAt(this.createdAt)
+            .processedAt(this.processedAt)
+            .nextAttemptAt(this.nextAttemptAt)
+            .retryCount(this.retryCount)
+            .errorMessage(this.errorMessage)
             .build();
     }
 
-    public static NotificationJpaEntity toEntity(Notification domain) {
-        return NotificationJpaEntity.builder()
+    public static NotificationOutboxJpaEntity toEntity(NotificationOutbox domain) {
+        return NotificationOutboxJpaEntity.builder()
             .id(domain.getId())
             .userId(domain.getUserId())
             .type(domain.getType())
@@ -77,7 +94,12 @@ public class NotificationJpaEntity extends BaseTimeEntity {
             .title(domain.getTitle())
             .message(domain.getMessage())
             .link(domain.getLink())
-            .isRead(domain.isRead())
+            .status(domain.getStatus())
+            .createdAt(domain.getCreatedAt())
+            .processedAt(domain.getProcessedAt())
+            .nextAttemptAt(domain.getNextAttemptAt())
+            .retryCount(domain.getRetryCount())
+            .errorMessage(domain.getErrorMessage())
             .build();
     }
 }

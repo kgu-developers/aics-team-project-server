@@ -60,7 +60,7 @@ class PreSurveyResponseRepositoryImplTest {
 	@Test
 	@DisplayName("저장소 어댑터는 저장 결과를 도메인으로 반환한다")
 	void save() {
-		PreSurveyResponse response = PreSurveyResponse.create(USER_ID, SECTION_ID, roles(), TOPIC_OPINION, null);
+		PreSurveyResponse response = PreSurveyResponse.create(USER_ID, SECTION_ID, roles(), TOPIC_OPINION, null, null);
 
 		given(jpaPreSurveyResponseRepository.saveAndFlush(any(PreSurveyResponseJpaEntity.class)))
 				.willReturn(PreSurveyResponseJpaEntity.toEntity(

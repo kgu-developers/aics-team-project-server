@@ -7,6 +7,8 @@ import lombok.*;
 import static java.util.Objects.requireNonNull;
 import static lombok.AccessLevel.PROTECTED;
 
+import java.util.Objects;
+
 import java.time.LocalDateTime;
 
 @Getter
@@ -23,14 +25,17 @@ public class PreSurveyResponse {
     private String topicOpinion;  // 주제 의견
     private String etcOpinion;  // 기타 의견
 
+    private String preferredPeerUserId;  // 희망 조원 학번
+    private PreferredPeerStatus preferredPeerStatus;  // 희망 조원 지목 상태
+
     private LocalDateTime submittedAt;  // 제출일
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
     public static PreSurveyResponse create(String userId, Long sectionId, JsonNode preferredRoles,
-                                           String topicOpinion, String etcOpinion) {
-        return PreSurveyResponse.builder()
+                                           String topicOpinion, String etcOpinion, String preferredPeerUserId) {
+        PreSurveyResponse response = PreSurveyResponse.builder()
                 .userId(requireNonNull(userId, "userId"))
                 .sectionId(requireNonNull(sectionId, "sectionId"))
                 .preferredRoles(requireNonNull(preferredRoles, "preferredRoles"))
@@ -38,13 +43,35 @@ public class PreSurveyResponse {
                 .etcOpinion(etcOpinion)
                 .submittedAt(LocalDateTime.now())
                 .build();
+        response.updatePreferredPeer(preferredPeerUserId);
+        return response;
     }
 
-    public void update(JsonNode preferredRoles, String topicOpinion, String etcOpinion) {
+    public void update(JsonNode preferredRoles, String topicOpinion, String etcOpinion, String preferredPeerUserId) {
         this.preferredRoles = requireNonNull(preferredRoles, "preferredRoles");
         this.topicOpinion = topicOpinion;
         this.etcOpinion = etcOpinion;
         this.submittedAt = LocalDateTime.now();
+        updatePreferredPeer(preferredPeerUserId);
+    }
+
+    /** 지목 대상이 그대로면 상대가 이미 내린 수락·거절을 재제출로 되돌리지 않는다. 대상이 바뀌면 다시 대기 상태로. */
+    private void updatePreferredPeer(String preferredPeerUserId) {
+        if (Objects.equals(this.preferredPeerUserId, preferredPeerUserId)) {
+            return;
+        }
+        this.preferredPeerUserId = preferredPeerUserId;
+        this.preferredPeerStatus = preferredPeerUserId == null ? null : PreferredPeerStatus.PENDING;
+    }
+
+    /** 지목당한 학생의 수락·거절. 대상 본인이 맞는지, 아직 대기 중인지는 호출자가 검증한다. */
+    public void decidePreferredPeer(boolean accepted) {
+        this.preferredPeerStatus = accepted ? PreferredPeerStatus.ACCEPTED : PreferredPeerStatus.REJECTED;
+    }
+
+    public boolean isPreferredPeerPendingFor(String peerUserId) {
+        return this.preferredPeerStatus == PreferredPeerStatus.PENDING
+                && Objects.equals(this.preferredPeerUserId, peerUserId);
     }
 
     public void delete() {

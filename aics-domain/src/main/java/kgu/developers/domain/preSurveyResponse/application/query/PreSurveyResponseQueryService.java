@@ -8,6 +8,7 @@ import static kgu.developers.domain.enrollment.domain.Status.ACTIVE;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeSet;
 
 import org.springframework.stereotype.Service;
@@ -30,9 +31,17 @@ public class PreSurveyResponseQueryService {
 	private final EnrollmentRepository enrollmentRepository;
 	private final UserRepository userRepository;
 
+	public Optional<PreSurveyResponse> findResponse(String userId, Long sectionId) {
+		return preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId);
+	}
+
 	public PreSurveyResponse getResponse(String userId, Long sectionId) {
 		return preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)
 				.orElseThrow(PreSurveyResponseNotFoundException::new);
+	}
+
+	public List<PreSurveyResponse> getReceivedPreferredPeerRequests(String peerUserId, Long sectionId) {
+		return preSurveyResponseRepository.findAllBySectionIdAndPreferredPeerUserId(sectionId, peerUserId);
 	}
 
 	/**

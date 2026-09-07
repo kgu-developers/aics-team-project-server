@@ -5,6 +5,7 @@ import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.preSurveyResponse.exception.PreSurveyResponsePreferredRolesInvalidException;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,7 +23,7 @@ import static lombok.AccessLevel.PROTECTED;
 		name = "\"pre_survey_response\"",
 		indexes = {
 				@Index(name = "idx_pre_survey_response_section", columnList = "section_id, deleted_at"),
-				@Index(name = "idx_pre_survey_response_user_section", columnList = "user_id, section_id, deleted_at")
+				@Index(name = "idx_pre_survey_response_preferred_peer", columnList = "section_id, preferred_peer_user_id, deleted_at")
 		}
 )
 @Builder
@@ -50,6 +51,13 @@ public class PreSurveyResponseJpaEntity extends BaseTimeEntity {
 	@Column(columnDefinition = "text")
 	private String etcOpinion;
 
+	@Column(length = 20)
+	private String preferredPeerUserId;
+
+	@Enumerated(EnumType.STRING)
+	@Column(length = 20)
+	private PreferredPeerStatus preferredPeerStatus;
+
 	@Column(nullable = false)
 	private LocalDateTime submittedAt;
 
@@ -61,6 +69,8 @@ public class PreSurveyResponseJpaEntity extends BaseTimeEntity {
 				.preferredRoles(JsonConverter.parse(preferredRoles, PreSurveyResponsePreferredRolesInvalidException::new))
 				.topicOpinion(topicOpinion)
 				.etcOpinion(etcOpinion)
+				.preferredPeerUserId(preferredPeerUserId)
+				.preferredPeerStatus(preferredPeerStatus)
 				.submittedAt(submittedAt)
 				.createdAt(getCreatedAt())
 				.updatedAt(getUpdatedAt())
@@ -76,6 +86,8 @@ public class PreSurveyResponseJpaEntity extends BaseTimeEntity {
 				.preferredRoles(response.getPreferredRoles().toString())
 				.topicOpinion(response.getTopicOpinion())
 				.etcOpinion(response.getEtcOpinion())
+				.preferredPeerUserId(response.getPreferredPeerUserId())
+				.preferredPeerStatus(response.getPreferredPeerStatus())
 				.submittedAt(response.getSubmittedAt())
 				.build();
 		entity.createdAt = response.getCreatedAt();

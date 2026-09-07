@@ -67,7 +67,7 @@ class PreSurveyResponseExcelWriterTest {
         JsonNode roles = objectMapper.createArrayNode().add("백".repeat(MAX_CELL_LENGTH + 100));
 
         List<String> cells = write(new PreSurveyResponseRow("202412345", "이석민",
-            PreSurveyResponse.create("202412345", SECTION_ID, roles, "주제", "기타")));
+            PreSurveyResponse.create("202412345", SECTION_ID, roles, "주제", "기타", null)));
 
         assertThat(cells.get(ROLES)).hasSize(MAX_CELL_LENGTH).endsWith(TRUNCATED_MARK);
     }
@@ -79,7 +79,7 @@ class PreSurveyResponseExcelWriterTest {
 
         try (Workbook workbook = workbook(new PreSurveyResponseRow("202412345", "@이석민",
             PreSurveyResponse.create("202412345", SECTION_ID,
-                objectMapper.createArrayNode().add("+BACKEND"), attack, "-금요일 회의 어려움")))) {
+                objectMapper.createArrayNode().add("+BACKEND"), attack, "-금요일 회의 어려움", null)))) {
             Row row = workbook.getSheetAt(0).getRow(1);
 
             for (int column : List.of(NAME, ROLES, TOPIC_OPINION, ETC_OPINION)) {
@@ -105,7 +105,7 @@ class PreSurveyResponseExcelWriterTest {
     private PreSurveyResponseRow row(String topicOpinion, String etcOpinion) throws IOException {
         return new PreSurveyResponseRow("202412345", "이석민",
             PreSurveyResponse.create("202412345", SECTION_ID, objectMapper.readTree("[\"BACKEND\"]"),
-                topicOpinion, etcOpinion));
+                topicOpinion, etcOpinion, null));
     }
 
     private Workbook workbook(PreSurveyResponseRow source) throws IOException {

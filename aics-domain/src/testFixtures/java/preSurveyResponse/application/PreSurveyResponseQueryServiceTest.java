@@ -73,6 +73,6 @@ class PreSurveyResponseQueryServiceTest {
 
 	private void saveResponse(String userId) throws Exception {
 		responseRepository.save(PreSurveyResponse.create(userId, SECTION_ID,
-				objectMapper.readTree("[\"BACKEND\"]"), "주제", "기타"));
+				objectMapper.readTree("[\"BACKEND\"]"), "주제", "기타", null));
 	}
 }

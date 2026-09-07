@@ -1,5 +1,6 @@
 package kgu.developers.domain.preSurveyResponse.exception;
 
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -14,6 +15,8 @@ import lombok.Getter;
 public enum PreSurveyResponseDomainExceptionCode implements ExceptionCode {
 	PRE_SURVEY_RESPONSE_PREFERRED_ROLES_INVALID(INTERNAL_SERVER_ERROR, "희망 역할 데이터를 변환하지 못했습니다."),
 	PRE_SURVEY_RESPONSE_NOT_FOUND(NOT_FOUND, "제출한 사전조사 응답이 없습니다."),
+	PRE_SURVEY_RESPONSE_PREFERRED_PEER_INVALID(BAD_REQUEST, "같은 분반 수강생 중 본인이 아닌 학생만 조원으로 지목할 수 있습니다."),
+	PRE_SURVEY_RESPONSE_PREFERRED_PEER_REQUEST_NOT_FOUND(NOT_FOUND, "응답을 기다리는 조원 지목이 없습니다."),
 	;
 
 	private final HttpStatus status;

@@ -1,9 +1,12 @@
 package kgu.developers.api.preSurveyResponse.presentation;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.api.preSurveyResponse.application.PreSurveyResponseFacade;
 import kgu.developers.api.preSurveyResponse.presentation.request.PreSurveyResponseSubmitRequest;
+import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyClassmateListResponse;
+import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyPreferredPeerRequestListResponse;
 import kgu.developers.api.preSurveyResponse.presentation.response.PreSurveyResponseDetailResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -42,5 +45,48 @@ public class PreSurveyResponseControllerImpl implements PreSurveyResponseControl
         Authentication authentication
     ) {
         return ResponseEntity.ok(preSurveyResponseFacade.getMyResponse(authentication.getName(), sectionId));
+    }
+
+    @Override
+    @GetMapping("/sections/{sectionId}/pre-survey/classmates")
+    public ResponseEntity<PreSurveyClassmateListResponse> searchClassmates(
+        @Positive @PathVariable Long sectionId,
+        @RequestParam(required = false) String keyword,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+            preSurveyResponseFacade.searchClassmates(authentication.getName(), sectionId, keyword));
+    }
+
+    @Override
+    @GetMapping("/sections/{sectionId}/pre-survey/preferred-peer-requests/received")
+    public ResponseEntity<PreSurveyPreferredPeerRequestListResponse> getReceivedPreferredPeerRequests(
+        @Positive @PathVariable Long sectionId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+            preSurveyResponseFacade.getReceivedPreferredPeerRequests(authentication.getName(), sectionId));
+    }
+
+    @Override
+    @PostMapping("/sections/{sectionId}/pre-survey/preferred-peer-requests/received/{requesterUserId}/accept")
+    public ResponseEntity<PreSurveyPreferredPeerRequestListResponse> acceptPreferredPeerRequest(
+        @Positive @PathVariable Long sectionId,
+        @NotBlank @PathVariable String requesterUserId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(preSurveyResponseFacade.decidePreferredPeer(
+            authentication.getName(), sectionId, requesterUserId, true));
+    }
+
+    @Override
+    @PostMapping("/sections/{sectionId}/pre-survey/preferred-peer-requests/received/{requesterUserId}/reject")
+    public ResponseEntity<PreSurveyPreferredPeerRequestListResponse> rejectPreferredPeerRequest(
+        @Positive @PathVariable Long sectionId,
+        @NotBlank @PathVariable String requesterUserId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(preSurveyResponseFacade.decidePreferredPeer(
+            authentication.getName(), sectionId, requesterUserId, false));
     }
 }
