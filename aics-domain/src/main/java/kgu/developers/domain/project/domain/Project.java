@@ -20,6 +20,7 @@ public class Project {
     private Long id;
 
     private Long teamId;  // 팀 식별자
+    private Long topicCandidateId;  // 최종 확정 주제 후보 식별자
 
     private String title;  // 제목
     private String description;  // 설명
@@ -37,6 +38,10 @@ public class Project {
     private LocalDateTime deletedAt;
 
     public static Project create(Long teamId, String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle) {
+        return create(teamId, title, description, goal, repositoryUrl, externalLinks, approvalStatus, meetingStyle, null);
+    }
+
+    public static Project create(Long teamId, String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle, Long topicCandidateId) {
         return Project.builder()
                 .teamId(requireNonNull(teamId, "teamId"))
                 .title(requireNonNull(title, "title"))
@@ -46,11 +51,16 @@ public class Project {
                 .externalLinks(externalLinks)
                 .approvalStatus(requireNonNull(approvalStatus, "approvalStatus"))
                 .meetingStyle(meetingStyle)
+                .topicCandidateId(topicCandidateId)
                 .build();
     }
 
     public void updateTitle(String title) {
         this.title = requireNonNull(title, "title");
+    }
+
+    public void updateTopicCandidateId(Long topicCandidateId) {
+        this.topicCandidateId = topicCandidateId;
     }
 
     public void updateDescription(String description) {
@@ -113,7 +123,7 @@ public class Project {
      * 소프트 삭제된 프로젝트를 새 제안서로 되살린다.
      * 되살아난 제안서는 새 리비전이므로 이전 리비전의 동의는 모두 무효가 된다.
      */
-    public void reactivate(String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle) {
+    public void reactivate(String title, String description, String goal, String repositoryUrl, JsonNode externalLinks, ApprovalStatus approvalStatus, String meetingStyle, Long topicCandidateId) {
         if (this.deletedAt == null) {
             throw new IllegalStateException("삭제되지 않은 프로젝트는 복구할 수 없습니다.");
         }
@@ -129,6 +139,7 @@ public class Project {
         this.externalLinks = externalLinks;
         this.approvalStatus = approvalStatus;
         this.meetingStyle = meetingStyle;
+        this.topicCandidateId = topicCandidateId;
         this.proposalCompletedAt = null;
         this.deletedAt = null;
         this.proposalRevision++;

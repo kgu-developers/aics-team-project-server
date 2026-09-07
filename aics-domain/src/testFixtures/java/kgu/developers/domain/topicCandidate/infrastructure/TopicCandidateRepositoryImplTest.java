@@ -1,6 +1,7 @@
 package kgu.developers.domain.topicCandidate.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.inOrder;
@@ -30,6 +31,23 @@ class TopicCandidateRepositoryImplTest {
 
     @Mock
     private EntityManager entityManager;
+
+    @Test
+    @DisplayName("save는 후보를 저장하고 flush한다")
+    void saveSavesAndFlushes() {
+        TopicCandidate candidate = candidate(1L, "새 주제");
+        TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(candidate);
+        given(jpaTopicCandidateRepository.save(any(TopicCandidateJpaEntity.class)))
+                .willReturn(entity);
+        TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
+
+        TopicCandidate result = repository.save(candidate);
+
+        assertThat(result.getTitle()).isEqualTo("새 주제");
+        InOrder inOrder = inOrder(jpaTopicCandidateRepository);
+        inOrder.verify(jpaTopicCandidateRepository).save(any(TopicCandidateJpaEntity.class));
+        inOrder.verify(jpaTopicCandidateRepository).flush();
+    }
 
     @Test
     @DisplayName("저장소는 삭제되지 않은 주제 후보만 조회한다")
@@ -154,31 +172,28 @@ class TopicCandidateRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("생성 경로의 삭제 포함 조회도 팀 행에 쓰기 락을 건다")
-    void findIncludingDeletedByTeamIdAndTitleForUpdateLocksTeam() {
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitle(100L, "중복 제목"))
+    @DisplayName("생성 경로의 제목 조회는 팀 행에 쓰기 락을 건다")
+    void findByTeamIdAndTitleForUpdateLocksTeam() {
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "중복 제목"))
                 .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(candidate(1L, "중복 제목"))));
         TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
-        Optional<TopicCandidate> result = repository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "중복 제목");
+        Optional<TopicCandidate> result = repository.findByTeamIdAndTitleForUpdate(100L, "중복 제목");
 
         assertThat(result).isPresent();
         verify(entityManager).find(TeamJpaEntity.class, 100L, PESSIMISTIC_WRITE);
     }
 
     @Test
-    @DisplayName("중복 검사 조회는 소프트 삭제된 제목도 점유로 본다")
-    void findIncludingDeletedByTeamIdAndTitleForUpdateSeesDeleted() {
-        TopicCandidate deleted = candidate(1L, "삭제된 제목");
-        deleted.delete();
-        given(jpaTopicCandidateRepository.findByTeamIdAndTitle(100L, "삭제된 제목"))
-                .willReturn(Optional.of(TopicCandidateJpaEntity.toEntity(deleted)));
+    @DisplayName("중복 검사 조회는 소프트 삭제된 제목을 점유로 보지 않는다")
+    void findByTeamIdAndTitleForUpdateIgnoresDeleted() {
+        // 부분 유니크 인덱스가 삭제된 행을 제외하므로 조회도 활성 행만 본다.
+        given(jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(100L, "삭제된 제목"))
+                .willReturn(Optional.empty());
         TopicCandidateRepositoryImpl repository = new TopicCandidateRepositoryImpl(jpaTopicCandidateRepository, entityManager);
 
-        Optional<TopicCandidate> result = repository.findIncludingDeletedByTeamIdAndTitleForUpdate(100L, "삭제된 제목");
-
-        assertThat(result).isPresent();
-        assertThat(result.get().getDeletedAt()).isNotNull();
+        assertThat(repository.findByTeamIdAndTitleForUpdate(100L, "삭제된 제목")).isEmpty();
+        verify(entityManager).find(TeamJpaEntity.class, 100L, PESSIMISTIC_WRITE);
     }
 
     private TopicCandidate candidate(Long id, String title) {

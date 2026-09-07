@@ -24,16 +24,16 @@ public class SectionCommandService {
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
 
-    public Long createSection(String professorId, Long courseId, String code, String name, String classTime,
+    public Long createSection(String professorId, Long courseId, String code, String classTime,
                               Integer capacity, LocalDateTime contactVisibleFrom, LocalDateTime contactVisibleUntil) {
         requireCourse(courseId);
         requireProfessor(professorId);
-        Section section = Section.create(professorId, courseId, code, name, classTime, capacity,
+        Section section = Section.create(professorId, courseId, code, classTime, capacity,
                 contactVisibleFrom, contactVisibleUntil);
         return sectionRepository.save(section).getId();
     }
 
-    public void updateSection(Section section, String professorId, Long courseId, String code, String name,
+    public void updateSection(Section section, String professorId, Long courseId, String code,
                              String classTime, Integer capacity, LocalDateTime contactVisibleFrom,
                              LocalDateTime contactVisibleUntil) {
         if (courseId != null) {
@@ -50,9 +50,6 @@ public class SectionCommandService {
         }
         if (code != null) {
             section.updateCode(code);
-        }
-        if (name != null) {
-            section.updateName(name);
         }
         if (classTime != null) {
             section.updateClassTime(classTime);

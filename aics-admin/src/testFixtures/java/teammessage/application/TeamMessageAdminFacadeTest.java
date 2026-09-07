@@ -73,8 +73,8 @@ class TeamMessageAdminFacadeTest {
             20,
             Sort.by(Sort.Order.desc("id"))
         );
-        Section firstSection = section(1L, "1151", PROFESSOR_ID);
-        Section secondSection = section(2L, "1152", PROFESSOR_ID);
+        Section firstSection = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Section secondSection = section(2L, "월3,4", "1152", PROFESSOR_ID);
         Team firstTeam = team(10L, 1L, "A팀");
         Team secondTeam = team(20L, 2L, "B팀");
         TeamThread firstThread = TeamThread.builder().id(100L).teamId(10L).build();
@@ -96,7 +96,7 @@ class TeamMessageAdminFacadeTest {
 
         assertThat(response.unreadCount()).isEqualTo(3L);
         assertThat(response.contents()).singleElement().satisfies(content -> {
-            assertThat(content.sectionName()).isEqualTo("1152");
+            assertThat(content.sectionName()).isEqualTo("월3,4/1152");
             assertThat(content.teamName()).isEqualTo("B팀");
             assertThat(content.message()).isEqualTo("화면설계서 확인 부탁드립니다.");
             assertThat(content.read()).isFalse();
@@ -114,7 +114,7 @@ class TeamMessageAdminFacadeTest {
             20,
             Sort.by(Sort.Order.desc("id"))
         );
-        Section section = section(1L, "1151", PROFESSOR_ID);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
 
         given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
@@ -194,8 +194,13 @@ class TeamMessageAdminFacadeTest {
         verifyNoInteractions(teamMessageCommandService);
     }
 
-    private Section section(Long id, String name, String professorId) {
-        return Section.builder().id(id).name(name).professorId(professorId).build();
+    private Section section(Long id, String classTime, String code, String professorId) {
+        return Section.builder()
+            .id(id)
+            .professorId(professorId)
+            .classTime(classTime)
+            .code(code)
+            .build();
     }
 
     private SectionDetail detail(Section section) {
