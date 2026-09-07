@@ -2,6 +2,7 @@ package kgu.developers.admin.preSurveyResponse.presentation;
 
 import java.nio.charset.StandardCharsets;
 
+import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -47,6 +48,7 @@ public class PreSurveyResponseAdminControllerImpl implements PreSurveyResponseAd
             .build();
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+            .cacheControl(CacheControl.noStore())  // 다른 분반 학생 응답이 캐시에 남지 않게 한다
             .contentType(MediaType.valueOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
             .body(download.content());
     }
