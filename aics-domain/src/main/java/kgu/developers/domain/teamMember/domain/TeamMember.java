@@ -68,11 +68,11 @@ public class TeamMember {
         this.deletedAt = null;
         this.isLeader = isLeader;
         this.projectRole = projectRole;
-        this.phoneNumber = phoneNumber;
-        this.grade = grade;
-    }
-
-    public void reactivate(boolean isLeader, String projectRole) {
-        reactivate(isLeader, projectRole, null, null);
+        if (phoneNumber != null) {
+            this.phoneNumber = phoneNumber;
+        }
+        if (grade != null) {
+            this.grade = grade;
+        }
     }
 }

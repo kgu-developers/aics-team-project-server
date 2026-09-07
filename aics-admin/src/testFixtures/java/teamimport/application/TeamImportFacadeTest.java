@@ -531,6 +531,31 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("apply는 빈 전화번호·학년으로 재활성화해도 기존 값을 지우지 않는다")
+  public void apply_KeepsExistingContactWhenReactivatingWithBlankCells() {
+    // given: 구형 양식(전화번호·학년 열 없음)으로 삭제된 팀원을 되살리는 상황
+    given(teamRepository.findAllBySectionId(SECTION_ID))
+        .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
+    TeamMember removed = TeamMember.builder().id(5L).teamId(10L).userId(STUDENT_A)
+        .isLeader(false).projectRole("").phoneNumber("010-1111-2222").grade("3")
+        .deletedAt(LocalDateTime.now().minusDays(1)).build();
+    given(teamMemberRepository.findIncludingDeleted(10L, STUDENT_A)).willReturn(Optional.of(removed));
+    ImportBatch batch = batch(0, List.of(row(2, "1팀", STUDENT_A, false, "백엔드", RowStatus.VALID)));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+    // when
+    facade.apply(1L, ASSISTANT);
+
+    // then
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getDeletedAt()).isNull();
+    assertThat(captor.getValue().getProjectRole()).isEqualTo("백엔드");
+    assertThat(captor.getValue().getPhoneNumber()).isEqualTo("010-1111-2222");
+    assertThat(captor.getValue().getGrade()).isEqualTo("3");
+  }
+
+  @Test
   @DisplayName("apply가 만드는 팀과 팀원은 NOT NULL 컬럼을 빈 값으로라도 채운다")
   public void apply_FillsNotNullColumns() {
     // given
