@@ -58,6 +58,9 @@ public class NotificationOutboxJpaEntity {
     @Column(name = "processed_at")
     private java.time.LocalDateTime processedAt;
 
+    @Column(name = "next_attempt_at")
+    private java.time.LocalDateTime nextAttemptAt;
+
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
 
@@ -76,6 +79,7 @@ public class NotificationOutboxJpaEntity {
             .status(this.status)
             .createdAt(this.createdAt)
             .processedAt(this.processedAt)
+            .nextAttemptAt(this.nextAttemptAt)
             .retryCount(this.retryCount)
             .errorMessage(this.errorMessage)
             .build();
@@ -93,6 +97,7 @@ public class NotificationOutboxJpaEntity {
             .status(domain.getStatus())
             .createdAt(domain.getCreatedAt())
             .processedAt(domain.getProcessedAt())
+            .nextAttemptAt(domain.getNextAttemptAt())
             .retryCount(domain.getRetryCount())
             .errorMessage(domain.getErrorMessage())
             .build();

@@ -21,8 +21,8 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
     }
 
     @Override
-    public List<Long> findDueOutboxIds(int maxRetries, LocalDateTime before, int limit) {
-        return jpaNotificationOutboxRepository.findDueOutboxIds(maxRetries, before, PageRequest.ofSize(limit));
+    public List<Long> findDueOutboxIds(int maxRetries, LocalDateTime now, int limit) {
+        return jpaNotificationOutboxRepository.findDueOutboxIds(maxRetries, now, PageRequest.ofSize(limit));
     }
 
     @Override

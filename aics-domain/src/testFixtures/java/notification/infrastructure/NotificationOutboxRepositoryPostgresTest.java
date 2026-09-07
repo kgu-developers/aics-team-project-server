@@ -61,6 +61,8 @@ class NotificationOutboxRepositoryPostgresTest {
     }
 
     private static final int MAX_RETRIES = 3;
+    private static final int FIRST_ATTEMPT_DELAY_SECONDS = 10;   // NotificationOutbox.FIRST_ATTEMPT_DELAY
+    private static final int RETRY_BASE_INTERVAL_SECONDS = 30;   // NotificationOutbox.RETRY_BASE_INTERVAL
 
     @Autowired
     private NotificationOutboxRepositoryImpl outboxRepository;
@@ -92,12 +94,18 @@ class NotificationOutboxRepositoryPostgresTest {
             .link("/link")
             .status(OutboxStatus.PENDING)
             .createdAt(createdAt)
+            .nextAttemptAt(createdAt.plusSeconds(FIRST_ATTEMPT_DELAY_SECONDS))
             .retryCount(0)
             .build()).getId();
     }
 
     private List<Long> dueIds() {
-        return outboxRepository.findDueOutboxIds(MAX_RETRIES, LocalDateTime.now().minusSeconds(10), 50);
+        return dueIds(LocalDateTime.now());
+    }
+
+    /** 간격이 지난 상황은 "지금"을 앞당겨 만든다 — 실제로 기다리지 않는다. */
+    private List<Long> dueIds(LocalDateTime now) {
+        return outboxRepository.findDueOutboxIds(MAX_RETRIES, now, 50);
     }
 
     private TransactionTemplate tx() {
@@ -167,7 +175,46 @@ class NotificationOutboxRepositoryPostgresTest {
         assertThat(reloaded).isPresent();
         assertThat(reloaded.get().getStatus()).isEqualTo(OutboxStatus.FAILED);
         assertThat(reloaded.get().getRetryCount()).isEqualTo(1);   // 여기가 0 이면 영원히 재시도한다
-        assertThat(dueIds()).containsExactly(id);                  // 재시도 대상으로는 여전히 잡힌다
+        assertThat(reloaded.get().getNextAttemptAt()).isAfter(LocalDateTime.now());   // 백오프가 걸려 있어야 한다
+    }
+
+    @Test
+    @DisplayName("실패한 아웃박스는 재시도 간격이 지나기 전까지 다시 집히지 않는다")
+    void failedOutboxWaitsForRetryInterval() {
+        Long id = saveOutbox("20230001", LocalDateTime.now().minusMinutes(1));
+
+        tx().executeWithoutResult(status -> {
+            NotificationOutbox outbox = outboxRepository.lockById(id).orElseThrow();
+            outbox.markAsFailed("알림 저장 실패");
+            outboxRepository.save(outbox);
+        });
+
+        // 이 단언이 깨지면 5초짜리 스케줄이 재시도 횟수를 순식간에 다 태운다
+        assertThat(dueIds()).isEmpty();
+        assertThat(dueIds(LocalDateTime.now().plusSeconds(RETRY_BASE_INTERVAL_SECONDS + 1))).containsExactly(id);
+    }
+
+    @Test
+    @DisplayName("실패가 쌓이면 재시도 간격이 두 배씩 벌어진다")
+    void retryIntervalDoublesOnEachFailure() {
+        Long id = saveOutbox("20230001", LocalDateTime.now().minusMinutes(1));
+
+        markFailed(id);
+        LocalDateTime afterFirst = LocalDateTime.now().plusSeconds(RETRY_BASE_INTERVAL_SECONDS + 1);
+        assertThat(dueIds(afterFirst)).containsExactly(id);
+
+        markFailed(id);
+        assertThat(dueIds(afterFirst)).isEmpty();   // 두 번째 실패 뒤엔 30초로는 부족하다
+        assertThat(dueIds(LocalDateTime.now().plusSeconds(2 * RETRY_BASE_INTERVAL_SECONDS + 1)))
+            .containsExactly(id);
+    }
+
+    private void markFailed(Long id) {
+        tx().executeWithoutResult(status -> {
+            NotificationOutbox outbox = outboxRepository.lockById(id).orElseThrow();
+            outbox.markAsFailed("알림 저장 실패");
+            outboxRepository.save(outbox);
+        });
     }
 
     @Test
@@ -183,6 +230,7 @@ class NotificationOutboxRepositoryPostgresTest {
             });
         }
 
-        assertThat(dueIds()).isEmpty();
+        // 간격이 아무리 지나도 횟수를 다 썼으면 안 잡힌다
+        assertThat(dueIds(LocalDateTime.now().plusDays(1))).isEmpty();
     }
 }

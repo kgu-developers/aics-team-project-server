@@ -22,8 +22,9 @@ public class NotificationOutboxProcessor {
     // 트랜잭션은 건별로 NotificationOutboxWorker 가 연다. 여기에 @Transactional 을 붙이면 실패 표시가 같이 롤백된다.
     @Scheduled(fixedDelay = 5000) // 5초마다 실행
     public void processOutbox() {
+        // 첫 발송 지연과 재시도 간격은 NotificationOutbox 가 nextAttemptAt 에 박아둔다.
         List<Long> dueIds = notificationOutboxRepository
-            .findDueOutboxIds(MAX_RETRIES, LocalDateTime.now().minusSeconds(10), BATCH_SIZE);
+            .findDueOutboxIds(MAX_RETRIES, LocalDateTime.now(), BATCH_SIZE);
 
         if (dueIds.isEmpty()) {
             return;

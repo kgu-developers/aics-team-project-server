@@ -13,22 +13,20 @@ CREATE TABLE IF NOT EXISTS "notification_outbox" (
         CHECK (status IN ('PENDING', 'PROCESSED', 'FAILED')),
     created_at TIMESTAMP(6) NOT NULL,
     processed_at TIMESTAMP(6),
+    next_attempt_at TIMESTAMP(6),
     retry_count INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
     PRIMARY KEY (id)
 );
 
--- 대기 중인 아웃박스 항목을 빠르게 조회하기 위한 인덱스
-CREATE INDEX IF NOT EXISTS idx_notification_outbox_status_created
-    ON "notification_outbox" (status, created_at);
-
--- 재시도 가능한 실패 항목을 조회하기 위한 인덱스
+-- 처리 대상(재시도 횟수가 남고 다음 시도 시각이 지난 건)을 빠르게 조회하기 위한 인덱스
 CREATE INDEX IF NOT EXISTS idx_notification_outbox_retry
-    ON "notification_outbox" (status, retry_count, created_at);
+    ON "notification_outbox" (retry_count, next_attempt_at);
 
 COMMENT ON COLUMN "notification_outbox".user_id IS '알림을 받을 사용자 학번';
 COMMENT ON COLUMN "notification_outbox".type IS '알림 타입 (PRE_SURVEY_PREFERRED_PEER_REQUESTED, etc.)';
 COMMENT ON COLUMN "notification_outbox".source_id IS '원본 엔티티 ID (예: PreSurveyResponse.id)';
 COMMENT ON COLUMN "notification_outbox".status IS '처리 상태 (PENDING/PROCESSED/FAILED)';
 COMMENT ON COLUMN "notification_outbox".retry_count IS '재시도 횟수';
+COMMENT ON COLUMN "notification_outbox".next_attempt_at IS '다음 처리 시도 시각 (첫 발송 지연·재시도 백오프)';
 COMMENT ON COLUMN "notification_outbox".error_message IS '실패 시 에러 메시지';

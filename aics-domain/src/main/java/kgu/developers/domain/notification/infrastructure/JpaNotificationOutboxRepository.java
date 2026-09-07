@@ -15,10 +15,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface JpaNotificationOutboxRepository extends JpaRepository<NotificationOutboxJpaEntity, Long> {
 
-    @Query("SELECT o.id FROM NotificationOutboxJpaEntity o WHERE (o.status = 'PENDING' OR (o.status = 'FAILED' AND o.retryCount < :maxRetries)) AND o.createdAt < :before ORDER BY o.createdAt ASC")
+    /**
+     * 다음 시도 시각이 지났고 재시도 횟수가 남은 건. 첫 발송 지연도 백오프도 nextAttemptAt 한 컬럼에 들어 있다.
+     * 이전 버전에서 만들어져 nextAttemptAt 이 비어 있는 행은 바로 대상이 된다.
+     */
+    @Query("SELECT o.id FROM NotificationOutboxJpaEntity o WHERE o.retryCount < :maxRetries AND (o.nextAttemptAt IS NULL OR o.nextAttemptAt <= :now) ORDER BY o.createdAt ASC")
     List<Long> findDueOutboxIds(
         @Param("maxRetries") int maxRetries,
-        @Param("before") LocalDateTime before,
+        @Param("now") LocalDateTime now,
         Pageable pageable
     );
 

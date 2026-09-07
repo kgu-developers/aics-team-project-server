@@ -236,6 +236,7 @@ class NotificationOutboxWorkerPostgresTest {
     }
 
     private java.util.List<Long> dueIds() {
-        return outboxRepository.findDueOutboxIds(MAX_RETRIES, LocalDateTime.now(), 50);
+        // "지금"을 하루 뒤로 줘서 백오프가 다 지난 상황으로 본다 — 여기서 보는 건 재시도 횟수 소진이다
+        return outboxRepository.findDueOutboxIds(MAX_RETRIES, LocalDateTime.now().plusDays(1), 50);
     }
 }
