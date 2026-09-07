@@ -2,6 +2,7 @@ package kgu.developers.domain.notification.infrastructure;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import kgu.developers.domain.notification.domain.NotificationOutbox;
 import kgu.developers.domain.notification.domain.NotificationOutboxRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,11 +21,13 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
     }
 
     @Override
-    public List<NotificationOutbox> lockPendingOrRetryableOutboxesBefore(int maxRetries, LocalDateTime before, int limit) {
-        return jpaNotificationOutboxRepository
-            .findPendingOrRetryableOutboxesBefore(maxRetries, before, PageRequest.ofSize(limit)).stream()
-            .map(NotificationOutboxJpaEntity::toDomain)
-            .toList();
+    public List<Long> findDueOutboxIds(int maxRetries, LocalDateTime before, int limit) {
+        return jpaNotificationOutboxRepository.findDueOutboxIds(maxRetries, before, PageRequest.ofSize(limit));
+    }
+
+    @Override
+    public Optional<NotificationOutbox> lockById(Long id) {
+        return jpaNotificationOutboxRepository.lockById(id).map(NotificationOutboxJpaEntity::toDomain);
     }
 
     @Override

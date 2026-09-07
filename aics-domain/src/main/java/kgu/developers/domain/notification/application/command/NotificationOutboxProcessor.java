@@ -2,15 +2,11 @@ package kgu.developers.domain.notification.application.command;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import kgu.developers.domain.notification.domain.Notification;
-import kgu.developers.domain.notification.domain.NotificationOutbox;
 import kgu.developers.domain.notification.domain.NotificationOutboxRepository;
-import kgu.developers.domain.notification.domain.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
@@ -18,63 +14,30 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationOutboxProcessor {
 
     private final NotificationOutboxRepository notificationOutboxRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationOutboxWorker notificationOutboxWorker;
 
     private static final int MAX_RETRIES = 3;
     private static final int BATCH_SIZE = 50;
 
+    // 트랜잭션은 건별로 NotificationOutboxWorker 가 연다. 여기에 @Transactional 을 붙이면 실패 표시가 같이 롤백된다.
     @Scheduled(fixedDelay = 5000) // 5초마다 실행
-    @Transactional
     public void processOutbox() {
-        List<NotificationOutbox> pendingOutboxes = notificationOutboxRepository
-            .lockPendingOrRetryableOutboxesBefore(MAX_RETRIES, LocalDateTime.now().minusSeconds(10), BATCH_SIZE);
+        List<Long> dueIds = notificationOutboxRepository
+            .findDueOutboxIds(MAX_RETRIES, LocalDateTime.now().minusSeconds(10), BATCH_SIZE);
 
-        if (pendingOutboxes.isEmpty()) {
+        if (dueIds.isEmpty()) {
             return;
         }
 
-        log.info("Processing {} notification outbox entries", pendingOutboxes.size());
+        log.info("알림 아웃박스 {}건 처리 시작", dueIds.size());
 
-        for (NotificationOutbox outbox : pendingOutboxes) {
+        for (Long id : dueIds) {
             try {
-                processSingleOutbox(outbox);
+                notificationOutboxWorker.process(id);
             } catch (Exception e) {
-                log.error("Failed to process outbox entry {}: {}", outbox.getId(), e.getMessage(), e);
-                // 다음 항목으로 계속 진행
+                log.error("알림 아웃박스 {}번 처리 실패: {}", id, e.getMessage(), e);
+                notificationOutboxWorker.markFailed(id, MAX_RETRIES, e.getMessage());
             }
-        }
-    }
-
-    private void processSingleOutbox(NotificationOutbox outbox) {
-        try {
-            // 실제 알림 생성
-            Notification notification = Notification.create(
-                outbox.getUserId(),
-                outbox.getType(),
-                outbox.getSourceId(),
-                outbox.getTitle(),
-                outbox.getMessage(),
-                outbox.getLink()
-            );
-            notificationRepository.save(notification);
-
-            // 아웃박스 항목 삭제
-            notificationOutboxRepository.delete(outbox);
-
-            log.debug("Successfully processed outbox entry {}", outbox.getId());
-        } catch (Exception e) {
-            // 실패 처리
-            outbox.markAsFailed(e.getMessage());
-            notificationOutboxRepository.save(outbox);
-
-            if (!outbox.canRetry(MAX_RETRIES)) {
-                log.error("Outbox entry {} exceeded max retries. Final error: {}", 
-                    outbox.getId(), e.getMessage());
-            } else {
-                log.warn("Outbox entry {} failed (attempt {}/{}): {}", 
-                    outbox.getId(), outbox.getRetryCount(), MAX_RETRIES, e.getMessage());
-            }
-            throw e;
         }
     }
 }
