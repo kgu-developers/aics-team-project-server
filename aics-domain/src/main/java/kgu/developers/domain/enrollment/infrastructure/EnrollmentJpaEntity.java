@@ -40,6 +40,9 @@ public class EnrollmentJpaEntity extends BaseTimeEntity {
   @Enumerated(STRING)
   private Status status;
 
+  @Column(length = 10)
+  private String grade;
+
   public Enrollment toDomain() {
     return Enrollment.builder()
         .id(id)
@@ -47,6 +50,7 @@ public class EnrollmentJpaEntity extends BaseTimeEntity {
         .userId(userId)
         .role(role)
         .status(status)
+        .grade(grade)
         .createdAt(getCreatedAt())
         .updatedAt(getUpdatedAt())
         .deletedAt(getDeletedAt())
@@ -60,6 +64,7 @@ public class EnrollmentJpaEntity extends BaseTimeEntity {
         .userId(enrollment.getUserId())
         .role(enrollment.getRole())
         .status(enrollment.getStatus())
+        .grade(enrollment.getGrade())
         .build();
     entity.createdAt = enrollment.getCreatedAt();
     entity.setDeletedAt(enrollment.getDeletedAt());

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,9 @@ import org.springframework.security.access.AccessDeniedException;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
+import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
 import kgu.developers.domain.section.exception.ContactNotVisibleException;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -37,12 +40,20 @@ class TeamMemberFacadeTest {
 	private TeamMemberQueryService teamMemberQueryService;
 
 	@Mock
+	private EnrollmentQueryService enrollmentQueryService;
+
+	@Mock
 	private TeamAccessValidator teamAccessValidator;
 
 	@InjectMocks
 	private TeamMemberFacade teamMemberFacade;
 
 	private static final String USER = "202699999";
+
+	private void givenSectionGrades(Map<String, String> grades) {
+		given(teamQueryService.getTeamById(1L)).willReturn(Team.builder().id(1L).sectionId(9L).build());
+		given(enrollmentQueryService.getGradesBySectionId(9L)).willReturn(grades);
+	}
 
 	private TeamMember member() {
 		return TeamMember.builder()
@@ -52,6 +63,7 @@ class TeamMemberFacadeTest {
 	@Test
 	@DisplayName("공개기간 안이면 팀원 연락처를 응답한다")
 	void getContacts() {
+		givenSectionGrades(Map.of(USER, "3"));
 		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
 			new TeamMemberWithUser(member(), User.builder().studentNumber("202699999").name("김철수")
 				.email("kim@kgu.ac.kr").phone("010-0000-0001").build())));
@@ -62,12 +74,15 @@ class TeamMemberFacadeTest {
 			assertThat(contact.studentNumber()).isEqualTo("202699999");
 			assertThat(contact.email()).isEqualTo("kim@kgu.ac.kr");
 			assertThat(contact.phone()).isEqualTo("010-0000-0001");
+			// 학년은 팀원이 아니라 분반 수강 정보에서 온다
+			assertThat(contact.grade()).isEqualTo("3");
 		});
 	}
 
 	@Test
 	@DisplayName("사용자가 조회되지 않아도 학번만 담아 응답한다")
 	void getContactsWithMissingUser() {
+		givenSectionGrades(Map.of());
 		given(teamMemberQueryService.getTeamMembersWithUsers(1L))
 			.willReturn(List.of(new TeamMemberWithUser(member(), null)));
 

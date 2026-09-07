@@ -18,26 +18,18 @@ public class TeamMember {
     private String userId;
     private boolean isLeader;
     private String projectRole;
-    private String phoneNumber;
-    private String grade;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
-    public static TeamMember create(Long teamId, String userId, boolean isLeader, String projectRole, String phoneNumber, String grade) {
+    public static TeamMember create(Long teamId, String userId, boolean isLeader, String projectRole) {
         return TeamMember.builder()
                 .teamId(teamId)
                 .userId(userId)
                 .isLeader(isLeader)
                 .projectRole(projectRole)
-                .phoneNumber(phoneNumber)
-                .grade(grade)
                 .build();
-    }
-
-    public static TeamMember create(Long teamId, String userId, boolean isLeader, String projectRole) {
-        return create(teamId, userId, isLeader, projectRole, null, null);
     }
 
     public void updateTeamId(Long teamId) {
@@ -52,27 +44,13 @@ public class TeamMember {
         this.projectRole = projectRole;
     }
 
-    public void updatePhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
-    }
-
-    public void updateGrade(String grade) {
-        this.grade = grade;
-    }
-
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
 
-    public void reactivate(boolean isLeader, String projectRole, String phoneNumber, String grade) {
+    public void reactivate(boolean isLeader, String projectRole) {
         this.deletedAt = null;
         this.isLeader = isLeader;
         this.projectRole = projectRole;
-        if (phoneNumber != null) {
-            this.phoneNumber = phoneNumber;
-        }
-        if (grade != null) {
-            this.grade = grade;
-        }
     }
 }

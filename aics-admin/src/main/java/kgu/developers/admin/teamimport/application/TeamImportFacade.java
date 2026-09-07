@@ -100,6 +100,8 @@ public class TeamImportFacade {
 
         batch.apply(LocalDateTime.now());
 
+        Roster roster = roster(batch.getSectionId());
+
         List<Team> teams = teamRepository.findAllBySectionId(batch.getSectionId());
         Map<String, Long> teamIds = new HashMap<>();
         teams.forEach(team -> teamIds.put(team.getName(), team.getId()));
@@ -122,7 +124,7 @@ public class TeamImportFacade {
 
         // 팀장 판정이 행 순서에 좌우되지 않도록, 반영할 행을 먼저 추린 뒤 파일 전체의 팀장 구성을 계산한다
         List<PlannedRow> planned = new ArrayList<>();
-        int skipped = plan(batch, teamIds, activeAssignedOf, planned);
+        int skipped = plan(batch, roster, teamIds, activeAssignedOf, planned);
         Map<String, String> leaderOf = plannedLeaders(planned, teamIds, currentLeaderByTeamId);
 
         // 위 teamStatusById는 잠금 없이 읽은 스냅샷이라, 그 사이 다른 요청이
@@ -141,7 +143,7 @@ public class TeamImportFacade {
             teamRepository.findByIdForUpdate(id).orElseThrow(TeamNotFoundException::new).getStatus()));
 
         int createdTeams = 0;
-        int appliedMembers = 0;
+        List<PlannedRow> applied = new ArrayList<>();
         // leaderOf 는 파일 전체를 놓고 "최종적으로 누가 팀장이어야 하는가"를 옳게 계산하지만,
         // DB 반영은 한 행씩 순서대로 저장되고 TeamMemberRepositoryImpl.save() 가 저장 시점의
         // 실제 DB 상태로 팀장 중복을 검사한다. 승격 행이 해제 행보다 먼저 저장되면 그 순간
@@ -163,16 +165,8 @@ public class TeamImportFacade {
                 }
                 row.assigned().updateIsLeader(row.leader());
                 row.assigned().updateProjectRole(row.projectRole());
-                // 빈 셀(=null)은 "값 없음"이지 "지우기"가 아니다. 시트에 전화번호·학년 열이 아예
-                // 없으면 모든 행이 빈 값이 되어 기존에 저장된 값이 통째로 날아간다.
-                if (row.phoneNumber() != null) {
-                    row.assigned().updatePhoneNumber(row.phoneNumber());
-                }
-                if (row.grade() != null) {
-                    row.assigned().updateGrade(row.grade());
-                }
                 teamMemberRepository.save(row.assigned());
-                appliedMembers++;
+                applied.add(row);
                 continue;
             }
 
@@ -194,17 +188,18 @@ public class TeamImportFacade {
                 continue;
             }
             if (existing != null) {
-                existing.reactivate(row.leader(), row.projectRole(), row.phoneNumber(), row.grade());
+                existing.reactivate(row.leader(), row.projectRole());
                 teamMemberRepository.save(existing);
             } else {
                 teamMemberRepository.save(
-                    TeamMember.create(teamId, row.studentNumber(), row.leader(), row.projectRole(), row.phoneNumber(), row.grade()));
+                    TeamMember.create(teamId, row.studentNumber(), row.leader(), row.projectRole()));
             }
-            appliedMembers++;
+            applied.add(row);
         }
+        saveContacts(applied, roster);
         importBatchRepository.save(batch);
 
-        return new TeamImportApplyResponse(batch.getId(), createdTeams, appliedMembers, skipped);
+        return new TeamImportApplyResponse(batch.getId(), createdTeams, applied.size(), skipped);
     }
 
     // 엑셀 빈 셀은 ""로 읽히지만 nullable 컬럼(전화번호·학년)에는 null로 저장한다.
@@ -219,10 +214,8 @@ public class TeamImportFacade {
         String phoneNumber, String grade, TeamMember assigned) {
     }
 
-    private int plan(ImportBatch batch, Map<String, Long> teamIds, Map<String, TeamMember> activeAssignedOf,
-        List<PlannedRow> planned) {
-        Set<String> enrolled = activeEnrollments(batch.getSectionId());
-
+    private int plan(ImportBatch batch, Roster roster, Map<String, Long> teamIds,
+        Map<String, TeamMember> activeAssignedOf, List<PlannedRow> planned) {
         int skipped = 0;
         for (JsonNode row : batch.getPayload()) {
             String status = row.path("status").asText();
@@ -236,7 +229,7 @@ public class TeamImportFacade {
             String teamName = row.path("teamName").asText();
             String studentNumber = row.path("studentNumber").asText();
 
-            if (!enrolled.contains(studentNumber)) {
+            if (!roster.contains(studentNumber)) {
                 skipped++;
                 continue;
             }
@@ -271,26 +264,62 @@ public class TeamImportFacade {
         return leaderOf;
     }
 
+    /**
+     * 반영 대상 분반의 수강생 명부. 전화번호는 계정(User), 학년은 수강 정보(Enrollment)가 기준
+     * 데이터라서, 검증·반영 양쪽이 시트 값을 이 원본과 비교하고 이 원본을 갱신한다.
+     */
+    private record Roster(Map<String, Enrollment> enrollments, Map<String, User> users) {
+        // enrollments 쪽이 활성 수강 ∩ 활성 계정으로 이미 걸러진 명부다
+        boolean contains(String studentNumber) {
+            return enrollments.containsKey(studentNumber);
+        }
+
+        String phoneOf(String studentNumber) {
+            return users.get(studentNumber).getPhone();
+        }
+
+        String gradeOf(String studentNumber) {
+            return enrollments.get(studentNumber).getGrade();
+        }
+    }
+
     // 활성 수강만으로는 부족하다 — preview 이후 탈퇴(소프트삭제)한 계정도 Enrollment는
     // ACTIVE로 남아있을 수 있어서, 활성 사용자 여부와 교집합으로 걸러야 탈퇴 계정의
     // 팀원을 생성·재활성화하는 걸 막을 수 있다(sunzx0428 리뷰 09-03).
-    private Set<String> activeEnrollments(Long sectionId) {
-        Set<String> enrolled = enrollmentRepository.findAllBySectionId(sectionId).stream()
+    private Roster roster(Long sectionId) {
+        Map<String, Enrollment> enrollments = enrollmentRepository.findAllBySectionId(sectionId).stream()
             .filter(enrollment -> enrollment.getStatus() == ACTIVE)
-            .map(Enrollment::getUserId)
-            .collect(Collectors.toSet());
-        if (enrolled.isEmpty()) {
-            return enrolled;
+            .collect(Collectors.toMap(Enrollment::getUserId, enrollment -> enrollment, (a, b) -> a));
+        if (enrollments.isEmpty()) {
+            return new Roster(enrollments, Map.of());
         }
-        Set<String> activeUsers = userRepository.findAllByStudentNumberIn(List.copyOf(enrolled)).stream()
-            .map(User::getStudentNumber)
-            .collect(Collectors.toSet());
-        enrolled.retainAll(activeUsers);
-        return enrolled;
+        Map<String, User> users = userRepository.findAllByStudentNumberIn(List.copyOf(enrollments.keySet())).stream()
+            .collect(Collectors.toMap(User::getStudentNumber, user -> user, (a, b) -> a));
+        enrollments.keySet().retainAll(users.keySet());
+        return new Roster(enrollments, users);
+    }
+
+    // 전화번호의 기준 데이터는 User.phone 하나다 — 연락처 조회 API도, 수강명단 임포트도 이미
+    // 여기를 쓴다. 팀에 따로 복사해두면 두 값이 갈라지고 올린 값이 조회 화면에 안 보이므로,
+    // 팀명단 시트의 연락처는 계정 연락처를 갱신한다. 학년은 팀 편성과 수명이 다른 수강생
+    // 속성이라 Enrollment에 둔다(팀을 옮기거나 빠졌다 돌아와도 값이 유지된다).
+    private void saveContacts(List<PlannedRow> rows, Roster roster) {
+        for (PlannedRow row : rows) {
+            if (row.phoneNumber() != null) {
+                User user = roster.users().get(row.studentNumber());
+                user.updatePhone(row.phoneNumber());
+                userRepository.save(user);
+            }
+            if (row.grade() != null) {
+                Enrollment enrollment = roster.enrollments().get(row.studentNumber());
+                enrollment.updateGrade(row.grade());
+                enrollmentRepository.save(enrollment);
+            }
+        }
     }
 
     private List<TeamImportRow> validate(Long sectionId, List<TeamImportRow> rows) {
-        Set<String> enrolled = activeEnrollments(sectionId);
+        Roster roster = roster(sectionId);
 
         List<Team> teams = teamRepository.findAllBySectionId(sectionId);
         Map<Long, String> teamNames = teams.stream()
@@ -307,12 +336,12 @@ public class TeamImportFacade {
         // 팀장 충돌은 행 하나만 봐서는 알 수 없으므로, 나머지 사유로 먼저 분류한 뒤 파일 전체를 놓고 판정한다
         Set<String> seenNumbers = new HashSet<>();
         List<TeamImportRow> classified = rows.stream()
-            .map(row -> classify(row, enrolled, assignedOf, teamNames, seenNumbers))
+            .map(row -> classify(row, roster, assignedOf, teamNames, seenNumbers))
             .toList();
         return resolveLeaders(classified, leaderOf);
     }
 
-    private TeamImportRow classify(TeamImportRow row, Set<String> enrolled, Map<String, TeamMember> assignedOf,
+    private TeamImportRow classify(TeamImportRow row, Roster roster, Map<String, TeamMember> assignedOf,
         Map<Long, String> teamNames, Set<String> seenNumbers) {
         if (row.status() == INVALID) {
             return row;
@@ -320,7 +349,7 @@ public class TeamImportFacade {
         if (!seenNumbers.add(row.studentNumber())) {
             return row.with(INVALID, "파일 안에 중복된 학번입니다.");
         }
-        if (!enrolled.contains(row.studentNumber())) {
+        if (!roster.contains(row.studentNumber())) {
             return row.with(INVALID, "해당 분반에 수강 등록되지 않은 학생입니다.");
         }
         TeamMember assigned = assignedOf.get(row.studentNumber());
@@ -333,8 +362,8 @@ public class TeamImportFacade {
             if (assigned.isLeader() == row.leader()
                 && Objects.toString(assigned.getProjectRole(), "")
                     .equals(Objects.toString(row.projectRole(), ""))
-                && keeps(assigned.getPhoneNumber(), row.phoneNumber())
-                && keeps(assigned.getGrade(), row.grade())) {
+                && keeps(roster.phoneOf(row.studentNumber()), row.phoneNumber())
+                && keeps(roster.gradeOf(row.studentNumber()), row.grade())) {
                 return row.with(DUPLICATE, "이미 이 팀에 편성되어 있습니다.");
             }
             return row.with(UPDATE, "팀장·역할·전화번호·학년이 바뀌어 갱신 예정입니다.");

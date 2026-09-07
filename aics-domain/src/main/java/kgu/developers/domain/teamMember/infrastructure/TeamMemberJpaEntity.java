@@ -44,12 +44,6 @@ public class TeamMemberJpaEntity extends BaseTimeEntity {
   @Column(nullable = false, length = 50)
   private String projectRole;
 
-  @Column(length = 20)
-  private String phoneNumber;
-
-  @Column(length = 10)
-  private String grade;
-
   public TeamMember toDomain() {
     return TeamMember.builder()
         .id(id)
@@ -58,8 +52,6 @@ public class TeamMemberJpaEntity extends BaseTimeEntity {
         .userId(user.getStudentNumber())
         .isLeader(isLeader)
         .projectRole(projectRole)
-        .phoneNumber(phoneNumber)
-        .grade(grade)
         .createdAt(getCreatedAt())
         .updatedAt(getUpdatedAt())
         .deletedAt(getDeletedAt())
@@ -74,8 +66,6 @@ public class TeamMemberJpaEntity extends BaseTimeEntity {
         .user(user)
         .isLeader(teamMember.isLeader())
         .projectRole(teamMember.getProjectRole())
-        .phoneNumber(teamMember.getPhoneNumber())
-        .grade(teamMember.getGrade())
         .build();
     entity.createdAt = teamMember.getCreatedAt();
     entity.setDeletedAt(teamMember.getDeletedAt());

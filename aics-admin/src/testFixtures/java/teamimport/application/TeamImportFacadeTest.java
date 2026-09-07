@@ -115,6 +115,17 @@ public class TeamImportFacadeTest {
         .willReturn(Optional.of(mock(Section.class)));
   }
 
+  /** 전화번호·학년의 기준 데이터인 계정·수강 정보를 지정한 값으로 바꾼다. */
+  private void givenRoster(String studentNumber, String phone, String grade) {
+    given(userRepository.findAllByStudentNumberIn(any())).willReturn(List.of(user(ASSISTANT),
+        User.create(studentNumber, studentNumber + "@kyonggi.ac.kr", "이름", "password",
+            UserGlobalRole.USER, phone)));
+    given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
+        Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE),
+        Enrollment.builder().sectionId(SECTION_ID).userId(studentNumber).role(Role.STUDENT)
+            .status(Status.ACTIVE).grade(grade).build()));
+  }
+
   private User user(String studentNumber) {
     return User.create(studentNumber, studentNumber + "@kyonggi.ac.kr", "이름", "password",
         UserGlobalRole.USER, "010-0000-0000");
@@ -175,7 +186,8 @@ public class TeamImportFacadeTest {
     Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
     given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
-        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드", "010-1111-2222", "3")));
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드")));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
 
     // when: 팀장·역할은 그대로고 전화번호만 바뀐다
     TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
@@ -208,7 +220,8 @@ public class TeamImportFacadeTest {
     Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
     given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
-        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드", "010-1111-2222", "3")));
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드")));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
 
     // when
     TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
@@ -386,8 +399,9 @@ public class TeamImportFacadeTest {
     // given
     Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
     given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
-    TeamMember member = TeamMember.create(10L, STUDENT_A, false, "백엔드", "010-1111-2222", "3");
-    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(member));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드")));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
     TeamImportRow blank = new TeamImportRow(2, "1팀", STUDENT_A, "이름", true, "프론트", "", "",
         RowStatus.UPDATE, null);
     given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, List.of(blank))));
@@ -395,12 +409,12 @@ public class TeamImportFacadeTest {
     // when
     facade.apply(1L, ASSISTANT);
 
-    // then
+    // then: 팀원 정보만 갱신하고 기준 데이터(계정 연락처·수강 학년)는 건드리지 않는다
     ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
     verify(teamMemberRepository).save(captor.capture());
     assertThat(captor.getValue().getProjectRole()).isEqualTo("프론트");
-    assertThat(captor.getValue().getPhoneNumber()).isEqualTo("010-1111-2222");
-    assertThat(captor.getValue().getGrade()).isEqualTo("3");
+    verify(userRepository, never()).save(any());
+    verify(enrollmentRepository, never()).save(any());
   }
 
   @Test
@@ -537,9 +551,9 @@ public class TeamImportFacadeTest {
     given(teamRepository.findAllBySectionId(SECTION_ID))
         .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
     TeamMember removed = TeamMember.builder().id(5L).teamId(10L).userId(STUDENT_A)
-        .isLeader(false).projectRole("").phoneNumber("010-1111-2222").grade("3")
-        .deletedAt(LocalDateTime.now().minusDays(1)).build();
+        .isLeader(false).projectRole("").deletedAt(LocalDateTime.now().minusDays(1)).build();
     given(teamMemberRepository.findIncludingDeleted(10L, STUDENT_A)).willReturn(Optional.of(removed));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
     ImportBatch batch = batch(0, List.of(row(2, "1팀", STUDENT_A, false, "백엔드", RowStatus.VALID)));
     given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
 
@@ -551,8 +565,8 @@ public class TeamImportFacadeTest {
     verify(teamMemberRepository).save(captor.capture());
     assertThat(captor.getValue().getDeletedAt()).isNull();
     assertThat(captor.getValue().getProjectRole()).isEqualTo("백엔드");
-    assertThat(captor.getValue().getPhoneNumber()).isEqualTo("010-1111-2222");
-    assertThat(captor.getValue().getGrade()).isEqualTo("3");
+    verify(userRepository, never()).save(any());
+    verify(enrollmentRepository, never()).save(any());
   }
 
   @Test
@@ -608,8 +622,8 @@ public class TeamImportFacadeTest {
   }
 
   @Test
-  @DisplayName("apply는 새 팀원의 전화번호·학년을 저장한다")
-  public void apply_SavesPhoneNumberAndGrade() {
+  @DisplayName("apply는 전화번호를 계정에, 학년을 수강 정보에 반영한다")
+  public void apply_SavesPhoneToUserAndGradeToEnrollment() {
     // given
     given(teamRepository.findAllBySectionId(SECTION_ID))
         .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
@@ -621,10 +635,15 @@ public class TeamImportFacadeTest {
     facade.apply(1L, ASSISTANT);
 
     // then
-    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
-    verify(teamMemberRepository).save(captor.capture());
-    assertThat(captor.getValue().getPhoneNumber()).isEqualTo("010-1234-5678");
-    assertThat(captor.getValue().getGrade()).isEqualTo("3");
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getStudentNumber()).isEqualTo(STUDENT_A);
+    assertThat(userCaptor.getValue().getPhone()).isEqualTo("010-1234-5678");
+
+    ArgumentCaptor<Enrollment> enrollmentCaptor = ArgumentCaptor.forClass(Enrollment.class);
+    verify(enrollmentRepository).save(enrollmentCaptor.capture());
+    assertThat(enrollmentCaptor.getValue().getUserId()).isEqualTo(STUDENT_A);
+    assertThat(enrollmentCaptor.getValue().getGrade()).isEqualTo("3");
   }
 
   @Test
