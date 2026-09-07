@@ -18,8 +18,9 @@ public final class TeamSheetReader {
     private static final List<String> LEADER_MARKS =
         List.of("Y", "y", "O", "o", "TRUE", "true", "1", "팀장", "리더");
     
+    // 하이픈은 있어도 없어도 된다(-?). 하이픈 없는 표기는 이 분기들이 그대로 커버한다
     private static final Pattern PHONE_PATTERN = Pattern.compile(
-        "^(01[016789]-?\\d{3,4}-?\\d{4}|02-?\\d{3,4}-?\\d{4}|0[3-9][0-9]-?\\d{3,4}-?\\d{4}|01[016789]\\d{7,8}|02\\d{7,8}|0[3-9][0-9]\\d{7,8})$"
+        "^(01[016789]|02|0[3-9][0-9])-?\\d{3,4}-?\\d{4}$"
     );
 
     private static final Pattern GRADE_PATTERN = Pattern.compile("^[1-4](학년)?$");
