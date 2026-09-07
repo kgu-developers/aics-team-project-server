@@ -1,6 +1,7 @@
 package kgu.developers.domain.preSurveyResponse.application.query;
 
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 import static kgu.developers.domain.enrollment.domain.Role.STUDENT;
 import static kgu.developers.domain.enrollment.domain.Status.ACTIVE;
@@ -46,12 +47,11 @@ public class PreSurveyResponseQueryService {
 				.collect(toMap(PreSurveyResponse::getUserId, identity(),
 						(a, b) -> a.getId() >= b.getId() ? a : b));
 
-		// 수강생 명단이 기준이지만, 수강 철회 등으로 명단에서 빠진 학생의 응답까지 잃지 않도록 합집합을 쓴다.
-		TreeSet<String> userIds = new TreeSet<>(responseByUserId.keySet());
-		enrollmentRepository.findAllBySectionId(sectionId).stream()
+		// 현재 수강 중인 학생만 기준으로 삼는다. 조교나 수강 철회 학생이 남긴 응답은 결과에서 제외된다.
+		TreeSet<String> userIds = enrollmentRepository.findAllBySectionId(sectionId).stream()
 				.filter(enrollment -> enrollment.getStatus() == ACTIVE && enrollment.getRole() == STUDENT)
 				.map(Enrollment::getUserId)
-				.forEach(userIds::add);
+				.collect(toCollection(TreeSet::new));
 
 		Map<String, String> nameByUserId = userRepository.findAllByStudentNumberIn(List.copyOf(userIds)).stream()
 				.collect(toMap(User::getStudentNumber, User::getName));
