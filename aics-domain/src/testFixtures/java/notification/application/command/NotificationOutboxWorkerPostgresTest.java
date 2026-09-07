@@ -120,9 +120,13 @@ class NotificationOutboxWorkerPostgresTest {
     }
 
     private Long saveOutbox(String userId) {
+        return saveOutbox(userId, NotificationType.SECTION_ANNOUNCEMENT);
+    }
+
+    private Long saveOutbox(String userId, NotificationType type) {
         return outboxRepository.save(NotificationOutbox.builder()
             .userId(userId)
-            .type(NotificationType.SECTION_ANNOUNCEMENT)
+            .type(type)
             .sourceId(1L)
             .title("조원 지목 요청")
             .message("김철수 님이 회원님을 조원으로 지목했습니다.")
@@ -153,6 +157,19 @@ class NotificationOutboxWorkerPostgresTest {
                 assertThat(saved.getTitle()).isEqualTo("조원 지목 요청");
                 assertThat(saved.isRead()).isFalse();
             });
+    }
+
+    @Test
+    @DisplayName("모든 알림 타입이 아웃박스에 저장되고 알림까지 처리된다")
+    void everyTypeIsPersistedAndProcessed() {
+        for (NotificationType type : NotificationType.values()) {
+            worker.process(saveOutbox("20230001", type));
+        }
+
+        assertThat(jpaOutboxRepository.findAll()).isEmpty();
+        assertThat(jpaNotificationRepository.findAll())
+            .extracting(NotificationJpaEntity::getType)
+            .containsExactlyInAnyOrder(NotificationType.values());
     }
 
     @Test

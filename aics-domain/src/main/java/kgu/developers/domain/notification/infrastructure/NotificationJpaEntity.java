@@ -33,7 +33,8 @@ public class NotificationJpaEntity extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false, length = 20)
     private String userId;
 
-    @Column(nullable = false, length = 30)
+    // 가장 긴 enum 이름이 35자(PRE_SURVEY_PREFERRED_PEER_REQUESTED)라 30이면 저장에서 터진다.
+    @Column(nullable = false, length = 50)
     @Enumerated(STRING)
     private NotificationType type;
 

@@ -33,7 +33,7 @@ public class NotificationOutboxJpaEntity {
     @Column(name = "user_id", nullable = false, length = 20)
     private String userId;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 50)
     @Enumerated(STRING)
     private NotificationType type;
 
