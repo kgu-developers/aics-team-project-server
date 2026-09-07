@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.stream.StreamSupport;
 
 import org.apache.poi.ss.SpreadsheetVersion;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -33,6 +35,8 @@ public final class PreSurveyResponseExcelWriter {
     // 값은 잘라 넣고 잘렸다는 사실을 셀에 남긴다. 원문은 목록 조회 API로 확인할 수 있다.
     private static final int MAX_CELL_LENGTH = SpreadsheetVersion.EXCEL2007.getMaxTextLength();
     private static final String TRUNCATED_MARK = "…(이하 생략)";
+    // 학생이 자유롭게 적는 값이라 =HYPERLINK(...)처럼 수식으로 읽힐 수 있는 문자로 시작할 수 있다.
+    private static final String FORMULA_STARTERS = "=+-@";
 
     private PreSurveyResponseExcelWriter() {
     }
@@ -40,6 +44,8 @@ public final class PreSurveyResponseExcelWriter {
     public static byte[] write(List<PreSurveyResponseRow> rows) {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("사전조사 응답");
+            CellStyle textStyle = workbook.createCellStyle();
+            textStyle.setQuotePrefixed(true);
 
             Row header = sheet.createRow(0);
             for (int i = 0; i < HEADERS.length; i++) {
@@ -50,17 +56,16 @@ public final class PreSurveyResponseExcelWriter {
             for (PreSurveyResponseRow source : rows) {
                 Row row = sheet.createRow(rowNumber++);
                 row.createCell(0).setCellValue(source.userId());
-                row.createCell(1).setCellValue(
-                        fit(source.name() == null ? WITHDRAWN_USER_NAME : source.name()));
+                writeText(row, 1, source.name() == null ? WITHDRAWN_USER_NAME : source.name(), textStyle);
 
                 PreSurveyResponse response = source.response();
                 if (response == null) {
                     row.createCell(5).setCellValue(NOT_SUBMITTED);
                     continue;
                 }
-                row.createCell(2).setCellValue(fit(preferredRoles(response.getPreferredRoles())));
-                row.createCell(3).setCellValue(fit(response.getTopicOpinion()));
-                row.createCell(4).setCellValue(fit(response.getEtcOpinion()));
+                writeText(row, 2, preferredRoles(response.getPreferredRoles()), textStyle);
+                writeText(row, 3, response.getTopicOpinion(), textStyle);
+                writeText(row, 4, response.getEtcOpinion(), textStyle);
                 row.createCell(5).setCellValue(response.getSubmittedAt().format(SUBMITTED_AT_FORMATTER));
             }
 
@@ -68,6 +73,19 @@ public final class PreSurveyResponseExcelWriter {
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    // 학생·사용자가 입력한 값이 들어가는 칸은 모두 이 경로로 쓴다. 길이를 셀 한도에 맞추고,
+    // 수식으로 읽힐 수 있는 문자로 시작하면 인용 접두(quotePrefix) 스타일을 줘서 엑셀이 항상
+    // 텍스트로 다루게 한다. 따옴표를 값에 직접 붙이지 않으므로 "- 금요일 회의 어려움" 같은
+    // 정상 입력이 화면에서 지저분해지지 않는다.
+    private static void writeText(Row row, int column, String value, CellStyle textStyle) {
+        Cell cell = row.createCell(column);
+        String text = fit(value);
+        cell.setCellValue(text);
+        if (text != null && !text.isEmpty() && FORMULA_STARTERS.indexOf(text.charAt(0)) >= 0) {
+            cell.setCellStyle(textStyle);
         }
     }
 
