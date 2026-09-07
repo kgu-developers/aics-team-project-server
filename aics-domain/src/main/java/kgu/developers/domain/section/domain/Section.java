@@ -5,9 +5,12 @@ import kgu.developers.domain.section.exception.InvalidCapacityException;
 import kgu.developers.domain.section.exception.InvalidContactVisiblePeriodException;
 import lombok.*;
 
+import static java.util.stream.Collectors.joining;
 import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 @Getter
 @Builder
@@ -19,8 +22,7 @@ public class Section {
   private String professorId; // 교수 학번
   private Long courseId; // 강좌 id
 
-  private String code; // 과목 코드
-  private String name; // 분반명
+  private String code; // 과목번호
   private String classTime; // 수업시간
   private Integer capacity; // 정원
 
@@ -31,18 +33,24 @@ public class Section {
   private LocalDateTime updatedAt;
   private LocalDateTime deletedAt;
 
-  public static Section create(String professorId, Long courseId, String code, String name, String classTime,
+  public static Section create(String professorId, Long courseId, String code, String classTime,
       Integer capacity, LocalDateTime contactVisibleFrom, LocalDateTime contactVisibleUntil) {
     Section section = Section.builder()
         .professorId(professorId)
         .courseId(courseId)
         .code(code)
-        .name(name)
         .classTime(classTime)
         .build();
     section.updateCapacity(capacity);
     section.updateContactVisiblePeriod(contactVisibleFrom, contactVisibleUntil);
     return section;
+  }
+
+  /** 요일·시간/과목번호 표시 문자열. 응답과 레거시 section.name 컬럼이 함께 쓴다. */
+  public String getName() {
+    return Stream.of(classTime, code)
+        .filter(Objects::nonNull)
+        .collect(joining("/"));
   }
 
   public void updateProfessorId(String professorId) {
@@ -55,10 +63,6 @@ public class Section {
 
   public void updateCode(String code) {
     this.code = code;
-  }
-
-  public void updateName(String name) {
-    this.name = name;
   }
 
   public void updateClassTime(String classTime) {

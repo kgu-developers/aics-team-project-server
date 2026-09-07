@@ -81,8 +81,7 @@ class SectionAdminControllerTest {
                 .id(1L)
                 .professorId(PROFESSOR_ID)
                 .courseId(1L)
-                .code("CS101")
-                .name("01분반")
+                .code("1154")
                 .classTime("월3,4")
                 .capacity(40)
                 .contactVisibleFrom(FROM)
@@ -104,7 +103,7 @@ class SectionAdminControllerTest {
     @DisplayName("POST /sections는 201과 생성된 분반 ID를 응답한다")
     void createSection() throws Exception {
         SectionAdminRequest request =
-                new SectionAdminRequest(PROFESSOR_ID, 1L, "CS101", "01분반", "월3,4", 40, FROM, UNTIL);
+                new SectionAdminRequest(PROFESSOR_ID, 1L, "1154", "월3,4", 40, FROM, UNTIL);
         given(sectionAdminFacade.createSection(request)).willReturn(SectionAdminPersistResponse.of(1L));
 
         mockMvc.perform(post(BASE_URL)
@@ -121,7 +120,7 @@ class SectionAdminControllerTest {
 
         mockMvc.perform(get(BASE_URL + "/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("CS101"))
+                .andExpect(jsonPath("$.code").value("1154"))
                 .andExpect(jsonPath("$.professor.studentNumber").value(PROFESSOR_ID))
                 .andExpect(jsonPath("$.course.name").value("객체지향프로그래밍"));
     }
@@ -227,7 +226,7 @@ class SectionAdminControllerTest {
     @DisplayName("PATCH /sections/{sectionId}는 200과 수정된 분반을 응답한다")
     void updateSection() throws Exception {
         SectionAdminUpdateRequest request =
-                new SectionAdminUpdateRequest(null, null, null, "02분반", null, null);
+                new SectionAdminUpdateRequest(null, null, null, "화5,6", null);
         given(sectionAdminFacade.updateSection(eq(1L), eq(request))).willReturn(response());
 
         mockMvc.perform(patch(BASE_URL + "/1")

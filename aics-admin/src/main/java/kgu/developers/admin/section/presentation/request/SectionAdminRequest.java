@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public record SectionAdminRequest(
     @Schema(description = "교수 학번", example = "202699999", requiredMode = REQUIRED)
@@ -18,16 +19,14 @@ public record SectionAdminRequest(
     @NotNull
     Long courseId,
 
-    @Schema(description = "과목 코드", example = "CS101", requiredMode = REQUIRED)
+    @Schema(description = "과목번호", example = "1154", requiredMode = REQUIRED)
     @NotBlank
+    @Size(max = 50)
     String code,
-
-    @Schema(description = "분반명", example = "01", requiredMode = REQUIRED)
-    @NotBlank
-    String name,
 
     @Schema(description = "수업시간", example = "월123", requiredMode = REQUIRED)
     @NotBlank
+    @Size(max = 100)
     String classTime,
 
     @Schema(description = "정원", example = "40", requiredMode = REQUIRED)

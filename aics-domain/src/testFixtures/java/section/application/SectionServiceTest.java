@@ -75,7 +75,7 @@ class SectionServiceTest {
             "encoded", UserGlobalRole.USER, "010-1111-1111");
 
     private Section section() {
-        return Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null);
+        return Section.create("202012345", 1L, "1154", "월3,4", 40, null, null);
     }
 
     private SectionDetail sectionDetail() {
@@ -90,7 +90,7 @@ class SectionServiceTest {
         given(sectionRepository.save(any(Section.class))).willReturn(
                 Section.builder().id(10L).courseId(1L).build());
 
-        assertThat(commandService.createSection("202012345", 1L, "CS101", "01분반", "월3,4", 40, null, null))
+        assertThat(commandService.createSection("202012345", 1L, "1154", "월3,4", 40, null, null))
                 .isEqualTo(10L);
     }
 
@@ -100,7 +100,7 @@ class SectionServiceTest {
         given(courseRepository.findById(99L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                commandService.createSection("202012345", 99L, "CS101", "01분반", "월3,4", 40, null, null))
+                commandService.createSection("202012345", 99L, "1154", "월3,4", 40, null, null))
                 .isInstanceOf(CourseNotFoundException.class);
 
         verify(sectionRepository, never()).save(any());
@@ -113,7 +113,7 @@ class SectionServiceTest {
         given(userRepository.findByStudentNumber("999999999")).willReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                commandService.createSection("999999999", 1L, "CS101", "01분반", "월3,4", 40, null, null))
+                commandService.createSection("999999999", 1L, "1154", "월3,4", 40, null, null))
                 .isInstanceOf(UserNotFoundException.class);
 
         verify(sectionRepository, never()).save(any());
@@ -126,7 +126,7 @@ class SectionServiceTest {
         given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(student));
 
         assertThatThrownBy(() ->
-                commandService.createSection("202099999", 1L, "CS101", "01분반", "월3,4", 40, null, null))
+                commandService.createSection("202099999", 1L, "1154", "월3,4", 40, null, null))
                 .isInstanceOf(ProfessorRoleRequiredException.class);
 
         verify(sectionRepository, never()).save(any());
@@ -139,13 +139,12 @@ class SectionServiceTest {
         given(courseRepository.findById(2L)).willReturn(Optional.of(course));
         given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(professor));
 
-        commandService.updateSection(section, "202099999", 2L, "CS102", "02분반", "화5,6", 30,
+        commandService.updateSection(section, "202099999", 2L, "CS102", "화5,6", 30,
                 LocalDateTime.of(2026, 3, 2, 0, 0), LocalDateTime.of(2026, 6, 20, 18, 0));
 
         assertThat(section.getProfessorId()).isEqualTo("202099999");
         assertThat(section.getCourseId()).isEqualTo(2L);
         assertThat(section.getCode()).isEqualTo("CS102");
-        assertThat(section.getName()).isEqualTo("02분반");
         assertThat(section.getClassTime()).isEqualTo("화5,6");
         assertThat(section.getCapacity()).isEqualTo(30);
         assertThat(section.getContactVisibleFrom()).isEqualTo(LocalDateTime.of(2026, 3, 2, 0, 0));
@@ -158,13 +157,12 @@ class SectionServiceTest {
     void updatesOnlyGivenFields() {
         Section section = section();
 
-        commandService.updateSection(section, null, null, null, "02분반", null, null, null, null);
+        commandService.updateSection(section, null, null, null, "화5,6", null, null, null);
 
-        assertThat(section.getName()).isEqualTo("02분반");
+        assertThat(section.getClassTime()).isEqualTo("화5,6");
         assertThat(section.getProfessorId()).isEqualTo("202012345");
         assertThat(section.getCourseId()).isEqualTo(1L);
-        assertThat(section.getCode()).isEqualTo("CS101");
-        assertThat(section.getClassTime()).isEqualTo("월3,4");
+        assertThat(section.getCode()).isEqualTo("1154");
         assertThat(section.getCapacity()).isEqualTo(40);
         verify(sectionRepository).save(section);
     }
@@ -173,9 +171,9 @@ class SectionServiceTest {
     @DisplayName("연락처 공개 기간을 통째로 뒤로 옮기는 수정이 허용된다")
     void shiftsContactVisiblePeriodForward() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+        Section section = Section.create("202012345", 1L, "1154", "월3,4", 40, from, from.plusDays(1));
 
-        commandService.updateSection(section, null, null, null, null, null, null,
+        commandService.updateSection(section, null, null, null, null, null,
                 from.plusDays(2), from.plusDays(3));
 
         assertThat(section.getContactVisibleFrom()).isEqualTo(from.plusDays(2));
@@ -186,9 +184,9 @@ class SectionServiceTest {
     @DisplayName("한쪽만 수정해도 기존 값과의 역전은 거부된다")
     void rejectsReversedContactVisiblePeriodOnPartialUpdate() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+        Section section = Section.create("202012345", 1L, "1154", "월3,4", 40, from, from.plusDays(1));
 
-        assertThatThrownBy(() -> commandService.updateSection(section, null, null, null, null, null, null,
+        assertThatThrownBy(() -> commandService.updateSection(section, null, null, null, null, null,
                 from.plusDays(5), null))
                 .isInstanceOf(InvalidContactVisiblePeriodException.class);
 
@@ -204,11 +202,11 @@ class SectionServiceTest {
         given(userRepository.findByStudentNumber("999999999")).willReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                commandService.updateSection(section, "999999999", 1L, "CS102", "02분반", "화5,6", 30, null, null))
+                commandService.updateSection(section, "999999999", 1L, "CS102", "화5,6", 30, null, null))
                 .isInstanceOf(UserNotFoundException.class);
 
         assertThat(section.getProfessorId()).isEqualTo("202012345");
-        assertThat(section.getCode()).isEqualTo("CS101");
+        assertThat(section.getCode()).isEqualTo("1154");
         verify(sectionRepository, never()).save(any());
     }
 
@@ -220,11 +218,11 @@ class SectionServiceTest {
         given(userRepository.findByStudentNumber("202099999")).willReturn(Optional.of(student));
 
         assertThatThrownBy(() ->
-                commandService.updateSection(section, "202099999", 1L, "CS102", "02분반", "화5,6", 30, null, null))
+                commandService.updateSection(section, "202099999", 1L, "CS102", "화5,6", 30, null, null))
                 .isInstanceOf(ProfessorRoleRequiredException.class);
 
         assertThat(section.getProfessorId()).isEqualTo("202012345");
-        assertThat(section.getCode()).isEqualTo("CS101");
+        assertThat(section.getCode()).isEqualTo("1154");
         verify(sectionRepository, never()).save(any());
     }
 
@@ -235,7 +233,7 @@ class SectionServiceTest {
         given(courseRepository.findById(99L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                commandService.updateSection(section, "202012345", 99L, "CS102", "02분반", "화5,6", 30, null, null))
+                commandService.updateSection(section, "202012345", 99L, "CS102", "화5,6", 30, null, null))
                 .isInstanceOf(CourseNotFoundException.class);
 
         assertThat(section.getCourseId()).isEqualTo(1L);
@@ -285,7 +283,7 @@ class SectionServiceTest {
     @DisplayName("연락처 공개 기간을 역전시키는 변경은 거부되고 저장되지 않는다")
     void rejectsReversedContactVisiblePeriodOnChange() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+        Section section = Section.create("202012345", 1L, "1154", "월3,4", 40, from, from.plusDays(1));
 
         assertThatThrownBy(() -> commandService.changeContactVisiblePeriod(section, from.plusDays(5), from))
                 .isInstanceOf(InvalidContactVisiblePeriodException.class);
@@ -299,7 +297,7 @@ class SectionServiceTest {
     @DisplayName("연락처 공개 기간을 양쪽 null로 지우면 저장된다")
     void clearsContactVisiblePeriod() {
         LocalDateTime from = LocalDateTime.of(2026, 3, 1, 9, 0);
-        Section section = Section.create("202012345", 1L, "CS101", "01분반", "월3,4", 40, from, from.plusDays(1));
+        Section section = Section.create("202012345", 1L, "1154", "월3,4", 40, from, from.plusDays(1));
 
         commandService.changeContactVisiblePeriod(section, null, null);
 
