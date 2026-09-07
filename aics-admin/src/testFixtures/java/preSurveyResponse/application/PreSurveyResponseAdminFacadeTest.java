@@ -124,4 +124,30 @@ class PreSurveyResponseAdminFacadeTest {
                 .extracting(r -> r.userId() + ":" + r.preferredPeerName() + ":" + r.mutual())
                 .containsExactly("A:이영희:true", "B:김철수:true", "C:김철수:true", "D:김철수:false");
     }
+
+    @Test
+    @DisplayName("서로 지목했지만 한쪽이 거절하면 mutual 이 false다")
+    void getResponsesBySection_RejectionBreaksMutualNominations() throws Exception {
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, PROFESSOR)).willReturn(true);
+        JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+        // A <-> B 는 서로 지목하지만 B 가 A 를 거절, C 는 A 를 지목하고 A 가 C 를 거절
+        PreSurveyResponse responseA = preSurveyResponseRepository.save(PreSurveyResponse.create("A", Long.valueOf(2L), roles, null, null, "B"));
+        PreSurveyResponse responseB = preSurveyResponseRepository.save(PreSurveyResponse.create("B", Long.valueOf(2L), roles, null, null, "A"));
+        responseB.decidePreferredPeer(false); // B가 A를 거절
+        preSurveyResponseRepository.save(responseB);
+        PreSurveyResponse responseC = preSurveyResponseRepository.save(PreSurveyResponse.create("C", Long.valueOf(2L), roles, null, null, "A"));
+        responseA.decidePreferredPeer(false); // A가 C를 거절
+        preSurveyResponseRepository.save(responseA);
+        preSurveyResponseRepository.save(responseC);
+        given(userQueryService.getUsersByStudentNumbers(List.of("A", "B", "C"))).willReturn(List.of(
+                User.create("A", "a@kyonggi.ac.kr", "김철수", "password", UserGlobalRole.USER, null),
+                User.create("B", "b@kyonggi.ac.kr", "이영희", "password", UserGlobalRole.USER, null),
+                User.create("C", "c@kyonggi.ac.kr", "박민수", "password", UserGlobalRole.USER, null)));
+
+        PreSurveyResponseAdminListResponse response = preSurveyResponseAdminFacade.getResponsesBySection(2L, PROFESSOR);
+
+        assertThat(response.contents())
+                .extracting(r -> r.userId() + ":" + r.preferredPeerName() + ":" + r.mutual())
+                .containsExactly("A:이영희:false", "B:김철수:false", "C:김철수:false");
+    }
 }

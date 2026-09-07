@@ -28,11 +28,9 @@ public record PreSurveyResponseAdminListResponse(
         Map<String, String> names = users.stream()
                 .collect(toMap(User::getStudentNumber, User::getName));
 
-        // 서로 지목: 내가 지목한 학생의 응답이 다시 나를 지목하고 있으면 true. 분반 단위 목록이라 메모리에서 맞춘다.
-        Map<String, String> preferredPeerByUser = responses.stream()
-                .filter(response -> response.getPreferredPeerUserId() != null)
-                .collect(toMap(PreSurveyResponse::getUserId, PreSurveyResponse::getPreferredPeerUserId,
-                        (first, second) -> first));
+        // 매칭 판정에 상대 응답의 지목 대상과 수락·거절 상태가 모두 필요하다. 분반 단위 목록이라 메모리에서 맞춘다.
+        Map<String, PreSurveyResponse> responseByUser = responses.stream()
+                .collect(toMap(PreSurveyResponse::getUserId, response -> response, (first, second) -> first));
 
         return PreSurveyResponseAdminListResponse.builder()
                 .contents(responses.stream()
@@ -40,7 +38,7 @@ public record PreSurveyResponseAdminListResponse(
                                 response,
                                 names.getOrDefault(response.getUserId(), WITHDRAWN_USER_NAME),
                                 peerName(response, names),
-                                isMutual(response, preferredPeerByUser)))
+                                isMutual(response, responseByUser)))
                         .toList())
                 .build();
     }
@@ -52,14 +50,22 @@ public record PreSurveyResponseAdminListResponse(
         return names.getOrDefault(response.getPreferredPeerUserId(), WITHDRAWN_USER_NAME);
     }
 
-    private static boolean isMutual(PreSurveyResponse response, Map<String, String> preferredPeerByUser) {
+    private static boolean isMutual(PreSurveyResponse response, Map<String, PreSurveyResponse> responseByUser) {
         String peer = response.getPreferredPeerUserId();
         if (peer == null) {
             return false;
         }
-        // 서로 지목했거나, 한쪽이 수락한 경우
-        boolean mutuallyNominated = Objects.equals(preferredPeerByUser.get(peer), response.getUserId());
-        boolean accepted = response.getPreferredPeerStatus() == PreferredPeerStatus.ACCEPTED;
-        return mutuallyNominated || accepted;
+        if (response.getPreferredPeerStatus() == PreferredPeerStatus.ACCEPTED) {
+            return true;   // 내가 지목한 학생이 수락했다
+        }
+        if (response.getPreferredPeerStatus() == PreferredPeerStatus.REJECTED) {
+            return false;  // 거절당했으면 상대가 나를 지목했더라도 매칭이 아니다
+        }
+        // 아직 대기 중이면 서로 지목이 매칭 근거인데, 내 지목이 거절됐거나 상대 쪽 지목이 거절됐으면 매칭이 아니다.
+        PreSurveyResponse peerResponse = responseByUser.get(peer);
+        return peerResponse != null
+                && Objects.equals(peerResponse.getPreferredPeerUserId(), response.getUserId())
+                && peerResponse.getPreferredPeerStatus() != PreferredPeerStatus.REJECTED
+                && response.getPreferredPeerStatus() != PreferredPeerStatus.REJECTED;
     }
 }
