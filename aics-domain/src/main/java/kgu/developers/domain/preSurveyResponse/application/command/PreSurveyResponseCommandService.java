@@ -1,5 +1,7 @@
 package kgu.developers.domain.preSurveyResponse.application.command;
 
+import java.util.Objects;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,8 +39,6 @@ public class PreSurveyResponseCommandService {
   @Transactional
   public PreSurveyResponse submit(String userId, Long sectionId, JsonNode preferredRoles,
       String topicOpinion, String etcOpinion, String preferredPeerUserId) {
-    validatePreferredPeer(userId, sectionId, preferredPeerUserId);
-
     enrollmentRepository.findBySectionIdAndUserIdForUpdate(sectionId, userId)
         .orElseThrow(EnrollmentNotFoundException::new);
 
@@ -46,8 +46,12 @@ public class PreSurveyResponseCommandService {
         .orElse(null);
 
     String previousPeerUserId = existing == null ? null : existing.getPreferredPeerUserId();
-    kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus previousPeerStatus = 
-        existing == null ? null : existing.getPreferredPeerStatus();
+    PreferredPeerStatus previousPeerStatus = existing == null ? null : existing.getPreferredPeerStatus();
+
+    // 대상이 바뀔 때만 검증한다. 이미 지목한 상대가 나중에 수강 철회해도 의견만 고치는 재제출까지 막으면 안 된다.
+    if (!Objects.equals(previousPeerUserId, preferredPeerUserId)) {
+      validatePreferredPeer(userId, sectionId, preferredPeerUserId);
+    }
 
     PreSurveyResponse saved;
     if (existing != null) {
@@ -120,7 +124,7 @@ public class PreSurveyResponseCommandService {
    */
   private void createNotificationOutboxesForPeerChange(PreSurveyResponse saved, String previousPeerUserId, PreferredPeerStatus previousPeerStatus, String userId) {
     String peerUserId = saved.getPreferredPeerUserId();
-    if (java.util.Objects.equals(previousPeerUserId, peerUserId)) {
+    if (Objects.equals(previousPeerUserId, peerUserId)) {
       return;
     }
 

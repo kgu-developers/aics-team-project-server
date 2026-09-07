@@ -129,8 +129,8 @@ class PreSurveyResponseCommandServiceTest {
 	}
 
 	@Test
-	@DisplayName("지목 대상이 나중에 수강 철회하면 의견만 고치는 재제출도 막힌다")
-	void submit_RejectsResubmitAfterPeerWithdraws() throws Exception {
+	@DisplayName("지목 대상이 나중에 수강 철회해도 의견만 고치는 재제출은 통과한다")
+	void submit_AllowsResubmitAfterPeerWithdraws() throws Exception {
 		Enrollment peer = enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
 		userQueryService.save(kgu.developers.domain.user.domain.User.create(PEER_ID, "peer@test.com", "Peer User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
 		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
@@ -138,10 +138,26 @@ class PreSurveyResponseCommandServiceTest {
 
 		withdraw(peer);
 
-		// validatePreferredPeer 는 대상이 그대로여도 매번 돈다. 지목을 풀어야만(null) 재제출할 수 있다.
-		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, "의견 수정", null, PEER_ID))
+		PreSurveyResponse resubmitted = commandService.submit(USER_ID, SECTION_ID, roles, "의견 수정", null, PEER_ID);
+
+		assertThat(resubmitted.getTopicOpinion()).isEqualTo("의견 수정");
+		assertThat(resubmitted.getPreferredPeerUserId()).isEqualTo(PEER_ID);
+	}
+
+	@Test
+	@DisplayName("철회한 학생을 지목한 채로도 다른 학생으로 대상을 바꾸는 것은 검증을 탄다")
+	void submit_StillValidatesWhenPeerChangesAfterWithdrawal() throws Exception {
+		Enrollment peer = enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, Role.STUDENT, Status.ACTIVE));
+		userQueryService.save(kgu.developers.domain.user.domain.User.create(PEER_ID, "peer@test.com", "Peer User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
+		withdraw(peer);
+
+		// 대상이 바뀌면 새 대상은 검증한다
+		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, null, null, "202099999"))
 				.isInstanceOf(PreSurveyResponsePreferredPeerInvalidException.class);
-		assertThat(commandService.submit(USER_ID, SECTION_ID, roles, "의견 수정", null, null).getPreferredPeerUserId())
+		// 지목을 푸는 것은 언제나 된다
+		assertThat(commandService.submit(USER_ID, SECTION_ID, roles, null, null, null).getPreferredPeerUserId())
 				.isNull();
 	}
 
