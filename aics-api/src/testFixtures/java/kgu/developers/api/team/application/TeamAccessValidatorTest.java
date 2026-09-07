@@ -62,23 +62,23 @@ public class TeamAccessValidatorTest {
     }
 
     @Test
-    @DisplayName("validateTeamLeader는 팀장이면 예외를 던지지 않는다")
-    void validateTeamLeader_teamLeader_passes() {
-        assertDoesNotThrow(() -> teamAccessValidator.validateTeamLeader(TEAM_ID, LEADER_ID));
+    @DisplayName("validateLeader는 팀장이면 예외를 던지지 않는다")
+    void validateLeader_teamLeader_passes() {
+        assertDoesNotThrow(() -> teamAccessValidator.validateLeader(TEAM_ID, LEADER_ID));
     }
 
     @Test
-    @DisplayName("validateTeamLeader는 팀원이 아니면 AccessDeniedException을 던진다")
-    void validateTeamLeader_nonMember_throwsAccessDenied() {
-        assertThatThrownBy(() -> teamAccessValidator.validateTeamLeader(TEAM_ID, OUTSIDER))
+    @DisplayName("validateLeader는 팀원이 아니면 AccessDeniedException을 던진다")
+    void validateLeader_nonMember_throwsAccessDenied() {
+        assertThatThrownBy(() -> teamAccessValidator.validateLeader(TEAM_ID, OUTSIDER))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("팀장만 이 작업을 수행할 수 있습니다.");
     }
 
     @Test
-    @DisplayName("validateTeamLeader는 팀장이 아닌 팀원이면 AccessDeniedException을 던진다")
-    void validateTeamLeader_nonLeaderMember_throwsAccessDenied() {
-        assertThatThrownBy(() -> teamAccessValidator.validateTeamLeader(TEAM_ID, MEMBER_ID))
+    @DisplayName("validateLeader는 팀장이 아닌 팀원이면 AccessDeniedException을 던진다")
+    void validateLeader_nonLeaderMember_throwsAccessDenied() {
+        assertThatThrownBy(() -> teamAccessValidator.validateLeader(TEAM_ID, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("팀장만 이 작업을 수행할 수 있습니다.");
     }

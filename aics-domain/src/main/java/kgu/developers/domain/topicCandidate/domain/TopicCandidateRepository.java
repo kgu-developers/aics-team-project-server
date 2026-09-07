@@ -10,9 +10,11 @@ public interface TopicCandidateRepository {
 
     Optional<TopicCandidate> findByIdForUpdate(Long id);
 
-    Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title);
+    Optional<TopicCandidate> findByTeamIdAndTitleForUpdate(Long teamId, String title);
 
     List<TopicCandidate> findByTeamId(Long teamId);
 
     List<TopicCandidate> findByProposerUserId(String proposerUserId);
+
+    boolean existsByTeamIdAndProposerUserId(Long teamId, String proposerUserId);
 }

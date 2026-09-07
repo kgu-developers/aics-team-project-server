@@ -49,14 +49,14 @@ public class ProjectFacade {
         Project project = projectQueryService.getProject(projectId);
         
         projectCommandService.lockTeam(project.getTeamId());
-        teamAccessValidator.validateTeamLeader(project.getTeamId(), userId);
+        teamAccessValidator.validateLeader(project.getTeamId(), userId);
 
         projectCommandService.completeProposal(projectId);
     }
 
     public void deleteProject(Long projectId, String userId) {
         Project project = projectQueryService.getProject(projectId);
-        teamAccessValidator.validateTeamLeader(project.getTeamId(), userId);
+        teamAccessValidator.validateLeader(project.getTeamId(), userId);
 
         projectCommandService.deleteProject(projectId);
     }

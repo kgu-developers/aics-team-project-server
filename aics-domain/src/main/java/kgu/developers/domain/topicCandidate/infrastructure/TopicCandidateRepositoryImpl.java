@@ -22,7 +22,9 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     @Override
     public TopicCandidate save(TopicCandidate topicCandidate) {
         TopicCandidateJpaEntity entity = TopicCandidateJpaEntity.toEntity(topicCandidate);
-        return jpaTopicCandidateRepository.save(entity).toDomain();
+        TopicCandidateJpaEntity savedEntity = jpaTopicCandidateRepository.save(entity);
+        jpaTopicCandidateRepository.flush();
+        return savedEntity.toDomain();
     }
 
     @Override
@@ -50,9 +52,9 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
     }
 
     @Override
-    public Optional<TopicCandidate> findIncludingDeletedByTeamIdAndTitleForUpdate(Long teamId, String title) {
+    public Optional<TopicCandidate> findByTeamIdAndTitleForUpdate(Long teamId, String title) {
         lockTeamForUpdate(teamId);
-        return jpaTopicCandidateRepository.findByTeamIdAndTitle(teamId, title)
+        return jpaTopicCandidateRepository.findByTeamIdAndTitleAndDeletedAtIsNull(teamId, title)
                 .map(TopicCandidateJpaEntity::toDomain);
     }
 
@@ -70,5 +72,10 @@ public class TopicCandidateRepositoryImpl implements TopicCandidateRepository {
         return entities.stream()
                 .map(TopicCandidateJpaEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public boolean existsByTeamIdAndProposerUserId(Long teamId, String proposerUserId) {
+        return jpaTopicCandidateRepository.existsByTeamIdAndProposerUserIdAndDeletedAtIsNull(teamId, proposerUserId);
     }
 }

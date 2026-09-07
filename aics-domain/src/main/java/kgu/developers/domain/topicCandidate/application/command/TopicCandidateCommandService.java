@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.topicCandidate.domain.TopicCandidate;
 import kgu.developers.domain.topicCandidate.domain.TopicCandidateRepository;
+import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateException;
 import kgu.developers.domain.topicCandidate.exception.DuplicateTopicCandidateTitleException;
 import kgu.developers.domain.topicCandidate.exception.TopicCandidateNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -15,19 +16,15 @@ import lombok.RequiredArgsConstructor;
 public class TopicCandidateCommandService {
     private final TopicCandidateRepository topicCandidateRepository;
 
-    public Long createTopicCandidate(Long teamId, String proposerUserId, String title, String description) {
-        TopicCandidate existing = topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(teamId, title)
-                .orElse(null);
-        if (existing != null) {
-            if (existing.getDeletedAt() == null) {
-                throw new DuplicateTopicCandidateTitleException();
-            }
-            existing.reactivate(proposerUserId, description);
-            return topicCandidateRepository.save(existing).getId();
+    public TopicCandidate createTopicCandidate(Long teamId, String proposerUserId, String title, String description) {
+        // 팀 행을 먼저 잠근 뒤 중복을 확인해야 동시 등록에서도 규칙이 지켜진다.
+        // 소프트 삭제된 후보는 부분 유니크 인덱스에서 빠지므로 여기서도 활성 행만 본다.
+        validateDuplicateTitle(teamId, title, null);
+        if (topicCandidateRepository.existsByTeamIdAndProposerUserId(teamId, proposerUserId)) {
+            throw new DuplicateTopicCandidateException();
         }
 
-        TopicCandidate topicCandidate = TopicCandidate.create(teamId, proposerUserId, title, description);
-        return topicCandidateRepository.save(topicCandidate).getId();
+        return topicCandidateRepository.save(TopicCandidate.create(teamId, proposerUserId, title, description));
     }
 
     public void updateTopicCandidate(Long id, String title, String description) {
@@ -56,7 +53,7 @@ public class TopicCandidateCommandService {
     }
 
     private void validateDuplicateTitle(Long teamId, String title, Long excludeId) {
-        topicCandidateRepository.findIncludingDeletedByTeamIdAndTitleForUpdate(teamId, title)
+        topicCandidateRepository.findByTeamIdAndTitleForUpdate(teamId, title)
                 .ifPresent(candidate -> {
                     if (excludeId == null || !candidate.getId().equals(excludeId)) {
                         throw new DuplicateTopicCandidateTitleException();

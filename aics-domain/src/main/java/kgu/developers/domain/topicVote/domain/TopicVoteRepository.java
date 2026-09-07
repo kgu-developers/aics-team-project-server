@@ -11,6 +11,8 @@ public interface TopicVoteRepository {
 
     List<TopicVote> findAllByCandidateId(Long candidateId);
 
+    List<TopicVote> findAllByCandidateIdIn(List<Long> candidateIds);
+
     Optional<TopicVote> findByTeamIdAndVoterUserId(Long teamId, String voterUserId);
 
     TopicVote upsert(TopicVote topicVote);
