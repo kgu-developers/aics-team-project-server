@@ -63,11 +63,10 @@ public record PreSurveyResponseAdminListResponse(
         if (response.getPreferredPeerStatus() == PreferredPeerStatus.REJECTED) {
             return false;  // 거절당했으면 상대가 나를 지목했더라도 매칭이 아니다
         }
-        // 아직 대기 중이면 서로 지목이 매칭 근거인데, 내 지목이 거절됐거나 상대 쪽 지목이 거절됐으면 매칭이 아니다.
+        // 아직 대기 중이면 서로 지목이 매칭 근거인데, 상대 쪽 지목이 거절됐으면 매칭이 아니다.
         PreSurveyResponse peerResponse = responseByUser.get(peer);
         return peerResponse != null
                 && Objects.equals(peerResponse.getPreferredPeerUserId(), response.getUserId())
-                && peerResponse.getPreferredPeerStatus() != PreferredPeerStatus.REJECTED
-                && response.getPreferredPeerStatus() != PreferredPeerStatus.REJECTED;
+                && peerResponse.getPreferredPeerStatus() != PreferredPeerStatus.REJECTED;
     }
 }

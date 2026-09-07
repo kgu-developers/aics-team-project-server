@@ -162,12 +162,12 @@ class PreSurveyResponseAdminFacadeTest {
         JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
         // A <-> B 는 서로 지목하지만 B 가 A 를 거절, C 는 A 를 지목하고 A 가 C 를 거절
         PreSurveyResponse responseA = preSurveyResponseRepository.save(PreSurveyResponse.create("A", Long.valueOf(2L), roles, null, null, "B"));
-        PreSurveyResponse responseB = preSurveyResponseRepository.save(PreSurveyResponse.create("B", Long.valueOf(2L), roles, null, null, "A"));
-        responseB.decidePreferredPeer(false); // B가 A를 거절
-        preSurveyResponseRepository.save(responseB);
-        PreSurveyResponse responseC = preSurveyResponseRepository.save(PreSurveyResponse.create("C", Long.valueOf(2L), roles, null, null, "A"));
-        responseA.decidePreferredPeer(false); // A가 C를 거절
+        preSurveyResponseRepository.save(PreSurveyResponse.create("B", Long.valueOf(2L), roles, null, null, "A"));
+        // 수락·거절 상태는 지목한 쪽(요청자)의 응답에 남는다 — B 가 거절하면 A 의 응답이 REJECTED 가 된다.
+        responseA.decidePreferredPeer(false); // B가 A를 거절
         preSurveyResponseRepository.save(responseA);
+        PreSurveyResponse responseC = preSurveyResponseRepository.save(PreSurveyResponse.create("C", Long.valueOf(2L), roles, null, null, "A"));
+        responseC.decidePreferredPeer(false); // A가 C를 거절
         preSurveyResponseRepository.save(responseC);
         given(userQueryService.getUsersByStudentNumbers(List.of("A", "B", "C"))).willReturn(List.of(
                 User.create("A", "a@kyonggi.ac.kr", "김철수", "password", UserGlobalRole.USER, null),
