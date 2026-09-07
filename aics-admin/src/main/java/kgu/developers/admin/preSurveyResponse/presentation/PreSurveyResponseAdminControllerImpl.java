@@ -47,7 +47,7 @@ public class PreSurveyResponseAdminControllerImpl implements PreSurveyResponseAd
             .build();
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
-            .contentType(MediaType.valueOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; charset=UTF-8"))
+            .contentType(MediaType.valueOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
             .body(download.content());
     }
 }

@@ -40,7 +40,7 @@ public interface PreSurveyResponseAdminController {
             """
     )
     @ApiResponse(responseCode = "200",
-        content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; charset=UTF-8"))
+        content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
     ResponseEntity<byte[]> downloadResponsesExcel(
         @Parameter(description = "분반 식별자") @PathVariable Long sectionId,
         Authentication authentication
