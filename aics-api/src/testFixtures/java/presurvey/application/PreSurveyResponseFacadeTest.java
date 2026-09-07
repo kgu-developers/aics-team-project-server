@@ -31,6 +31,7 @@ import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import mock.repository.FakePreSurveyResponseRepository;
+import mock.repository.FakeUserRepository;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -57,7 +58,7 @@ class PreSurveyResponseFacadeTest {
 		FakePreSurveyResponseRepository repository = new FakePreSurveyResponseRepository();
 		preSurveyResponseFacade = new PreSurveyResponseFacade(
 				new PreSurveyResponseCommandService(repository, enrollmentRepository),
-				new PreSurveyResponseQueryService(repository),
+				new PreSurveyResponseQueryService(repository, enrollmentRepository, new FakeUserRepository()),
 				enrollmentRepository,
 				userQueryService
 		);
