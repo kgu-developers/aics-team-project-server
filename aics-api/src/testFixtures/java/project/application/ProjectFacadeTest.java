@@ -39,12 +39,22 @@ class ProjectFacadeTest {
     @InjectMocks private ProjectFacade projectFacade;
 
     @Test
-    @DisplayName("getProject는 팀원에게 프로젝트 제안서를 반환한다")
+    @DisplayName("getProject는 팀원과 담당 교수에게 프로젝트 제안서를 반환한다")
     void getProject() {
-        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
         given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(project());
 
         assertThat(projectFacade.getProject(TEAM_ID, MEMBER_ID).title()).isEqualTo("AI 학습 도우미");
+    }
+
+    @Test
+    @DisplayName("getProject는 팀원도 담당 교수도 아니면 접근을 거부한다")
+    void getProject_deniesOutsider() {
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembershipOrProfessor(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.getProject(TEAM_ID, MEMBER_ID))
+            .isInstanceOf(AccessDeniedException.class);
+        then(projectQueryService).shouldHaveNoInteractions();
     }
 
     @Test

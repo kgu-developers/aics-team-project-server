@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 @Tag(name = "Project", description = "프로젝트 제안서 API")
 public interface ProjectController {
 
-    @Operation(summary = "프로젝트 제안서 조회")
+    @Operation(summary = "프로젝트 제안서 조회", description = "팀원 또는 해당 분반 담당 교수가 조회한다.")
     ResponseEntity<ProjectResponse> getProject(@PathVariable Long teamId, Authentication authentication);
 
     @Operation(summary = "프로젝트 제안서 등록 또는 수정")

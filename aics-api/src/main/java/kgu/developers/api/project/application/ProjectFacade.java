@@ -28,7 +28,7 @@ public class ProjectFacade {
     private final ProjectApprovalCommandService projectApprovalCommandService;
 
     public ProjectResponse getProject(Long teamId, String userId) {
-        teamAccessValidator.validateMembership(teamId, userId);
+        teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
         return ProjectResponse.from(projectQueryService.getProjectByTeamId(teamId));
     }
 
