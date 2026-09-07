@@ -566,6 +566,43 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("preview는 전화번호·학년 형식이 틀리면 오류로 표시한다")
+  public void preview_RejectsMalformedPhoneAndGrade() throws IOException {
+    // when
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "010-1234", "3" },
+            new String[] { "1팀", STUDENT_B, "김철수", "", "프론트", "010-1234-5678", "10학년" },
+            new String[] { "1팀", STUDENT_C, "이영희", "", "기획", "010-1234-5678", "1학년" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+    assertThat(response.rows().get(0).message()).contains("전화번호 형식");
+    assertThat(response.rows().get(1).status()).isEqualTo(RowStatus.INVALID);
+    assertThat(response.rows().get(1).message()).contains("학년 형식");
+    assertThat(response.rows().get(2).status()).isEqualTo(RowStatus.VALID); // "1학년" 표기도 허용
+  }
+
+  @Test
+  @DisplayName("apply는 새 팀원의 전화번호·학년을 저장한다")
+  public void apply_SavesPhoneNumberAndGrade() {
+    // given
+    given(teamRepository.findAllBySectionId(SECTION_ID))
+        .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
+    TeamImportRow row = new TeamImportRow(2, "1팀", STUDENT_A, "홍길동", false, "백엔드",
+        "010-1234-5678", "3", RowStatus.VALID, null);
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, List.of(row))));
+
+    // when
+    facade.apply(1L, ASSISTANT);
+
+    // then
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getPhoneNumber()).isEqualTo("010-1234-5678");
+    assertThat(captor.getValue().getGrade()).isEqualTo("3");
+  }
+
+  @Test
   @DisplayName("apply는 같은 이름의 기존 팀에 편성한다")
   public void apply_ReusesExistingTeam() {
     // given
