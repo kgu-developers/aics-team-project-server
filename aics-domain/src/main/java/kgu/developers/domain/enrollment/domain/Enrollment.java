@@ -18,6 +18,7 @@ public class Enrollment {
 
   private Role role; // 역할
   private Status status; // 상태
+  private String grade; // 학년. 팀 편성과 수명이 다른 수강생 속성이라 TeamMember가 아닌 여기에 둔다
 
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
@@ -46,6 +47,14 @@ public class Enrollment {
 
   public void updateStatus(Status status) {
     this.status = status;
+  }
+
+  // null은 "값 없음"이지 "지우기"가 아니다. 학년 열이 없는 구형 양식이나 빈 셀로
+  // 명단을 다시 올려도 기존 값이 날아가지 않게 한다.
+  public void updateGrade(String grade) {
+    if (grade != null) {
+      this.grade = grade;
+    }
   }
 
   public void delete() {

@@ -35,6 +35,13 @@ public class EnrollmentQueryService {
         return new EnrollmentDetail(enrollment, user);
     }
 
+    /** 학번 -> 학년. 학년은 분반 수강 정보가 기준이라, 팀 화면도 팀원이 아닌 여기서 읽는다. */
+    public Map<String, String> getGradesBySectionId(Long sectionId) {
+        return enrollmentRepository.findAllBySectionId(sectionId).stream()
+                .filter(enrollment -> enrollment.getGrade() != null)
+                .collect(Collectors.toMap(Enrollment::getUserId, Enrollment::getGrade, (a, b) -> a));
+    }
+
     public List<EnrollmentDetail> getEnrollmentsBySectionId(Long sectionId) {
         if (sectionRepository.findById(sectionId).isEmpty()) {
             throw new SectionNotFoundException();

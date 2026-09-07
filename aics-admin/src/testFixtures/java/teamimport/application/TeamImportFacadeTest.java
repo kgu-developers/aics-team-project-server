@@ -115,6 +115,17 @@ public class TeamImportFacadeTest {
         .willReturn(Optional.of(mock(Section.class)));
   }
 
+  /** 전화번호·학년의 기준 데이터인 계정·수강 정보를 지정한 값으로 바꾼다. */
+  private void givenRoster(String studentNumber, String phone, String grade) {
+    given(userRepository.findAllByStudentNumberIn(any())).willReturn(List.of(user(ASSISTANT),
+        User.create(studentNumber, studentNumber + "@kyonggi.ac.kr", "이름", "password",
+            UserGlobalRole.USER, phone)));
+    given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(
+        Enrollment.create(SECTION_ID, ASSISTANT, Role.ASSISTANT, Status.ACTIVE),
+        Enrollment.builder().sectionId(SECTION_ID).userId(studentNumber).role(Role.STUDENT)
+            .status(Status.ACTIVE).grade(grade).build()));
+  }
+
   private User user(String studentNumber) {
     return User.create(studentNumber, studentNumber + "@kyonggi.ac.kr", "이름", "password",
         UserGlobalRole.USER, "010-0000-0000");
@@ -166,6 +177,58 @@ public class TeamImportFacadeTest {
     // then
     assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.UPDATE);
     assertThat(response.summary().update()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("preview는 전화번호·학년만 바뀌어도 UPDATE로 분류한다")
+  public void preview_ClassifiesContactChangeAsUpdate() throws IOException {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드")));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
+
+    // when: 팀장·역할은 그대로고 전화번호만 바뀐다
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "010-3333-4444", "3" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.UPDATE);
+  }
+
+  @Test
+  @DisplayName("preview는 전화번호를 010-1234-5678 형식으로 맞춘다")
+  public void preview_NormalizesPhoneNumber() throws IOException {
+    // given
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
+
+    // when
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "01012345678", "3" },
+            new String[] { "1팀", STUDENT_B, "김철수", "", "프론트", "0212345678", "3" }));
+
+    // then
+    assertThat(response.rows().get(0).phoneNumber()).isEqualTo("010-1234-5678");
+    assertThat(response.rows().get(1).phoneNumber()).isEqualTo("02-1234-5678");
+  }
+
+  @Test
+  @DisplayName("preview는 전화번호·학년 셀이 비어 있으면 변경으로 보지 않는다")
+  public void preview_KeepsDuplicateWhenContactCellsAreBlank() throws IOException {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드")));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
+
+    // when
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "", "" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.DUPLICATE);
   }
 
   @Test
@@ -331,6 +394,30 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("apply는 UPDATE 행의 빈 전화번호·학년으로 기존 값을 지우지 않는다")
+  public void apply_KeepsExistingContactWhenSheetCellsAreBlank() {
+    // given
+    Team team1 = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "백엔드")));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
+    TeamImportRow blank = new TeamImportRow(2, "1팀", STUDENT_A, "이름", true, "프론트", "", "",
+        RowStatus.UPDATE, null);
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, List.of(blank))));
+
+    // when
+    facade.apply(1L, ASSISTANT);
+
+    // then: 팀원 정보만 갱신하고 기준 데이터(계정 연락처·수강 학년)는 건드리지 않는다
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getProjectRole()).isEqualTo("프론트");
+    verify(userRepository, never()).save(any());
+    verify(enrollmentRepository, never()).save(any());
+  }
+
+  @Test
   @DisplayName("preview는 팀원을 한 번에 조회해 기존 팀 편성을 검증한다")
   public void preview_ChecksExistingTeams() throws IOException {
     // given
@@ -458,6 +545,31 @@ public class TeamImportFacadeTest {
   }
 
   @Test
+  @DisplayName("apply는 빈 전화번호·학년으로 재활성화해도 기존 값을 지우지 않는다")
+  public void apply_KeepsExistingContactWhenReactivatingWithBlankCells() {
+    // given: 구형 양식(전화번호·학년 열 없음)으로 삭제된 팀원을 되살리는 상황
+    given(teamRepository.findAllBySectionId(SECTION_ID))
+        .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
+    TeamMember removed = TeamMember.builder().id(5L).teamId(10L).userId(STUDENT_A)
+        .isLeader(false).projectRole("").deletedAt(LocalDateTime.now().minusDays(1)).build();
+    given(teamMemberRepository.findIncludingDeleted(10L, STUDENT_A)).willReturn(Optional.of(removed));
+    givenRoster(STUDENT_A, "010-1111-2222", "3");
+    ImportBatch batch = batch(0, List.of(row(2, "1팀", STUDENT_A, false, "백엔드", RowStatus.VALID)));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+    // when
+    facade.apply(1L, ASSISTANT);
+
+    // then
+    ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
+    verify(teamMemberRepository).save(captor.capture());
+    assertThat(captor.getValue().getDeletedAt()).isNull();
+    assertThat(captor.getValue().getProjectRole()).isEqualTo("백엔드");
+    verify(userRepository, never()).save(any());
+    verify(enrollmentRepository, never()).save(any());
+  }
+
+  @Test
   @DisplayName("apply가 만드는 팀과 팀원은 NOT NULL 컬럼을 빈 값으로라도 채운다")
   public void apply_FillsNotNullColumns() {
     // given
@@ -490,6 +602,48 @@ public class TeamImportFacadeTest {
     // then
     assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
     assertThat(response.rows().get(0).message()).contains("50자");
+  }
+
+  @Test
+  @DisplayName("preview는 전화번호·학년 형식이 틀리면 오류로 표시한다")
+  public void preview_RejectsMalformedPhoneAndGrade() throws IOException {
+    // when
+    TeamImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+        excel(new String[] { "1팀", STUDENT_A, "홍길동", "", "백엔드", "010-1234", "3" },
+            new String[] { "1팀", STUDENT_B, "김철수", "", "프론트", "010-1234-5678", "10학년" },
+            new String[] { "1팀", STUDENT_C, "이영희", "", "기획", "010-1234-5678", "1학년" }));
+
+    // then
+    assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+    assertThat(response.rows().get(0).message()).contains("전화번호 형식");
+    assertThat(response.rows().get(1).status()).isEqualTo(RowStatus.INVALID);
+    assertThat(response.rows().get(1).message()).contains("학년 형식");
+    assertThat(response.rows().get(2).status()).isEqualTo(RowStatus.VALID); // "1학년" 표기도 허용
+  }
+
+  @Test
+  @DisplayName("apply는 전화번호를 계정에, 학년을 수강 정보에 반영한다")
+  public void apply_SavesPhoneToUserAndGradeToEnrollment() {
+    // given
+    given(teamRepository.findAllBySectionId(SECTION_ID))
+        .willReturn(List.of(Team.builder().id(10L).sectionId(SECTION_ID).name("1팀").build()));
+    TeamImportRow row = new TeamImportRow(2, "1팀", STUDENT_A, "홍길동", false, "백엔드",
+        "010-1234-5678", "3", RowStatus.VALID, null);
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, List.of(row))));
+
+    // when
+    facade.apply(1L, ASSISTANT);
+
+    // then
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getStudentNumber()).isEqualTo(STUDENT_A);
+    assertThat(userCaptor.getValue().getPhone()).isEqualTo("010-1234-5678");
+
+    ArgumentCaptor<Enrollment> enrollmentCaptor = ArgumentCaptor.forClass(Enrollment.class);
+    verify(enrollmentRepository).save(enrollmentCaptor.capture());
+    assertThat(enrollmentCaptor.getValue().getUserId()).isEqualTo(STUDENT_A);
+    assertThat(enrollmentCaptor.getValue().getGrade()).isEqualTo("3");
   }
 
   @Test
@@ -720,7 +874,7 @@ public class TeamImportFacadeTest {
 
   private TeamImportRow row(int rowNumber, String teamName, String studentNumber, boolean leader,
       String projectRole, RowStatus status) {
-    return new TeamImportRow(rowNumber, teamName, studentNumber, "이름", leader, projectRole, status, null);
+    return new TeamImportRow(rowNumber, teamName, studentNumber, "이름", leader, projectRole, null, null, status, null);
   }
 
   private ImportBatch batch(int invalid, List<TeamImportRow> rows) {
@@ -753,7 +907,9 @@ public class TeamImportFacadeTest {
     try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
       Sheet sheet = workbook.createSheet();
       String[][] all = new String[rows.length + 1][];
-      all[0] = new String[] { "팀명", "학번", "성명", "팀장", "역할" };
+      all[0] = rows[0].length > 5
+          ? new String[] { "팀명", "학번", "성명", "팀장", "역할", "전화번호", "학년" }
+          : new String[] { "팀명", "학번", "성명", "팀장", "역할" };
       System.arraycopy(rows, 0, all, 1, rows.length);
       for (int i = 0; i < all.length; i++) {
         Row row = sheet.createRow(i);

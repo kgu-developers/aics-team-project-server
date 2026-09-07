@@ -49,7 +49,7 @@ class TeamMemberControllerTest {
 	void getContacts() throws Exception {
 		given(teamMemberFacade.getContacts(1L, STUDENT_NUMBER)).willReturn(
 			new TeamMemberContactListResponse(List.of(new TeamMemberContactResponse(
-				STUDENT_NUMBER, "김철수", "kim@kgu.ac.kr", "010-0000-0001", true))));
+				STUDENT_NUMBER, "김철수", "kim@kgu.ac.kr", "010-0000-0001", "3", true))));
 
 		mockMvc.perform(get(BASE_URL, 1L).principal(authentication))
 			.andExpect(status().isOk())
@@ -57,6 +57,7 @@ class TeamMemberControllerTest {
 			.andExpect(jsonPath("$.contents[0].studentNumber").value(STUDENT_NUMBER))
 			.andExpect(jsonPath("$.contents[0].email").value("kim@kgu.ac.kr"))
 			.andExpect(jsonPath("$.contents[0].phone").value("010-0000-0001"))
+			.andExpect(jsonPath("$.contents[0].grade").value("3"))
 			.andExpect(jsonPath("$.contents[0].isLeader").value(true));
 
 		verify(teamMemberFacade).getContacts(1L, STUDENT_NUMBER);

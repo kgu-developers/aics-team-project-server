@@ -16,7 +16,7 @@ public record TeamImportSummary(
     @Schema(description = "편성 예정 행 수", example = "38")
     int valid,
 
-    @Schema(description = "같은 팀이지만 팀장·역할이 바뀌어 갱신할 행 수", example = "1")
+    @Schema(description = "같은 팀이지만 팀장·역할·전화번호·학년이 바뀌어 갱신할 행 수", example = "1")
     int update,
 
     @Schema(description = "이미 같은 팀에 편성되어 건너뛸 행 수", example = "2")
