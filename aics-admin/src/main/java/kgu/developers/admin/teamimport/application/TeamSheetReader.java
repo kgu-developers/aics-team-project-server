@@ -22,6 +22,8 @@ public final class TeamSheetReader {
         "^(01[016789]-?\\d{3,4}-?\\d{4}|02-?\\d{3,4}-?\\d{4}|0[3-9][0-9]-?\\d{3,4}-?\\d{4}|01[016789]\\d{7,8}|02\\d{7,8}|0[3-9][0-9]\\d{7,8})$"
     );
 
+    private static final Pattern GRADE_PATTERN = Pattern.compile("^[1-4](학년)?$");
+
     private TeamSheetReader() {
     }
 
@@ -79,7 +81,13 @@ public final class TeamSheetReader {
             return invalid(rowNumber, teamName, studentNumber, name, leader, projectRole, phoneNumber, grade, 
                 "전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)");
         }
-        
+
+        // 학년 형식 검증 (빈 값은 허용)
+        if (!grade.isEmpty() && !GRADE_PATTERN.matcher(grade).matches()) {
+            return invalid(rowNumber, teamName, studentNumber, name, leader, projectRole, phoneNumber, grade,
+                "학년 형식이 올바르지 않습니다. (예: 1 또는 1학년)");
+        }
+
         return new TeamImportRow(rowNumber, teamName, studentNumber, name, leader, projectRole, phoneNumber, grade, VALID, null);
     }
 
