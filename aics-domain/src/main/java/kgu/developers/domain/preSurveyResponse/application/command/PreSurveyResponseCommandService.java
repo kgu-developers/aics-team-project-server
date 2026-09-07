@@ -1,6 +1,8 @@
 package kgu.developers.domain.preSurveyResponse.application.command;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,8 +41,8 @@ public class PreSurveyResponseCommandService {
   @Transactional
   public PreSurveyResponse submit(String userId, Long sectionId, JsonNode preferredRoles,
       String topicOpinion, String etcOpinion, String preferredPeerUserId) {
-    enrollmentRepository.findBySectionIdAndUserIdForUpdate(sectionId, userId)
-        .orElseThrow(EnrollmentNotFoundException::new);
+    requireActiveStudent(enrollmentRepository.findBySectionIdAndUserIdForUpdate(sectionId, userId),
+        EnrollmentNotFoundException::new);
 
     PreSurveyResponse existing = preSurveyResponseRepository.findByUserIdAndSectionId(userId, sectionId)
         .orElse(null);
@@ -76,8 +78,11 @@ public class PreSurveyResponseCommandService {
   @Transactional
   public PreSurveyResponse decidePreferredPeer(String peerUserId, Long sectionId, String requesterUserId,
       boolean accepted) {
-    enrollmentRepository.findBySectionIdAndUserIdForUpdate(sectionId, requesterUserId)
-        .orElseThrow(PreSurveyResponsePreferredPeerRequestNotFoundException::new);
+    requireActiveStudent(enrollmentRepository.findBySectionIdAndUserIdForUpdate(sectionId, requesterUserId),
+        PreSurveyResponsePreferredPeerRequestNotFoundException::new);
+    // 결정하는 쪽은 잠그지 않는다 — 서로 지목한 두 사람이 동시에 결정하면 잠금 순서가 엇갈려 교착한다.
+    requireActiveStudent(enrollmentRepository.findBySectionIdAndUserId(sectionId, peerUserId),
+        PreSurveyResponsePreferredPeerRequestNotFoundException::new);
 
     PreSurveyResponse request = preSurveyResponseRepository
         .findByUserIdAndSectionId(requesterUserId, sectionId)
@@ -111,10 +116,17 @@ public class PreSurveyResponseCommandService {
     if (preferredPeerUserId.equals(userId)) {
       throw new PreSurveyResponsePreferredPeerInvalidException();
     }
-    Enrollment peer = enrollmentRepository.findBySectionIdAndUserId(sectionId, preferredPeerUserId)
-        .orElseThrow(PreSurveyResponsePreferredPeerInvalidException::new);
-    if (!peer.isActiveStudent()) {
-      throw new PreSurveyResponsePreferredPeerInvalidException();
+    requireActiveStudent(enrollmentRepository.findBySectionIdAndUserId(sectionId, preferredPeerUserId),
+        PreSurveyResponsePreferredPeerInvalidException::new);
+  }
+
+  /**
+   * 파사드의 수강 상태 확인은 이 트랜잭션이 열리기 전 값이라, 그 사이의 수강 철회·조교 변경을 놓친다.
+   * 응답을 실제로 고치는 트랜잭션 안에서 다시 본다.
+   */
+  private void requireActiveStudent(Optional<Enrollment> found, Supplier<RuntimeException> onInvalid) {
+    if (!found.orElseThrow(onInvalid).isActiveStudent()) {
+      throw onInvalid.get();
     }
   }
 

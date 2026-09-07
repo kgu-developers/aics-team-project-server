@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
+import kgu.developers.domain.enrollment.exception.EnrollmentNotFoundException;
 import kgu.developers.domain.preSurveyResponse.application.command.PreSurveyResponseCommandService;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
 import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
@@ -184,6 +185,51 @@ class PreSurveyResponseCommandServiceTest {
 		PreSurveyResponse decided = commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, true);
 
 		assertThat(decided.getPreferredPeerStatus()).isEqualTo(PreferredPeerStatus.ACCEPTED);
+	}
+
+	@Test
+	@DisplayName("수강 철회한 학생의 재제출은 거부한다")
+	void submit_RejectsWithdrawnSubmitter() throws Exception {
+		Enrollment me = enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID).orElseThrow();
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		commandService.submit(USER_ID, SECTION_ID, roles, null, null, null);
+
+		withdraw(me);
+
+		assertThatThrownBy(() -> commandService.submit(USER_ID, SECTION_ID, roles, "의견 수정", null, null))
+				.isInstanceOf(EnrollmentNotFoundException.class);
+	}
+
+	@Test
+	@DisplayName("지목한 학생이 수강 철회했으면 그 지목은 수락·거절할 수 없다")
+	void decidePreferredPeer_RejectsWithdrawnRequester() throws Exception {
+		Enrollment me = enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID).orElseThrow();
+		savePeer(Role.STUDENT);
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
+
+		withdraw(me);
+
+		assertThatThrownBy(() -> commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, true))
+				.isInstanceOf(PreSurveyResponsePreferredPeerRequestNotFoundException.class);
+	}
+
+	@Test
+	@DisplayName("수강 철회했거나 조교가 된 학생은 자기가 받은 지목을 수락·거절할 수 없다")
+	void decidePreferredPeer_RejectsInactivePeer() throws Exception {
+		Enrollment peer = savePeer(Role.STUDENT);
+		JsonNode roles = objectMapper.readTree("[\"BACKEND\"]");
+		commandService.submit(USER_ID, SECTION_ID, roles, null, null, PEER_ID);
+
+		withdraw(peer);
+
+		assertThatThrownBy(() -> commandService.decidePreferredPeer(PEER_ID, SECTION_ID, USER_ID, true))
+				.isInstanceOf(PreSurveyResponsePreferredPeerRequestNotFoundException.class);
+	}
+
+	private Enrollment savePeer(Role role) {
+		userQueryService.save(kgu.developers.domain.user.domain.User.create(PEER_ID, "peer@test.com", "Peer User", "password", kgu.developers.domain.user.domain.UserGlobalRole.USER, null));
+		return enrollmentRepository.save(Enrollment.create(SECTION_ID, PEER_ID, role, Status.ACTIVE));
 	}
 
 	@Test
