@@ -31,7 +31,8 @@ public record PreSurveyResponseAdminListResponse(
 
         // 매칭 판정에 상대 응답의 지목 대상과 수락·거절 상태가 모두 필요하다. 분반 단위 목록이라 메모리에서 맞춘다.
         Map<String, PreSurveyResponse> responseByUser = responses.stream()
-                .collect(toMap(PreSurveyResponse::getUserId, response -> response, (first, second) -> first));
+                .collect(toMap(PreSurveyResponse::getUserId, response -> response,
+                        (first, second) -> first.getId() >= second.getId() ? first : second));
 
         return PreSurveyResponseAdminListResponse.builder()
                 .contents(responses.stream()
