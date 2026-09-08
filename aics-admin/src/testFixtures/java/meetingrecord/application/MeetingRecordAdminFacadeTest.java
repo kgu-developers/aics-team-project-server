@@ -2,6 +2,7 @@ package meetingrecord.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -66,7 +67,7 @@ class MeetingRecordAdminFacadeTest {
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L, 20L), latestFirstPageable))
             .willReturn(new PageImpl<>(List.of(meetingRecord), latestFirstPageable, 1));
 
-        var response = meetingRecordAdminFacade.getMeetingRecords(null, pageable, PROFESSOR_ID);
+        var response = meetingRecordAdminFacade.getMeetingRecords(null, null, pageable, PROFESSOR_ID);
 
         assertThat(response.contents()).singleElement().satisfies(content -> {
             assertThat(content.sectionId()).isEqualTo(2L);
@@ -94,10 +95,50 @@ class MeetingRecordAdminFacadeTest {
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L), latestFirstPageable))
             .willReturn(new PageImpl<>(List.of(), latestFirstPageable, 0));
 
-        meetingRecordAdminFacade.getMeetingRecords(1L, pageable, PROFESSOR_ID);
+        meetingRecordAdminFacade.getMeetingRecords(1L, null, pageable, PROFESSOR_ID);
 
         verify(meetingRecordQueryService).getMeetingRecords(List.of(10L), latestFirstPageable);
         verify(sectionRepository, never()).findAllByProfessorId(PROFESSOR_ID);
+    }
+
+    @Test
+    @DisplayName("teamId로 필터하면 담당 분반 소속인 그 팀 하나만 조회한다")
+    void getMeetingRecords_OwnedTeam() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Pageable latestFirstPageable = latestFirst(pageable);
+        Section firstSection = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Section secondSection = section(2L, "월3,4", "1152", PROFESSOR_ID);
+        Team firstTeam = team(10L, 1L, "A팀");
+        Team secondTeam = team(20L, 2L, "B팀");
+
+        given(sectionRepository.findAllByProfessorId(PROFESSOR_ID))
+            .willReturn(List.of(detail(firstSection), detail(secondSection)));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L, 2L)))
+            .willReturn(List.of(firstTeam, secondTeam));
+        given(meetingRecordQueryService.getMeetingRecords(List.of(20L), latestFirstPageable))
+            .willReturn(new PageImpl<>(List.of(), latestFirstPageable, 0));
+
+        meetingRecordAdminFacade.getMeetingRecords(null, 20L, pageable, PROFESSOR_ID);
+
+        verify(meetingRecordQueryService).getMeetingRecords(List.of(20L), latestFirstPageable);
+    }
+
+    @Test
+    @DisplayName("담당 분반 소속이 아닌 teamId는 존재 여부와 무관하게 같은 예외로 거부한다")
+    void getMeetingRecords_ForeignTeam() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team ownedTeam = team(10L, 1L, "A팀");
+
+        given(sectionRepository.findAllByProfessorId(PROFESSOR_ID))
+            .willReturn(List.of(detail(section)));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(ownedTeam));
+
+        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(null, 999L, pageable, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
+
+        verify(meetingRecordQueryService, never()).getMeetingRecords(anyList(), any());
     }
 
     @Test
@@ -107,7 +148,7 @@ class MeetingRecordAdminFacadeTest {
         Section foreignSection = section(1L, "월3,4", "1151", "202688888");
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(foreignSection)));
 
-        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(1L, pageable, PROFESSOR_ID))
+        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(1L, null, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
 
@@ -120,7 +161,7 @@ class MeetingRecordAdminFacadeTest {
         Pageable pageable = PageRequest.of(0, 20);
         given(sectionRepository.findById(1L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(1L, pageable, PROFESSOR_ID))
+        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(1L, null, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
 

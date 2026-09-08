@@ -26,13 +26,14 @@ public class MeetingRecordAdminControllerImpl implements MeetingRecordAdminContr
     @GetMapping
     public ResponseEntity<MeetingRecordAdminPageResponse> getMeetingRecords(
         @RequestParam(required = false) Long sectionId,
+        @RequestParam(required = false) Long teamId,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
         Authentication authentication
     ) {
         return ResponseEntity.ok(
             meetingRecordAdminFacade.getMeetingRecords(
-                sectionId, PageRequest.of(page, size), authentication.getName()));
+                sectionId, teamId, PageRequest.of(page, size), authentication.getName()));
     }
 
     @Override
