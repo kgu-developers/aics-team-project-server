@@ -43,7 +43,9 @@ public interface MidReportController {
 
     @Operation(
         summary = "중간보고서 영역 완료",
-        description = "topic(title, description), gui-design(guiScreens), engine-design(features, architecture, testCases), project-plan(completed, inProgress, remaining, help)의 필수값을 검증합니다. guiScreens JSON 행은 id/name/description, testCases JSON 행은 id/description/input/output 문자열을 모두 가져야 합니다."
+        description = "topic(title, description), gui-design(guiScreens), engine-design(features, architecture, testCases), project-plan(completed, inProgress, remaining, help)의 필수값을 검증합니다. "
+            + "guiScreens JSON 행은 id/name/description 문자열을 모두 가져야 하며 imageName은 선택 사항입니다. "
+            + "testCases JSON 행은 id/description/input/output 문자열을 모두 가져야 합니다."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "완료 처리 성공"),
