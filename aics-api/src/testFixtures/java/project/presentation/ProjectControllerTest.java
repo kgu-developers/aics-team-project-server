@@ -17,7 +17,14 @@ import kgu.developers.api.project.presentation.ProjectControllerImpl;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
+import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
+import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
+import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
 import kgu.developers.domain.project.domain.ApprovalStatus;
+import kgu.developers.domain.project.domain.ProposalSectionType;
+
+import kgu.developers.common.json.JsonConverter;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -82,9 +89,10 @@ class ProjectControllerTest {
             "AI 학습 도우미",
             "학습 기록을 분석하는 서비스",
             "개인별 피드백 자동화",
-            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             objectMapper.readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
             "매주 월요일 대면 회의",
+            "4월: 설계, 5월: 개발",
             "https://github.com/kgu/project",
             objectMapper.readTree("[{\"name\":\"Figma\",\"url\":\"https://figma.com/design\"}]")
         );
@@ -108,7 +116,7 @@ class ProjectControllerTest {
     }
 
     @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")
-    @CsvSource({"title, 201", "meetingStyle, 201", "repositoryUrl, 256"})
+    @CsvSource({"title, 201", "collaborationStyle, 201", "repositoryUrl, 256"})
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 DB 길이 제한 초과 시 400을 반환한다")
     void saveProjectRejectsTooLongField(String field, int length) throws Exception {
         String tooLong = "a".repeat(length);
@@ -116,9 +124,10 @@ class ProjectControllerTest {
             "title".equals(field) ? tooLong : "AI 학습 도우미",
             "학습 기록을 분석하는 서비스",
             "개인별 피드백 자동화",
-            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             objectMapper.readTree("[]"),
-            "meetingStyle".equals(field) ? tooLong : "매주 월요일 대면 회의",
+            "collaborationStyle".equals(field) ? tooLong : "매주 월요일 대면 회의",
+            "4월: 설계, 5월: 개발",
             "repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project",
             objectMapper.readTree("[]")
         );
@@ -140,8 +149,8 @@ class ProjectControllerTest {
     void saveProjectRejectsNonArrayScreenConfiguration(String screenConfigurationJson) throws Exception {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
-             "dataConfiguration":"종류: 학습 로그","screenConfiguration":%s,
-             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+             "dataConfiguration":[{"name":"학습 로그"}],"screenConfiguration":%s,
+             "collaborationStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(screenConfigurationJson);
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
@@ -153,6 +162,7 @@ class ProjectControllerTest {
         then(projectFacade).shouldHaveNoInteractions();
     }
 
+<<<<<<< HEAD
     // 파사드의 imageFileId 소유권 검사는 "각 원소가 객체이고 imageFileId가 정수"라는 전제 위에서
     // 도니까, 그 전제를 여기 입력 경계에서 400으로 끊어야 검사 없이 저장되는 구멍이 안 생긴다.
     @ParameterizedTest(name = "screenConfiguration 항목이 {0}이면 400을 반환한다")
@@ -175,14 +185,15 @@ class ProjectControllerTest {
     }
 
     // DB가 NOT NULL이라 null은 여기서 400으로 끊어야 500이 안 난다.
-    @Test
-    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 null이면 400을 반환한다")
-    void saveProjectRejectsNullDataConfiguration() throws Exception {
+    @ParameterizedTest(name = "dataConfiguration이 {0}이면 400을 반환한다")
+    @CsvSource({"null", "'{\"name\":\"학습 로그\"}'", "'\"문자열\"'", "123"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 배열이 아니면 400을 반환한다")
+    void saveProjectRejectsNonArrayDataConfiguration(String dataConfigurationJson) throws Exception {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
-             "dataConfiguration":null,"screenConfiguration":[],
-             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
-            """;
+             "dataConfiguration":%s,"screenConfiguration":[],
+             "collaborationStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """.formatted(dataConfigurationJson);
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -257,6 +268,52 @@ class ProjectControllerTest {
             .andExpect(jsonPath("$.progress").value("2/4"));
     }
 
+    @Test
+    @DisplayName("GET /api/v1/projects/{projectId}/proposal/sections는 섹션 현황을 반환한다")
+    void getProposalSections() throws Exception {
+        given(projectFacade.getProposalSections(10L, USER_ID)).willReturn(
+            ProposalSectionListResponse.from(java.util.List.of(
+                new ProposalSectionResponse(ProposalSectionType.TOPIC, USER_ID, "홍길동", true, java.time.LocalDateTime.now()),
+                ProposalSectionResponse.empty(ProposalSectionType.SCREEN)
+            )));
+
+        mockMvc.perform(get("/api/v1/projects/{projectId}/proposal/sections", 10L)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.contents[0].section").value("TOPIC"))
+            .andExpect(jsonPath("$.contents[0].assigneeName").value("홍길동"))
+            .andExpect(jsonPath("$.contents[1].completed").value(false))
+            .andExpect(jsonPath("$.allCompleted").value(false));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{projectId}/proposal/sections/{section}은 담당·완료 상태를 전달한다")
+    void updateProposalSection() throws Exception {
+        given(projectFacade.updateProposalSection(eq(10L), eq(ProposalSectionType.DATA), eq(USER_ID),
+            org.mockito.ArgumentMatchers.any(ProposalSectionRequest.class)))
+            .willReturn(new ProposalSectionResponse(ProposalSectionType.DATA, USER_ID, "홍길동", true, java.time.LocalDateTime.now()));
+
+        mockMvc.perform(put("/api/v1/projects/{projectId}/proposal/sections/{section}", 10L, "DATA")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"assigneeUserId\":\"%s\",\"completed\":true}".formatted(USER_ID))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.section").value("DATA"))
+            .andExpect(jsonPath("$.completed").value(true));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/projects/{projectId}/proposal/sections/{section}은 완료 여부가 없으면 400을 반환한다")
+    void updateProposalSectionRejectsMissingCompleted() throws Exception {
+        mockMvc.perform(put("/api/v1/projects/{projectId}/proposal/sections/{section}", 10L, "DATA")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"assigneeUserId\":\"%s\"}".formatted(USER_ID))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
     private ProjectResponse response() throws Exception {
         return ProjectResponse.builder()
             .id(10L)
@@ -264,7 +321,7 @@ class ProjectControllerTest {
             .title("AI 학습 도우미")
             .description("학습 기록을 분석하는 서비스")
             .goal("개인별 피드백 자동화")
-            .meetingStyle("매주 월요일 대면 회의")
+            .collaborationStyle("매주 월요일 대면 회의")
             .repositoryUrl("https://github.com/kgu/project")
             .externalLinks(objectMapper.readTree("[]"))
             .approvalStatus(ApprovalStatus.DRAFT)

@@ -16,6 +16,8 @@ import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.infrastructure.ProjectJpaEntity;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 
+import kgu.developers.common.json.JsonConverter;
+
 class ProjectJpaEntityTest {
 
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -38,7 +40,7 @@ class ProjectJpaEntityTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .proposalCompletedAt(LocalDateTime.of(2026, 2, 1, 12, 0))
         .createdAt(createdAt)
         .deletedAt(deletedAt)
@@ -70,12 +72,12 @@ class ProjectJpaEntityTest {
         .title("팀 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(screenConfiguration)
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .proposalCompletedAt(proposalCompletedAt)
         .createdAt(createdAt)
         .build();
@@ -90,12 +92,12 @@ class ProjectJpaEntityTest {
     assertThat(domain.getTitle()).isEqualTo("팀 프로젝트");
     assertThat(domain.getDescription()).isEqualTo("프로젝트 설명");
     assertThat(domain.getGoal()).isEqualTo("프로젝트 목표");
-    assertThat(domain.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
+    assertThat(domain.getDataConfiguration()).isEqualTo(objectMapper.createArrayNode());
     assertThat(domain.getScreenConfiguration()).isEqualTo(screenConfiguration);
     assertThat(domain.getRepositoryUrl()).isEqualTo("https://github.com/example/repo");
     assertThat(domain.getExternalLinks()).isEqualTo(externalLinks);
     assertThat(domain.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
-    assertThat(domain.getMeetingStyle()).isEqualTo("온라인");
+    assertThat(domain.getCollaborationStyle()).isEqualTo("온라인");
     assertThat(domain.getProposalCompletedAt()).isEqualTo(proposalCompletedAt);
     assertThat(domain.getCreatedAt()).isEqualTo(createdAt);
     assertThat(domain.getUpdatedAt()).isNull();
@@ -118,7 +120,7 @@ class ProjectJpaEntityTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .createdAt(createdAt)
         .build();
 

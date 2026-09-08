@@ -34,6 +34,8 @@ import kgu.developers.domain.project.infrastructure.ProjectJpaEntity;
 import kgu.developers.domain.project.infrastructure.ProjectRepositoryImpl;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 
+import kgu.developers.common.json.JsonConverter;
+
 @ExtendWith(MockitoExtension.class)
 class ProjectRepositoryImplTest {
 
@@ -66,8 +68,8 @@ class ProjectRepositoryImplTest {
         ApprovalStatus.DRAFT,
         "온라인",
         null,
-        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-        objectMapper.createArrayNode()
+        JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
+        objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
     );
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -82,7 +84,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -116,8 +118,8 @@ class ProjectRepositoryImplTest {
         ApprovalStatus.DRAFT,
         "온라인",
         null,
-        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-        objectMapper.createArrayNode()
+        JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
+        objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
     );
 
     given(entityManager.find(TeamJpaEntity.class, 999L, PESSIMISTIC_WRITE)).willReturn(null);
@@ -144,8 +146,8 @@ class ProjectRepositoryImplTest {
         ApprovalStatus.DRAFT,
         "온라인",
         null,
-        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-        objectMapper.createArrayNode()
+        JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
+        objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
     );
 
     TeamJpaEntity deletedTeam = TeamJpaEntity.builder().id(1L).build();
@@ -175,8 +177,8 @@ class ProjectRepositoryImplTest {
         ApprovalStatus.DRAFT,
         "온라인",
         null,
-        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-        objectMapper.createArrayNode()
+        JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
+        objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
     );
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -191,7 +193,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
         .willReturn(Optional.of(ProjectJpaEntity.toEntity(existing, team)));
@@ -218,7 +220,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -233,7 +235,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .deletedAt(LocalDateTime.now())
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -261,7 +263,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -276,7 +278,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .deletedAt(LocalDateTime.now())
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -300,12 +302,12 @@ class ProjectRepositoryImplTest {
         .title("새 프로젝트")
         .description("새 설명")
         .goal("새 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -320,7 +322,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .deletedAt(LocalDateTime.now())
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -335,7 +337,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .deletedAt(null)
         .proposalCompletedAt(null)
         .build();
@@ -400,12 +402,12 @@ class ProjectRepositoryImplTest {
         .title("새 프로젝트")
         .description("새 설명")
         .goal("새 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -432,12 +434,12 @@ class ProjectRepositoryImplTest {
         .title("새 프로젝트")
         .description("새 설명")
         .goal("새 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -452,7 +454,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .deletedAt(null)
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -511,7 +513,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -559,7 +561,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo1")
         .externalLinks(externalLinks1)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
 
     Project project2 = Project.builder()
@@ -571,7 +573,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo2")
         .externalLinks(externalLinks2)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -605,7 +607,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -649,7 +651,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .deletedAt(LocalDateTime.now())
         .build();
 
@@ -694,7 +696,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L)
         .build();
 
@@ -727,7 +729,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L)
         .build();
 
@@ -750,7 +752,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L) // 이전 버전으로 시도
         .build();
 
@@ -780,7 +782,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L)
         .build();
 
@@ -796,7 +798,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(2L) // 버전 증가
         .build();
 
@@ -816,7 +818,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L) // 이전 버전으로 시도
         .build();
 
@@ -846,12 +848,12 @@ class ProjectRepositoryImplTest {
         .title("원본 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -875,7 +877,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L)
         .deletedAt(LocalDateTime.now())
         .build();
@@ -893,7 +895,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .version(0L) // 오래된 버전
         .build();
 
@@ -920,12 +922,12 @@ class ProjectRepositoryImplTest {
         .title("원본 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -942,7 +944,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/updated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L) // 버전 증가
         .build();
 
@@ -963,7 +965,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .version(0L) // 오래된 버전
         .build();
 
@@ -994,12 +996,12 @@ class ProjectRepositoryImplTest {
         .title("원본 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -1019,12 +1021,12 @@ class ProjectRepositoryImplTest {
         .title("재활성화된 프로젝트")
         .description("재활성화 설명")
         .goal("재활성화 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/reactivated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .build();
 
     // 삭제된 프로젝트 반환
@@ -1037,7 +1039,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .deletedAt(LocalDateTime.now())
         .build();
 
@@ -1051,12 +1053,12 @@ class ProjectRepositoryImplTest {
         .title("재활성화된 프로젝트")
         .description("재활성화 설명")
         .goal("재활성화 목표")
-        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
         .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/reactivated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .deletedAt(null)
         .proposalCompletedAt(null)
         .build();
@@ -1092,7 +1094,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -1108,7 +1110,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .meetingStyle("온라인")
+        .collaborationStyle("온라인")
         .version(1L) // 버전 증가
         .build();
 
@@ -1128,7 +1130,7 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .meetingStyle("오프라인")
+        .collaborationStyle("오프라인")
         .version(0L) // 이전 버전으로 시도
         .build();
 

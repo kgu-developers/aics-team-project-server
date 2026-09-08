@@ -11,12 +11,14 @@ import java.time.LocalDateTime;
 public record ProjectResponse(
     Long id,
     Long teamId,
+    Long topicCandidateId,
     String title,
     String description,
     String goal,
-    String dataConfiguration,
+    JsonNode dataConfiguration,
     JsonNode screenConfiguration,
-    String meetingStyle,
+    String collaborationStyle,
+    String projectSchedule,
     String repositoryUrl,
     JsonNode externalLinks,
     ApprovalStatus approvalStatus,
@@ -30,12 +32,14 @@ public record ProjectResponse(
         return ProjectResponse.builder()
             .id(project.getId())
             .teamId(project.getTeamId())
+            .topicCandidateId(project.getTopicCandidateId())
             .title(project.getTitle())
             .description(project.getDescription())
             .goal(project.getGoal())
             .dataConfiguration(project.getDataConfiguration())
             .screenConfiguration(resolvedScreenConfiguration)
-            .meetingStyle(project.getMeetingStyle())
+            .collaborationStyle(project.getCollaborationStyle())
+            .projectSchedule(project.getProjectSchedule())
             .repositoryUrl(project.getRepositoryUrl())
             .externalLinks(project.getExternalLinks())
             .approvalStatus(project.getApprovalStatus())

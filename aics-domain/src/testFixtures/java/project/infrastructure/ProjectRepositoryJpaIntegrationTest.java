@@ -138,12 +138,12 @@ class ProjectRepositoryJpaIntegrationTest {
           .title("원본 프로젝트")
           .description("프로젝트 설명")
           .goal("프로젝트 목표")
-          .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+          .dataConfiguration(objectMapper.createArrayNode())
           .screenConfiguration(objectMapper.createArrayNode())
           .repositoryUrl("https://github.com/example/repo")
           .externalLinks(externalLinks())
           .approvalStatus(ApprovalStatus.APPROVED)
-          .meetingStyle("온라인")
+          .collaborationStyle("온라인")
           .build();
       entityManager.persist(project);
       entityManager.flush();
@@ -179,7 +179,7 @@ class ProjectRepositoryJpaIntegrationTest {
         .repositoryUrl(stale.getRepositoryUrl())
         .externalLinks(stale.getExternalLinks())
         .approvalStatus(stale.getApprovalStatus())
-        .meetingStyle(stale.getMeetingStyle())
+        .collaborationStyle(stale.getCollaborationStyle())
         .createdAt(stale.getCreatedAt())
         .version(stale.getVersion())
         .build();
@@ -229,7 +229,7 @@ class ProjectRepositoryJpaIntegrationTest {
         .repositoryUrl(source.getRepositoryUrl())
         .externalLinks(source.getExternalLinks())
         .approvalStatus(source.getApprovalStatus())
-        .meetingStyle(source.getMeetingStyle())
+        .collaborationStyle(source.getCollaborationStyle())
         .createdAt(source.getCreatedAt())
         .version(source.getVersion())
         .build();

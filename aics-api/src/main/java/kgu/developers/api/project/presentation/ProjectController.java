@@ -4,8 +4,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
+import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
+import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
+import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
+import kgu.developers.domain.project.domain.ProposalSectionType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,7 +31,21 @@ public interface ProjectController {
     @Operation(summary = "프로젝트 제안서 삭제")
     ResponseEntity<Void> deleteProject(@PathVariable Long projectId, Authentication authentication);
 
-    @Operation(summary = "프로젝트 제안 단계 완료")
+    @Operation(summary = "제안서 섹션별 담당·작성 완료 현황 조회",
+        description = "교수님 양식의 고정 섹션 구성을 모두 내려준다. 팀원 또는 해당 분반 담당 교수가 조회한다.")
+    ResponseEntity<ProposalSectionListResponse> getProposalSections(@PathVariable Long projectId, Authentication authentication);
+
+    @Operation(summary = "제안서 섹션 담당·작성 완료 상태 저장",
+        description = "팀원이 섹션 담당자와 작성 완료 여부를 지정한다. 섹션 본문은 제안서 저장 API로 저장한다.")
+    ResponseEntity<ProposalSectionResponse> updateProposalSection(
+        @PathVariable Long projectId,
+        @PathVariable ProposalSectionType section,
+        @Valid @RequestBody ProposalSectionRequest request,
+        Authentication authentication
+    );
+
+    @Operation(summary = "프로젝트 제안 단계 완료",
+        description = "모든 섹션이 작성 완료된 뒤 팀장이 최종 제출한다. 팀원 동의는 선행 조건이 아니다.")
     ResponseEntity<Void> completeProposal(@PathVariable Long projectId, Authentication authentication);
 
     @Operation(summary = "프로젝트 제안서 동의")

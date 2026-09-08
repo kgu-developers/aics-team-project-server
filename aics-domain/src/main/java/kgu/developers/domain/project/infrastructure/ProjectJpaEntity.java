@@ -54,13 +54,17 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     private String goal;
 
     @Builder.Default
-    @Column(nullable = true, columnDefinition = "TEXT")
-    private String dataConfiguration = "";
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode dataConfiguration = createEmptyJsonNode();
 
     @Builder.Default
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = true, columnDefinition = "jsonb")
     private JsonNode screenConfiguration = createEmptyJsonNode();
+
+    @Column(columnDefinition = "TEXT")
+    private String projectSchedule;
 
     @Column(length = 255)
     private String repositoryUrl;
@@ -74,7 +78,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     private ApprovalStatus approvalStatus;
 
     @Column(length = 200)
-    private String meetingStyle;
+    private String collaborationStyle;
 
     @Column(name = "proposal_completed_at")
     private LocalDateTime proposalCompletedAt;
@@ -86,7 +90,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @PreUpdate
     protected void ensureDefaults() {
         if (dataConfiguration == null) {
-            dataConfiguration = "";
+            dataConfiguration = createEmptyJsonNode();
         }
         if (screenConfiguration == null) {
             screenConfiguration = createEmptyJsonNode();
@@ -110,7 +114,8 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .repositoryUrl(repositoryUrl)
                 .externalLinks(externalLinks)
                 .approvalStatus(approvalStatus)
-                .meetingStyle(meetingStyle)
+                .collaborationStyle(collaborationStyle)
+                .projectSchedule(projectSchedule)
                 .proposalCompletedAt(proposalCompletedAt)
                 .proposalRevision(proposalRevision)
                 .version(version)
@@ -133,7 +138,8 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .repositoryUrl(project.getRepositoryUrl())
                 .externalLinks(project.getExternalLinks())
                 .approvalStatus(project.getApprovalStatus())
-                .meetingStyle(project.getMeetingStyle())
+                .collaborationStyle(project.getCollaborationStyle())
+                .projectSchedule(project.getProjectSchedule())
                 .proposalCompletedAt(project.getProposalCompletedAt())
                 .proposalRevision(project.getProposalRevision())
                 .version(project.getVersion())

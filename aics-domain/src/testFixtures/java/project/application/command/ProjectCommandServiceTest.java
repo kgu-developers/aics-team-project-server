@@ -11,10 +11,17 @@ import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
-import kgu.developers.domain.projectApproval.domain.ProjectApproval;
+import kgu.developers.domain.project.domain.ProposalSection;
+import kgu.developers.domain.project.domain.ProposalSectionRepository;
+import kgu.developers.domain.project.domain.ProposalSectionType;
+import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
+import kgu.developers.domain.project.exception.ProposalSectionAssigneeNotMemberException;
+import kgu.developers.domain.project.exception.ProposalSectionIncompleteException;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.common.json.JsonConverter;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +39,7 @@ class ProjectCommandServiceTest {
 
     @Mock private ProjectRepository projectRepository;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
+    @Mock private ProposalSectionRepository proposalSectionRepository;
     @Mock private TeamMemberRepository teamMemberRepository;
     @InjectMocks private ProjectCommandService projectCommandService;
 
@@ -67,10 +75,11 @@ class ProjectCommandServiceTest {
     @DisplayName("saveProject는 내용이 같으면 승인 이력을 초기화하지 않는다")
     void saveProject_keepsApprovalsWhenContentIsUnchanged() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
-            .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .goal("새 목표").collaborationStyle("대면").repositoryUrl("https://github.com/kgu/project")
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
-            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
             .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .projectSchedule("4월: 설계, 5월: 개발, 6월: 통합 테스트")
             .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
 
@@ -84,10 +93,11 @@ class ProjectCommandServiceTest {
     @DisplayName("saveProject는 화면 구성만 바뀌어도 리비전을 올리고 승인 이력을 지운다")
     void saveProject_bumpsRevisionWhenScreenConfigurationChanges() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
-            .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .goal("새 목표").collaborationStyle("대면").repositoryUrl("https://github.com/kgu/project")
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
-            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
             .screenConfiguration(new ObjectMapper().readTree("[]"))
+            .projectSchedule("4월: 설계, 5월: 개발, 6월: 통합 테스트")
             .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
         given(projectRepository.save(existing)).willReturn(existing);
@@ -110,32 +120,88 @@ class ProjectCommandServiceTest {
     }
 
     @Test
-    @DisplayName("completeProposal은 프로젝트의 제안 완료 시각을 설정하고 승인 상태를 APPROVED로 변경한다")
+    @DisplayName("completeProposal은 모든 섹션이 완료면 팀원 동의가 없어도 제출한다")
     void completeProposal() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
-        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(TeamMember.create(1L, "202412345", false, "개발자")));
-        given(projectApprovalRepository.findAllByProjectIdAndProposalRevision(10L, project.getProposalRevision()))
-            .willReturn(List.of(ProjectApproval.create(10L, "202412345", project.getProposalRevision(), LocalDateTime.now())));
+        given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(completedSections(ProposalSectionType.values()));
 
         projectCommandService.completeProposal(10L);
 
         assertThat(project.getProposalCompletedAt()).isNotNull();
         assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
         then(projectRepository).should().save(project);
+        then(projectApprovalRepository).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("completeProposal은 팀원이 한 명도 없으면 예외를 던진다")
-    void completeProposal_rejectsEmptyTeam() {
+    @DisplayName("completeProposal은 완료되지 않은 섹션이 있으면 예외를 던진다")
+    void completeProposal_rejectsIncompleteSections() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
-        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of());
+        given(proposalSectionRepository.findAllByProjectId(10L))
+            .willReturn(completedSections(ProposalSectionType.TOPIC, ProposalSectionType.SCREEN, ProposalSectionType.DATA));
 
-        assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> projectCommandService.completeProposal(10L))
+            .isInstanceOf(ProposalSectionIncompleteException.class);
         then(projectRepository).should(org.mockito.Mockito.never()).save(project);
+    }
+
+    @Test
+    @DisplayName("updateProposalSection은 없던 섹션을 만들고 담당자·완료 상태를 저장한다")
+    void updateProposalSection_createsSection() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(teamMemberRepository.findByTeamIdAndUserId(1L, "202412345"))
+            .willReturn(Optional.of(TeamMember.create(1L, "202412345", false, "개발자")));
+        given(proposalSectionRepository.findByProjectIdAndType(10L, ProposalSectionType.SCREEN)).willReturn(Optional.empty());
+        given(proposalSectionRepository.save(org.mockito.ArgumentMatchers.any()))
+            .willAnswer(invocation -> invocation.getArgument(0));
+
+        ProposalSection result = projectCommandService.updateProposalSection(10L, ProposalSectionType.SCREEN, "202412345", true);
+
+        assertThat(result.getType()).isEqualTo(ProposalSectionType.SCREEN);
+        assertThat(result.getAssigneeUserId()).isEqualTo("202412345");
+        assertThat(result.isCompleted()).isTrue();
+        then(projectRepository).should().lockTeam(1L);
+    }
+
+    @Test
+    @DisplayName("updateProposalSection은 팀원이 아닌 담당자를 거부한다")
+    void updateProposalSection_rejectsNonMemberAssignee() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(teamMemberRepository.findByTeamIdAndUserId(1L, "202499999")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> projectCommandService.updateProposalSection(10L, ProposalSectionType.SCREEN, "202499999", true))
+            .isInstanceOf(ProposalSectionAssigneeNotMemberException.class);
+        then(proposalSectionRepository).should(org.mockito.Mockito.never())
+            .save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("updateProposalSection은 이미 제출된 제안서면 예외를 던진다")
+    void updateProposalSection_rejectsCompletedProposal() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+
+        assertThatThrownBy(() -> projectCommandService.updateProposalSection(10L, ProposalSectionType.SCREEN, null, true))
+            .isInstanceOf(ProjectProposalCompletedException.class);
+    }
+
+    private List<ProposalSection> completedSections(ProposalSectionType... types) {
+        return java.util.Arrays.stream(types)
+            .map(type -> {
+                ProposalSection section = ProposalSection.create(10L, type);
+                section.updateCompleted(true);
+                return section;
+            })
+            .toList();
     }
 
     @Test
@@ -159,8 +225,8 @@ class ProjectCommandServiceTest {
                 Project newProject = invocation.getArgument(1);
                 deleted.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
                     newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(),
-                    newProject.getMeetingStyle(), newProject.getTopicCandidateId(),
-                    newProject.getDataConfiguration(), newProject.getScreenConfiguration());
+                    newProject.getCollaborationStyle(), newProject.getTopicCandidateId(),
+                    newProject.getDataConfiguration(), newProject.getScreenConfiguration(), newProject.getProjectSchedule());
                 return deleted;
             });
 
@@ -173,19 +239,6 @@ class ProjectCommandServiceTest {
         assertThat(result.getProposalRevision()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(projectRepository).should(org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    @DisplayName("completeProposal은 현재 제안서 리비전에 대한 동의만 확인한다")
-    void completeProposal_requiresApprovalForCurrentRevision() {
-        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
-            .approvalStatus(ApprovalStatus.DRAFT).proposalRevision(2L).build();
-        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
-        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(TeamMember.create(1L, "202412345", false, "개발자")));
-        given(projectApprovalRepository.findAllByProjectIdAndProposalRevision(10L, 2L)).willReturn(List.of());
-
-        assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
-        then(projectRepository).should(org.mockito.Mockito.never()).save(project);
     }
 
     @Test
@@ -214,8 +267,8 @@ class ProjectCommandServiceTest {
     @DisplayName("finalizeTopic은 주제를 바꾸면 리비전을 올리고 기존 동의를 무효화한다")
     void finalizeTopic_bumpsRevisionAndClearsApprovals() {
         Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
-            .goal("기존 목표").meetingStyle("대면").approvalStatus(ApprovalStatus.APPROVED)
-            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .goal("기존 목표").collaborationStyle("대면").approvalStatus(ApprovalStatus.APPROVED)
+            .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
             .screenConfiguration(new ObjectMapper().createArrayNode())
             .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
@@ -225,7 +278,7 @@ class ProjectCommandServiceTest {
 
         assertThat(result.getTitle()).isEqualTo("확정 제목");
         assertThat(result.getTopicCandidateId()).isEqualTo(7L);
-        assertThat(result.getMeetingStyle()).isEqualTo("대면");
+        assertThat(result.getCollaborationStyle()).isEqualTo("대면");
         assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
         assertThat(result.getProposalRevision()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
@@ -245,7 +298,7 @@ class ProjectCommandServiceTest {
     private Project saveProject() throws Exception {
         return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
             "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
-            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"));
+            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"), "4월: 설계, 5월: 개발, 6월: 통합 테스트");
     }
 }

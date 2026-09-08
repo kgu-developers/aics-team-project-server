@@ -20,11 +20,24 @@ import kgu.developers.domain.project.exception.ProjectScreenImageOwnershipExcept
 import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
+<<<<<<< HEAD
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 
 import java.util.List;
 import java.util.Optional;
+=======
+import kgu.developers.domain.project.domain.ProposalSection;
+import kgu.developers.domain.project.domain.ProposalSectionRepository;
+import kgu.developers.domain.project.domain.ProposalSectionType;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
+import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
+
+import kgu.developers.common.json.JsonConverter;
+
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,9 +58,14 @@ class ProjectFacadeTest {
     @Mock private TeamAccessValidator teamAccessValidator;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
     @Mock private ProjectApprovalCommandService projectApprovalCommandService;
+<<<<<<< HEAD
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private FileObjectRepository fileObjectRepository;
     @Mock private FileStorage fileStorage;
+=======
+    @Mock private ProposalSectionRepository proposalSectionRepository;
+    @Mock private UserRepository userRepository;
+>>>>>>> bf00674d (feat: 제안서 4개 섹션 구성(담당·완료 상태) 반영 및 제출 시 팀원 승인 필수 제약 제거)
     @InjectMocks private ProjectFacade projectFacade;
 
     @Test
@@ -88,12 +106,14 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any())).willReturn(project());
 
         assertThat(projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()).goal()).isEqualTo("피드백 자동화");
     }
 
     @Test
+<<<<<<< HEAD
     @DisplayName("saveProject는 우리 팀이 올리지 않은 imageFileId를 거부한다")
     void saveProject_rejectsForeignImage() throws Exception {
         givenImageUploadedBy("999999999");
@@ -160,6 +180,9 @@ class ProjectFacadeTest {
 
     @Test
     @DisplayName("completeProposal은 팀장이고 모든 팀원이 승인하면 완료 처리한다")
+=======
+    @DisplayName("completeProposal은 팀장이면 완료 처리한다")
+>>>>>>> bf00674d (feat: 제안서 4개 섹션 구성(담당·완료 상태) 반영 및 제출 시 팀원 승인 필수 제약 제거)
     void completeProposal() {
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
@@ -170,7 +193,7 @@ class ProjectFacadeTest {
     }
 
     @Test
-    @DisplayName("completeProposal은 팀 행을 잠근 뒤 팀장 권한과 동의 목록을 확인한다")
+    @DisplayName("completeProposal은 팀 행을 잠근 뒤 팀장 권한을 확인한다")
     void completeProposal_locksTeamBeforeValidation() {
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
@@ -193,16 +216,6 @@ class ProjectFacadeTest {
         assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class);
         then(projectCommandService).should(org.mockito.Mockito.never()).completeProposal(10L);
-    }
-
-    @Test
-    @DisplayName("completeProposal은 동의 검증을 잠금 경계의 커맨드 서비스에 위임한다")
-    void completeProposal_delegatesApprovalValidationToCommandService() {
-        given(projectQueryService.getProject(10L)).willReturn(project());
-        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
-        projectFacade.completeProposal(10L, MEMBER_ID);
-
-        then(projectCommandService).should().completeProposal(10L);
     }
 
     @Test
@@ -256,11 +269,51 @@ class ProjectFacadeTest {
         assertThat(response.progress()).isEqualTo("1/2");
     }
 
+    @Test
+    @DisplayName("getProposalSections는 저장된 행이 없는 섹션까지 고정 구성 전체를 내려준다")
+    void getProposalSections() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        ProposalSection screen = ProposalSection.create(10L, ProposalSectionType.SCREEN);
+        screen.assign(MEMBER_ID);
+        screen.updateCompleted(true);
+        given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(List.of(screen));
+        given(userRepository.findAllByStudentNumberIn(List.of(MEMBER_ID))).willReturn(List.of(member()));
+
+        var response = projectFacade.getProposalSections(10L, MEMBER_ID);
+
+        assertThat(response.contents()).hasSize(ProposalSectionType.values().length);
+        assertThat(response.allCompleted()).isFalse();
+        assertThat(response.contents()).anySatisfy(section -> {
+            assertThat(section.section()).isEqualTo(ProposalSectionType.SCREEN);
+            assertThat(section.assigneeName()).isEqualTo("홍길동");
+            assertThat(section.completed()).isTrue();
+        });
+    }
+
+    @Test
+    @DisplayName("updateProposalSection은 팀원이 아니면 접근을 거부한다")
+    void updateProposalSection_deniesNonMember() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.updateProposalSection(
+            10L, ProposalSectionType.SCREEN, MEMBER_ID, new ProposalSectionRequest(MEMBER_ID, true)))
+            .isInstanceOf(AccessDeniedException.class);
+        then(projectCommandService).should(org.mockito.Mockito.never())
+            .updateProposalSection(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    private User member() {
+        return User.create(MEMBER_ID, "member@kgu.ac.kr", "홍길동", "password", UserGlobalRole.USER, "01000000000");
+    }
+
     private ProjectRequest request() throws Exception {
         return new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
-            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
-            "대면", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
+            "대면", "4월: 설계, 5월: 개발", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
     }
 
     private Project project() {
