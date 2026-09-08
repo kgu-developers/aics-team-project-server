@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockCompletionRequest;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockUpdateRequest;
+import kgu.developers.api.midreport.presentation.request.MidReportSubmissionRequest;
 import kgu.developers.api.midreport.presentation.response.MidReportResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.domain.enrollment.domain.Enrollment;
@@ -16,6 +17,7 @@ import kgu.developers.domain.midreport.application.command.MidReportCommandServi
 import kgu.developers.domain.midreport.application.query.MidReportQueryService;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.exception.MidReportNotFoundException;
+import kgu.developers.domain.midreport.exception.MidReportLeaderOnlyException;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
@@ -85,6 +87,19 @@ public class MidReportFacade {
         MidReport current = authorizeActiveStudent(reportId, userId);
         MidReport saved = midReportCommandService.completeBlock(
             current.getId(), blockKey, request.version(), userId, LocalDateTime.now()
+        );
+        return response(saved);
+    }
+
+    public MidReportResponse submit(Long reportId, String userId, MidReportSubmissionRequest request) {
+        MidReport current = authorizeActiveStudent(reportId, userId);
+        TeamMember member = teamMemberRepository.findByTeamIdAndUserId(current.getTeamId(), userId)
+            .orElseThrow(MidReportLeaderOnlyException::new);
+        if (!member.isLeader()) {
+            throw new MidReportLeaderOnlyException();
+        }
+        MidReport saved = midReportCommandService.submit(
+            current.getId(), request.version(), userId, LocalDateTime.now()
         );
         return response(saved);
     }

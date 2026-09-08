@@ -58,6 +58,17 @@ public class MidReportCommandService {
         return midReportRepository.save(report);
     }
 
+    public MidReport submit(
+        Long reportId,
+        long expectedVersion,
+        String submitterId,
+        LocalDateTime submittedAt
+    ) {
+        MidReport report = get(reportId);
+        report.submit(expectedVersion, submitterId, submittedAt);
+        return midReportRepository.save(report);
+    }
+
     private MidReport get(Long reportId) {
         return midReportRepository.findById(reportId).orElseThrow(MidReportNotFoundException::new);
     }

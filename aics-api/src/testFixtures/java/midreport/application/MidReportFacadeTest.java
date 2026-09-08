@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import kgu.developers.api.midreport.application.MidReportFacade;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockUpdateRequest;
+import kgu.developers.api.midreport.presentation.request.MidReportSubmissionRequest;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
@@ -21,6 +22,7 @@ import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
 import kgu.developers.domain.midreport.application.query.MidReportQueryService;
 import kgu.developers.domain.midreport.domain.MidReport;
+import kgu.developers.domain.midreport.exception.MidReportLeaderOnlyException;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
@@ -155,6 +157,44 @@ class MidReportFacadeTest {
             .isInstanceOf(AccessDeniedException.class);
 
         then(teamAccessValidator).should().validateMembership(TEAM_ID, USER_ID);
+        then(midReportCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("활성 학생인 팀장은 팀원 승인 없이 중간보고서를 최종 제출한다")
+    void leaderSubmitsReport() {
+        TeamMember leader = TeamMember.builder()
+            .id(1L).teamId(TEAM_ID).userId(USER_ID).isLeader(true).build();
+        given(midReportQueryService.getById(100L)).willReturn(report());
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team()));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID))
+            .willReturn(Optional.of(enrollment(Role.STUDENT)));
+        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, USER_ID)).willReturn(Optional.of(leader));
+        given(midReportCommandService.submit(eq(100L), eq(0L), eq(USER_ID), any())).willReturn(report());
+        given(teamMemberRepository.findLeaderByTeamId(TEAM_ID)).willReturn(Optional.of(leader));
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(any()))
+            .willReturn(List.of(user(UserGlobalRole.USER, "학생 A")));
+
+        midReportFacade.submit(100L, USER_ID, new MidReportSubmissionRequest(0L));
+
+        then(midReportCommandService).should().submit(eq(100L), eq(0L), eq(USER_ID), any());
+    }
+
+    @Test
+    @DisplayName("활성 팀원이더라도 팀장이 아니면 최종 제출할 수 없다")
+    void memberCannotSubmitReport() {
+        TeamMember member = TeamMember.builder()
+            .id(1L).teamId(TEAM_ID).userId(USER_ID).isLeader(false).build();
+        given(midReportQueryService.getById(100L)).willReturn(report());
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team()));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID))
+            .willReturn(Optional.of(enrollment(Role.STUDENT)));
+        given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, USER_ID)).willReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> midReportFacade.submit(
+            100L, USER_ID, new MidReportSubmissionRequest(0L)
+        )).isInstanceOf(MidReportLeaderOnlyException.class);
+
         then(midReportCommandService).shouldHaveNoInteractions();
     }
 

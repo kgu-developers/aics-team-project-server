@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.List;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportBlock;
 import kgu.developers.domain.midreport.domain.MidReportBlockStatus;
@@ -107,6 +108,28 @@ class MidReportTest {
         )).isInstanceOf(MidReportBlockIncompleteException.class);
     }
 
+    @Test
+    @DisplayName("네 영역이 모두 완료되면 제출자와 제출 시각을 기록한다")
+    void submitsCompletedReport() {
+        MidReport report = completedReport();
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 9, 8, 14, 0);
+
+        report.submit(0L, "202600001", submittedAt);
+
+        assertThat(report.getStatus()).isEqualTo(MidReportStatus.SUBMITTED);
+        assertThat(report.getSubmittedBy()).isEqualTo("202600001");
+        assertThat(report.getSubmittedAt()).isEqualTo(submittedAt);
+    }
+
+    @Test
+    @DisplayName("완료되지 않은 영역이 있으면 최종 제출할 수 없다")
+    void rejectsSubmissionWithIncompleteBlock() {
+        MidReport report = report(0L, MidReportStatus.DRAFT);
+
+        assertThatThrownBy(() -> report.submit(0L, "202600001", LocalDateTime.now()))
+            .isInstanceOf(MidReportBlockIncompleteException.class);
+    }
+
     private MidReport report(Long version, MidReportStatus status) {
         MidReport created = MidReport.create(
             1L, 2L, "CineFlow 중간보고서", LocalDateTime.of(2026, 10, 26, 23, 59), "CineFlow", "영화관 관리"
@@ -120,6 +143,30 @@ class MidReportTest {
             .dueDate(created.getDueDate())
             .status(status)
             .blocks(created.getBlocks())
+            .build();
+    }
+
+    private MidReport completedReport() {
+        MidReport report = report(0L, MidReportStatus.DRAFT);
+        List<MidReportBlock> completedBlocks = report.getBlocks().stream()
+            .map(block -> MidReportBlock.builder()
+                .id(block.getId())
+                .key(block.getKey())
+                .fields(block.getFields())
+                .status(MidReportBlockStatus.COMPLETED)
+                .lastEditedBy("202600001")
+                .lastSavedAt(LocalDateTime.of(2026, 9, 8, 13, 0))
+                .build())
+            .toList();
+        return MidReport.builder()
+            .id(report.getId())
+            .teamId(report.getTeamId())
+            .milestoneId(report.getMilestoneId())
+            .title(report.getTitle())
+            .version(report.getVersion())
+            .dueDate(report.getDueDate())
+            .status(report.getStatus())
+            .blocks(completedBlocks)
             .build();
     }
 

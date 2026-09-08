@@ -59,4 +59,18 @@ class MidReportCommandServiceTest {
         assertThat(result).isSameAs(existing);
         then(midReportRepository).should(org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
+
+    @Test
+    @DisplayName("최종 제출은 도메인 제출 상태를 저장한다")
+    void submitsReport() {
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 9, 8, 14, 0);
+        MidReport report = org.mockito.Mockito.mock(MidReport.class);
+        given(midReportRepository.findById(10L)).willReturn(Optional.of(report));
+        given(midReportRepository.save(report)).willReturn(report);
+
+        assertThat(midReportCommandService.submit(10L, 3L, "202600001", submittedAt)).isSameAs(report);
+
+        then(report).should().submit(3L, "202600001", submittedAt);
+        then(midReportRepository).should().save(report);
+    }
 }

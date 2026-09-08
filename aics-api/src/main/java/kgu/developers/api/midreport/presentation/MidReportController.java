@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockCompletionRequest;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockUpdateRequest;
+import kgu.developers.api.midreport.presentation.request.MidReportSubmissionRequest;
 import kgu.developers.api.midreport.presentation.response.MidReportResponse;
 import kgu.developers.common.exception.ExceptionResponse;
 import org.springframework.http.ResponseEntity;
@@ -53,6 +54,22 @@ public interface MidReportController {
         @PathVariable Long id,
         @PathVariable String blockKey,
         @Valid @RequestBody MidReportBlockCompletionRequest request,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "중간보고서 최종 제출",
+        description = "팀원 승인 없이 현재 활성 학생인 팀장만 제출할 수 있습니다. 네 영역이 모두 COMPLETED여야 하며, 제출 후 문서는 읽기 전용입니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "제출 성공"),
+        @ApiResponse(responseCode = "403", description = "팀장이 아니거나 활성 학생이 아님", content = @Content(schema = @Schema(implementation = ExceptionResponse.class))),
+        @ApiResponse(responseCode = "409", description = "VERSION_CONFLICT 또는 이미 제출된 문서", content = @Content(schema = @Schema(implementation = ExceptionResponse.class))),
+        @ApiResponse(responseCode = "422", description = "완료되지 않은 영역 존재", content = @Content(schema = @Schema(implementation = ExceptionResponse.class)))
+    })
+    ResponseEntity<MidReportResponse> submit(
+        @PathVariable Long id,
+        @Valid @RequestBody MidReportSubmissionRequest request,
         Authentication authentication
     );
 }

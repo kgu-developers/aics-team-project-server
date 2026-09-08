@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import kgu.developers.api.midreport.application.MidReportFacade;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockCompletionRequest;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockUpdateRequest;
+import kgu.developers.api.midreport.presentation.request.MidReportSubmissionRequest;
 import kgu.developers.api.midreport.presentation.response.MidReportResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -48,5 +49,15 @@ public class MidReportControllerImpl implements MidReportController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(midReportFacade.completeBlock(id, blockKey, authentication.getName(), request));
+    }
+
+    @Override
+    @PostMapping("/{id}/submit")
+    public ResponseEntity<MidReportResponse> submit(
+        @PathVariable Long id,
+        @Valid @RequestBody MidReportSubmissionRequest request,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(midReportFacade.submit(id, authentication.getName(), request));
     }
 }

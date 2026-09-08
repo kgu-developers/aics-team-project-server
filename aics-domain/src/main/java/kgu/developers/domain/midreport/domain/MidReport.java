@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import kgu.developers.domain.midreport.exception.MidReportBlockIncompleteException;
 import kgu.developers.domain.midreport.exception.MidReportSubmittedException;
 import kgu.developers.domain.midreport.exception.MidReportVersionConflictException;
 import lombok.AllArgsConstructor;
@@ -68,6 +69,18 @@ public class MidReport {
         MidReportBlock block = block(blockKey);
         validateMutable(expectedVersion);
         block.complete(editorId, savedAt);
+    }
+
+    public void submit(long expectedVersion, String submitterId, LocalDateTime submittedAt) {
+        validateMutable(expectedVersion);
+        boolean allBlocksCompleted = blocks.size() == MidReportBlockDefinition.values().length && blocks.stream()
+            .allMatch(block -> block.getStatus() == MidReportBlockStatus.COMPLETED);
+        if (!allBlocksCompleted) {
+            throw new MidReportBlockIncompleteException();
+        }
+        this.status = MidReportStatus.SUBMITTED;
+        this.submittedBy = submitterId;
+        this.submittedAt = submittedAt;
     }
 
     private void validateMutable(long expectedVersion) {

@@ -17,6 +17,7 @@ import kgu.developers.api.midreport.application.MidReportFacade;
 import kgu.developers.api.midreport.presentation.MidReportControllerImpl;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockCompletionRequest;
 import kgu.developers.api.midreport.presentation.request.MidReportBlockUpdateRequest;
+import kgu.developers.api.midreport.presentation.request.MidReportSubmissionRequest;
 import kgu.developers.api.midreport.presentation.response.MidReportBlockResponse;
 import kgu.developers.api.midreport.presentation.response.MidReportResponse;
 import kgu.developers.domain.midreport.domain.MidReportBlockStatus;
@@ -93,6 +94,28 @@ class MidReportControllerTest {
             .andExpect(status().isOk());
 
         then(midReportFacade).should().completeBlock(eq(100L), eq("topic"), eq(USER_ID), any(MidReportBlockCompletionRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST 최종 제출 API는 버전과 인증 사용자를 전달한다")
+    void submit() throws Exception {
+        given(midReportFacade.submit(eq(100L), eq(USER_ID), any())).willReturn(response());
+
+        mockMvc.perform(post("/mid-reports/100/submit")
+                .principal(authentication()).contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
+            .andExpect(status().isOk());
+
+        then(midReportFacade).should().submit(eq(100L), eq(USER_ID), any(MidReportSubmissionRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST 최종 제출 API는 version 누락 시 400을 반환한다")
+    void submitRequiresVersion() throws Exception {
+        mockMvc.perform(post("/mid-reports/100/submit")
+                .principal(authentication()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isBadRequest());
+
+        then(midReportFacade).shouldHaveNoInteractions();
     }
 
     private UsernamePasswordAuthenticationToken authentication() {
