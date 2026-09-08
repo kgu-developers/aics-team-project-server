@@ -20,11 +20,16 @@ import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationQuestion;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationQuestionType;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationResponse;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationSubmission;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationSubmissionStatus;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationTeammateAnswer;
 import kgu.developers.domain.evaluation.infrastructure.GradeJpaEntity;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationAnswerJpaEntity;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationFormJpaEntity;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationQuestionJpaEntity;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationResponseJpaEntity;
+import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationSubmissionJpaEntity;
+import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationTeammateAnswerJpaEntity;
 
 class PeerEvaluationJpaEntityTest {
     private final LocalDateTime opensAt = LocalDateTime.of(2026, 8, 1, 9, 0);
@@ -150,5 +155,52 @@ class PeerEvaluationJpaEntityTest {
 
         assertThat(evaluatorId.getAnnotation(Column.class).length()).isEqualTo(20);
         assertThat(targetId.getAnnotation(Column.class).length()).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("사용자 상호평가 제출 JPA 엔티티는 제출 상태와 서술 답변을 보존한다")
+    void submissionRoundTrip() {
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 9, 8, 12, 0);
+        PeerEvaluationSubmission domain = PeerEvaluationSubmission.builder()
+            .id(1L)
+            .formId(2L)
+            .evaluatorId("20260001")
+            .selfContribution("API를 구현했습니다.")
+            .projectReviewComment("협업이 원활했습니다.")
+            .reflectionComment("일정을 더 일찍 정하겠습니다.")
+            .status(PeerEvaluationSubmissionStatus.SUBMITTED)
+            .submittedAt(submittedAt)
+            .build();
+
+        PeerEvaluationSubmission mapped = PeerEvaluationSubmissionJpaEntity.from(domain).toDomain();
+
+        assertThat(mapped.getId()).isEqualTo(1L);
+        assertThat(mapped.getFormId()).isEqualTo(2L);
+        assertThat(mapped.getEvaluatorId()).isEqualTo("20260001");
+        assertThat(mapped.getStatus()).isEqualTo(PeerEvaluationSubmissionStatus.SUBMITTED);
+        assertThat(mapped.getSubmittedAt()).isEqualTo(submittedAt);
+        assertThat(mapped.getSelfContribution()).isEqualTo("API를 구현했습니다.");
+    }
+
+    @Test
+    @DisplayName("팀원별 상호평가 답변 JPA 엔티티는 대상과 기여도를 보존한다")
+    void teammateAnswerRoundTrip() {
+        PeerEvaluationTeammateAnswer domain = PeerEvaluationTeammateAnswer.builder()
+            .id(1L)
+            .submissionId(2L)
+            .targetUserId("20260002")
+            .contributionPercent(40)
+            .contributionDetail("화면을 구현했습니다.")
+            .teammateAssessment("일정을 잘 지켰습니다.")
+            .build();
+
+        PeerEvaluationTeammateAnswer mapped = PeerEvaluationTeammateAnswerJpaEntity.from(domain).toDomain();
+
+        assertThat(mapped.getId()).isEqualTo(1L);
+        assertThat(mapped.getSubmissionId()).isEqualTo(2L);
+        assertThat(mapped.getTargetUserId()).isEqualTo("20260002");
+        assertThat(mapped.getContributionPercent()).isEqualTo(40);
+        assertThat(mapped.getContributionDetail()).isEqualTo("화면을 구현했습니다.");
+        assertThat(mapped.getTeammateAssessment()).isEqualTo("일정을 잘 지켰습니다.");
     }
 }
