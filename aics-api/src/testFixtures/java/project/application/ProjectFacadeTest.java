@@ -168,7 +168,8 @@ class ProjectFacadeTest {
     private void givenImageUploadedBy(String uploaderId) {
         given(teamMemberRepository.findAllByTeamId(TEAM_ID))
             .willReturn(List.of(TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장")));
-        given(fileObjectRepository.findById(1L)).willReturn(Optional.of(FileObject.builder()
+        // 화면 이미지는 N+1을 피하려고 한 번에 조회한다(ProjectFacade.resolveScreenImageUrls).
+        given(fileObjectRepository.findAllById(List.of(1L))).willReturn(List.of(FileObject.builder()
             .id(1L).uploadedBy(uploaderId).storageKey("teams/1/home.png").build()));
     }
 
