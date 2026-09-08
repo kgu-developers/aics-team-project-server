@@ -16,6 +16,8 @@ public record ProjectResponse(
     String goal,
     String dataConfiguration,
     JsonNode screenConfiguration,
+    JsonNode keyFeatures,
+    JsonNode demoFlow,  // 시연 흐름 [{number, title}, ...] - number로 정렬됨
     String meetingStyle,
     String repositoryUrl,
     JsonNode externalLinks,
@@ -35,6 +37,8 @@ public record ProjectResponse(
             .goal(project.getGoal())
             .dataConfiguration(project.getDataConfiguration())
             .screenConfiguration(resolvedScreenConfiguration)
+            .keyFeatures(project.getKeyFeatures())
+            .demoFlow(project.getDemoFlow())
             .meetingStyle(project.getMeetingStyle())
             .repositoryUrl(project.getRepositoryUrl())
             .externalLinks(project.getExternalLinks())

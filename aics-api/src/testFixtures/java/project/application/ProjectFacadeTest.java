@@ -88,6 +88,7 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
 
         assertThat(projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()).goal()).isEqualTo("피드백 자동화");
@@ -110,9 +111,12 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
         ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화", "데이터",
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://evil/forever\"}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"),
             "대면", null, null);
 
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
@@ -121,7 +125,8 @@ class ProjectFacadeTest {
         then(projectCommandService).should().saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), saved.capture());
+            org.mockito.ArgumentMatchers.any(), saved.capture(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         assertThat(saved.getValue().get(0).has("imageUrl")).isFalse();
     }
 
@@ -260,6 +265,8 @@ class ProjectFacadeTest {
         return new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
             "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"),
             "대면", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
     }
 

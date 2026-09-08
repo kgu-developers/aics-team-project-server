@@ -67,6 +67,8 @@ class ProjectRepositoryImplTest {
         "온라인",
         null,
         "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode(),
+        objectMapper.createArrayNode(),
         objectMapper.createArrayNode()
     );
 
@@ -117,6 +119,8 @@ class ProjectRepositoryImplTest {
         "온라인",
         null,
         "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode(),
+        objectMapper.createArrayNode(),
         objectMapper.createArrayNode()
     );
 
@@ -145,6 +149,8 @@ class ProjectRepositoryImplTest {
         "온라인",
         null,
         "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode(),
+        objectMapper.createArrayNode(),
         objectMapper.createArrayNode()
     );
 
@@ -176,6 +182,8 @@ class ProjectRepositoryImplTest {
         "온라인",
         null,
         "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode(),
+        objectMapper.createArrayNode(),
         objectMapper.createArrayNode()
     );
 
