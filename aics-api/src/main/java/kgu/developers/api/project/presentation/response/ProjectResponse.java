@@ -14,6 +14,8 @@ public record ProjectResponse(
     String title,
     String description,
     String goal,
+    String dataConfiguration,
+    JsonNode screenConfiguration,
     String meetingStyle,
     String repositoryUrl,
     JsonNode externalLinks,
@@ -27,6 +29,8 @@ public record ProjectResponse(
             .title(project.getTitle())
             .description(project.getDescription())
             .goal(project.getGoal())
+            .dataConfiguration(project.getDataConfiguration())
+            .screenConfiguration(project.getScreenConfiguration())
             .meetingStyle(project.getMeetingStyle())
             .repositoryUrl(project.getRepositoryUrl())
             .externalLinks(project.getExternalLinks())

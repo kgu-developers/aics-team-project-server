@@ -26,6 +26,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import jakarta.persistence.EntityManager;
 import kgu.developers.common.exception.CustomException;
+import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.course.infrastructure.CourseJpaEntity;
@@ -194,10 +195,12 @@ class ProjectTopicFinalizeIntegrationTest {
     }
 
     @Test
-    @DisplayName("제안서 수정으로 채운 회의방식·저장소는 주제 확정 후에도 유지된다")
+    @DisplayName("제안서 수정으로 채운 회의방식·저장소·데이터/화면 구성은 주제 확정 후에도 유지된다")
     void finalizeTopic_keepsProposalFieldsOutsideTopic() {
         Project created = tx.execute(status -> projectCommandService.saveProject(
-            teamId, "첫 주제", "첫 설명", "첫 목표", "대면", "https://github.com/kgu/project", null));
+            teamId, "첫 주제", "첫 설명", "첫 목표", "대면", "https://github.com/kgu/project", null,
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            JsonConverter.parse("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]")));
 
         tx.execute(status -> projectCommandService.finalizeTopic(
             teamId, FIRST_CANDIDATE_ID, "두 번째 주제", "두 번째 설명", "두 번째 목표"));
@@ -206,6 +209,9 @@ class ProjectTopicFinalizeIntegrationTest {
         assertThat(persisted.getMeetingStyle()).isEqualTo("대면");
         assertThat(persisted.getRepositoryUrl()).isEqualTo("https://github.com/kgu/project");
         assertThat(persisted.getTopicCandidateId()).isEqualTo(FIRST_CANDIDATE_ID);
+        assertThat(persisted.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
+        assertThat(JsonConverter.parse(persisted.getScreenConfiguration()).get(0).get("title").asText())
+            .isEqualTo("홈");
     }
 
     @Test

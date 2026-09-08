@@ -68,13 +68,35 @@ class ProjectCommandServiceTest {
     void saveProject_keepsApprovalsWhenContentIsUnchanged() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
             .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
-            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT).build();
+            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
 
         saveProject();
 
         then(projectApprovalRepository).shouldHaveNoInteractions();
         then(projectRepository).should(org.mockito.Mockito.never()).save(existing);
+    }
+
+    @Test
+    @DisplayName("saveProject는 화면 구성만 바뀌어도 리비전을 올리고 승인 이력을 지운다")
+    void saveProject_bumpsRevisionWhenScreenConfigurationChanges() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
+            .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().readTree("[]"))
+            .build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+
+        Project result = saveProject();
+
+        assertThat(result.getProposalRevision()).isEqualTo(1L);
+        assertThat(result.getScreenConfiguration().get(0).get("title").asText()).isEqualTo("홈");
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
     }
 
     @Test
@@ -137,7 +159,8 @@ class ProjectCommandServiceTest {
                 Project newProject = invocation.getArgument(1);
                 deleted.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
                     newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(),
-                    newProject.getMeetingStyle(), newProject.getTopicCandidateId());
+                    newProject.getMeetingStyle(), newProject.getTopicCandidateId(),
+                    newProject.getDataConfiguration(), newProject.getScreenConfiguration());
                 return deleted;
             });
 
@@ -191,7 +214,10 @@ class ProjectCommandServiceTest {
     @DisplayName("finalizeTopic은 주제를 바꾸면 리비전을 올리고 기존 동의를 무효화한다")
     void finalizeTopic_bumpsRevisionAndClearsApprovals() {
         Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
-            .goal("기존 목표").meetingStyle("대면").approvalStatus(ApprovalStatus.APPROVED).build();
+            .goal("기존 목표").meetingStyle("대면").approvalStatus(ApprovalStatus.APPROVED)
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().createArrayNode())
+            .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
         given(projectRepository.save(existing)).willReturn(existing);
 
@@ -218,6 +244,8 @@ class ProjectCommandServiceTest {
 
     private Project saveProject() throws Exception {
         return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
-            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"));
     }
 }

@@ -66,7 +66,8 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             }
 
             existing.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
-                    newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(), newProject.getMeetingStyle(), newProject.getTopicCandidateId());
+                    newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(), newProject.getMeetingStyle(), newProject.getTopicCandidateId(),
+                    newProject.getDataConfiguration(), newProject.getScreenConfiguration());
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(existing, team);
             ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
             return savedEntity.toDomain();

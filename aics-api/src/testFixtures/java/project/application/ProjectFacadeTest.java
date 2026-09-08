@@ -74,6 +74,7 @@ class ProjectFacadeTest {
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
 
         assertThat(projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()).goal()).isEqualTo("피드백 자동화");
@@ -178,8 +179,10 @@ class ProjectFacadeTest {
     }
 
     private ProjectRequest request() throws Exception {
-        return new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화", "대면", "https://github.com/kgu/project",
-            new ObjectMapper().readTree("[]"));
+        return new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
+            "대면", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
     }
 
     private Project project() {

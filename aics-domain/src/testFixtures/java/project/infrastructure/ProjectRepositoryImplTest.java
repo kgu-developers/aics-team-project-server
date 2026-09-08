@@ -64,7 +64,10 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인"
+        "온라인",
+        null,
+        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode()
     );
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -111,7 +114,10 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인"
+        "온라인",
+        null,
+        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode()
     );
 
     given(entityManager.find(TeamJpaEntity.class, 999L, PESSIMISTIC_WRITE)).willReturn(null);
@@ -136,7 +142,10 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인"
+        "온라인",
+        null,
+        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode()
     );
 
     TeamJpaEntity deletedTeam = TeamJpaEntity.builder().id(1L).build();
@@ -164,7 +173,10 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인"
+        "온라인",
+        null,
+        "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+        objectMapper.createArrayNode()
     );
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -288,6 +300,8 @@ class ProjectRepositoryImplTest {
         .title("새 프로젝트")
         .description("새 설명")
         .goal("새 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
@@ -386,6 +400,8 @@ class ProjectRepositoryImplTest {
         .title("새 프로젝트")
         .description("새 설명")
         .goal("새 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
@@ -416,6 +432,8 @@ class ProjectRepositoryImplTest {
         .title("새 프로젝트")
         .description("새 설명")
         .goal("새 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
@@ -828,6 +846,8 @@ class ProjectRepositoryImplTest {
         .title("원본 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
@@ -900,6 +920,8 @@ class ProjectRepositoryImplTest {
         .title("원본 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
@@ -972,6 +994,8 @@ class ProjectRepositoryImplTest {
         .title("원본 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
@@ -995,6 +1019,8 @@ class ProjectRepositoryImplTest {
         .title("재활성화된 프로젝트")
         .description("재활성화 설명")
         .goal("재활성화 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/reactivated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
@@ -1025,6 +1051,8 @@ class ProjectRepositoryImplTest {
         .title("재활성화된 프로젝트")
         .description("재활성화 설명")
         .goal("재활성화 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(objectMapper.createArrayNode())
         .repositoryUrl("https://github.com/example/reactivated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)

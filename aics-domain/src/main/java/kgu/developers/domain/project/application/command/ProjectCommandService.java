@@ -1,6 +1,7 @@
 package kgu.developers.domain.project.application.command;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
@@ -36,9 +37,11 @@ public class ProjectCommandService {
         String goal,
         String meetingStyle,
         String repositoryUrl,
-        JsonNode externalLinks
+        JsonNode externalLinks,
+        String dataConfiguration,
+        JsonNode screenConfiguration
     ) {
-        return saveProject(teamId, title, description, goal, meetingStyle, repositoryUrl, externalLinks, null);
+        return saveProject(teamId, title, description, goal, meetingStyle, repositoryUrl, externalLinks, null, dataConfiguration, screenConfiguration);
     }
 
     public Project saveProject(
@@ -49,7 +52,9 @@ public class ProjectCommandService {
         String meetingStyle,
         String repositoryUrl,
         JsonNode externalLinks,
-        Long topicCandidateId
+        Long topicCandidateId,
+        String dataConfiguration,
+        JsonNode screenConfiguration
     ) {
         // 팀당 프로젝트는 하나다. 조회-수정-저장이 갈라지지 않도록 팀 행을 먼저 잠근다.
         projectRepository.lockTeam(teamId);
@@ -57,13 +62,13 @@ public class ProjectCommandService {
         Project existing = projectRepository.findIncludingDeletedByTeamId(teamId).orElse(null);
         if (existing == null) {
             return projectRepository.save(Project.create(
-                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle, topicCandidateId
+                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle, topicCandidateId, dataConfiguration, screenConfiguration
             ));
         }
         if (existing.getDeletedAt() != null) {
-            return reactivateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks, topicCandidateId);
+            return reactivateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration);
         }
-        return updateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks, topicCandidateId);
+        return updateProject(existing, title, description, goal, meetingStyle, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration);
     }
 
     public Project finalizeTopic(Long teamId, Long topicCandidateId, String title, String description, String goal) {
@@ -81,7 +86,12 @@ public class ProjectCommandService {
             active == null ? null : active.getMeetingStyle(),
             active == null ? null : active.getRepositoryUrl(),
             active == null ? null : active.getExternalLinks(),
-            topicCandidateId
+            topicCandidateId,
+            // 주제 확정은 제안서 내용을 입력받지 않는다. 기존 제안서가 있으면 그대로 옮기고,
+            // 없으면(최초 확정이라 프로젝트를 새로 만드는 경우) NOT NULL이라 빈 값으로 채운다.
+            active == null ? "" : active.getDataConfiguration(),
+            // 요청마다 새로 만든다 — ArrayNode는 가변이라 상수로 공유하면 안 된다.
+            active == null ? JsonNodeFactory.instance.arrayNode() : active.getScreenConfiguration()
         );
 
         return project;
@@ -99,11 +109,13 @@ public class ProjectCommandService {
         String meetingStyle,
         String repositoryUrl,
         JsonNode externalLinks,
-        Long topicCandidateId
+        Long topicCandidateId,
+        String dataConfiguration,
+        JsonNode screenConfiguration
     ) {
         projectApprovalRepository.deleteAllByProjectId(project.getId());
         return projectRepository.reactivate(project.getId(), Project.create(
-            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle, topicCandidateId
+            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, meetingStyle, topicCandidateId, dataConfiguration, screenConfiguration
         ));
     }
 
@@ -115,13 +127,15 @@ public class ProjectCommandService {
         String meetingStyle,
         String repositoryUrl,
         JsonNode externalLinks,
-        Long topicCandidateId
+        Long topicCandidateId,
+        String dataConfiguration,
+        JsonNode screenConfiguration
     ) {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
 
-        if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks) &&
+        if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration) &&
             (topicCandidateId == null || topicCandidateId.equals(project.getTopicCandidateId()))) {
             return project;
         }
@@ -129,6 +143,8 @@ public class ProjectCommandService {
         project.updateTitle(title);
         project.updateDescription(description);
         project.updateGoal(goal);
+        project.updateDataConfiguration(dataConfiguration);
+        project.updateScreenConfiguration(screenConfiguration);
         project.updateMeetingStyle(meetingStyle);
         project.updateRepositoryUrl(repositoryUrl);
         project.updateExternalLinks(externalLinks);

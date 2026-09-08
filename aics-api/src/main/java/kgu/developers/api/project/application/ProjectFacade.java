@@ -41,7 +41,9 @@ public class ProjectFacade {
             request.goal(),
             request.meetingStyle(),
             request.repositoryUrl(),
-            request.externalLinks()
+            request.externalLinks(),
+            request.dataConfiguration(),
+            request.screenConfiguration()
         ));
     }
 

@@ -82,6 +82,8 @@ class ProjectControllerTest {
             "AI 학습 도우미",
             "학습 기록을 분석하는 서비스",
             "개인별 피드백 자동화",
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            objectMapper.readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
             "매주 월요일 대면 회의",
             "https://github.com/kgu/project",
             objectMapper.readTree("[{\"name\":\"Figma\",\"url\":\"https://figma.com/design\"}]")
@@ -114,6 +116,8 @@ class ProjectControllerTest {
             "title".equals(field) ? tooLong : "AI 학습 도우미",
             "학습 기록을 분석하는 서비스",
             "개인별 피드백 자동화",
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            objectMapper.readTree("[]"),
             "meetingStyle".equals(field) ? tooLong : "매주 월요일 대면 회의",
             "repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project",
             objectMapper.readTree("[]")
@@ -122,6 +126,45 @@ class ProjectControllerTest {
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    // screenConfiguration 컬럼은 NOT NULL이고 순서 있는 목록이라 배열이어야 한다. @NotNull만으로는
+    // JSON `null`을 못 막는다 — Jackson이 NullNode로 역직렬화해서 jsonb에 `null`이 저장돼버린다.
+    @ParameterizedTest(name = "screenConfiguration이 {0}이면 400을 반환한다")
+    @CsvSource({"null", "'{\"title\":\"홈\"}'", "'\"문자열\"'", "123"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 화면 구성이 배열이 아니면 400을 반환한다")
+    void saveProjectRejectsNonArrayScreenConfiguration(String screenConfigurationJson) throws Exception {
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"종류: 학습 로그","screenConfiguration":%s,
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """.formatted(screenConfigurationJson);
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 비면 400을 반환한다")
+    void saveProjectRejectsBlankDataConfiguration() throws Exception {
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"  ","screenConfiguration":[],
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """;
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isBadRequest());
 
