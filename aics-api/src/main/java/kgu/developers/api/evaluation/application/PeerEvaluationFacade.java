@@ -8,6 +8,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationAnswerRequest;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationResponseRequest;
+import kgu.developers.api.evaluation.presentation.response.EvaluationContextResponse;
 import kgu.developers.api.evaluation.presentation.response.MyPeerEvaluationResponse;
 import kgu.developers.api.evaluation.presentation.response.PeerEvaluationAnswerResponse;
 import kgu.developers.api.evaluation.presentation.response.PeerEvaluationTargetResponse;
@@ -25,6 +26,8 @@ import kgu.developers.domain.evaluation.exception.PeerEvaluationClosedException;
 import kgu.developers.domain.evaluation.exception.PeerEvaluationFormNotFoundException;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
@@ -47,6 +50,36 @@ public class PeerEvaluationFacade {
     private final UserQueryService userQueryService;
     private final PeerEvaluationSubmissionRepository submissionRepository;
     private final PeerEvaluationTeammateAnswerRepository teammateAnswerRepository;
+
+    public EvaluationContextResponse getContext(Long sectionId, String userId) {
+        User requester = userQueryService.getUserByStudentNumber(userId);
+        if (requester.getGlobalRole() != UserGlobalRole.USER) {
+            throw new AccessDeniedException("일반 사용자 중 활성 학생만 평가 정보를 조회할 수 있습니다.");
+        }
+        enrollmentRepository.findBySectionIdAndUserId(sectionId, userId)
+            .filter(Enrollment::isActiveStudent)
+            .orElseThrow(() -> new AccessDeniedException("해당 분반의 활성 학생만 평가 정보를 조회할 수 있습니다."));
+
+        List<Milestone> visibleMilestones = milestoneRepository.findAllBySectionIdOrderByWeekNumber(sectionId).stream()
+            .filter(milestone -> milestone.getStatus() != MilestoneStatus.DRAFT)
+            .toList();
+        Long presentationMilestoneId = visibleMilestones.stream()
+            .filter(milestone -> milestone.getType() == MilestoneType.PRESENTATION)
+            .map(Milestone::getId)
+            .findFirst()
+            .orElse(null);
+        Set<Long> peerEvaluationMilestoneIds = visibleMilestones.stream()
+            .filter(milestone -> milestone.getType() == MilestoneType.PEER_EVALUATION)
+            .map(Milestone::getId)
+            .collect(Collectors.toSet());
+        Long peerEvaluationFormId = formRepository.findAllBySectionIdOrderByIdDesc(sectionId).stream()
+            .filter(form -> peerEvaluationMilestoneIds.contains(form.getMilestoneId()))
+            .map(PeerEvaluationForm::getId)
+            .findFirst()
+            .orElse(null);
+
+        return EvaluationContextResponse.of(presentationMilestoneId, peerEvaluationFormId);
+    }
 
     public PeerEvaluationTargetsResponse getTargets(Long formId, String userId) {
         AccessContext context = accessContext(formId, userId, false);

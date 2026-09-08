@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -66,7 +67,52 @@ class PeerEvaluationFacadeTest {
     @BeforeEach
     void setUpRequester() {
         given(userQueryService.getUserByStudentNumber(REQUESTER)).willReturn(user(REQUESTER, "학생 A", UserGlobalRole.USER));
-        given(formRepository.findById(FORM_ID)).willReturn(Optional.of(form()));
+        lenient().when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(form()));
+    }
+
+    @Test
+    @DisplayName("평가 컨텍스트는 공개된 발표 마일스톤과 최신 상호평가 양식 ID를 반환한다")
+    void returnsEvaluationContext() {
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(enrollment(REQUESTER, Role.STUDENT, Status.ACTIVE)));
+        Milestone presentation = milestone(11L, MilestoneType.PRESENTATION, MilestoneStatus.PUBLISHED, 10);
+        Milestone peerEvaluation = milestone(12L, MilestoneType.PEER_EVALUATION, MilestoneStatus.PUBLISHED, 11);
+        Milestone draftPeerEvaluation = milestone(13L, MilestoneType.PEER_EVALUATION, MilestoneStatus.DRAFT, 12);
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID))
+            .willReturn(List.of(presentation, peerEvaluation, draftPeerEvaluation));
+        given(formRepository.findAllBySectionIdOrderByIdDesc(SECTION_ID)).willReturn(List.of(
+            peerEvaluationForm(22L, 13L),
+            peerEvaluationForm(21L, 12L)
+        ));
+
+        var response = facade.getContext(SECTION_ID, REQUESTER);
+
+        assertThat(response.presentationMilestoneId()).isEqualTo("11");
+        assertThat(response.peerEvaluationFormId()).isEqualTo("21");
+    }
+
+    @Test
+    @DisplayName("평가가 아직 설정되지 않았으면 평가 컨텍스트 ID를 null로 반환한다")
+    void returnsEmptyEvaluationContext() {
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(enrollment(REQUESTER, Role.STUDENT, Status.ACTIVE)));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of());
+        given(formRepository.findAllBySectionIdOrderByIdDesc(SECTION_ID)).willReturn(List.of());
+
+        var response = facade.getContext(SECTION_ID, REQUESTER);
+
+        assertThat(response.presentationMilestoneId()).isNull();
+        assertThat(response.peerEvaluationFormId()).isNull();
+    }
+
+    @Test
+    @DisplayName("활성 학생이 아니면 평가 컨텍스트를 조회할 수 없다")
+    void rejectsEvaluationContextForAssistant() {
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(enrollment(REQUESTER, Role.ASSISTANT, Status.ACTIVE)));
+
+        assertThatThrownBy(() -> facade.getContext(SECTION_ID, REQUESTER))
+            .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
@@ -259,6 +305,34 @@ class PeerEvaluationFacadeTest {
             new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
             MilestoneType.GENERAL,
             false
+        );
+    }
+
+    private Milestone milestone(Long id, MilestoneType type, MilestoneStatus status, int weekNumber) {
+        return Milestone.restore(
+            id,
+            SECTION_ID,
+            type.name(),
+            "평가",
+            weekNumber,
+            status,
+            new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
+            type,
+            false
+        );
+    }
+
+    private PeerEvaluationForm peerEvaluationForm(Long id, Long milestoneId) {
+        return PeerEvaluationForm.restore(
+            id,
+            SECTION_ID,
+            milestoneId,
+            false,
+            LocalDateTime.now().minusDays(1),
+            LocalDateTime.now().plusDays(1),
+            null,
+            null,
+            null
         );
     }
 
