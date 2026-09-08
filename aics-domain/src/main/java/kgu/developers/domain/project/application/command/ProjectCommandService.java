@@ -197,13 +197,13 @@ public class ProjectCommandService {
         items.sort(Comparator.comparing(node -> {
             JsonNode number = node.get("number");
             if (number == null || number.isNull()) {
-                return Integer.MAX_VALUE;
+                return null;
             }
             if (!number.isNumber()) {
                 throw new IllegalArgumentException("demoFlow의 number 필드는 숫자여야 합니다.");
             }
-            return number.asInt();
-        }));
+            return number.decimalValue();
+        }, Comparator.nullsLast(Comparator.naturalOrder())));
 
         items.forEach(sorted::add);
         return sorted;
