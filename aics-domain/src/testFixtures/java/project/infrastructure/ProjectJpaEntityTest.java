@@ -92,7 +92,7 @@ class ProjectJpaEntityTest {
     assertThat(domain.getTitle()).isEqualTo("팀 프로젝트");
     assertThat(domain.getDescription()).isEqualTo("프로젝트 설명");
     assertThat(domain.getGoal()).isEqualTo("프로젝트 목표");
-    assertThat(domain.getDataConfiguration()).isEqualTo(objectMapper.createArrayNode());
+    assertThat(domain.getDataConfiguration().get(0).get("name").asText()).isEqualTo("학습 로그");
     assertThat(domain.getScreenConfiguration()).isEqualTo(screenConfiguration);
     assertThat(domain.getRepositoryUrl()).isEqualTo("https://github.com/example/repo");
     assertThat(domain.getExternalLinks()).isEqualTo(externalLinks);

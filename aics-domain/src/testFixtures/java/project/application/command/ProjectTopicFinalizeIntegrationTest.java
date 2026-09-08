@@ -213,7 +213,7 @@ class ProjectTopicFinalizeIntegrationTest {
         assertThat(persisted.getCollaborationStyle()).isEqualTo("대면");
         assertThat(persisted.getRepositoryUrl()).isEqualTo("https://github.com/kgu/project");
         assertThat(persisted.getTopicCandidateId()).isEqualTo(FIRST_CANDIDATE_ID);
-        assertThat(persisted.getDataConfiguration()).isEqualTo(objectMapper.createArrayNode());
+        assertThat(persisted.getDataConfiguration().get(0).get("name").asText()).isEqualTo("학습 로그");
         assertThat(persisted.getScreenConfiguration().get(0).get("title").asText()).isEqualTo("홈");
         assertThat(persisted.getProjectSchedule()).isEqualTo("4월: 설계, 5월: 개발, 6월: 통합 테스트");
     }
