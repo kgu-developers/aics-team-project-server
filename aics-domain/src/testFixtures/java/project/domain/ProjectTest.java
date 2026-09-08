@@ -240,13 +240,12 @@ class ProjectTest {
   }
 
   @Test
-  @DisplayName("updateKeyFeatures은 null로 변경할 수 있다")
+  @DisplayName("updateKeyFeatures은 null이면 예외를 발생시킨다")
   void updateKeyFeaturesWithNull() {
     Project project = createDefaultProject();
 
-    project.updateKeyFeatures(null);
-
-    assertThat(project.getKeyFeatures()).isNull();
+    assertThatThrownBy(() -> project.updateKeyFeatures(null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test
@@ -263,13 +262,12 @@ class ProjectTest {
   }
 
   @Test
-  @DisplayName("updateDemoFlow은 null로 변경할 수 있다")
+  @DisplayName("updateDemoFlow은 null이면 예외를 발생시킨다")
   void updateDemoFlowWithNull() {
     Project project = createDefaultProject();
 
-    project.updateDemoFlow(null);
-
-    assertThat(project.getDemoFlow()).isNull();
+    assertThatThrownBy(() -> project.updateDemoFlow(null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test
