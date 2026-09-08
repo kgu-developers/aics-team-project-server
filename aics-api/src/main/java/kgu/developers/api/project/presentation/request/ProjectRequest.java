@@ -30,7 +30,9 @@ public record ProjectRequest(
     String dataConfiguration,
 
     // DB가 NOT NULL이라 항상 보내야 한다. 등록할 화면이 없으면 빈 배열([])을 보낸다.
-    @Schema(description = "화면 구성 (JSON 배열, 배열 순서가 화면 순서: [{title, description, imageFileId}])",
+    @Schema(description = "화면 구성 (JSON 배열, 배열 순서가 화면 순서: [{title, description, imageFileId}]). "
+        + "imageFileId는 우리 팀원이 업로드한 파일이어야 하며, 조회 응답에는 서버가 imageUrl(15분 만료 presigned URL)을 채워 내려준다. "
+        + "요청에 imageUrl을 넣어도 저장되지 않는다.",
         example = "[{\"title\":\"홈\",\"description\":\"학습 현황 요약\",\"imageFileId\":1}]", requiredMode = REQUIRED)
     @NotNull
     JsonNode screenConfiguration,
@@ -53,5 +55,26 @@ public record ProjectRequest(
     @AssertTrue(message = "화면 구성은 JSON 배열이어야 합니다.")
     public boolean isScreenConfigurationArray() {
         return screenConfiguration != null && screenConfiguration.isArray();
+    }
+
+    // imageFileId 소유권 검사(ProjectFacade)와 presigned URL 보강은 "각 원소가 객체이고 imageFileId가
+    // 정수"라는 전제 위에서 돈다. 그 전제를 여기 입력 경계에서 400으로 걸러내야, 파사드가 이상한
+    // 모양을 만났을 때 조용히 건너뛰고(=검사 없이 저장) 넘어가는 일이 안 생긴다.
+    @JsonIgnore
+    @AssertTrue(message = "화면 구성의 각 항목은 객체여야 하고 imageFileId는 정수여야 합니다.")
+    public boolean isScreenConfigurationShapeValid() {
+        if (screenConfiguration == null || !screenConfiguration.isArray()) {
+            return true; // isScreenConfigurationArray가 이미 잡는다
+        }
+        for (JsonNode screen : screenConfiguration) {
+            if (!screen.isObject()) {
+                return false;
+            }
+            JsonNode imageFileId = screen.get("imageFileId");
+            if (imageFileId != null && !imageFileId.isNull() && !imageFileId.isIntegralNumber()) {
+                return false;
+            }
+        }
+        return true;
     }
 }
