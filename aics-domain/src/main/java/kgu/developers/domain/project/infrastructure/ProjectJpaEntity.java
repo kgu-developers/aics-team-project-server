@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import kgu.developers.common.domain.BaseTimeEntity;
-import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
@@ -58,7 +57,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
-    private String screenConfiguration;
+    private JsonNode screenConfiguration;
 
     @Column(length = 255)
     private String repositoryUrl;
@@ -89,7 +88,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .description(description)
                 .goal(goal)
                 .dataConfiguration(dataConfiguration)
-                .screenConfiguration(screenConfiguration == null ? null : JsonConverter.parse(screenConfiguration))
+                .screenConfiguration(screenConfiguration)
                 .repositoryUrl(repositoryUrl)
                 .externalLinks(externalLinks)
                 .approvalStatus(approvalStatus)
@@ -112,7 +111,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .description(project.getDescription())
                 .goal(project.getGoal())
                 .dataConfiguration(project.getDataConfiguration())
-                .screenConfiguration(project.getScreenConfiguration() == null ? null : project.getScreenConfiguration().toString())
+                .screenConfiguration(project.getScreenConfiguration())
                 .repositoryUrl(project.getRepositoryUrl())
                 .externalLinks(project.getExternalLinks())
                 .approvalStatus(project.getApprovalStatus())

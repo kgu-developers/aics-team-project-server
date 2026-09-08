@@ -91,7 +91,6 @@ class ProjectJpaEntityTest {
     assertThat(domain.getDescription()).isEqualTo("프로젝트 설명");
     assertThat(domain.getGoal()).isEqualTo("프로젝트 목표");
     assertThat(domain.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
-    // jsonb 컬럼은 String으로 들고 있어서 도메인 JsonNode와의 왕복 변환이 실제로 되는지 확인한다.
     assertThat(domain.getScreenConfiguration()).isEqualTo(screenConfiguration);
     assertThat(domain.getRepositoryUrl()).isEqualTo("https://github.com/example/repo");
     assertThat(domain.getExternalLinks()).isEqualTo(externalLinks);

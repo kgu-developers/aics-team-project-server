@@ -210,8 +210,7 @@ class ProjectTopicFinalizeIntegrationTest {
         assertThat(persisted.getRepositoryUrl()).isEqualTo("https://github.com/kgu/project");
         assertThat(persisted.getTopicCandidateId()).isEqualTo(FIRST_CANDIDATE_ID);
         assertThat(persisted.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
-        assertThat(JsonConverter.parse(persisted.getScreenConfiguration()).get(0).get("title").asText())
-            .isEqualTo("홈");
+        assertThat(persisted.getScreenConfiguration().get(0).get("title").asText()).isEqualTo("홈");
     }
 
     @Test

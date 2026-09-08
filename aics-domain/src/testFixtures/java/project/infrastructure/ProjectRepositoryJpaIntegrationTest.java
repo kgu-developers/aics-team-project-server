@@ -139,7 +139,7 @@ class ProjectRepositoryJpaIntegrationTest {
           .description("프로젝트 설명")
           .goal("프로젝트 목표")
           .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
-          .screenConfiguration("[]")
+          .screenConfiguration(objectMapper.createArrayNode())
           .repositoryUrl("https://github.com/example/repo")
           .externalLinks(externalLinks())
           .approvalStatus(ApprovalStatus.APPROVED)
