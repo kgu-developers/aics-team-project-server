@@ -20,13 +20,8 @@ import kgu.developers.domain.project.exception.ProjectScreenImageOwnershipExcept
 import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
-<<<<<<< HEAD
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
-
-import java.util.List;
-import java.util.Optional;
-=======
 import kgu.developers.domain.project.domain.ProposalSection;
 import kgu.developers.domain.project.domain.ProposalSectionRepository;
 import kgu.developers.domain.project.domain.ProposalSectionType;
@@ -34,10 +29,9 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.domain.UserRepository;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
-
 import kgu.developers.common.json.JsonConverter;
-
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,14 +52,11 @@ class ProjectFacadeTest {
     @Mock private TeamAccessValidator teamAccessValidator;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
     @Mock private ProjectApprovalCommandService projectApprovalCommandService;
-<<<<<<< HEAD
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private FileObjectRepository fileObjectRepository;
     @Mock private FileStorage fileStorage;
-=======
     @Mock private ProposalSectionRepository proposalSectionRepository;
     @Mock private UserRepository userRepository;
->>>>>>> bf00674d (feat: 제안서 4개 섹션 구성(담당·완료 상태) 반영 및 제출 시 팀원 승인 필수 제약 제거)
     @InjectMocks private ProjectFacade projectFacade;
 
     @Test
@@ -113,7 +104,6 @@ class ProjectFacadeTest {
     }
 
     @Test
-<<<<<<< HEAD
     @DisplayName("saveProject는 우리 팀이 올리지 않은 imageFileId를 거부한다")
     void saveProject_rejectsForeignImage() throws Exception {
         givenImageUploadedBy("999999999");
@@ -130,10 +120,12 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
-        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화", "데이터",
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any())).willReturn(project());
+        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
+            new ObjectMapper().readTree("[]"),
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://evil/forever\"}]"),
-            "대면", null, null);
+            "대면", null, null, new ObjectMapper().readTree("[]"));
 
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
 
@@ -141,7 +133,8 @@ class ProjectFacadeTest {
         then(projectCommandService).should().saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), saved.capture());
+            org.mockito.ArgumentMatchers.any(), saved.capture(),
+            org.mockito.ArgumentMatchers.any());
         assertThat(saved.getValue().get(0).has("imageUrl")).isFalse();
     }
 
@@ -179,10 +172,7 @@ class ProjectFacadeTest {
     }
 
     @Test
-    @DisplayName("completeProposal은 팀장이고 모든 팀원이 승인하면 완료 처리한다")
-=======
     @DisplayName("completeProposal은 팀장이면 완료 처리한다")
->>>>>>> bf00674d (feat: 제안서 4개 섹션 구성(담당·완료 상태) 반영 및 제출 시 팀원 승인 필수 제약 제거)
     void completeProposal() {
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
