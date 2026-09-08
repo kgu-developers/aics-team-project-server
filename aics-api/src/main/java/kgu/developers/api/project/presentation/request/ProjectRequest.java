@@ -95,8 +95,52 @@ public record ProjectRequest(
     }
 
     @JsonIgnore
+    @AssertTrue(message = "주요 기능의 각 항목은 객체여야 하고 title, description 필드를 가져야 합니다.")
+    public boolean isKeyFeaturesShapeValid() {
+        if (keyFeatures == null || !keyFeatures.isArray()) {
+            return true; // isKeyFeaturesArray가 이미 잡는다
+        }
+        for (JsonNode feature : keyFeatures) {
+            if (!feature.isObject()) {
+                return false;
+            }
+            JsonNode title = feature.get("title");
+            JsonNode description = feature.get("description");
+            if (title == null || title.isNull() || !title.isTextual()) {
+                return false;
+            }
+            if (description == null || description.isNull() || !description.isTextual()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @JsonIgnore
     @AssertTrue(message = "시연 흐름은 JSON 배열이어야 합니다.")
     public boolean isDemoFlowArray() {
         return demoFlow != null && demoFlow.isArray();
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "시연 흐름의 각 항목은 객체여야 하고 number(정수), title 필드를 가져야 합니다.")
+    public boolean isDemoFlowShapeValid() {
+        if (demoFlow == null || !demoFlow.isArray()) {
+            return true; // isDemoFlowArray가 이미 잡는다
+        }
+        for (JsonNode flow : demoFlow) {
+            if (!flow.isObject()) {
+                return false;
+            }
+            JsonNode number = flow.get("number");
+            JsonNode title = flow.get("title");
+            if (number == null || number.isNull() || !number.isIntegralNumber()) {
+                return false;
+            }
+            if (title == null || title.isNull() || !title.isTextual()) {
+                return false;
+            }
+        }
+        return true;
     }
 }
