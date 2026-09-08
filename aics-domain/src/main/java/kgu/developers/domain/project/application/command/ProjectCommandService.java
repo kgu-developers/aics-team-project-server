@@ -186,7 +186,7 @@ public class ProjectCommandService {
 
     private JsonNode sortDemoFlow(JsonNode demoFlow) {
         if (demoFlow == null || !demoFlow.isArray()) {
-            return demoFlow;
+            return JsonNodeFactory.instance.arrayNode();
         }
         
         ArrayNode sorted = JsonNodeFactory.instance.arrayNode();
