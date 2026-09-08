@@ -200,6 +200,24 @@ class TeamFacadeTest {
   }
 
   @Test
+  @DisplayName("updateKickoff는 팀장만 바뀌면 제안서 동의를 건드리지 않는다")
+  void updateKickoffKeepsProposalWhenOnlyLeaderChanged() {
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "기존 규칙", "매주 목 19:00", "202611111", null);
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(member(1L, "202699999", true), member(2L, "202611111", false)));
+    given(teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of()))
+        .willReturn(List.of(member(1L, "202699999", false), member(2L, "202611111", true)));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService, never()).invalidateProposalForKickoffChange(any());
+  }
+
+  @Test
   @DisplayName("updateKickoff는 역할분담이 비어도 팀장만 반영한다")
   void updateKickoffWithoutRoles() {
     TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(

@@ -135,6 +135,7 @@ public class TeamFacade {
   }
 
   // 팀명은 제안서 5번에 들어가지 않으므로 이름만 바뀐 경우는 제외한다.
+  // 팀장 여부도 제안서 항목이 아니므로 제외하고 역할분담만 비교한다.
   private boolean kickoffContentChanged(
       TeamSnapshot beforeTeam,
       Team afterTeam,
@@ -143,7 +144,7 @@ public class TeamFacade {
   ) {
     return !Objects.equals(beforeTeam.kickoffRule(), afterTeam.getKickoffRule())
         || !Objects.equals(beforeTeam.meetingSchedule(), afterTeam.getMeetingSchedule())
-        || !beforeMembers.equals(afterMembers);
+        || !beforeMembers.projectRolesEqual(afterMembers);
   }
 
   private List<TeamMemberResponse> members(Long teamId) {
