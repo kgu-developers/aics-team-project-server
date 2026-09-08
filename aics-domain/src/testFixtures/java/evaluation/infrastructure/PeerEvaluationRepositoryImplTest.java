@@ -89,6 +89,22 @@ class PeerEvaluationRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("상호평가 양식 저장소 어댑터는 분반의 최신 양식부터 조회한다")
+    void findFormsBySectionId() {
+        PeerEvaluationForm latest = PeerEvaluationForm.restore(11L, 1L, 3L, true, opensAt, closesAt, null, null, null);
+        PeerEvaluationForm previous = PeerEvaluationForm.restore(10L, 1L, 2L, true, opensAt, closesAt, null, null, null);
+        given(formJpaRepository.findAllBySectionIdAndDeletedAtIsNullOrderByIdDesc(1L)).willReturn(List.of(
+            PeerEvaluationFormJpaEntity.toEntity(latest),
+            PeerEvaluationFormJpaEntity.toEntity(previous)
+        ));
+        PeerEvaluationFormRepositoryImpl repository = new PeerEvaluationFormRepositoryImpl(formJpaRepository);
+
+        List<PeerEvaluationForm> result = repository.findAllBySectionIdOrderByIdDesc(1L);
+
+        assertThat(result).extracting(PeerEvaluationForm::getId).containsExactly(11L, 10L);
+    }
+
+    @Test
     @DisplayName("상호평가 질문 저장소 어댑터는 표시 순서로 질문 목록을 조회한다")
     void findQuestionsByFormId() {
         PeerEvaluationQuestion first = PeerEvaluationQuestion.restore(1L, 10L, "협업 태도", PeerEvaluationQuestionType.SCALE, new BigDecimal("5.00"), 0, null, null, null);
