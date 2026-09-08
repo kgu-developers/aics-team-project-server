@@ -1,6 +1,7 @@
 package kgu.developers.admin.meetingrecord.presentation;
 
 import kgu.developers.admin.meetingrecord.application.MeetingRecordAdminFacade;
+import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminDetailResponse;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -8,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,5 +33,15 @@ public class MeetingRecordAdminControllerImpl implements MeetingRecordAdminContr
         return ResponseEntity.ok(
             meetingRecordAdminFacade.getMeetingRecords(
                 sectionId, PageRequest.of(page, size), authentication.getName()));
+    }
+
+    @Override
+    @GetMapping("/{id}")
+    public ResponseEntity<MeetingRecordAdminDetailResponse> getMeetingRecord(
+        @PathVariable Long id,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+            meetingRecordAdminFacade.getMeetingRecord(id, authentication.getName()));
     }
 }

@@ -16,6 +16,7 @@ import jakarta.validation.ConstraintViolationException;
 import kgu.developers.admin.meetingrecord.application.MeetingRecordAdminFacade;
 import kgu.developers.admin.meetingrecord.presentation.MeetingRecordAdminController;
 import kgu.developers.admin.meetingrecord.presentation.MeetingRecordAdminControllerImpl;
+import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminDetailResponse;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminResponse;
 import kgu.developers.common.response.PageableResponse;
@@ -117,6 +118,36 @@ class MeetingRecordAdminControllerTest {
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
             .isInstanceOf(ConstraintViolationException.class);
         verifyNoInteractions(meetingRecordAdminFacade);
+    }
+
+    @Test
+    @DisplayName("GET /meeting-records/{id}는 인증된 교수 학번으로 회의록 상세를 조회한다")
+    void getMeetingRecord() throws Exception {
+        MeetingRecordAdminDetailResponse response = MeetingRecordAdminDetailResponse.builder()
+            .id(1L)
+            .sectionId(1L)
+            .sectionName("월3,4/1151")
+            .teamId(10L)
+            .teamName("A팀")
+            .title("3주차 정기 회의")
+            .phase(MeetingPhase.MID_CHECK)
+            .authorId("202612345")
+            .meetingAt("2026-08-25 19:30")
+            .content("와이어프레임 기획 논의")
+            .participantIds(List.of("202612345"))
+            .createdAt("2026-08-25 19:30")
+            .updatedAt("2026-08-25 20:30")
+            .build();
+        given(meetingRecordAdminFacade.getMeetingRecord(1L, PROFESSOR_ID)).willReturn(response);
+
+        mockMvc.perform(get(BASE_URL + "/{id}", 1L)
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.sectionName").value("월3,4/1151"))
+            .andExpect(jsonPath("$.teamName").value("A팀"))
+            .andExpect(jsonPath("$.participantIds[0]").value("202612345"));
+
+        verify(meetingRecordAdminFacade).getMeetingRecord(1L, PROFESSOR_ID);
     }
 
     private MeetingRecordAdminPageResponse response() {

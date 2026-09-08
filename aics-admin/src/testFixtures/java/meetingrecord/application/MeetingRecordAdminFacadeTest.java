@@ -127,6 +127,41 @@ class MeetingRecordAdminFacadeTest {
         verify(teamRepository, never()).findAllBySectionIdIn(anyList());
     }
 
+    @Test
+    @DisplayName("담당 교수는 담당 분반 팀의 회의록 상세를 조회한다")
+    void getMeetingRecord_OwnedSection() {
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team team = team(10L, 1L, "A팀");
+        MeetingRecord meetingRecord = meetingRecord(100L, 10L, "와이어프레임 기획 논의");
+        given(meetingRecordQueryService.getMeetingRecord(100L)).willReturn(meetingRecord);
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team));
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+
+        var response = meetingRecordAdminFacade.getMeetingRecord(100L, PROFESSOR_ID);
+
+        assertThat(response.id()).isEqualTo(100L);
+        assertThat(response.sectionId()).isEqualTo(1L);
+        assertThat(response.sectionName()).isEqualTo("월3,4/1151");
+        assertThat(response.teamId()).isEqualTo(10L);
+        assertThat(response.teamName()).isEqualTo("A팀");
+        assertThat(response.content()).isEqualTo("와이어프레임 기획 논의");
+    }
+
+    @Test
+    @DisplayName("다른 교수의 담당 분반 회의록 상세는 조회할 수 없다")
+    void getMeetingRecord_ForeignSection() {
+        Section foreignSection = section(1L, "월3,4", "1151", "202688888");
+        Team team = team(10L, 1L, "A팀");
+        MeetingRecord meetingRecord = meetingRecord(100L, 10L, "와이어프레임 기획 논의");
+        given(meetingRecordQueryService.getMeetingRecord(100L)).willReturn(meetingRecord);
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team));
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(foreignSection)));
+
+        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecord(100L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
+    }
+
     private Section section(Long id, String classTime, String code, String professorId) {
         return Section.builder()
             .id(id)
@@ -152,11 +187,14 @@ class MeetingRecordAdminFacadeTest {
         return MeetingRecord.builder()
             .id(id)
             .teamId(teamId)
+            .title("3주차 정기 회의")
             .phase(MeetingPhase.MID_CHECK)
             .authorId("202612345")
             .meetingAt(LocalDateTime.of(2026, 8, 25, 19, 30))
             .content(content)
             .participants(List.of())
+            .createdAt(LocalDateTime.of(2026, 8, 25, 19, 30))
+            .updatedAt(LocalDateTime.of(2026, 8, 25, 20, 30))
             .build();
     }
 

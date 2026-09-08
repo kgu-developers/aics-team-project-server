@@ -9,9 +9,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
+import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminDetailResponse;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "AdminMeetingRecord", description = "관리자 회의록 조회 API")
@@ -35,6 +37,23 @@ public interface MeetingRecordAdminController {
         @RequestParam(defaultValue = "0") @PositiveOrZero int page,
         @Parameter(description = "페이지 크기(최대 100)", example = "20")
         @RequestParam(defaultValue = "20") @Positive @Max(100) int size,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "담당 분반 회의록 상세 조회 API",
+        description = """
+            Description : 담당 교수가 맡은 분반의 팀 회의록 상세 내용과 참석자 학번 목록을 조회한다.
+                다른 교수의 담당 분반 회의록은 조회할 수 없다.
+            Assignee : 최태양
+            """
+    )
+    @ApiResponse(
+        responseCode = "200",
+        content = @Content(schema = @Schema(implementation = MeetingRecordAdminDetailResponse.class))
+    )
+    ResponseEntity<MeetingRecordAdminDetailResponse> getMeetingRecord(
+        @Parameter(description = "회의록 식별자") @PathVariable @Positive Long id,
         Authentication authentication
     );
 }
