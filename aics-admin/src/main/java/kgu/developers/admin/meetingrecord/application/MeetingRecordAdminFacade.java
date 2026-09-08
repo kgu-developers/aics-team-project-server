@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminDetailResponse;
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
@@ -12,6 +13,7 @@ import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,6 +59,18 @@ public class MeetingRecordAdminFacade {
             .collect(Collectors.toMap(Section::getId, Function.identity()));
 
         return MeetingRecordAdminPageResponse.from(meetingRecords, teamsById, sectionsById);
+    }
+
+    public MeetingRecordAdminDetailResponse getMeetingRecord(Long id, String professorId) {
+        MeetingRecord meetingRecord = meetingRecordQueryService.getMeetingRecord(id);
+        Team team = teamRepository.findById(meetingRecord.getTeamId())
+            .orElseThrow(TeamNotFoundException::new);
+        Section section = sectionRepository.findById(team.getSectionId())
+            .map(SectionDetail::section)
+            .filter(foundSection -> professorId.equals(foundSection.getProfessorId()))
+            .orElseThrow(() -> new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다."));
+
+        return MeetingRecordAdminDetailResponse.from(meetingRecord, team, section);
     }
 
     private List<Section> resolveSections(Long sectionId, String professorId) {
