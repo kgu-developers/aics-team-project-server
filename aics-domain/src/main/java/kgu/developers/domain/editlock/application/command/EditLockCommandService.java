@@ -16,12 +16,12 @@ public class EditLockCommandService {
 
     private final EditLockRepository editLockRepository;
 
-    public void acquire(EditLockTargetType targetType, Long targetId, String userId) {
+    public void acquire(EditLockTargetType targetType, Long targetId, String sectionKey, String userId) {
         LocalDateTime now = LocalDateTime.now();
-        editLockRepository.findByTargetTypeAndTargetId(targetType, targetId)
+        editLockRepository.findByTargetTypeAndTargetIdAndSectionKey(targetType, targetId, sectionKey)
             .ifPresentOrElse(
                 existing -> renewOrTakeOver(existing, userId, now),
-                () -> editLockRepository.save(EditLock.create(targetType, targetId, userId, now))
+                () -> editLockRepository.save(EditLock.create(targetType, targetId, sectionKey, userId, now))
             );
     }
 
@@ -35,8 +35,8 @@ public class EditLockCommandService {
     }
 
     // 본인 소유 잠금만 해제. 없거나 타인 소유면 조용히 아무 일도 하지 않는다(DELETE는 멱등).
-    public void release(EditLockTargetType targetType, Long targetId, String userId) {
-        editLockRepository.findByTargetTypeAndTargetId(targetType, targetId)
+    public void release(EditLockTargetType targetType, Long targetId, String sectionKey, String userId) {
+        editLockRepository.findByTargetTypeAndTargetIdAndSectionKey(targetType, targetId, sectionKey)
             .filter(editLock -> editLock.isOwnedBy(userId))
             .ifPresent(editLock -> editLockRepository.deleteById(editLock.getId()));
     }

@@ -6,5 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JpaEditLockRepository extends JpaRepository<EditLockJpaEntity, Long> {
 
-    Optional<EditLockJpaEntity> findByTargetTypeAndTargetId(EditLockTargetType targetType, Long targetId);
+    Optional<EditLockJpaEntity> findByTargetTypeAndTargetIdAndSectionKey(
+        EditLockTargetType targetType, Long targetId, String sectionKey
+    );
 }

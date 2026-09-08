@@ -28,6 +28,7 @@ public interface EditLockController {
     ResponseEntity<EditLockStatusResponse> getStatus(
         @RequestParam EditLockTargetType targetType,
         @RequestParam Long targetId,
+        @RequestParam String sectionKey,
         Authentication authentication
     );
 
@@ -58,6 +59,7 @@ public interface EditLockController {
     ResponseEntity<Void> release(
         @RequestParam EditLockTargetType targetType,
         @RequestParam Long targetId,
+        @RequestParam String sectionKey,
         Authentication authentication
     );
 }
