@@ -84,11 +84,11 @@ public class Project {
     }
 
     public void updateKeyFeatures(JsonNode keyFeatures) {
-        this.keyFeatures = keyFeatures;
+        this.keyFeatures = requireNonNull(keyFeatures, "keyFeatures");
     }
 
     public void updateDemoFlow(JsonNode demoFlow) {
-        this.demoFlow = demoFlow;
+        this.demoFlow = requireNonNull(demoFlow, "demoFlow");
     }
 
     public void updateRepositoryUrl(String repositoryUrl) {
