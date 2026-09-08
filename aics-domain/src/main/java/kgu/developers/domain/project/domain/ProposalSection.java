@@ -47,6 +47,10 @@ public class ProposalSection {
         this.completedAt = completed ? LocalDateTime.now() : null;
     }
 
+    public void forceIncomplete() {
+        this.completedAt = null;
+    }
+
     public boolean isCompleted() {
         return completedAt != null;
     }

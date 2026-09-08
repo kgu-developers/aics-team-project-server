@@ -340,6 +340,142 @@ class ProjectCommandServiceTest {
         then(projectApprovalRepository).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("invalidateProposalForKickoffChange는 TEAM_OPERATION 섹션 완료 상태를 해제한다")
+    void invalidateProposalForKickoffChange_resetsTeamOperationSection() {
+        Project active = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).build();
+        ProposalSection teamOperationSection = ProposalSection.create(10L, ProposalSectionType.TEAM_OPERATION);
+        teamOperationSection.updateCompleted(true);
+        
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(active));
+        given(proposalSectionRepository.findByProjectIdAndType(10L, ProposalSectionType.TEAM_OPERATION))
+            .willReturn(Optional.of(teamOperationSection));
+        given(proposalSectionRepository.save(teamOperationSection)).willReturn(teamOperationSection);
+
+        projectCommandService.invalidateProposalForKickoffChange(1L);
+
+        assertThat(teamOperationSection.isCompleted()).isFalse();
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+        then(proposalSectionRepository).should().save(teamOperationSection);
+    }
+
+    @Test
+    @DisplayName("saveProject는 dataConfiguration 변경 시 DATA 섹션 완료 상태를 해제한다")
+    void saveProject_resetsDataSectionWhenDataConfigurationChanges() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).title("제목").description("설명")
+            .goal("목표").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
+            .dataConfiguration(JsonConverter.parse("[{\"name\":\"기존 데이터\",\"description\":\"기존 설명\",\"expectedCount\":\"100\"}]"))
+            .screenConfiguration(new ObjectMapper().readTree("[]"))
+            .projectSchedule("기존 일정")
+            .build();
+        ProposalSection dataSection = ProposalSection.create(10L, ProposalSectionType.DATA);
+        dataSection.updateCompleted(true);
+        
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+        given(proposalSectionRepository.findByProjectIdAndType(10L, ProposalSectionType.DATA))
+            .willReturn(Optional.of(dataSection));
+        given(proposalSectionRepository.save(dataSection)).willReturn(dataSection);
+
+        projectCommandService.saveProject(1L, "제목", "설명", "목표",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            JsonConverter.parse("[{\"name\":\"새 데이터\",\"description\":\"새 설명\",\"expectedCount\":\"200\"}]"),
+            new ObjectMapper().readTree("[]"), "기존 일정");
+
+        assertThat(dataSection.isCompleted()).isFalse();
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+        then(proposalSectionRepository).should().save(dataSection);
+    }
+
+    @Test
+    @DisplayName("saveProject는 screenConfiguration 변경 시 SCREEN 섹션 완료 상태를 해제한다")
+    void saveProject_resetsScreenSectionWhenScreenConfigurationChanges() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).title("제목").description("설명")
+            .goal("목표").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
+            .dataConfiguration(JsonConverter.parse("[{\"name\":\"데이터\",\"description\":\"설명\",\"expectedCount\":\"100\"}]"))
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"기존 화면\",\"description\":\"기존 설명\",\"imageFileId\":1}]"))
+            .projectSchedule("기존 일정")
+            .build();
+        ProposalSection screenSection = ProposalSection.create(10L, ProposalSectionType.SCREEN);
+        screenSection.updateCompleted(true);
+        
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+        given(proposalSectionRepository.findByProjectIdAndType(10L, ProposalSectionType.SCREEN))
+            .willReturn(Optional.of(screenSection));
+        given(proposalSectionRepository.save(screenSection)).willReturn(screenSection);
+
+        projectCommandService.saveProject(1L, "제목", "설명", "목표",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            JsonConverter.parse("[{\"name\":\"데이터\",\"description\":\"설명\",\"expectedCount\":\"100\"}]"),
+            new ObjectMapper().readTree("[{\"title\":\"새 화면\",\"description\":\"새 설명\",\"imageFileId\":2}]"), "기존 일정");
+
+        assertThat(screenSection.isCompleted()).isFalse();
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+        then(proposalSectionRepository).should().save(screenSection);
+    }
+
+    @Test
+    @DisplayName("saveProject는 projectSchedule 변경 시 TEAM_OPERATION 섹션 완료 상태를 해제한다")
+    void saveProject_resetsTeamOperationSectionWhenProjectScheduleChanges() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).title("제목").description("설명")
+            .goal("목표").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
+            .dataConfiguration(JsonConverter.parse("[{\"name\":\"데이터\",\"description\":\"설명\",\"expectedCount\":\"100\"}]"))
+            .screenConfiguration(new ObjectMapper().readTree("[]"))
+            .projectSchedule("기존 일정")
+            .build();
+        ProposalSection teamOperationSection = ProposalSection.create(10L, ProposalSectionType.TEAM_OPERATION);
+        teamOperationSection.updateCompleted(true);
+        
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+        given(proposalSectionRepository.findByProjectIdAndType(10L, ProposalSectionType.TEAM_OPERATION))
+            .willReturn(Optional.of(teamOperationSection));
+        given(proposalSectionRepository.save(teamOperationSection)).willReturn(teamOperationSection);
+
+        projectCommandService.saveProject(1L, "제목", "설명", "목표",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            JsonConverter.parse("[{\"name\":\"데이터\",\"description\":\"설명\",\"expectedCount\":\"100\"}]"),
+            new ObjectMapper().readTree("[]"), "새 일정");
+
+        assertThat(teamOperationSection.isCompleted()).isFalse();
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+        then(proposalSectionRepository).should().save(teamOperationSection);
+    }
+
+    @Test
+    @DisplayName("saveProject는 title 변경 시 TOPIC 섹션 완료 상태를 해제한다")
+    void saveProject_resetsTopicSectionWhenTitleChanges() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("설명")
+            .goal("목표").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
+            .dataConfiguration(JsonConverter.parse("[{\"name\":\"데이터\",\"description\":\"설명\",\"expectedCount\":\"100\"}]"))
+            .screenConfiguration(new ObjectMapper().readTree("[]"))
+            .projectSchedule("일정")
+            .build();
+        ProposalSection topicSection = ProposalSection.create(10L, ProposalSectionType.TOPIC);
+        topicSection.updateCompleted(true);
+        
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+        given(proposalSectionRepository.findByProjectIdAndType(10L, ProposalSectionType.TOPIC))
+            .willReturn(Optional.of(topicSection));
+        given(proposalSectionRepository.save(topicSection)).willReturn(topicSection);
+
+        projectCommandService.saveProject(1L, "새 제목", "설명", "목표",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            JsonConverter.parse("[{\"name\":\"데이터\",\"description\":\"설명\",\"expectedCount\":\"100\"}]"),
+            new ObjectMapper().readTree("[]"), "일정");
+
+        assertThat(topicSection.isCompleted()).isFalse();
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+        then(proposalSectionRepository).should().save(topicSection);
+    }
+
     private Project saveProject() throws Exception {
         return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표",
             "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),

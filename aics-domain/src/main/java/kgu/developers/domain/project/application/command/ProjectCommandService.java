@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
@@ -144,6 +145,9 @@ public class ProjectCommandService {
             return project;
         }
 
+        // 변경된 필드에 따라 해당 섹션의 완료 상태를 해제 (업데이트 전에 실행)
+        resetCompletedSectionsForChanges(project, title, description, goal, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
+
         project.updateTitle(title);
         project.updateDescription(description);
         project.updateGoal(goal);
@@ -162,6 +166,56 @@ public class ProjectCommandService {
         return projectRepository.save(project);
     }
 
+    private void resetCompletedSectionsForChanges(
+        Project project,
+        String title,
+        String description,
+        String goal,
+        Long topicCandidateId,
+        JsonNode dataConfiguration,
+        JsonNode screenConfiguration,
+        String projectSchedule
+    ) {
+        // TOPIC 섹션: title, description, goal, topicCandidateId 변경 시 완료 상태 해제
+        if (!Objects.equals(project.getTitle(), title) 
+            || !Objects.equals(project.getDescription(), description)
+            || !Objects.equals(project.getGoal(), goal)
+            || (topicCandidateId != null && !Objects.equals(project.getTopicCandidateId(), topicCandidateId))) {
+            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.TOPIC)
+                .ifPresent(section -> {
+                    section.forceIncomplete();
+                    proposalSectionRepository.save(section);
+                });
+        }
+
+        // DATA 섹션: dataConfiguration 변경 시 완료 상태 해제
+        if (project.isDataConfigurationChanged(dataConfiguration)) {
+            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.DATA)
+                .ifPresent(section -> {
+                    section.forceIncomplete();
+                    proposalSectionRepository.save(section);
+                });
+        }
+
+        // SCREEN 섹션: screenConfiguration 변경 시 완료 상태 해제
+        if (project.isScreenConfigurationChanged(screenConfiguration)) {
+            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.SCREEN)
+                .ifPresent(section -> {
+                    section.forceIncomplete();
+                    proposalSectionRepository.save(section);
+                });
+        }
+
+        // TEAM_OPERATION 섹션: projectSchedule 변경 시 완료 상태 해제
+        if (project.isProjectScheduleChanged(projectSchedule)) {
+            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.TEAM_OPERATION)
+                .ifPresent(section -> {
+                    section.forceIncomplete();
+                    proposalSectionRepository.save(section);
+                });
+        }
+    }
+
     /**
      * 제안서 5번(팀 운영방식)은 킥오프 정보를 그대로 보여준다. 그래서 킥오프가 바뀌면 제안서 내용이
      * 바뀐 것과 같고, 이전 리비전에 대한 동의는 무효가 된다.
@@ -176,6 +230,13 @@ public class ProjectCommandService {
                 project.increaseProposalRevision();
                 projectRepository.save(project);
                 projectApprovalRepository.deleteAllByProjectId(project.getId());
+                
+                // 킥오프 내용 변경 시 TEAM_OPERATION 섹션의 완료 상태 해제
+                proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.TEAM_OPERATION)
+                    .ifPresent(section -> {
+                        section.forceIncomplete();
+                        proposalSectionRepository.save(section);
+                    });
             });
     }
 

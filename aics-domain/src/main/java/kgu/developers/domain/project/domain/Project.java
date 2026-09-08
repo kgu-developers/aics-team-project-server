@@ -97,6 +97,18 @@ public class Project {
         this.projectSchedule = projectSchedule;
     }
 
+    public boolean isDataConfigurationChanged(JsonNode newDataConfiguration) {
+        return !Objects.equals(this.dataConfiguration, newDataConfiguration);
+    }
+
+    public boolean isScreenConfigurationChanged(JsonNode newScreenConfiguration) {
+        return !Objects.equals(this.screenConfiguration, newScreenConfiguration);
+    }
+
+    public boolean isProjectScheduleChanged(String newProjectSchedule) {
+        return !Objects.equals(this.projectSchedule, newProjectSchedule);
+    }
+
     public void completeProposal() {
         this.proposalCompletedAt = LocalDateTime.now();
         this.approvalStatus = ApprovalStatus.APPROVED;
