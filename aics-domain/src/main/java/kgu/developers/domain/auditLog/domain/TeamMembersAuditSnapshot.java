@@ -24,13 +24,20 @@ public record TeamMembersAuditSnapshot(List<TeamMemberAuditSnapshot> members) {
   /**
    * 제안서에 표시되는 역할분담(projectRole)만 비교한다.
    * 팀장 여부는 제안서 항목이 아니므로 제외한다.
+   * 순서에 상관없이 학번 기준으로 정렬하여 비교한다.
    */
   public boolean projectRolesEqual(TeamMembersAuditSnapshot other) {
     if (members.size() != other.members.size()) {
       return false;
     }
-    for (int i = 0; i < members.size(); i++) {
-      if (!members.get(i).projectRoleEqual(other.members.get(i))) {
+    List<TeamMemberAuditSnapshot> sortedThis = members.stream()
+        .sorted(Comparator.comparing(TeamMemberAuditSnapshot::studentNumber))
+        .toList();
+    List<TeamMemberAuditSnapshot> sortedOther = other.members.stream()
+        .sorted(Comparator.comparing(TeamMemberAuditSnapshot::studentNumber))
+        .toList();
+    for (int i = 0; i < sortedThis.size(); i++) {
+      if (!sortedThis.get(i).projectRoleEqual(sortedOther.get(i))) {
         return false;
       }
     }

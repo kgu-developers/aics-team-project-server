@@ -428,4 +428,53 @@ class TeamFacadeTest {
         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
         org.mockito.ArgumentMatchers.any());
   }
+
+  @Test
+  @DisplayName("역할분담이 바뀌면 제안서 동의를 무효화한다")
+  void updateKickoffInvalidatesProposalWhenRolesChange() {
+    TeamMember beforeMember = TeamMember.builder().id(1L).teamId(1L).userId("202699999")
+        .isLeader(false).projectRole("백엔드").build();
+    TeamMember afterMember = TeamMember.builder().id(1L).teamId(1L).userId("202699999")
+        .isLeader(false).projectRole("프론트엔드").build();
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "기존 규칙", "매주 목 19:00", "202699999",
+        List.of(new MemberRole("202699999", "프론트엔드")));
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(beforeMember));
+    given(teamMemberCommandService.updateKickoffRoles(1L, "202699999", Map.of("202699999", "프론트엔드")))
+        .willReturn(List.of(afterMember));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+  }
+
+  @Test
+  @DisplayName("역할분담 순서만 다르고 내용이 같으면 제안서 동의를 건드리지 않는다")
+  void updateKickoffKeepsProposalWhenRolesOrderDiffersButContentSame() {
+    TeamMember member1 = TeamMember.builder().id(1L).teamId(1L).userId("202611111")
+        .isLeader(false).projectRole("프론트엔드").build();
+    TeamMember member2 = TeamMember.builder().id(2L).teamId(1L).userId("202699999")
+        .isLeader(false).projectRole("백엔드").build();
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "기존 규칙", "매주 목 19:00", "202699999",
+        List.of(new MemberRole("202699999", "백엔드"), new MemberRole("202611111", "프론트엔드")));
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(member1, member2));
+    given(teamMemberCommandService.updateKickoffRoles(1L, "202699999",
+        Map.of("202699999", "백엔드", "202611111", "프론트엔드")))
+        .willReturn(List.of(member1, member2));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService, never()).invalidateProposalForKickoffChange(any());
+  }
 }
