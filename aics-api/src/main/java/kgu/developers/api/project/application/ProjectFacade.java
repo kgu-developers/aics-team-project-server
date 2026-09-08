@@ -12,6 +12,7 @@ import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryRe
 import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
 import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
+import kgu.developers.api.team.application.TeamFacade;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
@@ -59,6 +60,7 @@ public class ProjectFacade {
     private final FileStorage fileStorage;
     private final ProposalSectionRepository proposalSectionRepository;
     private final UserRepository userRepository;
+    private final TeamFacade teamFacade;
 
     public ProjectResponse getProject(Long teamId, String userId) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
@@ -69,12 +71,19 @@ public class ProjectFacade {
     public ProjectResponse saveProject(Long teamId, String userId, ProjectRequest request) {
         teamAccessValidator.validateMembership(teamId, userId);
         validateScreenImagesOwnedByTeam(teamId, request.screenConfiguration());
+
+        // 팀 운영방식 본문(팀규칙·회의방식·역할분담)은 킥오프와 저장소가 같아서 Team·team_member에 쓴다.
+        // TeamFacade가 감사로그와 동의 무효화까지 같이 처리한다.
+        if (request.kickoffRule() != null || request.meetingSchedule() != null || request.memberRoles() != null) {
+            teamFacade.updateKickoffContent(teamId, userId,
+                request.kickoffRule(), request.meetingSchedule(), request.memberRoles());
+        }
+
         Project project = projectCommandService.saveProject(
             teamId,
             request.title(),
             request.description(),
             request.goal(),
-            request.collaborationStyle(),
             request.repositoryUrl(),
             request.externalLinks(),
             request.dataConfiguration(),

@@ -143,7 +143,6 @@ class ProjectRepositoryJpaIntegrationTest {
           .repositoryUrl("https://github.com/example/repo")
           .externalLinks(externalLinks())
           .approvalStatus(ApprovalStatus.APPROVED)
-          .collaborationStyle("온라인")
           .build();
       entityManager.persist(project);
       entityManager.flush();
@@ -179,7 +178,6 @@ class ProjectRepositoryJpaIntegrationTest {
         .repositoryUrl(stale.getRepositoryUrl())
         .externalLinks(stale.getExternalLinks())
         .approvalStatus(stale.getApprovalStatus())
-        .collaborationStyle(stale.getCollaborationStyle())
         .createdAt(stale.getCreatedAt())
         .version(stale.getVersion())
         .build();
@@ -229,7 +227,6 @@ class ProjectRepositoryJpaIntegrationTest {
         .repositoryUrl(source.getRepositoryUrl())
         .externalLinks(source.getExternalLinks())
         .approvalStatus(source.getApprovalStatus())
-        .collaborationStyle(source.getCollaborationStyle())
         .createdAt(source.getCreatedAt())
         .version(source.getVersion())
         .build();

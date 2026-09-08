@@ -91,7 +91,9 @@ class ProjectControllerTest {
             "개인별 피드백 자동화",
             JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             objectMapper.readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
-            "매주 월요일 대면 회의",
+            null,
+            null,
+            null,
             "4월: 설계, 5월: 개발",
             "https://github.com/kgu/project",
             objectMapper.readTree("[{\"name\":\"Figma\",\"url\":\"https://figma.com/design\"}]")
@@ -116,7 +118,7 @@ class ProjectControllerTest {
     }
 
     @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")
-    @CsvSource({"title, 201", "collaborationStyle, 201", "repositoryUrl, 256"})
+    @CsvSource({"title, 201", "repositoryUrl, 256"})
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 DB 길이 제한 초과 시 400을 반환한다")
     void saveProjectRejectsTooLongField(String field, int length) throws Exception {
         String tooLong = "a".repeat(length);
@@ -126,7 +128,9 @@ class ProjectControllerTest {
             "개인별 피드백 자동화",
             JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             objectMapper.readTree("[]"),
-            "collaborationStyle".equals(field) ? tooLong : "매주 월요일 대면 회의",
+            null,
+            null,
+            null,
             "4월: 설계, 5월: 개발",
             "repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project",
             objectMapper.readTree("[]")
@@ -150,7 +154,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":[{"name":"학습 로그"}],"screenConfiguration":%s,
-             "collaborationStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+             "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(screenConfigurationJson);
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
@@ -171,7 +175,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":[],"screenConfiguration":[%s],
-             "collaborationStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+             "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(screenJson);
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
@@ -191,7 +195,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":%s,"screenConfiguration":[],
-             "collaborationStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+             "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(dataConfigurationJson);
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
@@ -213,7 +217,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":[],"screenConfiguration":[],
-             "collaborationStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+             "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """;
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
@@ -320,7 +324,6 @@ class ProjectControllerTest {
             .title("AI 학습 도우미")
             .description("학습 기록을 분석하는 서비스")
             .goal("개인별 피드백 자동화")
-            .collaborationStyle("매주 월요일 대면 회의")
             .repositoryUrl("https://github.com/kgu/project")
             .externalLinks(objectMapper.readTree("[]"))
             .approvalStatus(ApprovalStatus.DRAFT)

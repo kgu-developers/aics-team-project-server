@@ -5,7 +5,9 @@ package kgu.developers.domain.project.domain;
  * 각 섹션의 본문은 별도 저장소가 아니라 이미 있는 필드에 들어간다.
  * TOPIC=확정된 topicCandidateId(+복사된 title·description·goal),
  * DATA=dataConfiguration, SCREEN=screenConfiguration,
- * TEAM_OPERATION=collaborationStyle·projectSchedule + 팀원별 team_member.project_role.
+ * TEAM_OPERATION=킥오프 정보(Team.kickoffRule·meetingSchedule + 팀원별 team_member.project_role)
+ * + projectSchedule. 킥오프 항목은 여기에 복사해 두지 않고 GET /teams/{teamId}/kickoff 를 그대로
+ * 보여주며, 수정도 PUT /teams/{teamId}/kickoff 로 한다.
  */
 public enum ProposalSectionType {
     TOPIC,           // 주제

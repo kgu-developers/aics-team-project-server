@@ -77,9 +77,6 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private ApprovalStatus approvalStatus;
 
-    @Column(length = 200)
-    private String collaborationStyle;
-
     @Column(name = "proposal_completed_at")
     private LocalDateTime proposalCompletedAt;
 
@@ -114,7 +111,6 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .repositoryUrl(repositoryUrl)
                 .externalLinks(externalLinks)
                 .approvalStatus(approvalStatus)
-                .collaborationStyle(collaborationStyle)
                 .projectSchedule(projectSchedule)
                 .proposalCompletedAt(proposalCompletedAt)
                 .proposalRevision(proposalRevision)
@@ -138,7 +134,6 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .repositoryUrl(project.getRepositoryUrl())
                 .externalLinks(project.getExternalLinks())
                 .approvalStatus(project.getApprovalStatus())
-                .collaborationStyle(project.getCollaborationStyle())
                 .projectSchedule(project.getProjectSchedule())
                 .proposalCompletedAt(project.getProposalCompletedAt())
                 .proposalRevision(project.getProposalRevision())

@@ -199,10 +199,10 @@ class ProjectTopicFinalizeIntegrationTest {
     }
 
     @Test
-    @DisplayName("제안서 수정으로 채운 협업방식·저장소·데이터/화면 구성·일정은 주제 확정 후에도 유지된다")
+    @DisplayName("제안서 수정으로 채운 저장소·데이터/화면 구성·일정은 주제 확정 후에도 유지된다")
     void finalizeTopic_keepsProposalFieldsOutsideTopic() {
         Project created = tx.execute(status -> projectCommandService.saveProject(
-            teamId, "첫 주제", "첫 설명", "첫 목표", "대면", "https://github.com/kgu/project", null,
+            teamId, "첫 주제", "첫 설명", "첫 목표", "https://github.com/kgu/project", null,
             kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             JsonConverter.parse("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"), "4월: 설계, 5월: 개발, 6월: 통합 테스트"));
 
@@ -210,7 +210,6 @@ class ProjectTopicFinalizeIntegrationTest {
             teamId, FIRST_CANDIDATE_ID, "두 번째 주제", "두 번째 설명", "두 번째 목표"));
 
         ProjectJpaEntity persisted = reload(created.getId());
-        assertThat(persisted.getCollaborationStyle()).isEqualTo("대면");
         assertThat(persisted.getRepositoryUrl()).isEqualTo("https://github.com/kgu/project");
         assertThat(persisted.getTopicCandidateId()).isEqualTo(FIRST_CANDIDATE_ID);
         assertThat(persisted.getDataConfiguration().get(0).get("name").asText()).isEqualTo("학습 로그");

@@ -40,7 +40,6 @@ class ProjectJpaEntityTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .proposalCompletedAt(LocalDateTime.of(2026, 2, 1, 12, 0))
         .createdAt(createdAt)
         .deletedAt(deletedAt)
@@ -77,7 +76,6 @@ class ProjectJpaEntityTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .proposalCompletedAt(proposalCompletedAt)
         .createdAt(createdAt)
         .build();
@@ -97,7 +95,6 @@ class ProjectJpaEntityTest {
     assertThat(domain.getRepositoryUrl()).isEqualTo("https://github.com/example/repo");
     assertThat(domain.getExternalLinks()).isEqualTo(externalLinks);
     assertThat(domain.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
-    assertThat(domain.getCollaborationStyle()).isEqualTo("온라인");
     assertThat(domain.getProposalCompletedAt()).isEqualTo(proposalCompletedAt);
     assertThat(domain.getCreatedAt()).isEqualTo(createdAt);
     assertThat(domain.getUpdatedAt()).isNull();
@@ -120,7 +117,6 @@ class ProjectJpaEntityTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .createdAt(createdAt)
         .build();
 

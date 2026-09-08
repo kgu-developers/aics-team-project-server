@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.team.application.TeamAccessValidator;
+import kgu.developers.api.team.application.TeamFacade;
+import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.fileobject.domain.FileObject;
@@ -57,6 +59,7 @@ class ProjectFacadeTest {
     @Mock private FileStorage fileStorage;
     @Mock private ProposalSectionRepository proposalSectionRepository;
     @Mock private UserRepository userRepository;
+    @Mock private TeamFacade teamFacade;
     @InjectMocks private ProjectFacade projectFacade;
 
     @Test
@@ -97,8 +100,7 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any())).willReturn(project());
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
 
         assertThat(projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()).goal()).isEqualTo("피드백 자동화");
     }
@@ -120,19 +122,18 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any())).willReturn(project());
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
         ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
             new ObjectMapper().readTree("[]"),
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://evil/forever\"}]"),
-            "대면", null, null, new ObjectMapper().readTree("[]"));
+            null, null, null, null, null, new ObjectMapper().readTree("[]"));
 
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
 
         var saved = org.mockito.ArgumentCaptor.forClass(com.fasterxml.jackson.databind.JsonNode.class);
         then(projectCommandService).should().saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), saved.capture(),
             org.mockito.ArgumentMatchers.any());
         assertThat(saved.getValue().get(0).has("imageUrl")).isFalse();
@@ -295,6 +296,40 @@ class ProjectFacadeTest {
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
+    // 제안서 5번 본문은 킥오프와 저장소가 같아서 Team·team_member로 흘러가야 한다.
+    @Test
+    @DisplayName("saveProject는 팀 운영방식 본문을 킥오프 저장소에 반영한다")
+    void saveProject_writesTeamOperationToKickoff() throws Exception {
+        givenImageUploadedBy(MEMBER_ID);
+        given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
+        List<MemberRole> roles = List.of(new MemberRole(MEMBER_ID, "백엔드"));
+        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
+            JsonConverter.parse("[]"), new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
+            "매주 화요일 회고", "매주 목 19:00 온라인", roles, "4월: 설계", null, null);
+
+        projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
+
+        then(teamFacade).should().updateKickoffContent(
+            TEAM_ID, MEMBER_ID, "매주 화요일 회고", "매주 목 19:00 온라인", roles);
+    }
+
+    @Test
+    @DisplayName("saveProject는 팀 운영방식을 넘기지 않으면 킥오프를 건드리지 않는다")
+    void saveProject_keepsKickoffWhenTeamOperationOmitted() throws Exception {
+        givenImageUploadedBy(MEMBER_ID);
+        given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
+
+        projectFacade.saveProject(TEAM_ID, MEMBER_ID, request());
+
+        then(teamFacade).shouldHaveNoInteractions();
+    }
+
     private User member() {
         return User.create(MEMBER_ID, "member@kgu.ac.kr", "홍길동", "password", UserGlobalRole.USER, "01000000000");
     }
@@ -303,7 +338,7 @@ class ProjectFacadeTest {
         return new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
             JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
-            "대면", "4월: 설계, 5월: 개발", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
+            null, null, null, "4월: 설계, 5월: 개발", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
     }
 
     private Project project() {

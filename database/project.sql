@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS project (
     repository_url VARCHAR(255),
     external_links JSONB,
     approval_status VARCHAR(50) NOT NULL,
-    meeting_style VARCHAR(200),
     proposal_completed_at TIMESTAMP,
     -- 제안서 내용이 바뀔 때마다 증가한다. 이전 리비전의 동의는 무효가 된다.
     proposal_revision BIGINT NOT NULL DEFAULT 0,

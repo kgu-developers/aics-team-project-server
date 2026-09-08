@@ -3,12 +3,16 @@ package kgu.developers.api.project.presentation.request;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+
+import java.util.List;
 
 public record ProjectRequest(
     @Schema(description = "프로젝트 제목", example = "AI 기반 학습 도우미", requiredMode = REQUIRED)
@@ -39,9 +43,17 @@ public record ProjectRequest(
     @NotNull
     JsonNode screenConfiguration,
 
-    @Schema(description = "팀 운영방식 - 협업 방식", example = "매주 월요일 대면 회의, 코드 리뷰는 GitHub PR로")
-    @Size(max = 200)
-    String collaborationStyle,
+    // 팀 운영방식의 팀규칙·회의방식·역할분담은 킥오프(Team, team_member)가 단일 출처다. 여기서 보낸 값은
+    // 그 저장소에 그대로 쓰이므로 킥오프 조회에도 반영된다. 셋 다 선택값이고, 넘기지 않으면 지금 값을 유지한다.
+    @Schema(description = "팀 운영방식 - 팀규칙. 넘기지 않으면 지금 값을 유지한다.", example = "매주 화요일 회고")
+    String kickoffRule,
+
+    @Schema(description = "팀 운영방식 - 회의시간·빈도·방식. 넘기지 않으면 지금 값을 유지한다.", example = "매주 목 19:00 온라인")
+    String meetingSchedule,
+
+    @Schema(description = "팀 운영방식 - 역할분담. 넘기지 않은 팀원의 역할은 유지된다.")
+    @Valid
+    List<MemberRole> memberRoles,
 
     @Schema(description = "팀 운영방식 - 진행 일정", example = "4월: 요구사항 정리, 5월: 개발, 6월: 통합 테스트")
     String projectSchedule,

@@ -38,14 +38,13 @@ public class ProjectCommandService {
         String title,
         String description,
         String goal,
-        String collaborationStyle,
         String repositoryUrl,
         JsonNode externalLinks,
         JsonNode dataConfiguration,
         JsonNode screenConfiguration,
         String projectSchedule
     ) {
-        return saveProject(teamId, title, description, goal, collaborationStyle, repositoryUrl, externalLinks, null, dataConfiguration, screenConfiguration, projectSchedule);
+        return saveProject(teamId, title, description, goal, repositoryUrl, externalLinks, null, dataConfiguration, screenConfiguration, projectSchedule);
     }
 
     public Project saveProject(
@@ -53,7 +52,6 @@ public class ProjectCommandService {
         String title,
         String description,
         String goal,
-        String collaborationStyle,
         String repositoryUrl,
         JsonNode externalLinks,
         Long topicCandidateId,
@@ -67,13 +65,13 @@ public class ProjectCommandService {
         Project existing = projectRepository.findIncludingDeletedByTeamId(teamId).orElse(null);
         if (existing == null) {
             return projectRepository.save(Project.create(
-                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, collaborationStyle, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule
+                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule
             ));
         }
         if (existing.getDeletedAt() != null) {
-            return reactivateProject(existing, title, description, goal, collaborationStyle, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
+            return reactivateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
         }
-        return updateProject(existing, title, description, goal, collaborationStyle, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
+        return updateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
     }
 
     public Project finalizeTopic(Long teamId, Long topicCandidateId, String title, String description, String goal) {
@@ -88,7 +86,6 @@ public class ProjectCommandService {
             title,
             description,
             goal,
-            active == null ? null : active.getCollaborationStyle(),
             active == null ? null : active.getRepositoryUrl(),
             active == null ? null : active.getExternalLinks(),
             topicCandidateId,
@@ -112,7 +109,6 @@ public class ProjectCommandService {
         String title,
         String description,
         String goal,
-        String collaborationStyle,
         String repositoryUrl,
         JsonNode externalLinks,
         Long topicCandidateId,
@@ -123,7 +119,7 @@ public class ProjectCommandService {
         projectApprovalRepository.deleteAllByProjectId(project.getId());
         proposalSectionRepository.deleteAllByProjectId(project.getId());
         return projectRepository.reactivate(project.getId(), Project.create(
-            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, collaborationStyle, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule
+            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule
         ));
     }
 
@@ -132,7 +128,6 @@ public class ProjectCommandService {
         String title,
         String description,
         String goal,
-        String collaborationStyle,
         String repositoryUrl,
         JsonNode externalLinks,
         Long topicCandidateId,
@@ -144,7 +139,7 @@ public class ProjectCommandService {
             throw new ProjectProposalCompletedException();
         }
 
-        if (project.hasSameProposalContent(title, description, goal, collaborationStyle, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration, projectSchedule) &&
+        if (project.hasSameProposalContent(title, description, goal, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration, projectSchedule) &&
             (topicCandidateId == null || topicCandidateId.equals(project.getTopicCandidateId()))) {
             return project;
         }
@@ -154,7 +149,6 @@ public class ProjectCommandService {
         project.updateGoal(goal);
         project.updateDataConfiguration(dataConfiguration);
         project.updateScreenConfiguration(screenConfiguration);
-        project.updateCollaborationStyle(collaborationStyle);
         project.updateProjectSchedule(projectSchedule);
         project.updateRepositoryUrl(repositoryUrl);
         project.updateExternalLinks(externalLinks);
@@ -166,6 +160,23 @@ public class ProjectCommandService {
         projectApprovalRepository.deleteAllByProjectId(project.getId());
 
         return projectRepository.save(project);
+    }
+
+    /**
+     * 제안서 5번(팀 운영방식)은 킥오프 정보를 그대로 보여준다. 그래서 킥오프가 바뀌면 제안서 내용이
+     * 바뀐 것과 같고, 이전 리비전에 대한 동의는 무효가 된다.
+     * 호출부(TeamFacade)가 이미 팀 행을 잠근 뒤에 부른다.
+     * ponytail: 이미 제출 완료된 제안서는 건드리지 않는다. 제출 후 킥오프 수정을 막을지는 A파트 정책이라
+     * 여기서 정하지 않는다 — 막기로 하면 이 필터를 예외로 바꾼다.
+     */
+    public void invalidateProposalForKickoffChange(Long teamId) {
+        projectRepository.findIncludingDeletedByTeamId(teamId)
+            .filter(project -> project.getDeletedAt() == null && project.getProposalCompletedAt() == null)
+            .ifPresent(project -> {
+                project.increaseProposalRevision();
+                projectRepository.save(project);
+                projectApprovalRepository.deleteAllByProjectId(project.getId());
+            });
     }
 
     public void deleteProject(Long projectId) {

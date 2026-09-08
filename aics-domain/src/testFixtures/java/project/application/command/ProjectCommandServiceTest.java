@@ -75,7 +75,7 @@ class ProjectCommandServiceTest {
     @DisplayName("saveProject는 내용이 같으면 승인 이력을 초기화하지 않는다")
     void saveProject_keepsApprovalsWhenContentIsUnchanged() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
-            .goal("새 목표").collaborationStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .goal("새 목표").repositoryUrl("https://github.com/kgu/project")
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
             .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
             .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
@@ -93,7 +93,7 @@ class ProjectCommandServiceTest {
     @DisplayName("saveProject는 화면 구성만 바뀌어도 리비전을 올리고 승인 이력을 지운다")
     void saveProject_bumpsRevisionWhenScreenConfigurationChanges() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
-            .goal("새 목표").collaborationStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .goal("새 목표").repositoryUrl("https://github.com/kgu/project")
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
             .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
             .screenConfiguration(new ObjectMapper().readTree("[]"))
@@ -225,7 +225,7 @@ class ProjectCommandServiceTest {
                 Project newProject = invocation.getArgument(1);
                 deleted.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
                     newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(),
-                    newProject.getCollaborationStyle(), newProject.getTopicCandidateId(),
+                    newProject.getTopicCandidateId(),
                     newProject.getDataConfiguration(), newProject.getScreenConfiguration(), newProject.getProjectSchedule());
                 return deleted;
             });
@@ -267,7 +267,7 @@ class ProjectCommandServiceTest {
     @DisplayName("finalizeTopic은 주제를 바꾸면 리비전을 올리고 기존 동의를 무효화한다")
     void finalizeTopic_bumpsRevisionAndClearsApprovals() {
         Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
-            .goal("기존 목표").collaborationStyle("대면").approvalStatus(ApprovalStatus.APPROVED)
+            .goal("기존 목표").approvalStatus(ApprovalStatus.APPROVED)
             .dataConfiguration(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"))
             .screenConfiguration(new ObjectMapper().createArrayNode())
             .build();
@@ -278,7 +278,6 @@ class ProjectCommandServiceTest {
 
         assertThat(result.getTitle()).isEqualTo("확정 제목");
         assertThat(result.getTopicCandidateId()).isEqualTo(7L);
-        assertThat(result.getCollaborationStyle()).isEqualTo("대면");
         assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
         assertThat(result.getProposalRevision()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
@@ -295,8 +294,34 @@ class ProjectCommandServiceTest {
             .isInstanceOf(CustomException.class);
     }
 
+    @Test
+    @DisplayName("invalidateProposalForKickoffChange는 리비전을 올리고 이전 동의를 지운다")
+    void invalidateProposalForKickoffChange() {
+        Project active = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(active));
+
+        projectCommandService.invalidateProposalForKickoffChange(1L);
+
+        assertThat(active.getProposalRevision()).isEqualTo(1L);
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+    }
+
+    @Test
+    @DisplayName("invalidateProposalForKickoffChange는 이미 제출된 제안서는 건드리지 않는다")
+    void invalidateProposalForKickoffChange_skipsCompletedProposal() {
+        Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
+
+        projectCommandService.invalidateProposalForKickoffChange(1L);
+
+        assertThat(completed.getProposalRevision()).isZero();
+        then(projectApprovalRepository).shouldHaveNoInteractions();
+    }
+
     private Project saveProject() throws Exception {
-        return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
+        return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표",
             "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
             JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"), "4월: 설계, 5월: 개발, 6월: 통합 테스트");

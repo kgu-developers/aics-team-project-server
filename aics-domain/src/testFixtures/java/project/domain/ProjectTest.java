@@ -36,7 +36,6 @@ class ProjectTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인",
         null,
         JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
         objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
@@ -49,7 +48,6 @@ class ProjectTest {
     assertThat(project.getRepositoryUrl()).isEqualTo("https://github.com/example/repo");
     assertThat(project.getExternalLinks()).isNotNull();
     assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
-    assertThat(project.getCollaborationStyle()).isEqualTo("온라인");
     assertThat(project.getDeletedAt()).isNull();
   }
 
@@ -59,31 +57,31 @@ class ProjectTest {
     ObjectNode externalLinks = objectMapper.createObjectNode();
 
     assertThatThrownBy(() -> 
-        Project.create(null, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        Project.create(null, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        Project.create(1L, null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, "팀 프로젝트", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        Project.create(1L, "팀 프로젝트", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, "팀 프로젝트", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        Project.create(1L, "팀 프로젝트", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, null, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, null, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, null, objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, null, null, objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), null, "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), null, "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
   }
 
@@ -207,26 +205,6 @@ class ProjectTest {
   }
 
   @Test
-  @DisplayName("updateCollaborationStyle은 회의 방식을 변경한다")
-  void updateCollaborationStyle() {
-    Project project = createDefaultProject();
-
-    project.updateCollaborationStyle("오프라인");
-
-    assertThat(project.getCollaborationStyle()).isEqualTo("오프라인");
-  }
-
-  @Test
-  @DisplayName("updateCollaborationStyle은 null로 변경할 수 있다")
-  void updateCollaborationStyleWithNull() {
-    Project project = createDefaultProject();
-
-    project.updateCollaborationStyle(null);
-
-    assertThat(project.getCollaborationStyle()).isNull();
-  }
-
-  @Test
   @DisplayName("completeProposal은 제안 완료 시각을 기록한다")
   void completeProposal() {
     Project project = createDefaultProject();
@@ -268,7 +246,6 @@ class ProjectTest {
         "https://github.com/new/repo",
         newLinks,
         ApprovalStatus.APPROVED,
-        "오프라인",
         100L,
         JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
         newScreens, "4월: 설계, 5월: 개발, 6월: 통합 테스트"
@@ -281,7 +258,6 @@ class ProjectTest {
     assertThat(project.getRepositoryUrl()).isEqualTo("https://github.com/new/repo");
     assertThat(project.getExternalLinks()).isEqualTo(newLinks);
     assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);
-    assertThat(project.getCollaborationStyle()).isEqualTo("오프라인");
     assertThat(project.getTopicCandidateId()).isEqualTo(100L);
     assertThat(project.getDataConfiguration()).isEqualTo(JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"));
     assertThat(project.getScreenConfiguration()).isEqualTo(newScreens);
@@ -297,19 +273,19 @@ class ProjectTest {
     ObjectNode externalLinks = objectMapper.createObjectNode();
 
     assertThatThrownBy(() ->
-        project.reactivate(null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        project.reactivate(null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        project.reactivate("제목", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        project.reactivate("제목", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, "온라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+        project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
   }
 
@@ -327,7 +303,7 @@ class ProjectTest {
 
     assertThatThrownBy(() ->
         project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
-            newLinks, ApprovalStatus.APPROVED, "오프라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+            newLinks, ApprovalStatus.APPROVED, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(IllegalStateException.class);
 
     assertThat(project.getTitle()).isEqualTo(title);
@@ -351,7 +327,7 @@ class ProjectTest {
 
     assertThatThrownBy(() ->
         project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
-            newLinks, null, "오프라인", null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
+            newLinks, null, null, kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"), objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트")
     ).isInstanceOf(NullPointerException.class);
 
     assertThat(project.getTitle()).isEqualTo(title);
@@ -382,7 +358,6 @@ class ProjectTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인",
         null,
         JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
         objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"

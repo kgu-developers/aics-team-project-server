@@ -66,7 +66,6 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인",
         null,
         JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
         objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
@@ -84,7 +83,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -116,7 +114,6 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인",
         null,
         JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
         objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
@@ -144,7 +141,6 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인",
         null,
         JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
         objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
@@ -175,7 +171,6 @@ class ProjectRepositoryImplTest {
         "https://github.com/example/repo",
         externalLinks,
         ApprovalStatus.DRAFT,
-        "온라인",
         null,
         JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
         objectMapper.createArrayNode(), "4월: 설계, 5월: 개발, 6월: 통합 테스트"
@@ -193,7 +188,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
         .willReturn(Optional.of(ProjectJpaEntity.toEntity(existing, team)));
@@ -220,7 +214,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -235,7 +228,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("오프라인")
         .deletedAt(LocalDateTime.now())
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -263,7 +255,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -278,7 +269,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("오프라인")
         .deletedAt(LocalDateTime.now())
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -307,7 +297,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -322,7 +311,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("오프라인")
         .deletedAt(LocalDateTime.now())
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -337,7 +325,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .deletedAt(null)
         .proposalCompletedAt(null)
         .build();
@@ -407,7 +394,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -439,7 +425,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -454,7 +439,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("오프라인")
         .deletedAt(null)
         .build();
     given(jpaProjectRepository.findByTeamId(1L))
@@ -513,7 +497,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -561,7 +544,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo1")
         .externalLinks(externalLinks1)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .build();
 
     Project project2 = Project.builder()
@@ -573,7 +555,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo2")
         .externalLinks(externalLinks2)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("오프라인")
         .build();
 
     TeamJpaEntity team = TeamJpaEntity.builder().id(1L).build();
@@ -607,7 +588,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -651,7 +631,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .deletedAt(LocalDateTime.now())
         .build();
 
@@ -696,7 +675,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .version(1L)
         .build();
 
@@ -729,7 +707,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(1L)
         .build();
 
@@ -752,7 +729,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(1L) // 이전 버전으로 시도
         .build();
 
@@ -782,7 +758,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(1L)
         .build();
 
@@ -798,7 +773,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(2L) // 버전 증가
         .build();
 
@@ -818,7 +792,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(1L) // 이전 버전으로 시도
         .build();
 
@@ -853,7 +826,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -877,7 +849,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(1L)
         .deletedAt(LocalDateTime.now())
         .build();
@@ -895,7 +866,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/new-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("오프라인")
         .version(0L) // 오래된 버전
         .build();
 
@@ -927,7 +897,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -944,7 +913,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/updated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(1L) // 버전 증가
         .build();
 
@@ -965,7 +933,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/old-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("오프라인")
         .version(0L) // 오래된 버전
         .build();
 
@@ -1001,7 +968,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -1026,7 +992,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/reactivated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .build();
 
     // 삭제된 프로젝트 반환
@@ -1039,7 +1004,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .deletedAt(LocalDateTime.now())
         .build();
 
@@ -1058,7 +1022,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/reactivated-repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("온라인")
         .deletedAt(null)
         .proposalCompletedAt(null)
         .build();
@@ -1094,7 +1057,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(0L)
         .build();
 
@@ -1110,7 +1072,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
-        .collaborationStyle("온라인")
         .version(1L) // 버전 증가
         .build();
 
@@ -1130,7 +1091,6 @@ class ProjectRepositoryImplTest {
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.DRAFT)
-        .collaborationStyle("오프라인")
         .version(0L) // 이전 버전으로 시도
         .build();
 

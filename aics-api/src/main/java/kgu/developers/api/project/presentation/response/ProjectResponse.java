@@ -17,7 +17,6 @@ public record ProjectResponse(
     String goal,
     JsonNode dataConfiguration,
     JsonNode screenConfiguration,
-    String collaborationStyle,
     String projectSchedule,
     String repositoryUrl,
     JsonNode externalLinks,
@@ -38,7 +37,6 @@ public record ProjectResponse(
             .goal(project.getGoal())
             .dataConfiguration(project.getDataConfiguration())
             .screenConfiguration(resolvedScreenConfiguration)
-            .collaborationStyle(project.getCollaborationStyle())
             .projectSchedule(project.getProjectSchedule())
             .repositoryUrl(project.getRepositoryUrl())
             .externalLinks(project.getExternalLinks())

@@ -31,6 +31,7 @@ import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.Mem
 import kgu.developers.api.team.presentation.response.TeamKickoffResponse;
 import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
 import kgu.developers.domain.auditLog.domain.AuditLogEventType;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
@@ -61,6 +62,9 @@ class TeamFacadeTest {
 
   @Mock
   private AuditLogCommandService auditLogCommandService;
+
+  @Mock
+  private ProjectCommandService projectCommandService;
 
   @InjectMocks
   private TeamFacade teamFacade;
@@ -124,6 +128,75 @@ class TeamFacadeTest {
     verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of("202699999", "백엔드"));
     assertThat(response.members()).singleElement()
         .satisfies(m -> assertThat(m.name()).isEqualTo("김철수"));
+  }
+
+  // 제안서 저장 API가 부르는 경로. 팀명·팀장은 제안서 항목이 아니라 지금 값을 유지해야 한다.
+  @Test
+  @DisplayName("updateKickoffContent는 팀명을 유지한 채 운영규칙·회의일정만 바꾸고 동의를 무효화한다")
+  void updateKickoffContentKeepsTeamName() {
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
+    given(teamCommandService.updateKickoff(1L, "1팀", "새 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "새 규칙", "매주 목 19:00"));
+
+    teamFacade.updateKickoffContent(1L, USER, "새 규칙", "매주 목 19:00", null);
+
+    verify(teamMemberCommandService, never()).updateKickoffRoles(any(), any(), any());
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+  }
+
+  @Test
+  @DisplayName("updateKickoffContent는 null로 넘긴 항목은 지금 값을 유지한다")
+  void updateKickoffContentKeepsOmittedFields() {
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "새 일정"))
+        .willReturn(team("1팀", "기존 규칙", "새 일정"));
+
+    teamFacade.updateKickoffContent(1L, USER, null, "새 일정", null);
+
+    verify(teamCommandService).updateKickoff(1L, "1팀", "기존 규칙", "새 일정");
+  }
+
+  @Test
+  @DisplayName("updateKickoffContent는 역할분담을 넘기면 지금 팀장을 유지한 채 역할만 바꾼다")
+  void updateKickoffContentKeepsLeader() {
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(member(1L, "202611111", true), member(2L, USER, false)));
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "기존 일정"))
+        .willReturn(team("1팀", "기존 규칙", "기존 일정"));
+
+    teamFacade.updateKickoffContent(1L, USER, null, null, List.of(new MemberRole(USER, "백엔드")));
+
+    verify(teamMemberCommandService).updateKickoffRoles(1L, "202611111", Map.of(USER, "백엔드"));
+  }
+
+  // 제안서 5번(팀 운영방식)이 킥오프 정보를 그대로 보여주므로, 킥오프가 바뀌면 제안서가 바뀐 것이다.
+  @Test
+  @DisplayName("updateKickoff는 운영규칙·회의일정이 바뀌면 제안서 동의를 무효화한다")
+  void updateKickoffInvalidatesProposal() {
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "새 규칙", "매주 목 19:00", "202699999", null);
+    given(teamCommandService.updateKickoff(1L, "1팀", "새 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "새 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+  }
+
+  @Test
+  @DisplayName("updateKickoff는 팀명만 바뀌면 제안서 동의를 건드리지 않는다")
+  void updateKickoffKeepsProposalWhenOnlyNameChanged() {
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "새 팀명", "기존 규칙", "매주 목 19:00", "202699999", null);
+    given(teamCommandService.updateKickoff(1L, "새 팀명", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("새 팀명", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService, never()).invalidateProposalForKickoffChange(any());
   }
 
   @Test
