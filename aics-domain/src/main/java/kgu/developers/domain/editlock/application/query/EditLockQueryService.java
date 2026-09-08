@@ -17,8 +17,8 @@ public class EditLockQueryService {
     private final EditLockRepository editLockRepository;
 
     // 만료된 잠금은 행이 남아있어도 잠긴 것으로 보지 않는다(별도 정리 배치 없음, 조회 시점 계산).
-    public Optional<EditLock> getActiveLock(EditLockTargetType targetType, Long targetId) {
-        return editLockRepository.findByTargetTypeAndTargetId(targetType, targetId)
+    public Optional<EditLock> getActiveLock(EditLockTargetType targetType, Long targetId, String sectionKey) {
+        return editLockRepository.findByTargetTypeAndTargetIdAndSectionKey(targetType, targetId, sectionKey)
             .filter(editLock -> !editLock.isExpired(LocalDateTime.now()));
     }
 }

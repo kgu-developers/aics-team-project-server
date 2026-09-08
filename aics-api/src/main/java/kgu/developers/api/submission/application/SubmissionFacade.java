@@ -540,7 +540,9 @@ public class SubmissionFacade {
     // 잠금을 아무도 안 잡았으면 그대로 허용 — 잠금 자체는 여전히 선택 사항이고, 이건
     // "잡은 잠금이 있으면 그 소유자만 쓸 수 있다"는 최소한의 강제만 건다.
     private void validateNotLockedByAnother(Long submissionId, String userId) {
-        editLockQueryService.getActiveLock(EditLockTargetType.PRESENTATION_CONTENT, submissionId)
+        // PRESENTATION_CONTENT는 섹션 구분이 없는 대상이라 고정 섹션키 "DEFAULT"를 쓴다(KD3-213).
+        // 이 대상 자체가 KD3-163에서 통째로 삭제될 예정이라 임시 처리다.
+        editLockQueryService.getActiveLock(EditLockTargetType.PRESENTATION_CONTENT, submissionId, "DEFAULT")
                 .filter(lock -> !lock.isOwnedBy(userId))
                 .ifPresent(lock -> {
                     throw new SubmissionAccessDeniedException();

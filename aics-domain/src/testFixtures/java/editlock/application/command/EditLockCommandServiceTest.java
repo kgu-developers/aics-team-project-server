@@ -17,6 +17,7 @@ class EditLockCommandServiceTest {
 
     private static final EditLockTargetType TARGET_TYPE = EditLockTargetType.PRESENTATION_CONTENT;
     private static final Long TARGET_ID = 1L;
+    private static final String SECTION_KEY = "DEFAULT";
 
     private FakeEditLockRepository fakeEditLockRepository;
     private EditLockCommandService commandService;
@@ -31,10 +32,11 @@ class EditLockCommandServiceTest {
     @DisplayName("acquire는 잠금이 없으면 새로 획득한다")
     void acquire_NoExistingLock_CreatesNew() {
         // when
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202412345");
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
 
         // then
-        EditLock lock = fakeEditLockRepository.findByTargetTypeAndTargetId(TARGET_TYPE, TARGET_ID).orElseThrow();
+        EditLock lock = fakeEditLockRepository.findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, SECTION_KEY)
+            .orElseThrow();
         assertThat(lock.getLockedBy()).isEqualTo("202412345");
     }
 
@@ -42,15 +44,17 @@ class EditLockCommandServiceTest {
     @DisplayName("acquire는 본인 소유 잠금이면 하트비트로 갱신한다")
     void acquire_OwnLock_RenewsHeartbeat() {
         // given
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202412345");
-        LocalDateTime firstLockedAt = fakeEditLockRepository.findByTargetTypeAndTargetId(TARGET_TYPE, TARGET_ID)
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
+        LocalDateTime firstLockedAt = fakeEditLockRepository
+            .findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, SECTION_KEY)
             .orElseThrow().getLockedAt();
 
         // when
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202412345");
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
 
         // then
-        LocalDateTime renewedLockedAt = fakeEditLockRepository.findByTargetTypeAndTargetId(TARGET_TYPE, TARGET_ID)
+        LocalDateTime renewedLockedAt = fakeEditLockRepository
+            .findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, SECTION_KEY)
             .orElseThrow().getLockedAt();
         assertThat(renewedLockedAt).isAfterOrEqualTo(firstLockedAt);
     }
@@ -59,10 +63,10 @@ class EditLockCommandServiceTest {
     @DisplayName("acquire는 타인이 살아있게 잠그고 있으면 예외를 던진다")
     void acquire_OtherActiveLock_ThrowsConflict() {
         // given
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202412345");
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
 
         // when & then
-        assertThatThrownBy(() -> commandService.acquire(TARGET_TYPE, TARGET_ID, "202499999"))
+        assertThatThrownBy(() -> commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202499999"))
             .isInstanceOf(CustomException.class);
     }
 
@@ -70,48 +74,69 @@ class EditLockCommandServiceTest {
     @DisplayName("acquire는 타인의 잠금이 만료됐으면 가져온다")
     void acquire_OtherExpiredLock_TakesOver() {
         // given
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202412345");
-        Long lockId = fakeEditLockRepository.findByTargetTypeAndTargetId(TARGET_TYPE, TARGET_ID).orElseThrow().getId();
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
+        Long lockId = fakeEditLockRepository
+            .findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, SECTION_KEY)
+            .orElseThrow().getId();
         fakeEditLockRepository.forceLockedAt(lockId, LocalDateTime.now().minusMinutes(10));
 
         // when
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202499999");
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202499999");
 
         // then
-        EditLock lock = fakeEditLockRepository.findByTargetTypeAndTargetId(TARGET_TYPE, TARGET_ID).orElseThrow();
+        EditLock lock = fakeEditLockRepository.findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, SECTION_KEY)
+            .orElseThrow();
         assertThat(lock.getLockedBy()).isEqualTo("202499999");
+    }
+
+    @Test
+    @DisplayName("같은 대상이어도 섹션이 다르면 서로 다른 사람이 동시에 잠글 수 있다")
+    void acquire_DifferentSection_DoesNotConflict() {
+        // given
+        commandService.acquire(TARGET_TYPE, TARGET_ID, "TEAM_INFO", "202412345");
+
+        // when
+        commandService.acquire(TARGET_TYPE, TARGET_ID, "TOPIC", "202499999");
+
+        // then
+        assertThat(fakeEditLockRepository.findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, "TEAM_INFO")
+            .orElseThrow().getLockedBy()).isEqualTo("202412345");
+        assertThat(fakeEditLockRepository.findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, "TOPIC")
+            .orElseThrow().getLockedBy()).isEqualTo("202499999");
     }
 
     @Test
     @DisplayName("release는 본인 소유 잠금을 해제한다")
     void release_OwnLock_Removes() {
         // given
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202412345");
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
 
         // when
-        commandService.release(TARGET_TYPE, TARGET_ID, "202412345");
+        commandService.release(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
 
         // then
-        assertThat(fakeEditLockRepository.findByTargetTypeAndTargetId(TARGET_TYPE, TARGET_ID)).isEmpty();
+        assertThat(fakeEditLockRepository.findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, SECTION_KEY))
+            .isEmpty();
     }
 
     @Test
     @DisplayName("release는 타인 소유 잠금이면 아무 일도 하지 않는다")
     void release_OtherLock_DoesNothing() {
         // given
-        commandService.acquire(TARGET_TYPE, TARGET_ID, "202412345");
+        commandService.acquire(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
 
         // when
-        commandService.release(TARGET_TYPE, TARGET_ID, "202499999");
+        commandService.release(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202499999");
 
         // then
-        assertThat(fakeEditLockRepository.findByTargetTypeAndTargetId(TARGET_TYPE, TARGET_ID)).isPresent();
+        assertThat(fakeEditLockRepository.findByTargetTypeAndTargetIdAndSectionKey(TARGET_TYPE, TARGET_ID, SECTION_KEY))
+            .isPresent();
     }
 
     @Test
     @DisplayName("release는 잠금이 없어도 예외를 던지지 않는다")
     void release_NoLock_DoesNothing() {
         // when & then (예외가 안 나면 통과)
-        commandService.release(TARGET_TYPE, TARGET_ID, "202412345");
+        commandService.release(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345");
     }
 }

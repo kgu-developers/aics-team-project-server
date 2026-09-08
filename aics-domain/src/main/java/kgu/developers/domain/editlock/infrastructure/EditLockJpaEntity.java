@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "\"edit_lock\"", uniqueConstraints =
-    @UniqueConstraint(name = "uk_edit_lock_target", columnNames = {"target_type", "target_id"}))
+    @UniqueConstraint(name = "uk_edit_lock_target", columnNames = {"target_type", "target_id", "section_key"}))
 @Builder
 @Getter
 @AllArgsConstructor
@@ -41,6 +41,12 @@ public class EditLockJpaEntity extends BaseTimeEntity {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
+    // 대상 하나를 여러 사람이 섹션별로 동시에 편집할 수 있게 하는 구분자(KD3-213).
+    // "섹션 없는 잠금"을 NULL로 표현하면 유니크 제약에서 NULL끼리는 서로 다른 값 취급돼
+    // 동시성 보장이 깨지므로, 섹션이 없는 대상도 고정 문자열(예: "DEFAULT")을 쓰도록 NOT NULL로 강제한다.
+    @Column(name = "section_key", nullable = false, length = 50)
+    private String sectionKey;
+
     @Column(name = "locked_by", nullable = false, length = 20)
     private String lockedBy;
 
@@ -55,6 +61,7 @@ public class EditLockJpaEntity extends BaseTimeEntity {
             .id(this.id)
             .targetType(this.targetType)
             .targetId(this.targetId)
+            .sectionKey(this.sectionKey)
             .lockedBy(this.lockedBy)
             .lockedAt(this.lockedAt)
             .version(this.version)
@@ -66,6 +73,7 @@ public class EditLockJpaEntity extends BaseTimeEntity {
             .id(domain.getId())
             .targetType(domain.getTargetType())
             .targetId(domain.getTargetId())
+            .sectionKey(domain.getSectionKey())
             .lockedBy(domain.getLockedBy())
             .lockedAt(domain.getLockedAt())
             .version(domain.getVersion())
