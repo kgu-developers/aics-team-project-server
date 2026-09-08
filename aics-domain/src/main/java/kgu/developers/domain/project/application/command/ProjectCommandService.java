@@ -199,9 +199,14 @@ public class ProjectCommandService {
         String assigneeUserId,
         boolean completed
     ) {
-        Project project = projectRepository.findById(projectId)
+        Long teamId = projectRepository.findById(projectId)
+            .orElseThrow(ProjectNotFoundException::new)
+            .getTeamId();
+        projectRepository.lockTeam(teamId);
+        // 잠그기 전에 읽은 스냅숏으로 완료 여부를 판정하면 그사이 커밋된 제안 완료를 놓친다.
+        // 잠금 순서는 팀 → 프로젝트로, saveProject·completeProposal 과 같게 유지한다(교착 방지).
+        Project project = projectRepository.findByIdForUpdate(projectId)
             .orElseThrow(ProjectNotFoundException::new);
-        projectRepository.lockTeam(project.getTeamId());
 
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();

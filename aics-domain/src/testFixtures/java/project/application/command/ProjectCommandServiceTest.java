@@ -155,6 +155,7 @@ class ProjectCommandServiceTest {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
         given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202412345"))
             .willReturn(Optional.of(TeamMember.create(1L, "202412345", false, "개발자")));
         given(proposalSectionRepository.findByProjectIdAndType(10L, ProposalSectionType.SCREEN)).willReturn(Optional.empty());
@@ -175,6 +176,7 @@ class ProjectCommandServiceTest {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
         given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202499999")).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> projectCommandService.updateProposalSection(10L, ProposalSectionType.SCREEN, "202499999", true))
@@ -189,9 +191,27 @@ class ProjectCommandServiceTest {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
         given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         assertThatThrownBy(() -> projectCommandService.updateProposalSection(10L, ProposalSectionType.SCREEN, null, true))
             .isInstanceOf(ProjectProposalCompletedException.class);
+    }
+
+    // 잠그기 전 스냅숏으로 판정하면, 그사이 다른 트랜잭션이 커밋한 제안 완료를 놓치고 섹션이 수정된다.
+    @Test
+    @DisplayName("updateProposalSection은 잠근 뒤 다시 읽은 제안서가 완료 상태면 예외를 던진다")
+    void updateProposalSection_rereadsProposalUnderLock() {
+        Project stale = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.DRAFT).build();
+        Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(stale));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(completed));
+
+        assertThatThrownBy(() -> projectCommandService.updateProposalSection(10L, ProposalSectionType.SCREEN, null, true))
+            .isInstanceOf(ProjectProposalCompletedException.class);
+        then(proposalSectionRepository).should(org.mockito.Mockito.never())
+            .save(org.mockito.ArgumentMatchers.any());
     }
 
     private List<ProposalSection> completedSections(ProposalSectionType... types) {
