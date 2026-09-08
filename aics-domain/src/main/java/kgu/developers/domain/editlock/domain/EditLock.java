@@ -17,14 +17,18 @@ public class EditLock {
     private Long id;
     private EditLockTargetType targetType;
     private Long targetId;
+    private String sectionKey;
     private String lockedBy;
     private LocalDateTime lockedAt;
     private Long version;  // 낙관적 락 버전 (신규는 null)
 
-    public static EditLock create(EditLockTargetType targetType, Long targetId, String lockedBy, LocalDateTime lockedAt) {
+    public static EditLock create(
+        EditLockTargetType targetType, Long targetId, String sectionKey, String lockedBy, LocalDateTime lockedAt
+    ) {
         return EditLock.builder()
             .targetType(targetType)
             .targetId(targetId)
+            .sectionKey(sectionKey)
             .lockedBy(lockedBy)
             .lockedAt(lockedAt)
             .build();

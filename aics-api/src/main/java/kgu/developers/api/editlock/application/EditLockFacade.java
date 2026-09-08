@@ -35,25 +35,25 @@ public class EditLockFacade {
 
     // acquire()와 같은 대상 접근 검증을 거친다 — 검증 없이 조회를 허용하면 다른 분반·팀
     // 사용자도 lockedBy(학번)를 알아낼 수 있었다(sunzx0428 PR #87 리뷰 09-03).
-    public EditLockStatusResponse getStatus(EditLockTargetType targetType, Long targetId, String userId) {
+    public EditLockStatusResponse getStatus(EditLockTargetType targetType, Long targetId, String sectionKey, String userId) {
         validateTargetAccess(targetType, targetId, userId);
-        return getStatusWithoutAccessCheck(targetType, targetId);
+        return getStatusWithoutAccessCheck(targetType, targetId, sectionKey);
     }
 
-    private EditLockStatusResponse getStatusWithoutAccessCheck(EditLockTargetType targetType, Long targetId) {
-        return editLockQueryService.getActiveLock(targetType, targetId)
+    private EditLockStatusResponse getStatusWithoutAccessCheck(EditLockTargetType targetType, Long targetId, String sectionKey) {
+        return editLockQueryService.getActiveLock(targetType, targetId, sectionKey)
             .map(EditLockStatusResponse::from)
             .orElseGet(EditLockStatusResponse::unlocked);
     }
 
     public EditLockStatusResponse acquire(String userId, EditLockAcquireRequest request) {
         validateTargetAccess(request.targetType(), request.targetId(), userId);
-        editLockCommandService.acquire(request.targetType(), request.targetId(), userId);
-        return getStatusWithoutAccessCheck(request.targetType(), request.targetId());
+        editLockCommandService.acquire(request.targetType(), request.targetId(), request.sectionKey(), userId);
+        return getStatusWithoutAccessCheck(request.targetType(), request.targetId(), request.sectionKey());
     }
 
-    public void release(EditLockTargetType targetType, Long targetId, String userId) {
-        editLockCommandService.release(targetType, targetId, userId);
+    public void release(EditLockTargetType targetType, Long targetId, String sectionKey, String userId) {
+        editLockCommandService.release(targetType, targetId, sectionKey, userId);
     }
 
     // 대상이 실제로 존재하고, 이 사용자가 그 대상을 편집할 권한이 있는지 확인한다.

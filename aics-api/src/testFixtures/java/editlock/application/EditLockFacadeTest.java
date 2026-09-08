@@ -42,6 +42,7 @@ public class EditLockFacadeTest {
     private static final Long TEAM_ID = 10L;
     private static final Long MILESTONE_ID = 100L;
     private static final Long TARGET_ID = 1L;
+    private static final String SECTION_KEY = "DEFAULT";
 
     private EditLockFacade facade;
 
@@ -74,9 +75,14 @@ public class EditLockFacadeTest {
     }
 
     private EditLockAcquireRequest buildRequest() {
+        return buildRequest(SECTION_KEY);
+    }
+
+    private EditLockAcquireRequest buildRequest(String sectionKey) {
         return EditLockAcquireRequest.builder()
             .targetType(TARGET_TYPE)
             .targetId(TARGET_ID)
+            .sectionKey(sectionKey)
             .build();
     }
 
@@ -84,7 +90,7 @@ public class EditLockFacadeTest {
     @DisplayName("getStatus는 잠금이 없으면 locked=false를 반환한다")
     public void getStatus_Unlocked() {
         // when
-        EditLockStatusResponse result = facade.getStatus(TARGET_TYPE, TARGET_ID, MEMBER);
+        EditLockStatusResponse result = facade.getStatus(TARGET_TYPE, TARGET_ID, SECTION_KEY, MEMBER);
 
         // then
         assertFalse(result.locked());
@@ -119,10 +125,23 @@ public class EditLockFacadeTest {
         facade.acquire(MEMBER, buildRequest());
 
         // when
-        facade.release(TARGET_TYPE, TARGET_ID, MEMBER);
+        facade.release(TARGET_TYPE, TARGET_ID, SECTION_KEY, MEMBER);
 
         // then
-        assertFalse(facade.getStatus(TARGET_TYPE, TARGET_ID, MEMBER).locked());
+        assertFalse(facade.getStatus(TARGET_TYPE, TARGET_ID, SECTION_KEY, MEMBER).locked());
+    }
+
+    @Test
+    @DisplayName("같은 대상이어도 섹션이 다르면 서로 다른 사람이 동시에 잠글 수 있다")
+    public void acquire_DifferentSection_DoesNotConflict() {
+        // when
+        facade.acquire(MEMBER, buildRequest("TEAM_INFO"));
+        EditLockStatusResponse otherSection = facade.acquire(OTHER_MEMBER, buildRequest("TOPIC"));
+
+        // then
+        assertTrue(otherSection.locked());
+        assertEquals(OTHER_MEMBER, otherSection.lockedBy());
+        assertTrue(facade.getStatus(TARGET_TYPE, TARGET_ID, "TEAM_INFO", MEMBER).locked());
     }
 
     @Test
@@ -131,6 +150,7 @@ public class EditLockFacadeTest {
         EditLockAcquireRequest request = EditLockAcquireRequest.builder()
             .targetType(TARGET_TYPE)
             .targetId(9999L)
+            .sectionKey(SECTION_KEY)
             .build();
 
         assertThatThrownBy(() -> facade.acquire(MEMBER, request))
@@ -142,7 +162,7 @@ public class EditLockFacadeTest {
     public void getStatus_RejectsNonMember() {
         String outsider = "202400000";
 
-        assertThatThrownBy(() -> facade.getStatus(TARGET_TYPE, TARGET_ID, outsider))
+        assertThatThrownBy(() -> facade.getStatus(TARGET_TYPE, TARGET_ID, SECTION_KEY, outsider))
             .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }
 
@@ -152,6 +172,7 @@ public class EditLockFacadeTest {
         EditLockAcquireRequest request = EditLockAcquireRequest.builder()
             .targetType(EditLockTargetType.PROJECT)
             .targetId(TARGET_ID)
+            .sectionKey(SECTION_KEY)
             .build();
 
         assertThatThrownBy(() -> facade.acquire(MEMBER, request))

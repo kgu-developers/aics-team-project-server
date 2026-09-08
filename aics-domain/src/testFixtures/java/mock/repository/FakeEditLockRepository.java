@@ -20,7 +20,8 @@ public class FakeEditLockRepository implements EditLockRepository {
         if (editLock.getId() == null) {
             boolean alreadyExists = store.values().stream()
                 .anyMatch(existing -> existing.getTargetType() == editLock.getTargetType()
-                    && existing.getTargetId().equals(editLock.getTargetId()));
+                    && existing.getTargetId().equals(editLock.getTargetId())
+                    && existing.getSectionKey().equals(editLock.getSectionKey()));
             if (alreadyExists) {
                 // 실제 구현은 uk_edit_lock_target 유니크 제약 위반으로 이걸 검출한다.
                 throw new EditLockConflictException();
@@ -33,6 +34,7 @@ public class FakeEditLockRepository implements EditLockRepository {
             .id(id)
             .targetType(editLock.getTargetType())
             .targetId(editLock.getTargetId())
+            .sectionKey(editLock.getSectionKey())
             .lockedBy(editLock.getLockedBy())
             .lockedAt(editLock.getLockedAt())
             .build();
@@ -42,10 +44,13 @@ public class FakeEditLockRepository implements EditLockRepository {
     }
 
     @Override
-    public Optional<EditLock> findByTargetTypeAndTargetId(EditLockTargetType targetType, Long targetId) {
+    public Optional<EditLock> findByTargetTypeAndTargetIdAndSectionKey(
+        EditLockTargetType targetType, Long targetId, String sectionKey
+    ) {
         return store.values().stream()
             .filter(editLock -> editLock.getTargetType() == targetType)
             .filter(editLock -> editLock.getTargetId().equals(targetId))
+            .filter(editLock -> editLock.getSectionKey().equals(sectionKey))
             .findFirst();
     }
 

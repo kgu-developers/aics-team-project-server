@@ -432,7 +432,7 @@ class SubmissionFacadeTest {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
 
         new EditLockCommandService(editLockRepository).acquire(
-                kgu.developers.domain.editlock.domain.EditLockTargetType.PRESENTATION_CONTENT, submission.getId(), LEADER);
+                kgu.developers.domain.editlock.domain.EditLockTargetType.PRESENTATION_CONTENT, submission.getId(), "DEFAULT", LEADER);
 
         assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
                 submission.getId(), MEMBER, new PresentationContentRequest("소개", null, null, null)))

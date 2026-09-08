@@ -33,8 +33,10 @@ public class EditLockRepositoryImpl implements EditLockRepository {
     }
 
     @Override
-    public Optional<EditLock> findByTargetTypeAndTargetId(EditLockTargetType targetType, Long targetId) {
-        return jpaEditLockRepository.findByTargetTypeAndTargetId(targetType, targetId)
+    public Optional<EditLock> findByTargetTypeAndTargetIdAndSectionKey(
+        EditLockTargetType targetType, Long targetId, String sectionKey
+    ) {
+        return jpaEditLockRepository.findByTargetTypeAndTargetIdAndSectionKey(targetType, targetId, sectionKey)
             .map(EditLockJpaEntity::toDomain);
     }
 

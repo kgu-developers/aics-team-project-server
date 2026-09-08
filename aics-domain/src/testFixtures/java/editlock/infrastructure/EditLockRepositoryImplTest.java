@@ -33,7 +33,7 @@ class EditLockRepositoryImplTest {
     private EditLockRepositoryImpl editLockRepositoryImpl;
 
     private EditLock editLock() {
-        return EditLock.create(EditLockTargetType.PRESENTATION_CONTENT, 1L, "202412345", LocalDateTime.now());
+        return EditLock.create(EditLockTargetType.PRESENTATION_CONTENT, 1L, "DEFAULT", "202412345", LocalDateTime.now());
     }
 
     @Test
@@ -43,6 +43,7 @@ class EditLockRepositoryImplTest {
                 .id(1L)
                 .targetType(EditLockTargetType.PRESENTATION_CONTENT)
                 .targetId(1L)
+                .sectionKey("DEFAULT")
                 .lockedBy("202412345")
                 .lockedAt(LocalDateTime.now())
                 .version(0L)
