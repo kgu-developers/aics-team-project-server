@@ -110,7 +110,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     }
 
     private static JsonNode createEmptyJsonNode() {
-        return JsonNodeFactory.instance.objectNode();
+        return JsonNodeFactory.instance.arrayNode();
     }
 
     public Project toDomain() {
