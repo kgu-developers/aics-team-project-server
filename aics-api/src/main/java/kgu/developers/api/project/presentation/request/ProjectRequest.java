@@ -37,6 +37,16 @@ public record ProjectRequest(
     @NotNull
     JsonNode screenConfiguration,
 
+    @Schema(description = "주요 기능 (JSON 배열: [{title, description}, ...])",
+        example = "[{\"title\":\"학습 분석\",\"description\":\"AI가 학습 패턴을 분석합니다\"}]", requiredMode = REQUIRED)
+    @NotNull
+    JsonNode keyFeatures,
+
+    @Schema(description = "시연 흐름 (JSON 배열: [{number, title}, ...]) - number로 정렬됨",
+        example = "[{\"number\":1,\"title\":\"회원가입\"},{\"number\":2,\"title\":\"대시보드\"}]", requiredMode = REQUIRED)
+    @NotNull
+    JsonNode demoFlow,
+
     @Schema(description = "회의 방식", example = "매주 월요일 대면 회의")
     @Size(max = 200)
     String meetingStyle,

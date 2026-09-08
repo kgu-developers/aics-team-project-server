@@ -84,6 +84,8 @@ class ProjectControllerTest {
             "개인별 피드백 자동화",
             "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
             objectMapper.readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
+            objectMapper.readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            objectMapper.readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"),
             "매주 월요일 대면 회의",
             "https://github.com/kgu/project",
             objectMapper.readTree("[{\"name\":\"Figma\",\"url\":\"https://figma.com/design\"}]")
@@ -118,6 +120,8 @@ class ProjectControllerTest {
             "개인별 피드백 자동화",
             "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
             objectMapper.readTree("[]"),
+            objectMapper.readTree("[]"),
+            objectMapper.readTree("[]"),
             "meetingStyle".equals(field) ? tooLong : "매주 월요일 대면 회의",
             "repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project",
             objectMapper.readTree("[]")
@@ -141,6 +145,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":"종류: 학습 로그","screenConfiguration":%s,
+             "keyFeatures":[],"demoFlow":[],
              "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(screenConfigurationJson);
 
@@ -162,6 +167,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":"종류: 학습 로그","screenConfiguration":[%s],
+             "keyFeatures":[],"demoFlow":[],
              "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(screenJson);
 
@@ -181,6 +187,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":null,"screenConfiguration":[],
+             "keyFeatures":[],"demoFlow":[],
              "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """;
 
@@ -203,6 +210,7 @@ class ProjectControllerTest {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":"","screenConfiguration":[],
+             "keyFeatures":[],"demoFlow":[],
              "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """;
 

@@ -60,7 +60,9 @@ public class ProjectFacade {
             request.repositoryUrl(),
             request.externalLinks(),
             request.dataConfiguration(),
-            stripClientProvidedImageUrls(request.screenConfiguration())
+            stripClientProvidedImageUrls(request.screenConfiguration()),
+            request.keyFeatures(),
+            request.demoFlow()
         );
         return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()));
     }
