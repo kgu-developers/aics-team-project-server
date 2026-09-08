@@ -72,7 +72,7 @@ class ProjectCommandServiceTest {
             .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
             .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
             .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
-            .demoFlow(new ObjectMapper().readTree("[{\"title\":\"로그인 화면\",\"description\":\"사용자가 로그인하는 과정\"}]"))
+            .demoFlow(new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))
             .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
 
