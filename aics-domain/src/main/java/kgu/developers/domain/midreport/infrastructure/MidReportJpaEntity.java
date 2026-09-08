@@ -107,6 +107,7 @@ public class MidReportJpaEntity extends BaseTimeEntity {
     }
 
     void updateFromDomain(MidReport report) {
+        updatedAt = LocalDateTime.now();
         title = report.getTitle();
         dueDate = report.getDueDate();
         status = report.getStatus();
