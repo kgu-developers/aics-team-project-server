@@ -328,7 +328,11 @@ class ProjectFacadeTest {
 
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request());
 
-        then(teamFacade).shouldHaveNoInteractions();
+        // 응답에 5번 본문을 담느라 킥오프를 읽기는 한다. 쓰지 않는 것만 확인한다.
+        then(teamFacade).should(org.mockito.Mockito.never()).updateKickoffContent(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any());
     }
 
     private User member() {

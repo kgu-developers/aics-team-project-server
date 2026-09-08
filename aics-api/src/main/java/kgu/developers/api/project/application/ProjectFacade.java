@@ -66,7 +66,8 @@ public class ProjectFacade {
     public ProjectResponse getProject(Long teamId, String userId) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
         Project project = projectQueryService.getProjectByTeamId(teamId);
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()));
+        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
+            teamFacade.getKickoffByTeamId(teamId, userId));
     }
 
     public ProjectResponse saveProject(Long teamId, String userId, ProjectRequest request) {
@@ -91,7 +92,8 @@ public class ProjectFacade {
             stripClientProvidedImageUrls(request.screenConfiguration()),
             request.projectSchedule()
         );
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()));
+        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
+            teamFacade.getKickoffByTeamId(teamId, userId));
     }
 
     public void completeProposal(Long projectId, String userId) {
