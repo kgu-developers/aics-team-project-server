@@ -11,11 +11,20 @@ import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
+import kgu.developers.domain.fileobject.domain.FileObject;
+import kgu.developers.domain.fileobject.domain.FileObjectRepository;
+import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.exception.ProjectScreenImageOwnershipException;
 import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
+import kgu.developers.domain.teamMember.domain.TeamMember;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +45,9 @@ class ProjectFacadeTest {
     @Mock private TeamAccessValidator teamAccessValidator;
     @Mock private ProjectApprovalRepository projectApprovalRepository;
     @Mock private ProjectApprovalCommandService projectApprovalCommandService;
+    @Mock private TeamMemberRepository teamMemberRepository;
+    @Mock private FileObjectRepository fileObjectRepository;
+    @Mock private FileStorage fileStorage;
     @InjectMocks private ProjectFacade projectFacade;
 
     @Test
@@ -72,12 +84,78 @@ class ProjectFacadeTest {
     @DisplayName("saveProject는 요청 필드를 커맨드 서비스에 전달한다")
     void saveProject() throws Exception {
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
+        givenImageUploadedBy(MEMBER_ID);
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
 
         assertThat(projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()).goal()).isEqualTo("피드백 자동화");
+    }
+
+    @Test
+    @DisplayName("saveProject는 우리 팀이 올리지 않은 imageFileId를 거부한다")
+    void saveProject_rejectsForeignImage() throws Exception {
+        givenImageUploadedBy("999999999");
+
+        assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
+            .isInstanceOf(ProjectScreenImageOwnershipException.class);
+        then(projectCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("saveProject는 클라이언트가 보낸 imageUrl을 저장 전에 지운다")
+    void saveProject_stripsClientImageUrl() throws Exception {
+        givenImageUploadedBy(MEMBER_ID);
+        given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
+        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화", "데이터",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://evil/forever\"}]"),
+            "대면", null, null);
+
+        projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
+
+        var saved = org.mockito.ArgumentCaptor.forClass(com.fasterxml.jackson.databind.JsonNode.class);
+        then(projectCommandService).should().saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), saved.capture());
+        assertThat(saved.getValue().get(0).has("imageUrl")).isFalse();
+    }
+
+    @Test
+    @DisplayName("getProject는 우리 팀이 올린 화면 이미지에 presigned URL을 채워 내려준다")
+    void getProject_fillsImageUrl() throws Exception {
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(projectWithScreens(
+            "[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://stale/url\"}]"));
+        givenImageUploadedBy(MEMBER_ID);
+        given(fileStorage.presignedUrl("teams/1/home.png")).willReturn("https://s3/presigned");
+
+        var screens = projectFacade.getProject(TEAM_ID, MEMBER_ID).screenConfiguration();
+
+        assertThat(screens.get(0).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+    }
+
+    @Test
+    @DisplayName("getProject는 업로더가 더 이상 팀원이 아니면 imageUrl을 만들지 않는다")
+    void getProject_dropsImageUrlWhenUploaderLeftTeam() throws Exception {
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(projectWithScreens(
+            "[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://stale/url\"}]"));
+        givenImageUploadedBy("999999999");
+
+        var screens = projectFacade.getProject(TEAM_ID, MEMBER_ID).screenConfiguration();
+
+        assertThat(screens.get(0).has("imageUrl")).isFalse();
+        assertThat(screens.get(0).get("imageFileId").asLong()).isEqualTo(1L);
+    }
+
+    private void givenImageUploadedBy(String uploaderId) {
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID))
+            .willReturn(List.of(TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장")));
+        given(fileObjectRepository.findById(1L)).willReturn(Optional.of(FileObject.builder()
+            .id(1L).uploadedBy(uploaderId).storageKey("teams/1/home.png").build()));
     }
 
     @Test
@@ -188,5 +266,11 @@ class ProjectFacadeTest {
     private Project project() {
         return Project.builder().id(10L).teamId(TEAM_ID).title("AI 학습 도우미").description("설명")
             .goal("피드백 자동화").approvalStatus(ApprovalStatus.DRAFT).build();
+    }
+
+    private Project projectWithScreens(String screensJson) throws Exception {
+        return Project.builder().id(10L).teamId(TEAM_ID).title("AI 학습 도우미").description("설명")
+            .goal("피드백 자동화").approvalStatus(ApprovalStatus.DRAFT)
+            .screenConfiguration(new ObjectMapper().readTree(screensJson)).build();
     }
 }

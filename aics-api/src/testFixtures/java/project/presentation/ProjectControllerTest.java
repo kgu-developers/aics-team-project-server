@@ -153,6 +153,27 @@ class ProjectControllerTest {
         then(projectFacade).shouldHaveNoInteractions();
     }
 
+    // 파사드의 imageFileId 소유권 검사는 "각 원소가 객체이고 imageFileId가 정수"라는 전제 위에서
+    // 도니까, 그 전제를 여기 입력 경계에서 400으로 끊어야 검사 없이 저장되는 구멍이 안 생긴다.
+    @ParameterizedTest(name = "screenConfiguration 항목이 {0}이면 400을 반환한다")
+    @CsvSource({"'\"홈\"'", "'{\"title\":\"홈\",\"imageFileId\":\"1\"}'", "'{\"title\":\"홈\",\"imageFileId\":1.5}'"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 화면 항목 모양이 잘못되면 400을 반환한다")
+    void saveProjectRejectsMalformedScreenItem(String screenJson) throws Exception {
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"종류: 학습 로그","screenConfiguration":[%s],
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """.formatted(screenJson);
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
     @Test
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 비면 400을 반환한다")
     void saveProjectRejectsBlankDataConfiguration() throws Exception {
