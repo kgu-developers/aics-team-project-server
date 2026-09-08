@@ -39,12 +39,14 @@ public class MeetingRecordAdminFacade {
 
     public MeetingRecordAdminPageResponse getMeetingRecords(
         Long sectionId,
+        Long teamId,
         Pageable pageable,
         String professorId
     ) {
         List<Section> sections = resolveSections(sectionId, professorId);
         List<Team> teams = teamRepository.findAllBySectionIdIn(
             sections.stream().map(Section::getId).toList());
+        List<Long> teamIds = resolveTeamIds(teams, teamId);
 
         Pageable latestFirstPageable = PageRequest.of(
             pageable.getPageNumber(),
@@ -52,7 +54,7 @@ public class MeetingRecordAdminFacade {
             LATEST_FIRST
         );
         Page<MeetingRecord> meetingRecords = meetingRecordQueryService.getMeetingRecords(
-            teams.stream().map(Team::getId).toList(), latestFirstPageable);
+            teamIds, latestFirstPageable);
         Map<Long, Team> teamsById = teams.stream()
             .collect(Collectors.toMap(Team::getId, Function.identity()));
         Map<Long, Section> sectionsById = sections.stream()
@@ -85,5 +87,18 @@ public class MeetingRecordAdminFacade {
             .filter(foundSection -> professorId.equals(foundSection.getProfessorId()))
             .orElseThrow(() -> new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다."));
         return List.of(section);
+    }
+
+    private List<Long> resolveTeamIds(List<Team> teams, Long teamId) {
+        if (teamId == null) {
+            return teams.stream().map(Team::getId).toList();
+        }
+
+        boolean belongsToOwnedSections = teams.stream()
+            .anyMatch(team -> team.getId().equals(teamId));
+        if (!belongsToOwnedSections) {
+            throw new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다.");
+        }
+        return List.of(teamId);
     }
 }
