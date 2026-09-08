@@ -18,6 +18,7 @@ public enum ProjectDomainExceptionCode implements ExceptionCode {
     PROJECT_NOT_FOUND(NOT_FOUND, "프로젝트를 찾을 수 없습니다."),
     PROJECT_VERSION_CONFLICT(CONFLICT, "프로젝트가 다른 사용자에 의해 수정되었습니다. 다시 시도해주세요."),
     PROJECT_ALREADY_EXISTS(CONFLICT, "해당 팀에 이미 프로젝트가 존재합니다."),
+    PROJECT_DELETED_CONCURRENTLY(CONFLICT, "저장하는 사이에 제안서가 삭제되었습니다. 다시 저장하면 새 제안서로 등록됩니다."),
     PROJECT_PROPOSAL_COMPLETED(FORBIDDEN, "완료된 프로젝트 제안서는 수정할 수 없습니다."),
     PROJECT_SCREEN_IMAGE_OWNERSHIP_INVALID(FORBIDDEN, "우리 팀이 업로드한 파일만 화면 이미지로 사용할 수 있습니다."),
     PROPOSAL_SECTION_INCOMPLETE(PRECONDITION_REQUIRED, "모든 제안서 섹션의 작성이 완료되어야 제출할 수 있습니다."),

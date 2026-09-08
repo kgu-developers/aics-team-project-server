@@ -28,6 +28,7 @@ import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.exception.ProjectAlreadyExistsException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
+import kgu.developers.domain.project.exception.ProjectDeletedConcurrentlyException;
 import kgu.developers.domain.project.exception.ProjectVersionConflictException;
 import kgu.developers.domain.project.infrastructure.JpaProjectRepository;
 import kgu.developers.domain.project.infrastructure.ProjectJpaEntity;
@@ -198,8 +199,8 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있고 ID가 일치해도 ProjectVersionConflictException을 발생시킨다")
-  void saveWithSoftDeletedProjectAndMatchingIdThrowsVersionConflict() {
+  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있고 ID가 일치해도 ProjectDeletedConcurrentlyException을 발생시킨다")
+  void saveWithSoftDeletedProjectAndMatchingIdThrowsDeletedConcurrently() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
     ObjectNode externalLinks = objectMapper.createObjectNode();
@@ -234,13 +235,13 @@ class ProjectRepositoryImplTest {
         .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
 
     assertThatThrownBy(() -> repository.save(newProject))
-        .isInstanceOf(ProjectVersionConflictException.class);
+        .isInstanceOf(ProjectDeletedConcurrentlyException.class);
     verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
   }
 
   @Test
-  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있고 ID가 다르면 ProjectVersionConflictException을 발생시킨다")
-  void saveWithSoftDeletedProjectAndDifferentIdThrowsVersionConflict() {
+  @DisplayName("save는 팀에 소프트 삭제된 프로젝트가 있고 ID가 다르면 ProjectDeletedConcurrentlyException을 발생시킨다")
+  void saveWithSoftDeletedProjectAndDifferentIdThrowsDeletedConcurrently() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
     ObjectNode externalLinks = objectMapper.createObjectNode();
@@ -275,7 +276,7 @@ class ProjectRepositoryImplTest {
         .willReturn(Optional.of(ProjectJpaEntity.toEntity(deletedProject, team)));
 
     assertThatThrownBy(() -> repository.save(newProject))
-        .isInstanceOf(ProjectVersionConflictException.class);
+        .isInstanceOf(ProjectDeletedConcurrentlyException.class);
     verify(jpaProjectRepository, never()).saveAndFlush(any(ProjectJpaEntity.class));
   }
 
@@ -804,7 +805,7 @@ class ProjectRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("save는 삭제된 프로젝트가 있는 상태에서 저장하면 ProjectVersionConflictException을 발생시킨다")
+  @DisplayName("save는 삭제된 프로젝트가 있는 상태에서 저장하면 ProjectDeletedConcurrentlyException을 발생시킨다")
   void readDeleteThenSaveOldObjectScenario() {
     ProjectRepositoryImpl repository = new ProjectRepositoryImpl(jpaProjectRepository, entityManager);
 
@@ -869,9 +870,9 @@ class ProjectRepositoryImplTest {
         .version(0L) // 오래된 버전
         .build();
 
-    // 삭제된 프로젝트가 있는 상태에서 저장 시도 - 버전 충돌 예외 발생
+    // 삭제 여부를 버전보다 먼저 본다 - 재시도하면 saveProject 가 reactivate 로 보낸다
     assertThatThrownBy(() -> repository.save(oldProject))
-        .isInstanceOf(ProjectVersionConflictException.class);
+        .isInstanceOf(ProjectDeletedConcurrentlyException.class);
   }
 
   @Test

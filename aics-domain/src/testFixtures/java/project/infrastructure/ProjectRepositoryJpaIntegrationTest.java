@@ -33,6 +33,7 @@ import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.course.infrastructure.CourseJpaEntity;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.exception.ProjectDeletedConcurrentlyException;
 import kgu.developers.domain.project.exception.ProjectVersionConflictException;
 import kgu.developers.domain.project.infrastructure.ProjectJpaEntity;
 import kgu.developers.domain.project.infrastructure.ProjectRepositoryImpl;
@@ -152,7 +153,7 @@ class ProjectRepositoryJpaIntegrationTest {
   }
 
   @Test
-  @DisplayName("조회 → 삭제 → 오래된 객체 저장 시 ProjectVersionConflictException이 발생한다")
+  @DisplayName("조회 → 삭제 → 오래된 객체 저장 시 ProjectDeletedConcurrentlyException이 발생한다")
   void readDeleteThenSaveOldObject() {
     // 트랜잭션 1: 프로젝트 조회 (영속성 컨텍스트 종료 후 준영속 객체로 보관)
     Project stale = tx.execute(status -> repository.findById(projectId).orElseThrow());
@@ -183,7 +184,7 @@ class ProjectRepositoryJpaIntegrationTest {
         .build();
 
     assertThatThrownBy(() -> repository.save(oldProject))
-        .isInstanceOf(ProjectVersionConflictException.class);
+        .isInstanceOf(ProjectDeletedConcurrentlyException.class);
 
     // 삭제 상태가 그대로 유지되어야 한다
     ProjectJpaEntity current = tx.execute(status ->
