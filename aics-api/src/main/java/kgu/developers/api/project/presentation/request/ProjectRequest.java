@@ -43,7 +43,7 @@ public record ProjectRequest(
     JsonNode keyFeatures,
 
     @Schema(description = "시연 흐름 (JSON 배열: [{number, title}, ...]) - number로 정렬됨",
-        example = "[{\"number\":1,\"title\":\"회원가입\"},{\"number\":2,\"title\":\"대시보드\"}]", requiredMode = REQUIRED)
+        example = "[{\"number\":1,\"title\":\"회원과 도서를 검색합니다.\"},{\"number\":2,\"title\":\"대여 후 반납 상태를 확인합니다.\"}]", requiredMode = REQUIRED)
     @NotNull
     JsonNode demoFlow,
 
