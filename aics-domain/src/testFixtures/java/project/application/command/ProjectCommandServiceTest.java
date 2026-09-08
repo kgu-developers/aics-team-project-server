@@ -146,13 +146,139 @@ class ProjectCommandServiceTest {
     }
 
     @Test
-    @DisplayName("saveProject는 완료된 제안서를 수정할 수 없다")
-    void saveProject_rejectsCompletedProject() throws Exception {
+    @DisplayName("saveProject는 완료된 제안서의 화면구성/주요기능/시연흐름은 수정할 수 있다")
+    void saveProject_allowsPresentationFieldsUpdateForCompletedProject() throws Exception {
         Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
-            .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
+            .meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().readTree("[]"))
+            .keyFeatures(new ObjectMapper().readTree("[]"))
+            .demoFlow(new ObjectMapper().readTree("[]"))
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
+        given(projectRepository.save(completed)).willReturn(completed);
+
+        Project result = projectCommandService.saveProject(1L, "제목", "설명", "목표", "대면",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"));
+
+        assertThat(result.getScreenConfiguration().get(0).get("title").asText()).isEqualTo("홈");
+        assertThat(result.getKeyFeatures().get(0).get("title").asText()).isEqualTo("로그인");
+        assertThat(result.getDemoFlow().get(0).get("title").asText()).isEqualTo("로그인 화면");
+        then(projectApprovalRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("saveProject는 완료된 제안서의 제목 수정을 거부한다")
+    void saveProject_rejectsTitleUpdateForCompletedProject() throws Exception {
+        Project completed = Project.builder().id(10L).teamId(1L).title("기존 제목").description("설명").goal("목표")
+            .meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
+            .demoFlow(new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
 
-        assertThatThrownBy(this::saveProject).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> projectCommandService.saveProject(1L, "새 제목", "설명", "목표", "대면",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("saveProject는 완료된 제안서의 설명 수정을 거부한다")
+    void saveProject_rejectsDescriptionUpdateForCompletedProject() throws Exception {
+        Project completed = Project.builder().id(10L).teamId(1L).title("새 제목").description("기존 설명").goal("목표")
+            .meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
+            .demoFlow(new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
+
+        assertThatThrownBy(() -> projectCommandService.saveProject(1L, "새 제목", "새 설명", "목표", "대면",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("saveProject는 완료된 제안서의 목표 수정을 거부한다")
+    void saveProject_rejectsGoalUpdateForCompletedProject() throws Exception {
+        Project completed = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명").goal("기존 목표")
+            .meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
+            .demoFlow(new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
+
+        assertThatThrownBy(() -> projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("saveProject는 완료된 제안서의 데이터 구성 수정을 거부한다")
+    void saveProject_rejectsDataConfigurationUpdateForCompletedProject() throws Exception {
+        Project completed = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명").goal("새 목표")
+            .meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration("기존 데이터 구성")
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
+            .demoFlow(new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
+
+        assertThatThrownBy(() -> projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("saveProject는 완료된 제안서의 화면구성 수정 시 리비전을 증가하지 않는다")
+    void saveProject_doesNotBumpRevisionWhenUpdatingScreenConfigurationForCompletedProject() throws Exception {
+        Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+            .screenConfiguration(new ObjectMapper().readTree("[]"))
+            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
+            .demoFlow(new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
+        given(projectRepository.save(completed)).willReturn(completed);
+
+        Project result = projectCommandService.saveProject(1L, "제목", "설명", "목표", "대면",
+            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
+            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
+            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
+            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"));
+
+        assertThat(result.getProposalRevision()).isEqualTo(0L);
+        then(projectApprovalRepository).shouldHaveNoInteractions();
     }
 
     @Test

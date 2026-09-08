@@ -147,10 +147,38 @@ public class ProjectCommandService {
         JsonNode keyFeatures,
         JsonNode demoFlow
     ) {
-        if (project.getProposalCompletedAt() != null) {
+        boolean isProposalCompleted = project.getProposalCompletedAt() != null;
+
+        // 제안 완료 후 화면구성/주요기능/시연흐름 외의 필드 수정 불가
+        if (isProposalCompleted && (!isSameValue(title, project.getTitle()) ||
+            !isSameValue(description, project.getDescription()) ||
+            !isSameValue(goal, project.getGoal()) ||
+            !isSameValue(meetingStyle, project.getMeetingStyle()) ||
+            !isSameValue(repositoryUrl, project.getRepositoryUrl()) ||
+            !isSameJsonNode(externalLinks, project.getExternalLinks()) ||
+            !isSameValue(topicCandidateId, project.getTopicCandidateId()) ||
+            !isSameValue(dataConfiguration, project.getDataConfiguration()))) {
             throw new ProjectProposalCompletedException();
         }
 
+        // 화면구성/주요기능/시연흐름만 변경되는 경우
+        if (isProposalCompleted) {
+            boolean hasChanges = !isSameJsonNode(screenConfiguration, project.getScreenConfiguration()) ||
+                !isSameJsonNode(keyFeatures, project.getKeyFeatures()) ||
+                !isSameJsonNode(demoFlow, project.getDemoFlow());
+
+            if (!hasChanges) {
+                return project;
+            }
+
+            project.updateScreenConfiguration(screenConfiguration);
+            project.updateKeyFeatures(keyFeatures);
+            project.updateDemoFlow(demoFlow);
+
+            return projectRepository.save(project);
+        }
+
+        // 제안 완료 전: 모든 필드 수정 가능
         if (project.hasSameProposalContent(title, description, goal, meetingStyle, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration, keyFeatures, demoFlow) &&
             (topicCandidateId == null || topicCandidateId.equals(project.getTopicCandidateId()))) {
             return project;
@@ -174,6 +202,24 @@ public class ProjectCommandService {
         projectApprovalRepository.deleteAllByProjectId(project.getId());
 
         return projectRepository.save(project);
+    }
+
+    private boolean isSameValue(String value1, String value2) {
+        if (value1 == null && value2 == null) return true;
+        if (value1 == null || value2 == null) return false;
+        return value1.equals(value2);
+    }
+
+    private boolean isSameValue(Long value1, Long value2) {
+        if (value1 == null && value2 == null) return true;
+        if (value1 == null || value2 == null) return false;
+        return value1.equals(value2);
+    }
+
+    private boolean isSameJsonNode(JsonNode node1, JsonNode node2) {
+        if (node1 == null && node2 == null) return true;
+        if (node1 == null || node2 == null) return false;
+        return node1.equals(node2);
     }
 
     public void deleteProject(Long projectId) {
