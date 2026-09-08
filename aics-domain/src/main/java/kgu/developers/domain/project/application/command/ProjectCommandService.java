@@ -189,19 +189,22 @@ public class ProjectCommandService {
         if (demoFlow == null || !demoFlow.isArray()) {
             return EMPTY_ARRAY_NODE;
         }
-        
+
         ArrayNode sorted = JsonNodeFactory.instance.arrayNode();
         List<JsonNode> items = new ArrayList<>();
         demoFlow.forEach(items::add);
-        
+
         items.sort(Comparator.comparing(node -> {
             JsonNode number = node.get("number");
             if (number == null || number.isNull()) {
                 return Integer.MAX_VALUE;
             }
+            if (!number.isNumber()) {
+                throw new IllegalArgumentException("demoFlow의 number 필드는 숫자여야 합니다.");
+            }
             return number.asInt();
         }));
-        
+
         items.forEach(sorted::add);
         return sorted;
     }
