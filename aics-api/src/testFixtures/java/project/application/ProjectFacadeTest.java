@@ -172,7 +172,7 @@ class ProjectFacadeTest {
             "[{\"title\":\"홈\",\"imageFileId\":1},{\"title\":\"대시보드\",\"imageFileId\":1}]"));
         given(teamMemberRepository.findAllByTeamId(TEAM_ID))
             .willReturn(List.of(TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장")));
-        given(fileObjectRepository.findAllByIdAndDeletedAtIsNull(List.of(1L, 1L)))
+        given(fileObjectRepository.findAllByIdAndDeletedAtIsNull(List.of(1L)))
             .willReturn(List.of(FileObject.builder()
                 .id(1L).uploadedBy(MEMBER_ID).storageKey("teams/1/shared.png").build()));
         given(fileStorage.presignedUrl("teams/1/shared.png")).willReturn("https://s3/presigned");
@@ -182,6 +182,7 @@ class ProjectFacadeTest {
         assertThat(screens).hasSize(2);
         assertThat(screens.get(0).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
         assertThat(screens.get(1).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+        then(fileObjectRepository).should().findAllByIdAndDeletedAtIsNull(List.of(1L));
     }
 
     private void givenImageUploadedBy(String uploaderId) {
