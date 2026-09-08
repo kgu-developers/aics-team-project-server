@@ -174,12 +174,13 @@ class ProjectControllerTest {
         then(projectFacade).shouldHaveNoInteractions();
     }
 
+    // DB가 NOT NULL이라 null은 여기서 400으로 끊어야 500이 안 난다.
     @Test
-    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 비면 400을 반환한다")
-    void saveProjectRejectsBlankDataConfiguration() throws Exception {
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 null이면 400을 반환한다")
+    void saveProjectRejectsNullDataConfiguration() throws Exception {
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
-             "dataConfiguration":"  ","screenConfiguration":[],
+             "dataConfiguration":null,"screenConfiguration":[],
              "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """;
 
@@ -190,6 +191,26 @@ class ProjectControllerTest {
             .andExpect(status().isBadRequest());
 
         then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    // 주제 확정이 데이터 구성을 빈 문자열로 만들어 두므로(ProjectCommandService.finalizeTopic),
+    // 조회한 제안서를 그대로 다시 저장하는 것이 400이 나면 안 된다.
+    @Test
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 미입력(빈 문자열)이어도 저장한다")
+    void saveProjectAcceptsEmptyDataConfiguration() throws Exception {
+        given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
+            .willReturn(response());
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"","screenConfiguration":[],
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """;
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
     }
 
     @Test

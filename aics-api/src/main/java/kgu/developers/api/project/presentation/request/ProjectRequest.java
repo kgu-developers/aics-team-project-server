@@ -24,9 +24,9 @@ public record ProjectRequest(
     @NotBlank 
     String goal,
     
-    @Schema(description = "데이터 구성 (입력받을 데이터 종류 / 예상 데이터 개수 / 수집 방식)",
+    @Schema(description = "데이터 구성 (입력받을 데이터 종류 / 예상 데이터 개수 / 수집 방식). 미입력 상태는 빈 문자열로 보낸다.",
         example = "종류: 학습 로그, 예상 개수: 약 1만 건, 수집 방식: 자체 수집", requiredMode = REQUIRED)
-    @NotBlank
+    @NotNull
     String dataConfiguration,
 
     // DB가 NOT NULL이라 항상 보내야 한다. 등록할 화면이 없으면 빈 배열([])을 보낸다.
