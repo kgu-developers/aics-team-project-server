@@ -212,8 +212,8 @@ class ProjectControllerTest {
             .willReturn(response());
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
-             "dataConfiguration":"","screenConfiguration":[],
-             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+             "dataConfiguration":[],"screenConfiguration":[],
+             "collaborationStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """;
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
