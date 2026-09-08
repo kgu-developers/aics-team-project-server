@@ -203,4 +203,20 @@ class PeerEvaluationJpaEntityTest {
         assertThat(mapped.getContributionDetail()).isEqualTo("화면을 구현했습니다.");
         assertThat(mapped.getTeammateAssessment()).isEqualTo("일정을 잘 지켰습니다.");
     }
+
+    @Test
+    @DisplayName("팀원별 상호평가 임시저장의 빈 서술 답변은 빈 문자열로 매핑된다")
+    void teammateDraftEmptyTextRoundTrip() {
+        PeerEvaluationTeammateAnswer domain = PeerEvaluationTeammateAnswer.create(
+            2L, "20260002", 40, null, null
+        );
+
+        PeerEvaluationTeammateAnswerJpaEntity entity = PeerEvaluationTeammateAnswerJpaEntity.from(domain);
+        PeerEvaluationTeammateAnswer mapped = entity.toDomain();
+
+        assertThat(entity.getContributionDetail()).isEmpty();
+        assertThat(entity.getTeammateAssessment()).isEmpty();
+        assertThat(mapped.getContributionDetail()).isEmpty();
+        assertThat(mapped.getTeammateAssessment()).isEmpty();
+    }
 }
