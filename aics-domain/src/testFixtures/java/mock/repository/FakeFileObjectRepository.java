@@ -45,6 +45,7 @@ public class FakeFileObjectRepository implements FileObjectRepository {
     @Override
     public List<FileObject> findAllById(List<Long> ids) {
         return ids.stream()
+                .distinct()
                 .map(store::get)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toList());
@@ -53,6 +54,7 @@ public class FakeFileObjectRepository implements FileObjectRepository {
     @Override
     public List<FileObject> findAllByIdAndDeletedAtIsNull(List<Long> ids) {
         return ids.stream()
+                .distinct()
                 .map(store::get)
                 .filter(java.util.Objects::nonNull)
                 .filter(fileObject -> fileObject.getDeletedAt() == null)
