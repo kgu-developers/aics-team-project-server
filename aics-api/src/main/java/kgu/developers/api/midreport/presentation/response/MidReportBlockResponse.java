@@ -26,14 +26,15 @@ public record MidReportBlockResponse(
     static MidReportBlockResponse from(
         MidReportBlock block,
         String editorName,
-        LocalDateTime reportCreatedAt
+        LocalDateTime reportCreatedAt,
+        JsonNode resolvedFields
     ) {
         MidReportBlockDefinition definition = MidReportBlockDefinition.fromKey(block.getKey());
         return new MidReportBlockResponse(
             block.getKey(),
             definition.title(),
             definition.description(),
-            block.getFields(),
+            resolvedFields,
             block.getStatus(),
             null,
             block.getLastEditedBy(),

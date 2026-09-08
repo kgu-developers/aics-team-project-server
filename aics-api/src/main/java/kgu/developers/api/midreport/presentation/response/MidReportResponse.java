@@ -1,5 +1,6 @@
 package kgu.developers.api.midreport.presentation.response;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,7 +31,8 @@ public record MidReportResponse(
         LocalDateTime currentDueDate,
         String teamLeaderName,
         String submitterName,
-        Map<String, String> editorNames
+        Map<String, String> editorNames,
+        Map<String, JsonNode> resolvedFields
     ) {
         return new MidReportResponse(
             report.getId(),
@@ -48,7 +50,8 @@ public record MidReportResponse(
                 .map(block -> MidReportBlockResponse.from(
                     block,
                     editorNames.get(block.getLastEditedBy()),
-                    report.getCreatedAt()
+                    report.getCreatedAt(),
+                    resolvedFields.getOrDefault(block.getKey(), block.getFields())
                 ))
                 .toList()
         );
