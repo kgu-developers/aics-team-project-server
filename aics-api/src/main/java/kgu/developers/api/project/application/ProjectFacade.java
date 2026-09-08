@@ -197,7 +197,7 @@ public class ProjectFacade {
 
         Map<Long, FileObject> fileObjectMap = java.util.Collections.emptyMap();
         if (!imageFileIds.isEmpty()) {
-            fileObjectMap = fileObjectRepository.findAllById(imageFileIds).stream()
+            fileObjectMap = fileObjectRepository.findAllByIdAndDeletedAtIsNull(imageFileIds).stream()
                 .collect(java.util.stream.Collectors.toMap(
                     kgu.developers.domain.fileobject.domain.FileObject::getId,
                     java.util.function.Function.identity()
@@ -245,7 +245,7 @@ public class ProjectFacade {
 
         Map<Long, FileObject> fileObjectMap = java.util.Collections.emptyMap();
         if (!imageFileIds.isEmpty()) {
-            fileObjectMap = fileObjectRepository.findAllById(imageFileIds).stream()
+            fileObjectMap = fileObjectRepository.findAllByIdAndDeletedAtIsNull(imageFileIds).stream()
                 .collect(java.util.stream.Collectors.toMap(
                     kgu.developers.domain.fileobject.domain.FileObject::getId,
                     java.util.function.Function.identity()

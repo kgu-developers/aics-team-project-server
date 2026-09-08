@@ -9,4 +9,6 @@ public interface FileObjectRepository {
     Optional<FileObject> findById(Long id);
 
     List<FileObject> findAllById(List<Long> ids);
+
+    List<FileObject> findAllByIdAndDeletedAtIsNull(List<Long> ids);
 }

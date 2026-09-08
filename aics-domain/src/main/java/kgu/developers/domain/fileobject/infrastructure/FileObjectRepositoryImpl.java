@@ -32,4 +32,11 @@ public class FileObjectRepositoryImpl implements FileObjectRepository {
                 .map(FileObjectJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<FileObject> findAllByIdAndDeletedAtIsNull(List<Long> ids) {
+        return jpaFileObjectRepository.findAllByIdInAndDeletedAtIsNull(ids).stream()
+                .map(FileObjectJpaEntity::toDomain)
+                .toList();
+    }
 }

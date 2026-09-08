@@ -49,4 +49,13 @@ public class FakeFileObjectRepository implements FileObjectRepository {
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<FileObject> findAllByIdAndDeletedAtIsNull(List<Long> ids) {
+        return ids.stream()
+                .map(store::get)
+                .filter(java.util.Objects::nonNull)
+                .filter(fileObject -> fileObject.getDeletedAt() == null)
+                .collect(Collectors.toList());
+    }
 }
