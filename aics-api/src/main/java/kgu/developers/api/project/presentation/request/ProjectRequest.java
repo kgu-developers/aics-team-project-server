@@ -87,4 +87,16 @@ public record ProjectRequest(
         }
         return true;
     }
+
+    @JsonIgnore
+    @AssertTrue(message = "주요 기능은 JSON 배열이어야 합니다.")
+    public boolean isKeyFeaturesArray() {
+        return keyFeatures != null && keyFeatures.isArray();
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "시연 흐름은 JSON 배열이어야 합니다.")
+    public boolean isDemoFlowArray() {
+        return demoFlow != null && demoFlow.isArray();
+    }
 }
