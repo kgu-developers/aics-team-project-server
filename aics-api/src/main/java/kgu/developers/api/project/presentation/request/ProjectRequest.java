@@ -24,28 +24,16 @@ public record ProjectRequest(
     @NotBlank 
     String goal,
     
-    @Schema(description = "데이터 구성 (입력받을 데이터 종류 / 예상 데이터 개수 / 수집 방식). 미입력 상태는 빈 문자열로 보낸다.",
+    @Schema(description = "데이터 구성 (입력받을 데이터 종류 / 예상 데이터 개수 / 수집 방식)",
         example = "종류: 학습 로그, 예상 개수: 약 1만 건, 수집 방식: 자체 수집", requiredMode = REQUIRED)
-    @NotNull
+    @NotBlank
     String dataConfiguration,
 
     // DB가 NOT NULL이라 항상 보내야 한다. 등록할 화면이 없으면 빈 배열([])을 보낸다.
-    @Schema(description = "화면 구성 (JSON 배열, 배열 순서가 화면 순서: [{title, description, imageFileId}]). "
-        + "imageFileId는 우리 팀원이 업로드한 파일이어야 하며, 조회 응답에는 서버가 imageUrl(15분 만료 presigned URL)을 채워 내려준다. "
-        + "요청에 imageUrl을 넣어도 저장되지 않는다.",
+    @Schema(description = "화면 구성 (JSON 배열, 배열 순서가 화면 순서: [{title, description, imageFileId}])",
         example = "[{\"title\":\"홈\",\"description\":\"학습 현황 요약\",\"imageFileId\":1}]", requiredMode = REQUIRED)
     @NotNull
     JsonNode screenConfiguration,
-
-    @Schema(description = "주요 기능 (JSON 배열: [{title, description}, ...])",
-        example = "[{\"title\":\"학습 분석\",\"description\":\"AI가 학습 패턴을 분석합니다\"}]", requiredMode = REQUIRED)
-    @NotNull
-    JsonNode keyFeatures,
-
-    @Schema(description = "시연 흐름 (JSON 배열: [{number, title}, ...]) - number로 정렬됨",
-        example = "[{\"number\":1,\"title\":\"회원과 도서를 검색합니다.\"},{\"number\":2,\"title\":\"대여 후 반납 상태를 확인합니다.\"}]", requiredMode = REQUIRED)
-    @NotNull
-    JsonNode demoFlow,
 
     @Schema(description = "회의 방식", example = "매주 월요일 대면 회의")
     @Size(max = 200)
@@ -65,82 +53,5 @@ public record ProjectRequest(
     @AssertTrue(message = "화면 구성은 JSON 배열이어야 합니다.")
     public boolean isScreenConfigurationArray() {
         return screenConfiguration != null && screenConfiguration.isArray();
-    }
-
-    // imageFileId 소유권 검사(ProjectFacade)와 presigned URL 보강은 "각 원소가 객체이고 imageFileId가
-    // 정수"라는 전제 위에서 돈다. 그 전제를 여기 입력 경계에서 400으로 걸러내야, 파사드가 이상한
-    // 모양을 만났을 때 조용히 건너뛰고(=검사 없이 저장) 넘어가는 일이 안 생긴다.
-    @JsonIgnore
-    @AssertTrue(message = "화면 구성의 각 항목은 객체여야 하고 imageFileId는 정수여야 합니다.")
-    public boolean isScreenConfigurationShapeValid() {
-        if (screenConfiguration == null || !screenConfiguration.isArray()) {
-            return true; // isScreenConfigurationArray가 이미 잡는다
-        }
-        for (JsonNode screen : screenConfiguration) {
-            if (!screen.isObject()) {
-                return false;
-            }
-            JsonNode imageFileId = screen.get("imageFileId");
-            if (imageFileId != null && !imageFileId.isNull() && !imageFileId.isIntegralNumber()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @JsonIgnore
-    @AssertTrue(message = "주요 기능은 JSON 배열이어야 합니다.")
-    public boolean isKeyFeaturesArray() {
-        return keyFeatures != null && keyFeatures.isArray();
-    }
-
-    @JsonIgnore
-    @AssertTrue(message = "주요 기능의 각 항목은 객체여야 하고 title, description 필드를 가져야 합니다.")
-    public boolean isKeyFeaturesShapeValid() {
-        if (keyFeatures == null || !keyFeatures.isArray()) {
-            return true; // isKeyFeaturesArray가 이미 잡는다
-        }
-        for (JsonNode feature : keyFeatures) {
-            if (!feature.isObject()) {
-                return false;
-            }
-            JsonNode title = feature.get("title");
-            JsonNode description = feature.get("description");
-            if (title == null || title.isNull() || !title.isTextual()) {
-                return false;
-            }
-            if (description == null || description.isNull() || !description.isTextual()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @JsonIgnore
-    @AssertTrue(message = "시연 흐름은 JSON 배열이어야 합니다.")
-    public boolean isDemoFlowArray() {
-        return demoFlow != null && demoFlow.isArray();
-    }
-
-    @JsonIgnore
-    @AssertTrue(message = "시연 흐름의 각 항목은 객체여야 하고 number(정수), title 필드를 가져야 합니다.")
-    public boolean isDemoFlowShapeValid() {
-        if (demoFlow == null || !demoFlow.isArray()) {
-            return true; // isDemoFlowArray가 이미 잡는다
-        }
-        for (JsonNode flow : demoFlow) {
-            if (!flow.isObject()) {
-                return false;
-            }
-            JsonNode number = flow.get("number");
-            JsonNode title = flow.get("title");
-            if (number == null || number.isNull() || !number.isIntegralNumber()) {
-                return false;
-            }
-            if (title == null || title.isNull() || !title.isTextual()) {
-                return false;
-            }
-        }
-        return true;
     }
 }

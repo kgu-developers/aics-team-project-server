@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
@@ -19,6 +18,7 @@ import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -71,8 +71,6 @@ class ProjectCommandServiceTest {
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
             .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
             .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
-            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
-            .demoFlow(new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"))
             .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
 
@@ -90,8 +88,6 @@ class ProjectCommandServiceTest {
             .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
             .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
             .screenConfiguration(new ObjectMapper().readTree("[]"))
-            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
-            .demoFlow(new ObjectMapper().readTree("[{\"title\":\"로그인 화면\",\"description\":\"사용자가 로그인하는 과정\"}]"))
             .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
         given(projectRepository.save(existing)).willReturn(existing);
@@ -100,48 +96,6 @@ class ProjectCommandServiceTest {
 
         assertThat(result.getProposalRevision()).isEqualTo(1L);
         assertThat(result.getScreenConfiguration().get(0).get("title").asText()).isEqualTo("홈");
-        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
-    }
-
-    @Test
-    @DisplayName("saveProject는 주요 기능만 바뀌어도 리비전을 올리고 승인 이력을 지운다")
-    void saveProject_bumpsRevisionWhenKeyFeaturesChanges() throws Exception {
-        Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
-            .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
-            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
-            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
-            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
-            .keyFeatures(new ObjectMapper().readTree("[]"))
-            .demoFlow(new ObjectMapper().readTree("[{\"title\":\"로그인 화면\",\"description\":\"사용자가 로그인하는 과정\"}]"))
-            .build();
-        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
-        given(projectRepository.save(existing)).willReturn(existing);
-
-        Project result = saveProject();
-
-        assertThat(result.getProposalRevision()).isEqualTo(1L);
-        assertThat(result.getKeyFeatures().get(0).get("title").asText()).isEqualTo("로그인");
-        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
-    }
-
-    @Test
-    @DisplayName("saveProject는 시연 흐름만 바뀌어도 리비전을 올리고 승인 이력을 지운다")
-    void saveProject_bumpsRevisionWhenDemoFlowChanges() throws Exception {
-        Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
-            .goal("새 목표").meetingStyle("대면").repositoryUrl("https://github.com/kgu/project")
-            .externalLinks(new ObjectMapper().readTree("[]")).approvalStatus(ApprovalStatus.DRAFT)
-            .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
-            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
-            .keyFeatures(new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"))
-            .demoFlow(new ObjectMapper().readTree("[]"))
-            .build();
-        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
-        given(projectRepository.save(existing)).willReturn(existing);
-
-        Project result = saveProject();
-
-        assertThat(result.getProposalRevision()).isEqualTo(1L);
-        assertThat(result.getDemoFlow().get(0).get("title").asText()).isEqualTo("로그인 화면");
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
     }
 
@@ -206,8 +160,7 @@ class ProjectCommandServiceTest {
                 deleted.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
                     newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(),
                     newProject.getMeetingStyle(), newProject.getTopicCandidateId(),
-                    newProject.getDataConfiguration(), newProject.getScreenConfiguration(),
-                    newProject.getKeyFeatures(), newProject.getDemoFlow());
+                    newProject.getDataConfiguration(), newProject.getScreenConfiguration());
                 return deleted;
             });
 
@@ -264,8 +217,6 @@ class ProjectCommandServiceTest {
             .goal("기존 목표").meetingStyle("대면").approvalStatus(ApprovalStatus.APPROVED)
             .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
             .screenConfiguration(new ObjectMapper().createArrayNode())
-            .keyFeatures(new ObjectMapper().createArrayNode())
-            .demoFlow(new ObjectMapper().createArrayNode())
             .build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
         given(projectRepository.save(existing)).willReturn(existing);
@@ -291,33 +242,10 @@ class ProjectCommandServiceTest {
             .isInstanceOf(CustomException.class);
     }
 
-    @Test
-    @DisplayName("saveProject는 demoFlow를 number 순서로 정렬한다")
-    void saveProject_sortsDemoFlowByNumber() throws Exception {
-        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.empty());
-        given(projectRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(invocation -> invocation.getArgument(0));
-
-        JsonNode unsortedDemoFlow = new ObjectMapper().readTree(
-            "[{\"number\":3,\"title\":\"세 번째\"},{\"number\":1,\"title\":\"첫 번째\"},{\"number\":2,\"title\":\"두 번째\"}]");
-
-        Project result = projectCommandService.saveProject(1L, "제목", "설명", "목표", "대면",
-            "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
-            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-            new ObjectMapper().readTree("[]"),
-            new ObjectMapper().readTree("[]"),
-            unsortedDemoFlow);
-
-        assertThat(result.getDemoFlow().get(0).get("number").asInt()).isEqualTo(1);
-        assertThat(result.getDemoFlow().get(1).get("number").asInt()).isEqualTo(2);
-        assertThat(result.getDemoFlow().get(2).get("number").asInt()).isEqualTo(3);
-    }
-
     private Project saveProject() throws Exception {
         return projectCommandService.saveProject(1L, "새 제목", "새 설명", "새 목표", "대면",
             "https://github.com/kgu/project", new ObjectMapper().readTree("[]"),
             "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
-            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
-            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"));
+            new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"));
     }
 }

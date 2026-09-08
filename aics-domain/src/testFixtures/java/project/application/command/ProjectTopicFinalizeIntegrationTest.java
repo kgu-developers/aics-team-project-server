@@ -200,9 +200,7 @@ class ProjectTopicFinalizeIntegrationTest {
         Project created = tx.execute(status -> projectCommandService.saveProject(
             teamId, "첫 주제", "첫 설명", "첫 목표", "대면", "https://github.com/kgu/project", null,
             "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-            JsonConverter.parse("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
-            JsonConverter.parse("[]"),
-            JsonConverter.parse("[{\"number\":1,\"title\":\"로그인 화면\"}]")));
+            JsonConverter.parse("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]")));
 
         tx.execute(status -> projectCommandService.finalizeTopic(
             teamId, FIRST_CANDIDATE_ID, "두 번째 주제", "두 번째 설명", "두 번째 목표"));
@@ -212,7 +210,8 @@ class ProjectTopicFinalizeIntegrationTest {
         assertThat(persisted.getRepositoryUrl()).isEqualTo("https://github.com/kgu/project");
         assertThat(persisted.getTopicCandidateId()).isEqualTo(FIRST_CANDIDATE_ID);
         assertThat(persisted.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
-        assertThat(persisted.getScreenConfiguration().get(0).get("title").asText()).isEqualTo("홈");
+        assertThat(JsonConverter.parse(persisted.getScreenConfiguration()).get(0).get("title").asText())
+            .isEqualTo("홈");
     }
 
     @Test

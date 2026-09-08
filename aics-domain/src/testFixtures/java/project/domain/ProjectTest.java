@@ -37,8 +37,6 @@ class ProjectTest {
         "온라인",
         null,
         "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-        objectMapper.createArrayNode(),
-        objectMapper.createArrayNode(),
         objectMapper.createArrayNode()
     );
 
@@ -59,31 +57,31 @@ class ProjectTest {
     ObjectNode externalLinks = objectMapper.createObjectNode();
 
     assertThatThrownBy(() -> 
-        Project.create(null, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        Project.create(null, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        Project.create(1L, null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, "팀 프로젝트", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        Project.create(1L, "팀 프로젝트", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, "팀 프로젝트", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        Project.create(1L, "팀 프로젝트", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() -> 
-        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, null, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, null, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, null, objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, null, objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", null, objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        Project.create(1L, "팀 프로젝트", "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", null)
     ).isInstanceOf(NullPointerException.class);
   }
 
@@ -227,50 +225,6 @@ class ProjectTest {
   }
 
   @Test
-  @DisplayName("updateKeyFeatures은 주요 기능을 변경한다")
-  void updateKeyFeatures() {
-    Project project = createDefaultProject();
-
-    JsonNode newKeyFeatures = objectMapper.createArrayNode()
-        .add(objectMapper.createObjectNode().put("title", "로그인").put("description", "사용자 인증"));
-
-    project.updateKeyFeatures(newKeyFeatures);
-
-    assertThat(project.getKeyFeatures()).isEqualTo(newKeyFeatures);
-  }
-
-  @Test
-  @DisplayName("updateKeyFeatures은 null이면 예외를 발생시킨다")
-  void updateKeyFeaturesWithNull() {
-    Project project = createDefaultProject();
-
-    assertThatThrownBy(() -> project.updateKeyFeatures(null))
-        .isInstanceOf(NullPointerException.class);
-  }
-
-  @Test
-  @DisplayName("updateDemoFlow은 시연 흐름을 변경한다")
-  void updateDemoFlow() {
-    Project project = createDefaultProject();
-
-    JsonNode newDemoFlow = objectMapper.createArrayNode()
-        .add(objectMapper.createObjectNode().put("number", 1).put("title", "로그인 화면"));
-
-    project.updateDemoFlow(newDemoFlow);
-
-    assertThat(project.getDemoFlow()).isEqualTo(newDemoFlow);
-  }
-
-  @Test
-  @DisplayName("updateDemoFlow은 null이면 예외를 발생시킨다")
-  void updateDemoFlowWithNull() {
-    Project project = createDefaultProject();
-
-    assertThatThrownBy(() -> project.updateDemoFlow(null))
-        .isInstanceOf(NullPointerException.class);
-  }
-
-  @Test
   @DisplayName("completeProposal은 제안 완료 시각을 기록한다")
   void completeProposal() {
     Project project = createDefaultProject();
@@ -304,10 +258,6 @@ class ProjectTest {
     newLinks.put("notion", "https://notion.so/new");
     JsonNode newScreens = objectMapper.createArrayNode()
         .add(objectMapper.createObjectNode().put("title", "홈").put("imageFileId", 1));
-    JsonNode newKeyFeatures = objectMapper.createArrayNode()
-        .add(objectMapper.createObjectNode().put("title", "로그인").put("description", "사용자 인증"));
-    JsonNode newDemoFlow = objectMapper.createArrayNode()
-        .add(objectMapper.createObjectNode().put("number", 1).put("title", "로그인 화면"));
 
     project.reactivate(
         "새 제목",
@@ -319,9 +269,7 @@ class ProjectTest {
         "오프라인",
         100L,
         "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-        newScreens,
-        newKeyFeatures,
-        newDemoFlow
+        newScreens
     );
 
     assertThat(project.getDeletedAt()).isNull();
@@ -335,8 +283,6 @@ class ProjectTest {
     assertThat(project.getTopicCandidateId()).isEqualTo(100L);
     assertThat(project.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
     assertThat(project.getScreenConfiguration()).isEqualTo(newScreens);
-    assertThat(project.getKeyFeatures()).isEqualTo(newKeyFeatures);
-    assertThat(project.getDemoFlow()).isEqualTo(newDemoFlow);
     assertThat(project.getProposalCompletedAt()).isNull();
   }
 
@@ -349,19 +295,19 @@ class ProjectTest {
     ObjectNode externalLinks = objectMapper.createObjectNode();
 
     assertThatThrownBy(() ->
-        project.reactivate(null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        project.reactivate(null, "설명", "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        project.reactivate("제목", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        project.reactivate("제목", null, "목표", "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        project.reactivate("제목", "설명", null, "repo", externalLinks, ApprovalStatus.DRAFT, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThatThrownBy(() ->
-        project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, "온라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+        project.reactivate("제목", "설명", "목표", "repo", externalLinks, null, "온라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
   }
 
@@ -379,7 +325,7 @@ class ProjectTest {
 
     assertThatThrownBy(() ->
         project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
-            newLinks, ApprovalStatus.APPROVED, "오프라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+            newLinks, ApprovalStatus.APPROVED, "오프라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(IllegalStateException.class);
 
     assertThat(project.getTitle()).isEqualTo(title);
@@ -403,7 +349,7 @@ class ProjectTest {
 
     assertThatThrownBy(() ->
         project.reactivate("새 제목", "새 설명", "새 목표", "https://github.com/new/repo",
-            newLinks, null, "오프라인", null, "데이터 구성", objectMapper.createArrayNode(), objectMapper.createArrayNode(), objectMapper.createArrayNode())
+            newLinks, null, "오프라인", null, "데이터 구성", objectMapper.createArrayNode())
     ).isInstanceOf(NullPointerException.class);
 
     assertThat(project.getTitle()).isEqualTo(title);
@@ -437,8 +383,6 @@ class ProjectTest {
         "온라인",
         null,
         "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-        objectMapper.createArrayNode(),
-        objectMapper.createArrayNode(),
         objectMapper.createArrayNode()
     );
   }

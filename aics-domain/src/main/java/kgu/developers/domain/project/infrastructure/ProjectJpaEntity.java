@@ -1,11 +1,11 @@
 package kgu.developers.domain.project.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import kgu.developers.common.domain.BaseTimeEntity;
+import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
@@ -53,24 +53,12 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String goal;
 
-    @Builder.Default
-    @Column(nullable = true, columnDefinition = "TEXT")
-    private String dataConfiguration = "";
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String dataConfiguration;
 
-    @Builder.Default
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = true, columnDefinition = "jsonb")
-    private JsonNode screenConfiguration = createEmptyJsonNode();
-
-    @Builder.Default
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = true, columnDefinition = "jsonb")
-    private JsonNode keyFeatures = createEmptyJsonNode();
-
-    @Builder.Default
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = true, columnDefinition = "jsonb")
-    private JsonNode demoFlow = createEmptyJsonNode();  // 시연 흐름 [{number, title}, ...] - number로 정렬됨
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private String screenConfiguration;
 
     @Column(length = 255)
     private String repositoryUrl;
@@ -92,28 +80,6 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(name = "proposal_revision", nullable = false)
     private long proposalRevision;
 
-    @PostLoad
-    @PrePersist
-    @PreUpdate
-    protected void ensureDefaults() {
-        if (dataConfiguration == null) {
-            dataConfiguration = "";
-        }
-        if (screenConfiguration == null) {
-            screenConfiguration = createEmptyJsonNode();
-        }
-        if (keyFeatures == null) {
-            keyFeatures = createEmptyJsonNode();
-        }
-        if (demoFlow == null) {
-            demoFlow = createEmptyJsonNode();
-        }
-    }
-
-    private static JsonNode createEmptyJsonNode() {
-        return JsonNodeFactory.instance.arrayNode();
-    }
-
     public Project toDomain() {
         return Project.builder()
                 .id(id)
@@ -123,9 +89,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .description(description)
                 .goal(goal)
                 .dataConfiguration(dataConfiguration)
-                .screenConfiguration(screenConfiguration)
-                .keyFeatures(keyFeatures)
-                .demoFlow(demoFlow)
+                .screenConfiguration(screenConfiguration == null ? null : JsonConverter.parse(screenConfiguration))
                 .repositoryUrl(repositoryUrl)
                 .externalLinks(externalLinks)
                 .approvalStatus(approvalStatus)
@@ -148,9 +112,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .description(project.getDescription())
                 .goal(project.getGoal())
                 .dataConfiguration(project.getDataConfiguration())
-                .screenConfiguration(project.getScreenConfiguration())
-                .keyFeatures(project.getKeyFeatures())
-                .demoFlow(project.getDemoFlow())
+                .screenConfiguration(project.getScreenConfiguration() == null ? null : project.getScreenConfiguration().toString())
                 .repositoryUrl(project.getRepositoryUrl())
                 .externalLinks(project.getExternalLinks())
                 .approvalStatus(project.getApprovalStatus())
