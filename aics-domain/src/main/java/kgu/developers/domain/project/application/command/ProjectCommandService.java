@@ -29,6 +29,8 @@ import static java.util.stream.Collectors.toSet;
 @Transactional
 public class ProjectCommandService {
 
+    private static final JsonNode EMPTY_ARRAY_NODE = JsonNodeFactory.instance.arrayNode();
+
     private final ProjectRepository projectRepository;
     private final ProjectApprovalRepository projectApprovalRepository;
     private final TeamMemberRepository teamMemberRepository;
@@ -99,10 +101,9 @@ public class ProjectCommandService {
             // 주제 확정은 제안서 내용을 입력받지 않는다. 기존 제안서가 있으면 그대로 옮기고,
             // 없으면(최초 확정이라 프로젝트를 새로 만드는 경우) NOT NULL이라 빈 값으로 채운다.
             active == null ? "" : active.getDataConfiguration(),
-            // 요청마다 새로 만든다 — ArrayNode는 가변이라 상수로 공유하면 안 된다.
-            active == null ? JsonNodeFactory.instance.arrayNode() : active.getScreenConfiguration(),
-            active == null ? JsonNodeFactory.instance.arrayNode() : active.getKeyFeatures(),
-            sortDemoFlow(active == null ? JsonNodeFactory.instance.arrayNode() : active.getDemoFlow())
+            active == null ? EMPTY_ARRAY_NODE : active.getScreenConfiguration(),
+            active == null ? EMPTY_ARRAY_NODE : active.getKeyFeatures(),
+            sortDemoFlow(active == null ? EMPTY_ARRAY_NODE : active.getDemoFlow())
         );
 
         return project;
@@ -186,7 +187,7 @@ public class ProjectCommandService {
 
     private JsonNode sortDemoFlow(JsonNode demoFlow) {
         if (demoFlow == null || !demoFlow.isArray()) {
-            return JsonNodeFactory.instance.arrayNode();
+            return EMPTY_ARRAY_NODE;
         }
         
         ArrayNode sorted = JsonNodeFactory.instance.arrayNode();
