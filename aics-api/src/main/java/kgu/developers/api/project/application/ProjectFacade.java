@@ -13,6 +13,7 @@ import kgu.developers.api.project.presentation.response.ProposalSectionListRespo
 import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.team.application.TeamFacade;
+import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
@@ -182,6 +183,25 @@ public class ProjectFacade {
             return screens;
         }
         Set<String> memberIds = activeMemberIds(teamId);
+
+        // 화면 이미지 ID들을 수집하여 일괄 조회 (N+1 쿼리 방지)
+        List<Long> imageFileIds = new java.util.ArrayList<>();
+        for (JsonNode screen : screens) {
+            JsonNode imageFileId = screen.get("imageFileId");
+            if (imageFileId != null && imageFileId.isIntegralNumber()) {
+                imageFileIds.add(imageFileId.asLong());
+            }
+        }
+
+        Map<Long, FileObject> fileObjectMap = java.util.Collections.emptyMap();
+        if (!imageFileIds.isEmpty()) {
+            fileObjectMap = fileObjectRepository.findAllById(imageFileIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    kgu.developers.domain.fileobject.domain.FileObject::getId,
+                    java.util.function.Function.identity()
+                ));
+        }
+
         ArrayNode resolved = JsonNodeFactory.instance.arrayNode();
         for (JsonNode screen : screens) {
             if (!screen.isObject()) {
@@ -192,9 +212,10 @@ public class ProjectFacade {
             sanitized.remove("imageUrl");
             JsonNode imageFileId = screen.get("imageFileId");
             if (imageFileId != null && imageFileId.isIntegralNumber()) {
-                fileObjectRepository.findById(imageFileId.asLong())
-                    .filter(fileObject -> memberIds.contains(fileObject.getUploadedBy()))
-                    .ifPresent(fileObject -> sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey())));
+                FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
+                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy())) {
+                    sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey()));
+                }
             }
             resolved.add(sanitized);
         }
@@ -210,14 +231,32 @@ public class ProjectFacade {
             return;
         }
         Set<String> memberIds = activeMemberIds(teamId);
+
+        // 화면 이미지 ID들을 수집하여 일괄 조회 (N+1 쿼리 방지)
+        List<Long> imageFileIds = new java.util.ArrayList<>();
+        for (JsonNode screen : screens) {
+            JsonNode imageFileId = screen.get("imageFileId");
+            if (imageFileId != null && imageFileId.isIntegralNumber()) {
+                imageFileIds.add(imageFileId.asLong());
+            }
+        }
+
+        Map<Long, FileObject> fileObjectMap = java.util.Collections.emptyMap();
+        if (!imageFileIds.isEmpty()) {
+            fileObjectMap = fileObjectRepository.findAllById(imageFileIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    kgu.developers.domain.fileobject.domain.FileObject::getId,
+                    java.util.function.Function.identity()
+                ));
+        }
+
         for (JsonNode screen : screens) {
             JsonNode imageFileId = screen.get("imageFileId");
             if (imageFileId == null || imageFileId.isNull()) {
                 continue;
             }
-            boolean ownedByTeam = fileObjectRepository.findById(imageFileId.asLong())
-                .map(fileObject -> memberIds.contains(fileObject.getUploadedBy()))
-                .orElse(false);
+            FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
+            boolean ownedByTeam = fileObject != null && memberIds.contains(fileObject.getUploadedBy());
             if (!ownedByTeam) {
                 throw new ProjectScreenImageOwnershipException();
             }

@@ -1,9 +1,11 @@
 package mock.repository;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
@@ -38,5 +40,13 @@ public class FakeFileObjectRepository implements FileObjectRepository {
     @Override
     public Optional<FileObject> findById(Long id) {
         return Optional.ofNullable(store.get(id));
+    }
+
+    @Override
+    public List<FileObject> findAllById(List<Long> ids) {
+        return ids.stream()
+                .map(store::get)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
     }
 }
