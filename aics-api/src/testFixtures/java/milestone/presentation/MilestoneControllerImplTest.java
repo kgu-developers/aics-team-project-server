@@ -38,7 +38,7 @@ class MilestoneControllerImplTest {
             .standaloneSetup(new MilestoneControllerImpl(milestoneFacade))
             .build();
 
-        mockMvc.perform(get("/api/v1/oop/sections/{sectionId}/milestones", 1L)
+        mockMvc.perform(get("/api/v1/sections/{sectionId}/milestones", 1L)
                 .principal(authentication))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.contents").isArray());
