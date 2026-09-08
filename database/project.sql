@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS project (
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
     goal TEXT NOT NULL,
+    data_configuration JSONB,
+    screen_configuration JSONB,
     repository_url VARCHAR(255),
     external_links JSONB,
     approval_status VARCHAR(50) NOT NULL,
