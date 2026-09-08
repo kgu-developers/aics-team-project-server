@@ -15,8 +15,8 @@ public record MidReportBlockUpdateRequest(
 
     @Schema(
         description = "고정 필드 배열. key와 value는 필수이며 label/multiline은 서버 정의로 정규화됩니다. "
-            + "guiScreens의 value는 id/name/description과 선택적인 imageName을 가진 JSON 배열 문자열입니다. "
-            + "imageName은 화면 표시용 파일명이며 실제 이미지 업로드·조회 URL은 별도 계약이 필요합니다.",
+            + "guiScreens의 value는 id/name/description과 선택적인 imageFileId를 가진 JSON 배열 문자열입니다. "
+            + "imageFileId는 기존 파일 업로드 API의 응답값을 사용하며, imageName과 imageUrl은 서버가 응답에 추가합니다.",
         example = "[{\"key\":\"title\",\"label\":\"프로젝트 제목\",\"value\":\"CineFlow\"}]",
         requiredMode = REQUIRED
     )

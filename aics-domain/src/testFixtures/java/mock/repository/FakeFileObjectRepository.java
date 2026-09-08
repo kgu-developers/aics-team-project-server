@@ -37,6 +37,7 @@ public class FakeFileObjectRepository implements FileObjectRepository {
 
     @Override
     public Optional<FileObject> findById(Long id) {
-        return Optional.ofNullable(store.get(id));
+        return Optional.ofNullable(store.get(id))
+            .filter(fileObject -> fileObject.getDeletedAt() == null);
     }
 }

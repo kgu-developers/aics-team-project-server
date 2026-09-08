@@ -1,6 +1,10 @@
 package kgu.developers.api.midreport.application;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +15,18 @@ import kgu.developers.api.midreport.presentation.request.MidReportBlockUpdateReq
 import kgu.developers.api.midreport.presentation.request.MidReportSubmissionRequest;
 import kgu.developers.api.midreport.presentation.response.MidReportResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
+import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.fileobject.domain.FileObject;
+import kgu.developers.domain.fileobject.domain.FileObjectRepository;
+import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
 import kgu.developers.domain.midreport.application.query.MidReportQueryService;
 import kgu.developers.domain.midreport.domain.MidReport;
+import kgu.developers.domain.midreport.domain.MidReportBlockDefinition;
+import kgu.developers.domain.midreport.exception.InvalidMidReportFieldsException;
+import kgu.developers.domain.midreport.exception.MidReportGuiImageOwnershipException;
 import kgu.developers.domain.midreport.exception.MidReportNotFoundException;
 import kgu.developers.domain.midreport.exception.MidReportLeaderOnlyException;
 import kgu.developers.domain.milestone.domain.Milestone;
@@ -49,6 +60,8 @@ public class MidReportFacade {
     private final MilestoneRepository milestoneRepository;
     private final ProjectRepository projectRepository;
     private final UserQueryService userQueryService;
+    private final FileObjectRepository fileObjectRepository;
+    private final FileStorage fileStorage;
 
     public MidReportResponse getCurrent(String userId) {
         CurrentContext context = currentContext(userId);
@@ -72,8 +85,9 @@ public class MidReportFacade {
         MidReportBlockUpdateRequest request
     ) {
         MidReport current = authorizeActiveStudent(reportId, userId);
+        JsonNode fields = prepareFieldsForSave(current, blockKey, request.fields());
         MidReport saved = midReportCommandService.updateBlock(
-            current.getId(), blockKey, request.version(), request.fields(), userId, LocalDateTime.now()
+            current.getId(), blockKey, request.version(), fields, userId, LocalDateTime.now()
         );
         return response(saved);
     }
@@ -174,13 +188,127 @@ public class MidReportFacade {
         LocalDateTime currentDueDate = milestoneRepository.findById(report.getMilestoneId())
             .map(milestone -> milestone.getSchedule().dueAt())
             .orElse(report.getDueDate());
+        Map<String, JsonNode> resolvedFields = resolveFields(report);
         return MidReportResponse.from(
             report,
             currentDueDate,
             names.get(leaderId),
             names.get(report.getSubmittedBy()),
-            names
+            names,
+            resolvedFields
         );
+    }
+
+    private JsonNode prepareFieldsForSave(MidReport report, String blockKey, JsonNode fields) {
+        if (MidReportBlockDefinition.fromKey(blockKey) != MidReportBlockDefinition.GUI_DESIGN) {
+            return fields;
+        }
+        JsonNode sanitizedFields = fields.deepCopy();
+        JsonNode guiScreensField = findField(sanitizedFields, "guiScreens");
+        if (guiScreensField == null || !guiScreensField.path("value").isTextual()) {
+            return sanitizedFields;
+        }
+        JsonNode parsedScreens = parseScreens(guiScreensField.path("value").asText());
+        if (!parsedScreens.isArray()) {
+            throw new InvalidMidReportFieldsException();
+        }
+        Set<String> memberIds = teamMemberRepository.findAllByTeamId(report.getTeamId()).stream()
+            .map(TeamMember::getUserId)
+            .collect(Collectors.toSet());
+        ArrayNode sanitizedScreens = ((ArrayNode) parsedScreens).deepCopy();
+        for (JsonNode screen : sanitizedScreens) {
+            if (!screen.isObject()) {
+                throw new InvalidMidReportFieldsException();
+            }
+            ObjectNode sanitized = (ObjectNode) screen;
+            sanitized.remove("imageUrl");
+            JsonNode fileIdNode = sanitized.get("imageFileId");
+            if (fileIdNode == null || fileIdNode.isNull()) {
+                continue;
+            }
+            if (!fileIdNode.isIntegralNumber()) {
+                throw new InvalidMidReportFieldsException();
+            }
+            FileObject file = fileObjectRepository.findById(fileIdNode.asLong())
+                .filter(candidate -> memberIds.contains(candidate.getUploadedBy()))
+                .filter(this::isImage)
+                .orElseThrow(MidReportGuiImageOwnershipException::new);
+            sanitized.put("imageName", file.getFileName());
+        }
+        ((ObjectNode) guiScreensField).put("value", sanitizedScreens.toString());
+        return sanitizedFields;
+    }
+
+    private Map<String, JsonNode> resolveFields(MidReport report) {
+        Map<String, JsonNode> resolved = new LinkedHashMap<>();
+        Set<String> memberIds = teamMemberRepository.findAllByTeamId(report.getTeamId()).stream()
+            .map(TeamMember::getUserId)
+            .collect(Collectors.toSet());
+        report.getBlocks().forEach(block -> {
+            if (!MidReportBlockDefinition.GUI_DESIGN.key().equals(block.getKey())) {
+                resolved.put(block.getKey(), block.getFields());
+                return;
+            }
+            JsonNode fields = block.getFields().deepCopy();
+            JsonNode guiScreensField = findField(fields, "guiScreens");
+            if (guiScreensField == null || !guiScreensField.path("value").isTextual()) {
+                resolved.put(block.getKey(), fields);
+                return;
+            }
+            JsonNode parsedScreens;
+            try {
+                parsedScreens = parseScreens(guiScreensField.path("value").asText());
+            } catch (InvalidMidReportFieldsException exception) {
+                resolved.put(block.getKey(), fields);
+                return;
+            }
+            if (!parsedScreens.isArray()) {
+                resolved.put(block.getKey(), fields);
+                return;
+            }
+            ArrayNode screens = ((ArrayNode) parsedScreens).deepCopy();
+            for (JsonNode screen : screens) {
+                if (!screen.isObject()) {
+                    continue;
+                }
+                ObjectNode resolvedScreen = (ObjectNode) screen;
+                resolvedScreen.remove("imageUrl");
+                JsonNode fileIdNode = resolvedScreen.get("imageFileId");
+                if (fileIdNode == null || !fileIdNode.isIntegralNumber()) {
+                    continue;
+                }
+                fileObjectRepository.findById(fileIdNode.asLong())
+                    .filter(file -> memberIds.contains(file.getUploadedBy()))
+                    .filter(this::isImage)
+                    .ifPresent(file -> {
+                        resolvedScreen.put("imageName", file.getFileName());
+                        resolvedScreen.put("imageUrl", fileStorage.presignedUrl(file.getStorageKey()));
+                    });
+            }
+            ((ObjectNode) guiScreensField).put("value", screens.toString());
+            resolved.put(block.getKey(), fields);
+        });
+        return resolved;
+    }
+
+    private JsonNode findField(JsonNode fields, String key) {
+        if (fields == null || !fields.isArray()) {
+            return null;
+        }
+        for (JsonNode field : fields) {
+            if (key.equals(field.path("key").asText())) {
+                return field;
+            }
+        }
+        return null;
+    }
+
+    private JsonNode parseScreens(String value) {
+        return JsonConverter.parse(value, ignored -> new InvalidMidReportFieldsException());
+    }
+
+    private boolean isImage(FileObject file) {
+        return file.getContentType() != null && file.getContentType().startsWith("image/");
     }
 
     private record CurrentContext(Team team, Milestone milestone) {
