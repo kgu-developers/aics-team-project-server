@@ -8,6 +8,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationAnswerRequest;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationResponseRequest;
+import kgu.developers.api.evaluation.presentation.PeerEvaluationAnswerKind;
 import kgu.developers.api.evaluation.presentation.response.EvaluationContextResponse;
 import kgu.developers.api.evaluation.presentation.response.MyPeerEvaluationResponse;
 import kgu.developers.api.evaluation.presentation.response.PeerEvaluationAnswerResponse;
@@ -122,10 +123,10 @@ public class PeerEvaluationFacade {
             throw new InvalidPeerEvaluationResponseException();
         }
         List<PeerEvaluationAnswerRequest> teammateRequests = request.answers().stream()
-            .filter(answer -> "TEAMMATE_CONTRIBUTION".equals(answer.kind()))
+            .filter(answer -> answer.kind() == PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION)
             .toList();
         List<PeerEvaluationAnswerRequest> reflections = request.answers().stream()
-            .filter(answer -> "REFLECTION".equals(answer.kind()))
+            .filter(answer -> answer.kind() == PeerEvaluationAnswerKind.REFLECTION)
             .toList();
         if (teammateRequests.size() + reflections.size() != request.answers().size()
             || reflections.size() > 1) {
@@ -138,8 +139,8 @@ public class PeerEvaluationFacade {
             .collect(Collectors.toSet());
         boolean hasInvalidTarget = teammateRequests.stream().anyMatch(answer ->
             answer.targetUserId() == null || !validTargetIds.contains(answer.targetUserId())
-                || answer.contributionPercent() == null
-                || answer.contributionPercent() < 0 || answer.contributionPercent() > 100
+                || (answer.contributionPercent() != null
+                    && (answer.contributionPercent() < 0 || answer.contributionPercent() > 100))
                 || exceedsLimit(answer.contributionDetail()) || exceedsLimit(answer.teammateAssessment())
         );
         boolean hasInvalidReflection = reflections.stream().anyMatch(answer -> exceedsLimit(answer.comment()));
@@ -213,6 +214,9 @@ public class PeerEvaluationFacade {
         Set<String> validTargetIds,
         Set<String> requestedTargetIds
     ) {
+        if (teammateRequests.stream().anyMatch(answer -> answer.contributionPercent() == null)) {
+            throw new InvalidPeerEvaluationResponseException();
+        }
         int contributionSum = teammateRequests.stream().mapToInt(PeerEvaluationAnswerRequest::contributionPercent).sum();
         boolean blankNarrative = isBlank(request.selfContribution()) || isBlank(request.projectReviewComment())
             || reflections.size() != 1 || isBlank(reflections.get(0).comment())

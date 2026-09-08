@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.api.evaluation.application.PeerEvaluationFacade;
+import kgu.developers.api.evaluation.presentation.PeerEvaluationAnswerKind;
 import kgu.developers.api.evaluation.presentation.PeerEvaluationControllerImpl;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationAnswerRequest;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationResponseRequest;
@@ -75,7 +76,7 @@ class PeerEvaluationControllerTest {
         PeerEvaluationResponseRequest request = new PeerEvaluationResponseRequest(
             "백엔드 구현", "프로젝트 평가",
             List.of(new PeerEvaluationAnswerRequest(
-                "TEAMMATE_CONTRIBUTION", "20260002", 100, "기여 내용", "팀원 평가", null
+                PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, "20260002", 100, "기여 내용", "팀원 평가", null
             )), false
         );
         given(facade.submitResponse(FORM_ID, USER_ID, request)).willReturn(new MyPeerEvaluationResponse(

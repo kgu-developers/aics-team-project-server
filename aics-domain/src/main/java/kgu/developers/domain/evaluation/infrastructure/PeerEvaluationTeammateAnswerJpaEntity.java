@@ -38,8 +38,8 @@ public class PeerEvaluationTeammateAnswerJpaEntity extends BaseTimeEntity {
     private Long submissionId;
     @Column(name = "target_user_id", nullable = false, length = 20)
     private String targetUserId;
-    @Column(name = "contribution_percent", nullable = false)
-    private int contributionPercent;
+    @Column(name = "contribution_percent")
+    private Integer contributionPercent;
     @Column(name = "contribution_detail", nullable = false, length = 2000)
     private String contributionDetail;
     @Column(name = "teammate_assessment", nullable = false, length = 2000)

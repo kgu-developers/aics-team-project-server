@@ -1,10 +1,9 @@
 package kgu.developers.api.evaluation.presentation.request;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import kgu.developers.api.evaluation.presentation.PeerEvaluationAnswerKind;
 
 public record PeerEvaluationAnswerRequest(
-    @Schema(allowableValues = {"TEAMMATE_CONTRIBUTION", "REFLECTION"})
-    String kind,
+    PeerEvaluationAnswerKind kind,
     String targetUserId,
     Integer contributionPercent,
     String contributionDetail,

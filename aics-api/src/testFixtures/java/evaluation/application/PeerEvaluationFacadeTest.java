@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import kgu.developers.api.evaluation.application.PeerEvaluationFacade;
+import kgu.developers.api.evaluation.presentation.PeerEvaluationAnswerKind;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationAnswerRequest;
 import kgu.developers.api.evaluation.presentation.request.PeerEvaluationResponseRequest;
 import kgu.developers.domain.enrollment.domain.Enrollment;
@@ -19,6 +20,7 @@ import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationSubmission;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationSubmissionRepository;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationSubmissionStatus;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationTeammateAnswer;
@@ -190,9 +192,12 @@ class PeerEvaluationFacadeTest {
             "협업이 원활했습니다.",
             List.of(
                 new PeerEvaluationAnswerRequest(
-                    "TEAMMATE_CONTRIBUTION", ACTIVE_MEMBER, 100, "화면을 구현했습니다.", "일정을 잘 지켰습니다.", null
+                    PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, ACTIVE_MEMBER, 100,
+                    "화면을 구현했습니다.", "일정을 잘 지켰습니다.", null
                 ),
-                new PeerEvaluationAnswerRequest("REFLECTION", null, null, null, null, "다음에는 일정을 더 일찍 정하겠습니다.")
+                new PeerEvaluationAnswerRequest(
+                    PeerEvaluationAnswerKind.REFLECTION, null, null, null, null, "다음에는 일정을 더 일찍 정하겠습니다."
+                )
             ),
             true
         );
@@ -222,9 +227,10 @@ class PeerEvaluationFacadeTest {
             "백엔드 API를 구현했습니다.", "협업이 원활했습니다.",
             List.of(
                 new PeerEvaluationAnswerRequest(
-                    "TEAMMATE_CONTRIBUTION", ACTIVE_MEMBER, 90, "화면을 구현했습니다.", "일정을 잘 지켰습니다.", null
+                    PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, ACTIVE_MEMBER, 90,
+                    "화면을 구현했습니다.", "일정을 잘 지켰습니다.", null
                 ),
-                new PeerEvaluationAnswerRequest("REFLECTION", null, null, null, null, "회고")
+                new PeerEvaluationAnswerRequest(PeerEvaluationAnswerKind.REFLECTION, null, null, null, null, "회고")
             ), true
         );
 
@@ -265,12 +271,74 @@ class PeerEvaluationFacadeTest {
         PeerEvaluationResponseRequest request = new PeerEvaluationResponseRequest(
             "", "",
             List.of(new PeerEvaluationAnswerRequest(
-                "TEAMMATE_CONTRIBUTION", ACTIVE_MEMBER, 101, "", "", null
+                PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, ACTIVE_MEMBER, 101, "", "", null
             )), false
         );
 
         assertThatThrownBy(() -> facade.submitResponse(FORM_ID, REQUESTER, request))
             .isInstanceOf(InvalidPeerEvaluationResponseException.class);
+    }
+
+    @Test
+    @DisplayName("임시저장은 팀원 기여도가 비어 있어도 허용한다")
+    void savesDraftWithoutContributionPercent() {
+        given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(enrollment(REQUESTER, Role.STUDENT, Status.ACTIVE)));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(member(REQUESTER, true, "개발")));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(
+            member(REQUESTER, true, "개발"), member(ACTIVE_MEMBER, false, "디자인")
+        ));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ACTIVE_MEMBER))
+            .willReturn(Optional.of(enrollment(ACTIVE_MEMBER, Role.STUDENT, Status.ACTIVE)));
+        given(submissionRepository.findByFormIdAndEvaluatorId(FORM_ID, REQUESTER)).willReturn(Optional.empty());
+        given(submissionRepository.save(any())).willReturn(PeerEvaluationSubmission.builder()
+            .id(10L).formId(FORM_ID).evaluatorId(REQUESTER)
+            .selfContribution("").projectReviewComment("").reflectionComment("")
+            .status(PeerEvaluationSubmissionStatus.DRAFT).build());
+        given(teammateAnswerRepository.saveAll(any())).willReturn(List.of(
+            PeerEvaluationTeammateAnswer.create(10L, ACTIVE_MEMBER, null, "", "")
+        ));
+        PeerEvaluationResponseRequest request = new PeerEvaluationResponseRequest(
+            "", "", List.of(new PeerEvaluationAnswerRequest(
+                PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, ACTIVE_MEMBER, null, "", "", null
+            )), false
+        );
+
+        var response = facade.submitResponse(FORM_ID, REQUESTER, request);
+
+        assertThat(response.status()).isEqualTo(PeerEvaluationSubmissionStatus.DRAFT);
+        assertThat(response.answers()).singleElement().satisfies(answer ->
+            assertThat(answer.contributionPercent()).isNull());
+    }
+
+    @Test
+    @DisplayName("최종 제출은 팀원 기여도가 비어 있으면 거부한다")
+    void rejectsFinalResponseWithoutContributionPercent() {
+        given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(enrollment(REQUESTER, Role.STUDENT, Status.ACTIVE)));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(member(REQUESTER, true, "개발")));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(
+            member(REQUESTER, true, "개발"), member(ACTIVE_MEMBER, false, "디자인")
+        ));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ACTIVE_MEMBER))
+            .willReturn(Optional.of(enrollment(ACTIVE_MEMBER, Role.STUDENT, Status.ACTIVE)));
+        PeerEvaluationResponseRequest request = new PeerEvaluationResponseRequest(
+            "본인 기여", "프로젝트 평가", List.of(
+                new PeerEvaluationAnswerRequest(
+                    PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, ACTIVE_MEMBER, null, "기여", "평가", null
+                ),
+                new PeerEvaluationAnswerRequest(
+                    PeerEvaluationAnswerKind.REFLECTION, null, null, null, null, "회고"
+                )
+            ), true
+        );
+
+        assertThatThrownBy(() -> facade.submitResponse(FORM_ID, REQUESTER, request))
+            .isInstanceOf(InvalidPeerEvaluationResponseException.class);
+
+        then(submissionRepository).shouldHaveNoInteractions();
     }
 
     private PeerEvaluationForm form() {

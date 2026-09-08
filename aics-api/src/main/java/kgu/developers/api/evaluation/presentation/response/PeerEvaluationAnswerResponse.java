@@ -1,10 +1,9 @@
 package kgu.developers.api.evaluation.presentation.response;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import kgu.developers.api.evaluation.presentation.PeerEvaluationAnswerKind;
 
 public record PeerEvaluationAnswerResponse(
-    @Schema(allowableValues = {"TEAMMATE_CONTRIBUTION", "REFLECTION"})
-    String kind,
+    PeerEvaluationAnswerKind kind,
     String targetUserId,
     Integer contributionPercent,
     String contributionDetail,
@@ -13,17 +12,17 @@ public record PeerEvaluationAnswerResponse(
 ) {
     public static PeerEvaluationAnswerResponse teammate(
         String targetUserId,
-        int contributionPercent,
+        Integer contributionPercent,
         String contributionDetail,
         String teammateAssessment
     ) {
         return new PeerEvaluationAnswerResponse(
-            "TEAMMATE_CONTRIBUTION", targetUserId, contributionPercent,
+            PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, targetUserId, contributionPercent,
             contributionDetail, teammateAssessment, null
         );
     }
 
     public static PeerEvaluationAnswerResponse reflection(String comment) {
-        return new PeerEvaluationAnswerResponse("REFLECTION", null, null, null, null, comment);
+        return new PeerEvaluationAnswerResponse(PeerEvaluationAnswerKind.REFLECTION, null, null, null, null, comment);
     }
 }

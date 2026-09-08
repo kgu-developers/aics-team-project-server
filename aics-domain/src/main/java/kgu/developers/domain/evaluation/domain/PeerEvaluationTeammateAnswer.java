@@ -15,18 +15,18 @@ public class PeerEvaluationTeammateAnswer {
     private Long id;
     private Long submissionId;
     private String targetUserId;
-    private int contributionPercent;
+    private Integer contributionPercent;
     private String contributionDetail;
     private String teammateAssessment;
 
     public static PeerEvaluationTeammateAnswer create(
         Long submissionId,
         String targetUserId,
-        int contributionPercent,
+        Integer contributionPercent,
         String contributionDetail,
         String teammateAssessment
     ) {
-        if (contributionPercent < 0 || contributionPercent > 100) {
+        if (contributionPercent != null && (contributionPercent < 0 || contributionPercent > 100)) {
             throw new IllegalArgumentException("팀원 기여도는 0 이상 100 이하이어야 합니다.");
         }
         return PeerEvaluationTeammateAnswer.builder()
