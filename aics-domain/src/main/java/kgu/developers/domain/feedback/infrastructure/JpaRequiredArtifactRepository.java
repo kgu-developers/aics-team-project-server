@@ -8,5 +8,5 @@ import java.util.Optional;
 public interface JpaRequiredArtifactRepository extends JpaRepository<RequiredArtifactJpaEntity, Long> {
     Optional<RequiredArtifactJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
-    List<RequiredArtifactJpaEntity> findAllByMilestoneIdAndDeletedAtIsNull(Long milestoneId);
+    List<RequiredArtifactJpaEntity> findAllByMilestoneIdAndDeletedAtIsNullOrderByIdAsc(Long milestoneId);
 }

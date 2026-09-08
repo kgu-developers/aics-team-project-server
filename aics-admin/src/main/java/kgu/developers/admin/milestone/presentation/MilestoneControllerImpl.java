@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,9 +21,12 @@ import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWi
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
+import kgu.developers.admin.milestone.presentation.request.RequiredArtifactRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestoneResponse;
+import kgu.developers.admin.milestone.presentation.response.RequiredArtifactListResponse;
+import kgu.developers.admin.milestone.presentation.response.RequiredArtifactPersistResponse;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import lombok.RequiredArgsConstructor;
 
@@ -115,6 +119,72 @@ public class MilestoneControllerImpl implements MilestoneController {
             Authentication authentication
     ) {
         milestoneFacade.updateWeekNumbers(sectionId, authentication.getName(), request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @GetMapping("/{milestoneId}/required-artifacts")
+    public ResponseEntity<RequiredArtifactListResponse> getRequiredArtifacts(
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(milestoneFacade.getRequiredArtifacts(
+                sectionId,
+                authentication.getName(),
+                milestoneId
+        ));
+    }
+
+    @Override
+    @PostMapping("/{milestoneId}/required-artifacts")
+    public ResponseEntity<RequiredArtifactPersistResponse> createRequiredArtifact(
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            @RequestBody RequiredArtifactRequest request,
+            Authentication authentication
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(milestoneFacade.createRequiredArtifact(
+                sectionId,
+                authentication.getName(),
+                milestoneId,
+                request
+        ));
+    }
+
+    @Override
+    @PutMapping("/{milestoneId}/required-artifacts/{requiredArtifactId}")
+    public ResponseEntity<Void> updateRequiredArtifact(
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            @PathVariable Long requiredArtifactId,
+            @RequestBody RequiredArtifactRequest request,
+            Authentication authentication
+    ) {
+        milestoneFacade.updateRequiredArtifact(
+                sectionId,
+                authentication.getName(),
+                milestoneId,
+                requiredArtifactId,
+                request
+        );
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @DeleteMapping("/{milestoneId}/required-artifacts/{requiredArtifactId}")
+    public ResponseEntity<Void> deleteRequiredArtifact(
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            @PathVariable Long requiredArtifactId,
+            Authentication authentication
+    ) {
+        milestoneFacade.deleteRequiredArtifact(
+                sectionId,
+                authentication.getName(),
+                milestoneId,
+                requiredArtifactId
+        );
         return ResponseEntity.noContent().build();
     }
 }

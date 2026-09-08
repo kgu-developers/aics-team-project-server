@@ -2,6 +2,7 @@ package kgu.developers.api.milestone.presentation;
 
 import kgu.developers.api.milestone.application.MilestoneFacade;
 import kgu.developers.api.milestone.presentation.response.MilestoneListResponse;
+import kgu.developers.api.milestone.presentation.response.RequiredArtifactListResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -24,5 +25,19 @@ public class MilestoneControllerImpl implements MilestoneController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(milestoneFacade.getMilestones(sectionId, authentication.getName()));
+    }
+
+    @Override
+    @GetMapping("/sections/{sectionId}/milestones/{milestoneId}/required-artifacts")
+    public ResponseEntity<RequiredArtifactListResponse> getRequiredArtifacts(
+        @PathVariable Long sectionId,
+        @PathVariable Long milestoneId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(milestoneFacade.getRequiredArtifacts(
+            sectionId,
+            milestoneId,
+            authentication.getName()
+        ));
     }
 }
