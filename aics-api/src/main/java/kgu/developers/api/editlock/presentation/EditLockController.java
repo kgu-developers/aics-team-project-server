@@ -14,7 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Tag(name = "EditLock", description = "동시편집 잠금 API(공유 인프라, B2 Project·B3 PresentationContent 등에서 재사용)")
+@Tag(name = "EditLock", description = "동시편집 잠금 API(공유 인프라, B2 Project 등에서 재사용)")
 public interface EditLockController {
 
     @Operation(

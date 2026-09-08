@@ -17,12 +17,10 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
-import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
@@ -164,30 +162,6 @@ public interface SubmissionController {
     ResponseEntity<SubmissionResponse> reopenSubmission(
         @PathVariable Long submissionId,
         @Valid @RequestBody SubmissionReopenRequest request,
-        Authentication authentication
-    );
-
-    @Operation(
-        summary = "발표 공개자료 조회 API",
-        description = """
-            Description : 발표 마일스톤의 공개자료를 조회한다. 다른 팀도 열람 가능(로그인만 하면 됨), 수업시간 외에도 상시 열람 가능.
-            Assignee : 담당자명
-            """
-    )
-    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PresentationContentResponse.class)))
-    ResponseEntity<PresentationContentResponse> getPresentationContent(@PathVariable Long submissionId, Authentication authentication);
-
-    @Operation(
-        summary = "발표 공개자료 작성/수정 API",
-        description = """
-            Description : 팀 전용(팀원만 수정 가능). 이미 있으면 덮어쓴다.
-            Assignee : 담당자명
-            """
-    )
-    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = PresentationContentResponse.class)))
-    ResponseEntity<PresentationContentResponse> updatePresentationContent(
-        @PathVariable Long submissionId,
-        @RequestBody PresentationContentRequest request,
         Authentication authentication
     );
 

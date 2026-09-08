@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class EditLockCommandServiceTest {
 
-    private static final EditLockTargetType TARGET_TYPE = EditLockTargetType.PRESENTATION_CONTENT;
+    private static final EditLockTargetType TARGET_TYPE = EditLockTargetType.PROJECT;
     private static final Long TARGET_ID = 1L;
     private static final String SECTION_KEY = "DEFAULT";
 

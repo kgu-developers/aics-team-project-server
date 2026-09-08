@@ -33,7 +33,7 @@ class EditLockRepositoryImplTest {
     private EditLockRepositoryImpl editLockRepositoryImpl;
 
     private EditLock editLock() {
-        return EditLock.create(EditLockTargetType.PRESENTATION_CONTENT, 1L, "DEFAULT", "202412345", LocalDateTime.now());
+        return EditLock.create(EditLockTargetType.PROJECT, 1L, "DEFAULT", "202412345", LocalDateTime.now());
     }
 
     @Test
@@ -41,7 +41,7 @@ class EditLockRepositoryImplTest {
     void save_Success() {
         EditLockJpaEntity saved = EditLockJpaEntity.builder()
                 .id(1L)
-                .targetType(EditLockTargetType.PRESENTATION_CONTENT)
+                .targetType(EditLockTargetType.PROJECT)
                 .targetId(1L)
                 .sectionKey("DEFAULT")
                 .lockedBy("202412345")
