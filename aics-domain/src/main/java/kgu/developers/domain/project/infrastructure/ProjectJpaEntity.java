@@ -1,6 +1,7 @@
 package kgu.developers.domain.project.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -52,12 +53,14 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String goal;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String dataConfiguration;
+    @Builder.Default
+    @Column(nullable = true, columnDefinition = "TEXT")
+    private String dataConfiguration = "";
 
+    @Builder.Default
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false, columnDefinition = "jsonb")
-    private JsonNode screenConfiguration;
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode screenConfiguration = createEmptyJsonNode();
 
     @Column(length = 255)
     private String repositoryUrl;
@@ -78,6 +81,21 @@ public class ProjectJpaEntity extends BaseTimeEntity {
 
     @Column(name = "proposal_revision", nullable = false)
     private long proposalRevision;
+
+    @PrePersist
+    @PreUpdate
+    protected void ensureDefaults() {
+        if (dataConfiguration == null) {
+            dataConfiguration = "";
+        }
+        if (screenConfiguration == null) {
+            screenConfiguration = createEmptyJsonNode();
+        }
+    }
+
+    private static JsonNode createEmptyJsonNode() {
+        return JsonNodeFactory.instance.objectNode();
+    }
 
     public Project toDomain() {
         return Project.builder()
