@@ -12,6 +12,7 @@ public record MidReportResponse(
     Long teamId,
     String title,
     Long version,
+    @Schema(description = "연결된 마일스톤의 현재 제출 마감일")
     LocalDateTime dueDate,
     @Schema(description = "문서 상태", allowableValues = {"DRAFT", "SUBMITTED", "REVISION_REQUESTED"})
     MidReportStatus status,
@@ -23,6 +24,7 @@ public record MidReportResponse(
 ) {
     public static MidReportResponse from(
         MidReport report,
+        LocalDateTime currentDueDate,
         String teamLeaderName,
         String submitterName,
         Map<String, String> editorNames
@@ -32,7 +34,7 @@ public record MidReportResponse(
             report.getTeamId(),
             report.getTitle(),
             report.getVersion(),
-            report.getDueDate(),
+            currentDueDate,
             report.getStatus(),
             teamLeaderName,
             report.getSubmittedAt(),

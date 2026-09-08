@@ -61,7 +61,8 @@ public interface MidReportController {
 
     @Operation(
         summary = "중간보고서 최종 제출",
-        description = "팀원 승인 없이 현재 활성 학생인 팀장만 제출할 수 있습니다. 네 영역이 모두 COMPLETED여야 하며, 제출 후 문서는 읽기 전용입니다."
+        description = "팀원 승인 없이 현재 활성 학생인 팀장만 제출할 수 있습니다. 네 영역이 모두 COMPLETED여야 하며, "
+            + "미완료 영역은 현재 문서 조회 응답의 blocks[].status로 확인합니다. 제출 후 문서는 읽기 전용입니다."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "제출 성공"),

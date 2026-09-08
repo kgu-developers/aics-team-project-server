@@ -126,20 +126,23 @@ class MidReportFacadeTest {
     @Test
     @DisplayName("영역 저장은 팀 소속과 활성 STUDENT 수강 상태를 모두 검증한다")
     void updateRequiresActiveStudentMembership() throws Exception {
+        LocalDateTime updatedDueDate = LocalDateTime.of(2026, 11, 2, 23, 59);
         given(midReportQueryService.getById(100L)).willReturn(report());
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team()));
         given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID))
             .willReturn(Optional.of(enrollment(Role.STUDENT)));
         given(midReportCommandService.updateBlock(eq(100L), eq("topic"), eq(0L), any(), eq(USER_ID), any()))
             .willReturn(report());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone(updatedDueDate)));
         given(teamMemberRepository.findLeaderByTeamId(TEAM_ID)).willReturn(Optional.empty());
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(any())).willReturn(List.of());
         MidReportBlockUpdateRequest request = new MidReportBlockUpdateRequest(0L, objectMapper.readTree("""
             [{"key":"title","value":"CineFlow"},{"key":"description","value":"설명"}]
             """));
 
-        midReportFacade.updateBlock(100L, "topic", USER_ID, request);
+        var response = midReportFacade.updateBlock(100L, "topic", USER_ID, request);
 
+        assertThat(response.dueDate()).isEqualTo(updatedDueDate);
         then(teamAccessValidator).should().validateMembership(TEAM_ID, USER_ID);
         then(midReportCommandService).should().updateBlock(eq(100L), eq("topic"), eq(0L), any(), eq(USER_ID), any());
     }
@@ -207,12 +210,16 @@ class MidReportFacadeTest {
     }
 
     private Milestone midReportMilestone() {
+        return midReportMilestone(LocalDateTime.of(2026, 10, 26, 23, 59));
+    }
+
+    private Milestone midReportMilestone(LocalDateTime dueDate) {
         Milestone milestone = Milestone.create(
             SECTION_ID,
             "중간보고서",
             "설명",
             8,
-            new MilestoneSchedule(null, LocalDateTime.of(2026, 10, 26, 23, 59), null, null, null, null),
+            new MilestoneSchedule(null, dueDate, null, null, null, null),
             MilestoneType.MID_REPORT
         );
         milestone.changeStatus(MilestoneStatus.PUBLISHED);

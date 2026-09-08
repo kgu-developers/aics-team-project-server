@@ -171,8 +171,12 @@ public class MidReportFacade {
         }
         Map<String, String> names = userQueryService.getUsersByStudentNumbersIncludingDeleted(List.copyOf(userIds)).stream()
             .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
+        LocalDateTime currentDueDate = milestoneRepository.findById(report.getMilestoneId())
+            .map(milestone -> milestone.getSchedule().dueAt())
+            .orElse(report.getDueDate());
         return MidReportResponse.from(
             report,
+            currentDueDate,
             names.get(leaderId),
             names.get(report.getSubmittedBy()),
             names
