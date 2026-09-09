@@ -60,6 +60,11 @@ public class MeetingActionCommandService {
         meetingActionRepository.save(meetingAction);
     }
 
+    public void deleteMeetingAction(Long id) {
+        findOrThrow(id);
+        meetingActionRepository.deleteById(id);
+    }
+
     private MeetingAction findOrThrow(Long id) {
         return meetingActionRepository.findById(id)
                 .orElseThrow(MeetingActionNotFoundException::new);
