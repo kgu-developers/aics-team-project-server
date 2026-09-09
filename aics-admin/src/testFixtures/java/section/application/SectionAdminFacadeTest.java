@@ -65,6 +65,9 @@ class SectionAdminFacadeTest {
     @Mock
     private TeamMemberCommandService teamMemberCommandService;
 
+    @Mock
+    private kgu.developers.domain.importBatch.domain.ImportBatchRepository importBatchRepository;
+
     @InjectMocks
     private SectionAdminFacade sectionAdminFacade;
 
@@ -261,5 +264,47 @@ class SectionAdminFacadeTest {
         sectionAdminFacade.deleteSection(1L);
 
         verify(sectionCommandService).deleteSection(section);
+    }
+
+    @Test
+    @DisplayName("getLastImportStatus는 최신 반영 현황을 조회한다")
+    void getLastImportStatus() {
+        LocalDateTime appliedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+        kgu.developers.domain.importBatch.domain.ImportBatch enrollmentBatch = kgu.developers.domain.importBatch.domain.ImportBatch.builder()
+                .id(1L)
+                .fileName("students.xlsx")
+                .updatedAt(appliedAt)
+                .build();
+        kgu.developers.domain.importBatch.domain.ImportBatch teamBatch = kgu.developers.domain.importBatch.domain.ImportBatch.builder()
+                .id(2L)
+                .fileName("teams.xlsx")
+                .updatedAt(appliedAt.plusHours(1))
+                .build();
+
+        given(importBatchRepository.findLatestAppliedBySectionIdAndType(1L, kgu.developers.domain.importBatch.domain.Type.ENROLLMENT))
+                .willReturn(java.util.Optional.of(enrollmentBatch));
+        given(importBatchRepository.findLatestAppliedBySectionIdAndType(1L, kgu.developers.domain.importBatch.domain.Type.TEAM))
+                .willReturn(java.util.Optional.of(teamBatch));
+
+        var response = sectionAdminFacade.getLastImportStatus(1L);
+
+        assertThat(response.getEnrollment().getFileName()).isEqualTo("students.xlsx");
+        assertThat(response.getEnrollment().getAppliedAt()).isEqualTo(appliedAt);
+        assertThat(response.getTeam().getFileName()).isEqualTo("teams.xlsx");
+        assertThat(response.getTeam().getAppliedAt()).isEqualTo(appliedAt.plusHours(1));
+    }
+
+    @Test
+    @DisplayName("getLastImportStatus는 이력이 없으면 null을 반환한다")
+    void getLastImportStatusReturnsNullWhenNoHistory() {
+        given(importBatchRepository.findLatestAppliedBySectionIdAndType(1L, kgu.developers.domain.importBatch.domain.Type.ENROLLMENT))
+                .willReturn(java.util.Optional.empty());
+        given(importBatchRepository.findLatestAppliedBySectionIdAndType(1L, kgu.developers.domain.importBatch.domain.Type.TEAM))
+                .willReturn(java.util.Optional.empty());
+
+        var response = sectionAdminFacade.getLastImportStatus(1L);
+
+        assertThat(response.getEnrollment()).isNull();
+        assertThat(response.getTeam()).isNull();
     }
 }

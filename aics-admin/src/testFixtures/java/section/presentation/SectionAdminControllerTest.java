@@ -273,4 +273,49 @@ class SectionAdminControllerTest {
 
         verify(sectionAdminFacade).deleteSection(1L);
     }
+
+    @Test
+    @DisplayName("GET /sections/{sectionId}/imports/latest는 200과 최신 반영 현황을 응답한다")
+    void getLastImportStatus() throws Exception {
+        LocalDateTime appliedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+        kgu.developers.admin.section.presentation.response.SectionImportStatusResponse response =
+                kgu.developers.admin.section.presentation.response.SectionImportStatusResponse.builder()
+                        .enrollment(kgu.developers.admin.section.presentation.response.SectionImportStatusResponse.LastImportStatusResponse.builder()
+                                .fileName("students.xlsx")
+                                .appliedAt(appliedAt)
+                                .build())
+                        .team(kgu.developers.admin.section.presentation.response.SectionImportStatusResponse.LastImportStatusResponse.builder()
+                                .fileName("teams.xlsx")
+                                .appliedAt(appliedAt.plusHours(1))
+                                .build())
+                        .build();
+        given(sectionAdminFacade.getLastImportStatus(1L)).willReturn(response);
+
+        mockMvc.perform(get(BASE_URL + "/1/imports/latest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enrollment.fileName").value("students.xlsx"))
+                .andExpect(jsonPath("$.enrollment.appliedAt").exists())
+                .andExpect(jsonPath("$.team.fileName").value("teams.xlsx"))
+                .andExpect(jsonPath("$.team.appliedAt").exists());
+
+        verify(sectionAdminFacade).getLastImportStatus(1L);
+    }
+
+    @Test
+    @DisplayName("GET /sections/{sectionId}/imports/latest는 이력이 없으면 null 필드를 응답한다")
+    void getLastImportStatusReturnsNullWhenNoHistory() throws Exception {
+        kgu.developers.admin.section.presentation.response.SectionImportStatusResponse response =
+                kgu.developers.admin.section.presentation.response.SectionImportStatusResponse.builder()
+                        .enrollment(null)
+                        .team(null)
+                        .build();
+        given(sectionAdminFacade.getLastImportStatus(1L)).willReturn(response);
+
+        mockMvc.perform(get(BASE_URL + "/1/imports/latest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enrollment").doesNotExist())
+                .andExpect(jsonPath("$.team").doesNotExist());
+
+        verify(sectionAdminFacade).getLastImportStatus(1L);
+    }
 }

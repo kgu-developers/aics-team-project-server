@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS "import_batch" (
     type VARCHAR(16) NOT NULL CHECK (type IN ('ENROLLMENT', 'TEAM')),
     uploaded_by VARCHAR(20) NOT NULL,
     version BIGINT,
+    file_name VARCHAR(255),
     PRIMARY KEY (id),
     CONSTRAINT fk_import_batch_section
         FOREIGN KEY (section_id) REFERENCES section (id),

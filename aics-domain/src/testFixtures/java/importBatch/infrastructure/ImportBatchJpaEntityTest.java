@@ -30,7 +30,7 @@ class ImportBatchJpaEntityTest {
 				{"metadata":{"sheetName":"수강생 명단","totalRows":2},\
 				"data":[{"학번":"202012345","이름":"홍길동","salary":75000000,"isActive":true}]}""");
 		ImportBatch origin = ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
-				payload, JsonConverter.parse("{\"total\":2,\"invalid\":0}"), EXPIRED_AT);
+				payload, JsonConverter.parse("{\"total\":2,\"invalid\":0}"), "test.xlsx", EXPIRED_AT);
 
 		ImportBatchJpaEntity entity = ImportBatchJpaEntity.toEntity(origin, SECTION, UPLOADER);
 		assertThat(entity.getPayload()).contains("\"학번\":\"202012345\"", "\"salary\":75000000");

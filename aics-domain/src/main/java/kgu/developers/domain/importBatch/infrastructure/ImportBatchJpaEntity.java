@@ -66,6 +66,9 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 	@Column(nullable = false, columnDefinition = "jsonb")
 	private String summary;
 
+	@Column(length = 255)
+	private String fileName;
+
 	@Column(nullable = false)
 	private LocalDateTime expiredAt;
 
@@ -79,6 +82,7 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.status(status)
 				.payload(JsonConverter.parse(payload, ImportBatchPayloadInvalidException::new))
 				.summary(JsonConverter.parse(summary, ImportBatchPayloadInvalidException::new))
+				.fileName(fileName)
 				.expiredAt(expiredAt)
 				.createdAt(getCreatedAt())
 				.updatedAt(getUpdatedAt())
@@ -97,6 +101,7 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.status(importBatch.getStatus())
 				.payload(importBatch.getPayload().toString())
 				.summary(importBatch.getSummary().toString())
+				.fileName(importBatch.getFileName())
 				.expiredAt(importBatch.getExpiredAt())
 				.build();
 		entity.createdAt = importBatch.getCreatedAt();

@@ -79,7 +79,7 @@ public class TeamImportFacade {
             TeamImportSummary summary = TeamImportSummary.of(rows);
 
             ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.TEAM,
-                JsonConverter.toTree(rows), JsonConverter.toTree(summary),
+                JsonConverter.toTree(rows), JsonConverter.toTree(summary), file.getOriginalFilename(),
                 LocalDateTime.now().plus(PREVIEW_TTL));
 
             return new TeamImportPreviewResponse(importBatchRepository.save(batch).getId(), summary, rows);

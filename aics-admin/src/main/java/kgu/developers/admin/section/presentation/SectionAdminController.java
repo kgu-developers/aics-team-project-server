@@ -21,6 +21,7 @@ import kgu.developers.admin.section.presentation.response.SectionAdminListRespon
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
+import kgu.developers.admin.section.presentation.response.SectionImportStatusResponse;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import org.springframework.http.ResponseEntity;
@@ -217,6 +218,21 @@ public interface SectionAdminController {
         """)
     @ApiResponse(responseCode = "204")
     ResponseEntity<Void> deleteSection(
+        @Parameter(
+            description = "분반 ID는 URL 경로 변수 입니다.",
+            example = "1",
+            required = true
+        ) @Positive @PathVariable Long sectionId
+    );
+
+    @Operation(summary = "분반 마지막 반영 현황 조회 API", description = """
+            - Description : 이 API는 지정된 분반의 학생 명단과 팀 명단의 마지막 반영 현황을 조회합니다.
+            - 각 명단별로 마지막 반영 파일명과 반영 시각을 반환합니다. 이력이 없으면 null을 반환합니다.
+        """)
+    @ApiResponse(
+        responseCode = "200",
+        content = @Content(schema = @Schema(implementation = SectionImportStatusResponse.class)))
+    ResponseEntity<SectionImportStatusResponse> getLastImportStatus(
         @Parameter(
             description = "분반 ID는 URL 경로 변수 입니다.",
             example = "1",

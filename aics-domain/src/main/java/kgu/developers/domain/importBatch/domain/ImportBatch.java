@@ -29,13 +29,15 @@ public class ImportBatch {
     private JsonNode payload;  // 원본데이터 (형식 제약 없음)
     private JsonNode summary;  // 요약 (형식 제약 없음)
 
+    private String fileName;  // 업로드 파일명
+
     private LocalDateTime expiredAt;  // 만료시각
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime deletedAt;
 
     public static ImportBatch create(String uploadedBy, Long sectionId, Type type,
-                                     JsonNode payload, JsonNode summary, LocalDateTime expiredAt) {
+                                     JsonNode payload, JsonNode summary, String fileName, LocalDateTime expiredAt) {
         return ImportBatch.builder()
                 .uploadedBy(requireNonNull(uploadedBy, "uploadedBy"))
                 .sectionId(requireNonNull(sectionId, "sectionId"))
@@ -43,6 +45,7 @@ public class ImportBatch {
                 .status(Status.PREVIEW)
                 .payload(requireNonNull(payload, "payload"))
                 .summary(requireNonNull(summary, "summary"))
+                .fileName(fileName)
                 .expiredAt(requireNonNull(expiredAt, "expiredAt"))
                 .build();
     }

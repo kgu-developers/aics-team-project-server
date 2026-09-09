@@ -12,6 +12,7 @@ import kgu.developers.admin.section.presentation.response.SectionAdminListRespon
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
+import kgu.developers.admin.section.presentation.response.SectionImportStatusResponse;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
@@ -23,6 +24,8 @@ import kgu.developers.domain.teamMember.application.command.TeamMemberCommandSer
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
+import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
+import kgu.developers.domain.importBatch.domain.Type;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +39,7 @@ public class SectionAdminFacade {
     private final EnrollmentCommandService enrollmentCommandService;
     private final TeamQueryService teamQueryService;
     private final TeamMemberCommandService teamMemberCommandService;
+    private final ImportBatchRepository importBatchRepository;
 
     public SectionAdminPersistResponse createSection(SectionAdminRequest request) {
         Long id = sectionCommandService.createSection(
@@ -118,5 +122,30 @@ public class SectionAdminFacade {
 
     public EnrollmentAdminListResponse getEnrollmentsBySectionId(Long sectionId) {
         return EnrollmentAdminListResponse.from(enrollmentQueryService.getEnrollmentsBySectionId(sectionId));
+    }
+
+    @Transactional(readOnly = true)
+    public SectionImportStatusResponse getLastImportStatus(Long sectionId) {
+        var enrollmentBatch = importBatchRepository.findLatestAppliedBySectionIdAndType(sectionId, Type.ENROLLMENT);
+        var teamBatch = importBatchRepository.findLatestAppliedBySectionIdAndType(sectionId, Type.TEAM);
+
+        var enrollmentStatus = enrollmentBatch.map(batch ->
+                SectionImportStatusResponse.LastImportStatusResponse.builder()
+                        .fileName(batch.getFileName())
+                        .appliedAt(batch.getUpdatedAt())
+                        .build())
+                .orElse(null);
+
+        var teamStatus = teamBatch.map(batch ->
+                SectionImportStatusResponse.LastImportStatusResponse.builder()
+                        .fileName(batch.getFileName())
+                        .appliedAt(batch.getUpdatedAt())
+                        .build())
+                .orElse(null);
+
+        return SectionImportStatusResponse.builder()
+                .enrollment(enrollmentStatus)
+                .team(teamStatus)
+                .build();
     }
 }

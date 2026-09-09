@@ -27,7 +27,7 @@ class ImportBatchTest {
 	private static final JsonNode DIRTY_SUMMARY = JsonConverter.parse("{\"total\":2,\"invalid\":1}");
 
 	static ImportBatch batch(JsonNode summary, LocalDateTime expiredAt) {
-		return ImportBatch.create("202012345", 1L, Type.ENROLLMENT, PAYLOAD, summary, expiredAt);
+		return ImportBatch.create("202012345", 1L, Type.ENROLLMENT, PAYLOAD, summary, "test.xlsx", expiredAt);
 	}
 
 	@Test
@@ -51,7 +51,7 @@ class ImportBatchTest {
 				 "data":[{"empId":"EMP-001","salary":75000000,"isActive":true}]}""");
 
 		ImportBatch batch = ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
-				alien, JsonConverter.parse("{\"totalRows\":1}"), NOW.plusDays(1));
+				alien, JsonConverter.parse("{\"totalRows\":1}"), "test.xlsx", NOW.plusDays(1));
 
 		assertThat(batch.getPayload().at("/data/0/empId").asText()).isEqualTo("EMP-001");
 		assertThat(batch.getPayload().at("/data/0/salary").asLong()).isEqualTo(75000000L);
@@ -75,7 +75,7 @@ class ImportBatchTest {
 				.isInstanceOf(NullPointerException.class)
 				.hasMessage("expiredAt");
 		assertThatThrownBy(() -> ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
-				PAYLOAD, null, NOW))
+				PAYLOAD, null, "test.xlsx", NOW))
 				.isInstanceOf(NullPointerException.class)
 				.hasMessage("summary");
 	}

@@ -16,6 +16,7 @@ import kgu.developers.admin.section.presentation.response.SectionAdminListRespon
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminPersistResponse;
 import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
+import kgu.developers.admin.section.presentation.response.SectionImportStatusResponse;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import lombok.RequiredArgsConstructor;
@@ -125,8 +126,16 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     @DeleteMapping("/{sectionId}")
     public ResponseEntity<Void> deleteSection(
         @Positive @PathVariable Long sectionId) {
-        
+
         sectionAdminFacade.deleteSection(sectionId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @GetMapping("/{sectionId}/imports/latest")
+    public ResponseEntity<SectionImportStatusResponse> getLastImportStatus(
+        @Positive @PathVariable Long sectionId) {
+        SectionImportStatusResponse response = sectionAdminFacade.getLastImportStatus(sectionId);
+        return ResponseEntity.ok(response);
     }
 }
