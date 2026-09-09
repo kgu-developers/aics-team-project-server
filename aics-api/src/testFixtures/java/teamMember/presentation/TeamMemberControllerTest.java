@@ -23,11 +23,13 @@ import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.TeamMemberControllerImpl;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
 
 @ExtendWith(MockitoExtension.class)
 class TeamMemberControllerTest {
 
 	private static final String BASE_URL = "/api/v1/oop/teams/{teamId}/members/contacts";
+	private static final String MEMBERS_URL = "/api/v1/oop/teams/{teamId}/members";
 	private static final String STUDENT_NUMBER = "202699999";
 
 	@Mock
@@ -61,5 +63,19 @@ class TeamMemberControllerTest {
 			.andExpect(jsonPath("$.contents[0].isLeader").value(true));
 
 		verify(teamMemberFacade).getContacts(1L, STUDENT_NUMBER);
+	}
+
+	@Test
+	@DisplayName("팀원을 조회하면 본인을 포함해 200으로 응답한다")
+	void getTeamMembers() throws Exception {
+		given(teamMemberFacade.getTeamMembers(1L, STUDENT_NUMBER, "김")).willReturn(List.of(
+			new TeamMemberResponse(1L, STUDENT_NUMBER, "김철수", true, "백엔드")));
+
+		mockMvc.perform(get(MEMBERS_URL, 1L).param("keyword", "김").principal(authentication))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.length()").value(1))
+			.andExpect(jsonPath("$[0].studentNumber").value(STUDENT_NUMBER));
+
+		verify(teamMemberFacade).getTeamMembers(1L, STUDENT_NUMBER, "김");
 	}
 }
