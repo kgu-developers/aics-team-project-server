@@ -46,9 +46,9 @@ class TeamAdminFacadeTest {
 		return TeamMember.builder().id(id).teamId(1L).userId(userId).isLeader(isLeader).build();
 	}
 
-	private TeamMemberWithUser withUser(TeamMember member, String name) {
+	private TeamMemberWithUser withUser(TeamMember member, String name, String major) {
 		return new TeamMemberWithUser(member,
-			User.builder().studentNumber(member.getUserId()).name(name).build());
+			User.builder().studentNumber(member.getUserId()).name(name).major(major).build());
 	}
 
 	@Test
@@ -56,16 +56,16 @@ class TeamAdminFacadeTest {
 	void getTeamById() {
 		given(teamQueryService.getTeamById(1L)).willReturn(team);
 		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
-			withUser(member(1L, "202699999", true), "김철수"),
-			withUser(member(2L, "202611111", false), "이영희")));
+			withUser(member(1L, "202699999", true), "김철수", "컴퓨터공학과"),
+			withUser(member(2L, "202611111", false), "이영희", "산업경영공학과")));
 
 		TeamAdminDetailResponse response = teamAdminFacade.getTeamById(1L);
 
 		assertThat(response.sectionId()).isEqualTo(10L);
-		assertThat(response.members()).extracting("studentNumber", "name", "isLeader")
+		assertThat(response.members()).extracting("studentNumber", "name", "major", "isLeader")
 			.containsExactly(
-				org.assertj.core.groups.Tuple.tuple("202699999", "김철수", true),
-				org.assertj.core.groups.Tuple.tuple("202611111", "이영희", false));
+				org.assertj.core.groups.Tuple.tuple("202699999", "김철수", "컴퓨터공학과", true),
+				org.assertj.core.groups.Tuple.tuple("202611111", "이영희", "산업경영공학과", false));
 	}
 
 	@Test
@@ -81,6 +81,7 @@ class TeamAdminFacadeTest {
 			.satisfies(m -> {
 				assertThat(m.studentNumber()).isEqualTo("202699999");
 				assertThat(m.name()).isNull();
+				assertThat(m.major()).isNull();
 			});
 	}
 
