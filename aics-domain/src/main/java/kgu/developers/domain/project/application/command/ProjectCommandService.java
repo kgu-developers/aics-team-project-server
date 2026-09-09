@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static java.util.stream.Collectors.toSet;
@@ -150,22 +151,22 @@ public class ProjectCommandService {
         boolean isProposalCompleted = project.getProposalCompletedAt() != null;
 
         // 제안 완료 후 화면구성/주요기능/시연흐름 외의 필드 수정 불가
-        if (isProposalCompleted && (!isSameValue(title, project.getTitle()) ||
-            !isSameValue(description, project.getDescription()) ||
-            !isSameValue(goal, project.getGoal()) ||
-            !isSameValue(meetingStyle, project.getMeetingStyle()) ||
-            !isSameValue(repositoryUrl, project.getRepositoryUrl()) ||
-            !isSameJsonNode(externalLinks, project.getExternalLinks()) ||
-            !isSameValue(topicCandidateId, project.getTopicCandidateId()) ||
-            !isSameValue(dataConfiguration, project.getDataConfiguration()))) {
+        if (isProposalCompleted && (!Objects.equals(title, project.getTitle()) ||
+            !Objects.equals(description, project.getDescription()) ||
+            !Objects.equals(goal, project.getGoal()) ||
+            !Objects.equals(meetingStyle, project.getMeetingStyle()) ||
+            !Objects.equals(repositoryUrl, project.getRepositoryUrl()) ||
+            !Objects.equals(externalLinks, project.getExternalLinks()) ||
+            (topicCandidateId != null && !Objects.equals(topicCandidateId, project.getTopicCandidateId())) ||
+            !Objects.equals(dataConfiguration, project.getDataConfiguration()))) {
             throw new ProjectProposalCompletedException();
         }
 
         // 화면구성/주요기능/시연흐름만 변경되는 경우
         if (isProposalCompleted) {
-            boolean hasChanges = !isSameJsonNode(screenConfiguration, project.getScreenConfiguration()) ||
-                !isSameJsonNode(keyFeatures, project.getKeyFeatures()) ||
-                !isSameJsonNode(demoFlow, project.getDemoFlow());
+            boolean hasChanges = !Objects.equals(screenConfiguration, project.getScreenConfiguration()) ||
+                !Objects.equals(keyFeatures, project.getKeyFeatures()) ||
+                !Objects.equals(demoFlow, project.getDemoFlow());
 
             if (!hasChanges) {
                 return project;
@@ -202,24 +203,6 @@ public class ProjectCommandService {
         projectApprovalRepository.deleteAllByProjectId(project.getId());
 
         return projectRepository.save(project);
-    }
-
-    private boolean isSameValue(String value1, String value2) {
-        if (value1 == null && value2 == null) return true;
-        if (value1 == null || value2 == null) return false;
-        return value1.equals(value2);
-    }
-
-    private boolean isSameValue(Long value1, Long value2) {
-        if (value1 == null && value2 == null) return true;
-        if (value1 == null || value2 == null) return false;
-        return value1.equals(value2);
-    }
-
-    private boolean isSameJsonNode(JsonNode node1, JsonNode node2) {
-        if (node1 == null && node2 == null) return true;
-        if (node1 == null || node2 == null) return false;
-        return node1.equals(node2);
     }
 
     public void deleteProject(Long projectId) {

@@ -155,6 +155,7 @@ class ProjectCommandServiceTest {
             .screenConfiguration(new ObjectMapper().readTree("[]"))
             .keyFeatures(new ObjectMapper().readTree("[]"))
             .demoFlow(new ObjectMapper().readTree("[]"))
+            .topicCandidateId(100L)
             .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
         given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(completed));
         given(projectRepository.save(completed)).willReturn(completed);
