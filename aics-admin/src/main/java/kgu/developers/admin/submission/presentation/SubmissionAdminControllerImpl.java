@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
@@ -32,10 +33,11 @@ public class SubmissionAdminControllerImpl implements SubmissionAdminController 
     @GetMapping("/milestones/{milestoneId}/submissions")
     public ResponseEntity<SubmissionAdminListResponse> getSubmissionsByMilestone(
         @PathVariable Long milestoneId,
+        @RequestParam(required = false) Long teamId,
         Authentication authentication
     ) {
         return ResponseEntity.ok(
-            submissionAdminFacade.getSubmissionsByMilestone(milestoneId, authentication.getName()));
+            submissionAdminFacade.getSubmissionsByMilestone(milestoneId, teamId, authentication.getName()));
     }
 
     @Override

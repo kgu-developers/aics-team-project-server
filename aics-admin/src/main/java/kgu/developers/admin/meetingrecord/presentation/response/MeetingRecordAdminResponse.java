@@ -28,6 +28,9 @@ public record MeetingRecordAdminResponse(
     @Schema(description = "팀명", example = "A팀", requiredMode = REQUIRED)
     String teamName,
 
+    @Schema(description = "회의록 제목", example = "3주차 정기 회의", requiredMode = REQUIRED)
+    String title,
+
     @Schema(description = "회의 단계", example = "MID_CHECK", requiredMode = REQUIRED)
     MeetingPhase phase,
 
@@ -55,6 +58,7 @@ public record MeetingRecordAdminResponse(
             .sectionName(section.getName())
             .teamId(team.getId())
             .teamName(team.getName())
+            .title(meetingRecord.getTitle())
             .phase(meetingRecord.getPhase())
             .authorId(meetingRecord.getAuthorId())
             .meetingAt(meetingRecord.getMeetingAt().format(FORMATTER))

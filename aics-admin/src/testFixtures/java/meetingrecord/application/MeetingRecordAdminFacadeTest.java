@@ -74,6 +74,7 @@ class MeetingRecordAdminFacadeTest {
             assertThat(content.sectionName()).isEqualTo("월3,4/1152");
             assertThat(content.teamId()).isEqualTo(20L);
             assertThat(content.teamName()).isEqualTo("B팀");
+            assertThat(content.title()).isEqualTo("3주차 정기 회의");
             assertThat(content.content()).isEqualTo("와이어프레임 기획 논의");
         });
         assertThat(response.pageable().totalElements()).isEqualTo(1);

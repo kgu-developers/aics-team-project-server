@@ -6,9 +6,11 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import kgu.developers.admin.submission.presentation.response.SubmissionAdminListResponse;
@@ -25,12 +27,16 @@ public interface SubmissionAdminController {
             Description : 담당 교수가 이 마일스톤에 대한 담당 분반 팀들의 제출 현황을 한 번에 조회한다.
                 아직 한 번도 제출하지 않은 팀도 not_submitted 상태로 함께 조회된다(최초 조회 시 자동 생성).
                 호출자의 인증 식별자를 교수 학번으로 사용하므로 본인이 담당하는 분반의 마일스톤만 조회할 수 있다.
+                teamId를 생략하면 분반 전체 팀을, 지정하면 해당 팀만 조회한다.
+                projectTitle은 제안서 마일스톤에서 프로젝트가 존재할 때만 값이 있으며 그 외에는 null이다.
             Assignee : 담당자명
             """
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = SubmissionAdminListResponse.class)))
     ResponseEntity<SubmissionAdminListResponse> getSubmissionsByMilestone(
         @Parameter(description = "마일스톤 식별자") @PathVariable Long milestoneId,
+        @Parameter(description = "조회할 팀 식별자(생략하면 분반 전체 팀)")
+        @RequestParam(required = false) @Positive Long teamId,
         Authentication authentication
     );
 
