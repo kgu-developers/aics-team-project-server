@@ -112,10 +112,24 @@ public class SubmissionAdminFacade {
     public SubmissionAdminResponse getSubmission(Long submissionId, String professorId) {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         Team team = validateProfessorOwnsSubmission(submission, professorId);
+        String projectTitle = resolveProjectTitle(submission, team);
         return SubmissionAdminResponse.of(
                 submission, team,
                 submissionQueryService.canSubmitNow(submission),
-                submissionQueryService.hasPendingReview(submission));
+                submissionQueryService.hasPendingReview(submission),
+                projectTitle);
+    }
+
+    private String resolveProjectTitle(Submission submission, Team team) {
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        if (milestone.getType() != MilestoneType.PROPOSAL) {
+            return null;
+        }
+        return projectRepository.findAllByTeamIdIn(List.of(team.getId())).stream()
+                .map(Project::getTitle)
+                .findFirst()
+                .orElse(null);
     }
 
     public SubmissionVersionAdminListResponse getVersions(Long submissionId, String professorId) {

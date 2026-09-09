@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,7 +35,8 @@ public interface SubmissionAdminController {
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = SubmissionAdminListResponse.class)))
     ResponseEntity<SubmissionAdminListResponse> getSubmissionsByMilestone(
         @Parameter(description = "마일스톤 식별자") @PathVariable Long milestoneId,
-        @Parameter(description = "조회할 팀 식별자(생략하면 분반 전체 팀)") @RequestParam(required = false) Long teamId,
+        @Parameter(description = "조회할 팀 식별자(생략하면 분반 전체 팀)")
+        @RequestParam(required = false) @Positive Long teamId,
         Authentication authentication
     );
 

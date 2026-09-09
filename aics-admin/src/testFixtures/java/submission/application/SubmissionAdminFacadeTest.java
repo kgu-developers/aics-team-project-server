@@ -214,6 +214,21 @@ class SubmissionAdminFacadeTest {
     }
 
     @Test
+    @DisplayName("제안서 제출 상세에도 팀 프로젝트 주제를 함께 응답한다")
+    void getSubmission_IncludesProjectTitleForProposal() {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
+                teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
+                ApprovalStatus.APPROVED, "온라인")));
+
+        SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(response.projectTitle()).isEqualTo("AI 기반 팀 프로젝트 운영 플랫폼");
+    }
+
+    @Test
     @DisplayName("다른 분반 담당 교수는 제출 상세를 조회할 수 없다")
     void getSubmission_RejectsNonOwningProfessor() {
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
