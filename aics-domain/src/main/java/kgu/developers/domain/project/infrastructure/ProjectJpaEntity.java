@@ -63,6 +63,16 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = true, columnDefinition = "jsonb")
     private JsonNode screenConfiguration = createEmptyJsonNode();
 
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode keyFeatures = createEmptyJsonNode();
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode demoFlow = createEmptyJsonNode();
+
     @Column(columnDefinition = "TEXT")
     private String projectSchedule;
 
@@ -92,6 +102,12 @@ public class ProjectJpaEntity extends BaseTimeEntity {
         if (screenConfiguration == null) {
             screenConfiguration = createEmptyJsonNode();
         }
+        if (keyFeatures == null) {
+            keyFeatures = createEmptyJsonNode();
+        }
+        if (demoFlow == null) {
+            demoFlow = createEmptyJsonNode();
+        }
     }
 
     private static JsonNode createEmptyJsonNode() {
@@ -108,6 +124,8 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .goal(goal)
                 .dataConfiguration(dataConfiguration)
                 .screenConfiguration(screenConfiguration)
+                .keyFeatures(keyFeatures)
+                .demoFlow(demoFlow)
                 .repositoryUrl(repositoryUrl)
                 .externalLinks(externalLinks)
                 .approvalStatus(approvalStatus)
@@ -131,6 +149,8 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .goal(project.getGoal())
                 .dataConfiguration(project.getDataConfiguration())
                 .screenConfiguration(project.getScreenConfiguration())
+                .keyFeatures(project.getKeyFeatures())
+                .demoFlow(project.getDemoFlow())
                 .repositoryUrl(project.getRepositoryUrl())
                 .externalLinks(project.getExternalLinks())
                 .approvalStatus(project.getApprovalStatus())

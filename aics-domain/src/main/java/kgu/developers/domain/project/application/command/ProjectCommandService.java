@@ -1,6 +1,7 @@
 package kgu.developers.domain.project.application.command;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
@@ -19,6 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -35,6 +39,14 @@ public class ProjectCommandService {
     private final TeamMemberRepository teamMemberRepository;
 
     public Project saveProject(
+        Long teamId, String title, String description, String goal, String repositoryUrl, JsonNode externalLinks,
+        JsonNode dataConfiguration, JsonNode screenConfiguration, String projectSchedule
+    ) {
+        return saveProject(teamId, title, description, goal, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration,
+            JsonNodeFactory.instance.arrayNode(), JsonNodeFactory.instance.arrayNode(), projectSchedule);
+    }
+
+    public Project saveProject(
         Long teamId,
         String title,
         String description,
@@ -43,9 +55,11 @@ public class ProjectCommandService {
         JsonNode externalLinks,
         JsonNode dataConfiguration,
         JsonNode screenConfiguration,
+        JsonNode keyFeatures,
+        JsonNode demoFlow,
         String projectSchedule
     ) {
-        return saveProject(teamId, title, description, goal, repositoryUrl, externalLinks, null, dataConfiguration, screenConfiguration, projectSchedule);
+        return saveProject(teamId, title, description, goal, repositoryUrl, externalLinks, null, dataConfiguration, screenConfiguration, keyFeatures, demoFlow, projectSchedule);
     }
 
     public Project saveProject(
@@ -58,21 +72,25 @@ public class ProjectCommandService {
         Long topicCandidateId,
         JsonNode dataConfiguration,
         JsonNode screenConfiguration,
+        JsonNode keyFeatures,
+        JsonNode demoFlow,
         String projectSchedule
     ) {
         // 팀당 프로젝트는 하나다. 조회-수정-저장이 갈라지지 않도록 팀 행을 먼저 잠근다.
         projectRepository.lockTeam(teamId);
 
+        keyFeatures = keyFeatures == null ? JsonNodeFactory.instance.arrayNode() : keyFeatures;
+        JsonNode sortedDemoFlow = sortDemoFlow(demoFlow);
         Project existing = projectRepository.findIncludingDeletedByTeamId(teamId).orElse(null);
         if (existing == null) {
             return projectRepository.save(Project.create(
-                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule
+                teamId, title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, topicCandidateId, dataConfiguration, screenConfiguration, keyFeatures, sortedDemoFlow, projectSchedule
             ));
         }
         if (existing.getDeletedAt() != null) {
-            return reactivateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
+            return reactivateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, keyFeatures, sortedDemoFlow, projectSchedule);
         }
-        return updateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
+        return updateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, keyFeatures, sortedDemoFlow, projectSchedule);
     }
 
     public Project finalizeTopic(Long teamId, Long topicCandidateId, String title, String description, String goal) {
@@ -95,6 +113,8 @@ public class ProjectCommandService {
             // 배열은 요청마다 새로 만든다 — ArrayNode는 가변이라 상수로 공유하면 안 된다.
             active == null ? JsonNodeFactory.instance.arrayNode() : active.getDataConfiguration(),
             active == null ? JsonNodeFactory.instance.arrayNode() : active.getScreenConfiguration(),
+            active == null ? JsonNodeFactory.instance.arrayNode() : active.getKeyFeatures(),
+            active == null ? JsonNodeFactory.instance.arrayNode() : active.getDemoFlow(),
             active == null ? null : active.getProjectSchedule()
         );
 
@@ -115,12 +135,14 @@ public class ProjectCommandService {
         Long topicCandidateId,
         JsonNode dataConfiguration,
         JsonNode screenConfiguration,
+        JsonNode keyFeatures,
+        JsonNode demoFlow,
         String projectSchedule
     ) {
         projectApprovalRepository.deleteAllByProjectId(project.getId());
         proposalSectionRepository.deleteAllByProjectId(project.getId());
         return projectRepository.reactivate(project.getId(), Project.create(
-            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule
+            project.getTeamId(), title, description, goal, repositoryUrl, externalLinks, ApprovalStatus.DRAFT, topicCandidateId, dataConfiguration, screenConfiguration, keyFeatures, demoFlow, projectSchedule
         ));
     }
 
@@ -134,13 +156,15 @@ public class ProjectCommandService {
         Long topicCandidateId,
         JsonNode dataConfiguration,
         JsonNode screenConfiguration,
+        JsonNode keyFeatures,
+        JsonNode demoFlow,
         String projectSchedule
     ) {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
 
-        if (project.hasSameProposalContent(title, description, goal, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration, projectSchedule) &&
+        if (project.hasSameProposalContent(title, description, goal, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration, keyFeatures, demoFlow, projectSchedule) &&
             (topicCandidateId == null || topicCandidateId.equals(project.getTopicCandidateId()))) {
             return project;
         }
@@ -153,6 +177,8 @@ public class ProjectCommandService {
         project.updateGoal(goal);
         project.updateDataConfiguration(dataConfiguration);
         project.updateScreenConfiguration(screenConfiguration);
+        project.updateKeyFeatures(keyFeatures);
+        project.updateDemoFlow(demoFlow);
         project.updateProjectSchedule(projectSchedule);
         project.updateRepositoryUrl(repositoryUrl);
         project.updateExternalLinks(externalLinks);
@@ -214,6 +240,18 @@ public class ProjectCommandService {
                     proposalSectionRepository.save(section);
                 });
         }
+    }
+
+    private JsonNode sortDemoFlow(JsonNode demoFlow) {
+        ArrayNode sorted = JsonNodeFactory.instance.arrayNode();
+        if (demoFlow == null || !demoFlow.isArray()) {
+            return sorted;
+        }
+        List<JsonNode> items = new ArrayList<>();
+        demoFlow.forEach(items::add);
+        items.sort(Comparator.comparing(node -> node.path("number").asLong()));
+        items.forEach(sorted::add);
+        return sorted;
     }
 
     /**
