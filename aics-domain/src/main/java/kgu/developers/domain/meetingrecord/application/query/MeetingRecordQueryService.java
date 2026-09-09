@@ -1,6 +1,7 @@
 package kgu.developers.domain.meetingrecord.application.query;
 
 import java.util.List;
+import java.util.Map;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
@@ -33,5 +34,19 @@ public class MeetingRecordQueryService {
 
     public Page<MeetingRecord> getMeetingRecords(List<Long> teamIds, Pageable pageable) {
         return meetingRecordRepository.findAllByTeamIdIn(teamIds, pageable);
+    }
+
+    public Page<MeetingRecord> getMeetingRecords(List<Long> teamIds, Long milestoneId, Pageable pageable) {
+        return milestoneId == null
+            ? meetingRecordRepository.findAllByTeamIdIn(teamIds, pageable)
+            : meetingRecordRepository.findAllByTeamIdInAndMilestoneId(teamIds, milestoneId, pageable);
+    }
+
+    public long countMeetingRecords(Long teamId, Long milestoneId) {
+        return meetingRecordRepository.countByTeamIdAndMilestoneId(teamId, milestoneId);
+    }
+
+    public Map<Long, Long> countMeetingRecords(List<Long> teamIds, Long milestoneId) {
+        return meetingRecordRepository.countByTeamIdInAndMilestoneId(teamIds, milestoneId);
     }
 }

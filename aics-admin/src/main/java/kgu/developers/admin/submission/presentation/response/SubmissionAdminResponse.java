@@ -26,6 +26,9 @@ public record SubmissionAdminResponse(
         @Schema(description = "프로젝트 주제(제안서 마일스톤이 아니거나 프로젝트가 없으면 null)", example = "AI 기반 팀 프로젝트 운영 플랫폼")
         String projectTitle,
 
+        @Schema(description = "해당 팀과 마일스톤에 연결된 회의록 수", example = "2", requiredMode = REQUIRED)
+        long meetingRecordCount,
+
         @Schema(description = "마일스톤 식별자", example = "3", requiredMode = REQUIRED)
         Long milestoneId,
 
@@ -52,7 +55,7 @@ public record SubmissionAdminResponse(
 ) {
 
     public static SubmissionAdminResponse of(Submission submission, Team team, boolean canSubmitNow, boolean hasPendingReview) {
-        return of(submission, team, canSubmitNow, hasPendingReview, null);
+        return of(submission, team, canSubmitNow, hasPendingReview, null, 0L);
     }
 
     public static SubmissionAdminResponse of(
@@ -62,11 +65,23 @@ public record SubmissionAdminResponse(
             boolean hasPendingReview,
             String projectTitle
     ) {
+        return of(submission, team, canSubmitNow, hasPendingReview, projectTitle, 0L);
+    }
+
+    public static SubmissionAdminResponse of(
+            Submission submission,
+            Team team,
+            boolean canSubmitNow,
+            boolean hasPendingReview,
+            String projectTitle,
+            long meetingRecordCount
+    ) {
         return SubmissionAdminResponse.builder()
                 .id(submission.getId())
                 .teamId(team.getId())
                 .teamName(team.getName())
                 .projectTitle(projectTitle)
+                .meetingRecordCount(meetingRecordCount)
                 .milestoneId(submission.getMilestoneId())
                 .status(submission.getStatus())
                 .currentVersion(submission.getCurrentVersion())

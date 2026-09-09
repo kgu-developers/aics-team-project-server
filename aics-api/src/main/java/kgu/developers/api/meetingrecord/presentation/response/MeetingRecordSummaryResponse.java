@@ -4,8 +4,11 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.milestone.domain.Milestone;
 import lombok.Builder;
 
 @Builder
@@ -30,12 +33,19 @@ public record MeetingRecordSummaryResponse(
     String authorId,
 
     @Schema(description = "참석자 수", example = "4", requiredMode = REQUIRED)
-    int participantCount
+    int participantCount,
+
+    @Schema(description = "관련 마일스톤 목록", requiredMode = REQUIRED)
+    List<MeetingRecordMilestoneResponse> milestones
 ) {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public static MeetingRecordSummaryResponse from(MeetingRecord meetingRecord) {
+        return from(meetingRecord, Map.of());
+    }
+
+    public static MeetingRecordSummaryResponse from(MeetingRecord meetingRecord, Map<Long, Milestone> milestonesById) {
         return MeetingRecordSummaryResponse.builder()
             .id(meetingRecord.getId())
             .title(meetingRecord.getTitle())
@@ -44,6 +54,11 @@ public record MeetingRecordSummaryResponse(
             .location(meetingRecord.getLocation())
             .authorId(meetingRecord.getAuthorId())
             .participantCount(meetingRecord.getParticipantCount())
+            .milestones(meetingRecord.getMilestoneIds().stream()
+                .map(milestonesById::get)
+                .filter(java.util.Objects::nonNull)
+                .map(MeetingRecordMilestoneResponse::from)
+                .toList())
             .build();
     }
 }

@@ -3,9 +3,12 @@ package meetingrecord.application;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import kgu.developers.api.meetingrecord.application.MeetingRecordFacade;
 import kgu.developers.api.meetingrecord.presentation.request.MeetingRecordCreateRequest;
 import kgu.developers.api.meetingrecord.presentation.request.MeetingRecordUpdateRequest;
@@ -16,6 +19,11 @@ import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.meetingrecord.application.command.MeetingRecordCommandService;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
+import kgu.developers.domain.milestone.domain.Milestone;
+import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import mock.repository.FakeMeetingRecordRepository;
 import mock.repository.FakeTeamMemberRepository;
@@ -30,6 +38,8 @@ public class MeetingRecordFacadeTest {
     private static final String NON_MEMBER = "202400000";
 
     private MeetingRecordFacade meetingRecordFacade;
+    private TeamRepository teamRepository;
+    private MilestoneRepository milestoneRepository;
 
     @BeforeEach
     public void init() {
@@ -37,10 +47,14 @@ public class MeetingRecordFacadeTest {
         FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
         fakeTeamMemberRepository.save(TeamMember.create(1L, MEMBER, false, "기록자"));
 
+        teamRepository = mock(TeamRepository.class);
+        milestoneRepository = mock(MilestoneRepository.class);
         meetingRecordFacade = new MeetingRecordFacade(
             new MeetingRecordCommandService(fakeMeetingRecordRepository),
             new MeetingRecordQueryService(fakeMeetingRecordRepository),
-            fakeTeamMemberRepository
+            fakeTeamMemberRepository,
+            teamRepository,
+            milestoneRepository
         );
     }
 
@@ -74,6 +88,58 @@ public class MeetingRecordFacadeTest {
 
         // then
         assertEquals(2, detail.participantIds().size());
+    }
+
+    @Test
+    @DisplayName("회의록은 같은 분반의 관련 마일스톤을 중복 없이 연결하고 목록·상세에 요약을 응답한다")
+    void meetingRecord_LinksMilestonesInSameSection() {
+        Team team = Team.builder().id(1L).sectionId(10L).name("A팀").build();
+        Milestone milestone = mock(Milestone.class);
+        given(teamRepository.findById(1L)).willReturn(Optional.of(team));
+        given(milestoneRepository.findById(3L)).willReturn(Optional.of(milestone));
+        given(milestone.belongsToSection(10L)).willReturn(true);
+        given(milestone.getId()).willReturn(3L);
+        given(milestone.getTitle()).willReturn("중간 보고서");
+        given(milestone.getType()).willReturn(MilestoneType.MID_REPORT);
+        given(milestone.getWeekNumber()).willReturn(8);
+
+        MeetingRecordCreateRequest request = MeetingRecordCreateRequest.builder()
+            .title("3주차 정기 회의")
+            .meetingAt(LocalDateTime.of(2026, 8, 3, 14, 0))
+            .phase(MeetingPhase.MID_CHECK)
+            .content("회의 내용")
+            .participantIds(List.of(MEMBER))
+            .milestoneIds(List.of(3L, 3L))
+            .build();
+
+        MeetingRecordPersistResponse persisted = meetingRecordFacade.createMeetingRecord(1L, MEMBER, request);
+        MeetingRecordDetailResponse detail = meetingRecordFacade.getMeetingRecord(persisted.id(), MEMBER);
+        MeetingRecordListResponse list = meetingRecordFacade.getMeetingRecords(1L, null, MEMBER);
+
+        assertEquals(1, detail.milestones().size());
+        assertEquals("중간 보고서", detail.milestones().get(0).title());
+        assertEquals(1, list.contents().get(0).milestones().size());
+    }
+
+    @Test
+    @DisplayName("다른 분반 마일스톤은 회의록에 연결할 수 없다")
+    void createMeetingRecord_RejectsMilestoneFromOtherSection() {
+        Team team = Team.builder().id(1L).sectionId(10L).name("A팀").build();
+        Milestone milestone = mock(Milestone.class);
+        given(teamRepository.findById(1L)).willReturn(Optional.of(team));
+        given(milestoneRepository.findById(3L)).willReturn(Optional.of(milestone));
+        given(milestone.belongsToSection(10L)).willReturn(false);
+
+        MeetingRecordCreateRequest request = MeetingRecordCreateRequest.builder()
+            .title("3주차 정기 회의")
+            .meetingAt(LocalDateTime.of(2026, 8, 3, 14, 0))
+            .phase(MeetingPhase.MID_CHECK)
+            .content("회의 내용")
+            .milestoneIds(List.of(3L))
+            .build();
+
+        assertThatThrownBy(() -> meetingRecordFacade.createMeetingRecord(1L, MEMBER, request))
+            .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

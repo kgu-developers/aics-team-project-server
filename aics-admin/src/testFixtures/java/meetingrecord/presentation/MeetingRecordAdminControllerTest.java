@@ -56,7 +56,7 @@ class MeetingRecordAdminControllerTest {
     @Test
     @DisplayName("GET /meeting-records는 분반 필터와 인증된 교수 학번을 전달한다")
     void getMeetingRecords_WithSectionFilter() throws Exception {
-        given(meetingRecordAdminFacade.getMeetingRecords(eq(1L), isNull(), any(Pageable.class), eq(PROFESSOR_ID)))
+        given(meetingRecordAdminFacade.getMeetingRecords(eq(1L), isNull(), isNull(), any(Pageable.class), eq(PROFESSOR_ID)))
             .willReturn(response());
 
         mockMvc.perform(get(BASE_URL)
@@ -70,7 +70,7 @@ class MeetingRecordAdminControllerTest {
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(meetingRecordAdminFacade)
-            .getMeetingRecords(eq(1L), isNull(), pageableCaptor.capture(), eq(PROFESSOR_ID));
+            .getMeetingRecords(eq(1L), isNull(), isNull(), pageableCaptor.capture(), eq(PROFESSOR_ID));
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(20);
@@ -80,7 +80,7 @@ class MeetingRecordAdminControllerTest {
     @Test
     @DisplayName("GET /meeting-records는 팀 필터와 인증된 교수 학번을 전달한다")
     void getMeetingRecords_WithTeamFilter() throws Exception {
-        given(meetingRecordAdminFacade.getMeetingRecords(isNull(), eq(10L), any(Pageable.class), eq(PROFESSOR_ID)))
+        given(meetingRecordAdminFacade.getMeetingRecords(isNull(), eq(10L), isNull(), any(Pageable.class), eq(PROFESSOR_ID)))
             .willReturn(response());
 
         mockMvc.perform(get(BASE_URL)
@@ -89,7 +89,22 @@ class MeetingRecordAdminControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.contents[0].teamName").value("A팀"));
 
-        verify(meetingRecordAdminFacade).getMeetingRecords(isNull(), eq(10L), any(Pageable.class), eq(PROFESSOR_ID));
+        verify(meetingRecordAdminFacade).getMeetingRecords(isNull(), eq(10L), isNull(), any(Pageable.class), eq(PROFESSOR_ID));
+    }
+
+    @Test
+    @DisplayName("GET /meeting-records는 마일스톤 필터와 인증된 교수 학번을 전달한다")
+    void getMeetingRecords_WithMilestoneFilter() throws Exception {
+        given(meetingRecordAdminFacade.getMeetingRecords(isNull(), isNull(), eq(3L), any(Pageable.class), eq(PROFESSOR_ID)))
+            .willReturn(response());
+
+        mockMvc.perform(get(BASE_URL)
+                .param("milestoneId", "3")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isOk());
+
+        verify(meetingRecordAdminFacade)
+            .getMeetingRecords(isNull(), isNull(), eq(3L), any(Pageable.class), eq(PROFESSOR_ID));
     }
 
     @Test
@@ -99,6 +114,7 @@ class MeetingRecordAdminControllerTest {
 
         assertThatThrownBy(() -> controller.getMeetingRecords(
             -1L,
+            null,
             null,
             0,
             20,
@@ -115,6 +131,23 @@ class MeetingRecordAdminControllerTest {
         assertThatThrownBy(() -> controller.getMeetingRecords(
             null,
             -1L,
+            null,
+            0,
+            20,
+            new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .isInstanceOf(ConstraintViolationException.class);
+        verifyNoInteractions(meetingRecordAdminFacade);
+    }
+
+    @Test
+    @DisplayName("GET /meeting-records는 0 이하의 마일스톤 식별자를 거부한다")
+    void getMeetingRecords_WithInvalidMilestoneId() {
+        MeetingRecordAdminController controller = validatedController();
+
+        assertThatThrownBy(() -> controller.getMeetingRecords(
+            null,
+            null,
+            -1L,
             0,
             20,
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
@@ -128,6 +161,7 @@ class MeetingRecordAdminControllerTest {
         MeetingRecordAdminController controller = validatedController();
 
         assertThatThrownBy(() -> controller.getMeetingRecords(
+            null,
             null,
             null,
             0,
