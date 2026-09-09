@@ -41,6 +41,9 @@ public class UserJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private String phone;
 
+    @Column(length = 64)
+    private String major;
+
     private LocalDateTime lastLoginAt;
 
     public User toDomain() {
@@ -51,6 +54,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .password(password)
                 .globalRole(globalRole)
                 .phone(phone)
+                .major(major)
                 .lastLoginAt(lastLoginAt)
                 .createdAt(getCreatedAt())
                 .updatedAt(getUpdatedAt())
@@ -66,6 +70,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .password(user.getPassword())
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
+                .major(user.getMajor())
                 .lastLoginAt(user.getLastLoginAt())
                 .build();
         entity.setDeletedAt(user.getDeletedAt());

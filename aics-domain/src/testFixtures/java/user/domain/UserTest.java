@@ -21,7 +21,8 @@ class UserTest {
   @Test
   @DisplayName("create는 전달받은 값으로 유저를 생성한다")
   void create() {
-    User user = user();
+    User user = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "12345678",
+        USER, "010-1234-6789", "컴퓨터공학부");
 
     assertThat(user.getStudentNumber()).isEqualTo("202699999");
     assertThat(user.getEmail()).isEqualTo("kgu@kyonggi.ac.kr");
@@ -29,6 +30,7 @@ class UserTest {
     assertThat(user.getPassword()).isEqualTo("12345678");
     assertThat(user.getGlobalRole()).isEqualTo(USER);
     assertThat(user.getPhone()).isEqualTo("010-1234-6789");
+    assertThat(user.getMajor()).isEqualTo("컴퓨터공학부");
     assertThat(user.getDeletedAt()).isNull();
   }
 
@@ -41,11 +43,13 @@ class UserTest {
     user.updatePassword("87654321");
     user.updateGlobalRole(ADMIN);
     user.updatePhone("010-9876-5432");
+    user.updateMajor("인공지능학과");
 
     assertThat(user.getName()).isEqualTo("김영희");
     assertThat(user.getPassword()).isEqualTo("87654321");
     assertThat(user.getGlobalRole()).isEqualTo(ADMIN);
     assertThat(user.getPhone()).isEqualTo("010-9876-5432");
+    assertThat(user.getMajor()).isEqualTo("인공지능학과");
   }
 
   @Test

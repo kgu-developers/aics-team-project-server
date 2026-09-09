@@ -53,6 +53,9 @@ public class UserArchiveJpaEntity {
     @Column(nullable = false, length = 20)
     private String phone;
 
+    @Column(length = 64)
+    private String major;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -69,6 +72,7 @@ public class UserArchiveJpaEntity {
         this.name = user.getName();
         this.globalRole = user.getGlobalRole();
         this.phone = user.getPhone();
+        this.major = user.getMajor();
         this.createdAt = user.getCreatedAt();
         this.deletedAt = user.getDeletedAt();
     }

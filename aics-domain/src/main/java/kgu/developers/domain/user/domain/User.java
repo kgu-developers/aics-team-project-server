@@ -17,6 +17,7 @@ public class User {
 
     private UserGlobalRole globalRole;
     private String phone;
+    private String major;
     private LocalDateTime lastLoginAt;
 
     protected LocalDateTime createdAt;
@@ -25,6 +26,11 @@ public class User {
 
     public static User create(String studentNumber, String email, String name, String password,
                                  UserGlobalRole globalRole, String phone) {
+        return create(studentNumber, email, name, password, globalRole, phone, null);
+    }
+
+    public static User create(String studentNumber, String email, String name, String password,
+                              UserGlobalRole globalRole, String phone, String major) {
         return User.builder()
                 .studentNumber(studentNumber)
                 .email(email)
@@ -32,6 +38,7 @@ public class User {
                 .password(password)
                 .globalRole(globalRole)
                 .phone(phone)
+                .major(major)
                 .build();
     }
 
@@ -53,6 +60,12 @@ public class User {
 
     public void updatePhone(String phone) {
         this.phone = phone;
+    }
+
+    public void updateMajor(String major) {
+        if (major != null) {
+            this.major = major;
+        }
     }
 
     public void recordLogin(LocalDateTime loggedInAt) {

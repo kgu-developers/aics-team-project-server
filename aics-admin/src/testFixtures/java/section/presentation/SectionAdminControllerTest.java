@@ -176,7 +176,7 @@ class SectionAdminControllerTest {
                 .status(Status.ACTIVE)
                 .build();
         User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
-                UserGlobalRole.USER, "010-1234-6789");
+                UserGlobalRole.USER, "010-1234-6789", "컴퓨터공학부");
         given(sectionAdminFacade.getEnrollmentsBySectionId(1L)).willReturn(
                 EnrollmentAdminListResponse.from(List.of(new EnrollmentDetail(enrollment, student))));
 
@@ -184,6 +184,7 @@ class SectionAdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.contents[0].studentNumber").value("202699999"))
                 .andExpect(jsonPath("$.contents[0].name").value("김철수"))
+                .andExpect(jsonPath("$.contents[0].major").value("컴퓨터공학부"))
                 .andExpect(jsonPath("$.contents[0].role").value("STUDENT"))
                 .andExpect(jsonPath("$.contents[0].status").value("ACTIVE"));
     }
