@@ -52,7 +52,7 @@ class TeamMemberAdminControllerTest {
 	void updateTeamMember() throws Exception {
 		TeamMemberUpdateRequest request = new TeamMemberUpdateRequest(2L, "프론트엔드", true);
 		given(teamMemberAdminFacade.updateTeamMember(1L, STUDENT_NUMBER, request, ADMIN_ID))
-			.willReturn(new TeamMemberAdminResponse(1L, STUDENT_NUMBER, "김철수", true, "프론트엔드"));
+			.willReturn(new TeamMemberAdminResponse(1L, STUDENT_NUMBER, "김철수", "컴퓨터공학과", true, "프론트엔드"));
 
 		mockMvc.perform(patch(BASE_URL, 1L, STUDENT_NUMBER)
 				.principal(authentication)
@@ -73,7 +73,7 @@ class TeamMemberAdminControllerTest {
 	void updateTeamMemberWithEmptyBody() throws Exception {
 		TeamMemberUpdateRequest empty = new TeamMemberUpdateRequest(null, null, null);
 		given(teamMemberAdminFacade.updateTeamMember(1L, STUDENT_NUMBER, empty, ADMIN_ID))
-			.willReturn(new TeamMemberAdminResponse(1L, STUDENT_NUMBER, "김철수", false, "백엔드"));
+			.willReturn(new TeamMemberAdminResponse(1L, STUDENT_NUMBER, "김철수", "컴퓨터공학과", false, "백엔드"));
 
 		mockMvc.perform(patch(BASE_URL, 1L, STUDENT_NUMBER)
 				.principal(authentication)

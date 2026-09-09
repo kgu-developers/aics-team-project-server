@@ -102,9 +102,9 @@ public class EnrollmentImportFacade {
             .collect(Collectors.toMap(Enrollment::getUserId, e -> e));
         List<String> studentNumbers = new ArrayList<>();
         batch.getPayload().forEach(row -> studentNumbers.add(row.path("studentNumber").asText()));
-        Set<String> existingUsers = new HashSet<>(userRepository.findAllByStudentNumberIn(studentNumbers).stream()
-            .map(User::getStudentNumber)
-            .toList());
+        Map<String, User> usersByStudent = userRepository.findAllByStudentNumberIn(studentNumbers).stream()
+            .collect(Collectors.toMap(User::getStudentNumber, user -> user));
+        Set<String> existingUsers = new HashSet<>(usersByStudent.keySet());
 
         int applied = 0;
         int createdUsers = 0;
@@ -120,6 +120,7 @@ public class EnrollmentImportFacade {
             }
             String studentNumber = row.path("studentNumber").asText();
             Role role = Role.valueOf(row.path("role").asText());
+            String major = nullableText(row, "major");
 
             if (isAssistantOnly && role == Role.ASSISTANT) {
                 skipped++;
@@ -127,9 +128,18 @@ public class EnrollmentImportFacade {
             }
 
             Enrollment existing = enrollmentByStudent.get(studentNumber);
+            User existingUser = usersByStudent.get(studentNumber);
+            if (existingUser != null && major != null) {
+                existingUser.updateMajor(major);
+                userRepository.save(existingUser);
+            }
             if (existing != null) {
                 if (existing.getStatus() == Status.ACTIVE) {
-                    skipped++;
+                    if (major == null) {
+                        skipped++;
+                    } else {
+                        applied++;
+                    }
                     continue;
                 }
                 // preview 이후 계정이 탈퇴(소프트삭제)됐을 수 있다 — 탈퇴 계정의 수강 이력을
@@ -150,7 +160,7 @@ public class EnrollmentImportFacade {
                 }
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
                     row.path("name").asText(), phone, UserGlobalRole.USER,
-                    phone, false);
+                    phone, major, false);
                 existingUsers.add(studentNumber);
                 createdUsers++;
             }
@@ -174,9 +184,8 @@ public class EnrollmentImportFacade {
     private List<EnrollmentImportRow> validate(Long sectionId, List<EnrollmentImportRow> rows,
         boolean isAssistantOnly) {
         List<String> studentNumbers = rows.stream().map(EnrollmentImportRow::studentNumber).toList();
-        Set<String> members = userRepository.findAllByStudentNumberIn(studentNumbers).stream()
-            .map(User::getStudentNumber)
-            .collect(Collectors.toSet());
+        Map<String, User> members = userRepository.findAllByStudentNumberIn(studentNumbers).stream()
+            .collect(Collectors.toMap(User::getStudentNumber, user -> user));
         Set<String> everRegistered = userRepository.findAllIncludingDeletedByStudentNumberIn(studentNumbers).stream()
             .map(User::getStudentNumber)
             .collect(Collectors.toSet());
@@ -196,7 +205,7 @@ public class EnrollmentImportFacade {
             .toList();
     }
 
-    private EnrollmentImportRow classify(EnrollmentImportRow row, Set<String> members,
+    private EnrollmentImportRow classify(EnrollmentImportRow row, Map<String, User> members,
         Set<String> everRegistered, Map<String, String> emailOwners, Map<String, String> everUsedEmails,
         Map<String, Status> enrolled, Set<String> seenNumbers, Set<String> seenEmails, boolean isAssistantOnly) {
         if (row.status() == INVALID) {
@@ -212,12 +221,16 @@ public class EnrollmentImportFacade {
         }
         Status enrollmentStatus = enrolled.get(row.studentNumber());
         if (enrollmentStatus == Status.ACTIVE) {
+            User user = members.get(row.studentNumber());
+            if (user != null && row.major() != null && !row.major().equals(user.getMajor())) {
+                return row.with(VALID, "이미 등록된 수강생입니다. 반영 시 전공 정보를 갱신합니다.");
+            }
             return row.with(DUPLICATE, "이미 등록된 수강생입니다.");
         }
         if (enrollmentStatus != null) {
             return row.with(VALID, "수강 취소 상태입니다. 반영 시 다시 활성화합니다.");
         }
-        if (members.contains(row.studentNumber())) {
+        if (members.containsKey(row.studentNumber())) {
             return row;
         }
         if (everRegistered.contains(row.studentNumber())) {
@@ -238,5 +251,14 @@ public class EnrollmentImportFacade {
             return row.with(INVALID, "신규 가입 대상은 연락처가 필요합니다.");
         }
         return row.with(NEW_USER, "가입되지 않은 학생입니다. 반영 시 계정을 만듭니다.");
+    }
+
+    private String nullableText(JsonNode row, String field) {
+        JsonNode valueNode = row.path(field);
+        if (valueNode.isMissingNode() || valueNode.isNull()) {
+            return null;
+        }
+        String value = valueNode.asText();
+        return value.isBlank() ? null : value;
     }
 }

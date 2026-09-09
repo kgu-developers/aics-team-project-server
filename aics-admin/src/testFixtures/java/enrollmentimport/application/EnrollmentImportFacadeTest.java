@@ -161,6 +161,18 @@ public class EnrollmentImportFacadeTest {
         // then
         assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
         assertThat(response.rows().get(0).email()).isEqualTo(NEWCOMER + "@kyonggi.ac.kr");
+        assertThat(response.rows().get(0).major()).isNull();
+    }
+
+    @Test
+    @DisplayName("preview는 선택 전공 열을 읽어 응답에 포함한다")
+    public void preview_ReadsOptionalMajor() throws IOException {
+        MockMultipartFile file = excelWithMajor(
+            new String[] {NEWCOMER, "이영희", "", "010-0000-0003", "컴퓨터공학부", "학생"});
+
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT, file);
+
+        assertThat(response.rows().get(0).major()).isEqualTo("컴퓨터공학부");
     }
 
     @Test
@@ -397,7 +409,7 @@ public class EnrollmentImportFacadeTest {
         // ENROLLED 행은 DUPLICATE라 반영되지 않고, skipped 필드("이미 등록되어 건너뛴 수")에 잡혀야 한다
         assertThat(response.skipped()).isEqualTo(1);
         verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "010-0000-0000",
-            UserGlobalRole.USER, "010-0000-0000", false);
+            UserGlobalRole.USER, "010-0000-0000", null, false);
         verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.STUDENT);
@@ -425,6 +437,23 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.skipped()).isEqualTo(1);
         verify(enrollmentCommandService, never()).createEnrollment(eq(SECTION_ID), eq(MEMBER), any());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, ENROLLED_BUT_NOT_YET, Role.STUDENT);
+    }
+
+    @Test
+    @DisplayName("apply는 이미 등록된 수강생의 전공이 달라지면 사용자 정보를 갱신한다")
+    public void apply_UpdatesMajorOfExistingEnrollment() {
+        User existingUser = user(ENROLLED);
+        given(userRepository.findAllByStudentNumberIn(any())).willReturn(List.of(existingUser));
+        ImportBatch batch = batch(0, List.of(new EnrollmentImportRow(2, ENROLLED, "이름",
+            ENROLLED + "@kyonggi.ac.kr", "010-0000-0000", "컴퓨터공학부",
+            Role.STUDENT, RowStatus.VALID, "전공 정보를 갱신합니다.")));
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch));
+
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        assertThat(response.applied()).isEqualTo(1);
+        assertThat(existingUser.getMajor()).isEqualTo("컴퓨터공학부");
+        verify(userRepository).save(existingUser);
     }
 
     @Test
@@ -709,10 +738,18 @@ public class EnrollmentImportFacadeTest {
     }
 
     private MockMultipartFile excel(String[]... rows) throws IOException {
+        return excel(new String[] {"학번", "성명", "이메일", "연락처", "역할"}, rows);
+    }
+
+    private MockMultipartFile excelWithMajor(String[]... rows) throws IOException {
+        return excel(new String[] {"학번", "성명", "이메일", "연락처", "전공", "역할"}, rows);
+    }
+
+    private MockMultipartFile excel(String[] headers, String[][] rows) throws IOException {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet();
             String[][] all = new String[rows.length + 1][];
-            all[0] = new String[] {"학번", "성명", "이메일", "연락처", "역할"};
+            all[0] = headers;
             System.arraycopy(rows, 0, all, 1, rows.length);
             for (int i = 0; i < all.length; i++) {
                 Row row = sheet.createRow(i);

@@ -47,8 +47,8 @@ class TeamAdminControllerTest {
 		return new TeamAdminDetailResponse(
 			1L, 10L, "1팀", "매주 화요일 회고", "매주 목 19:00", Status.FORMING,
 			List.of(
-				new TeamMemberAdminResponse(1L, "202699999", "김철수", true, "백엔드"),
-				new TeamMemberAdminResponse(2L, "202611111", "이영희", false, "프론트엔드")),
+				new TeamMemberAdminResponse(1L, "202699999", "김철수", "컴퓨터공학과", true, "백엔드"),
+				new TeamMemberAdminResponse(2L, "202611111", "이영희", "산업경영공학과", false, "프론트엔드")),
 			LocalDateTime.of(2026, 3, 2, 10, 0));
 	}
 
@@ -65,6 +65,7 @@ class TeamAdminControllerTest {
 			.andExpect(jsonPath("$.status").value("FORMING"))
 			.andExpect(jsonPath("$.members.length()").value(2))
 			.andExpect(jsonPath("$.members[0].studentNumber").value("202699999"))
+			.andExpect(jsonPath("$.members[0].major").value("컴퓨터공학과"))
 			.andExpect(jsonPath("$.members[0].isLeader").value(true))
 			.andExpect(jsonPath("$.members[1].projectRole").value("프론트엔드"));
 
