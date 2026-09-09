@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.support.TransactionCallback;
@@ -148,6 +149,10 @@ public class TeamImportFacadeTest {
 
     // then
     assertThat(response.importId()).isEqualTo(1L);
+
+    ArgumentCaptor<ImportBatch> batchCaptor = ArgumentCaptor.forClass(ImportBatch.class);
+    verify(importBatchRepository).save(batchCaptor.capture());
+    assertThat(batchCaptor.getValue().getFileName()).isEqualTo("teams.xlsx");
     assertThat(response.summary()).isEqualTo(new TeamImportSummary(6, 2, 2, 0, 0, 4));
 
     List<TeamImportRow> rows = response.rows();

@@ -106,4 +106,25 @@ class MeetingActionCommandServiceTest {
         assertThatThrownBy(() -> commandService.updateMeetingAction(999L, null, "내용", null, null, false, false))
             .isInstanceOf(CustomException.class);
     }
+
+    @Test
+    @DisplayName("deleteMeetingAction은 액션플랜을 삭제한다")
+    void deleteMeetingAction_DeletesAction() {
+        // given
+        Long id = createMeetingAction();
+
+        // when
+        commandService.deleteMeetingAction(id);
+
+        // then
+        assertThat(fakeMeetingActionRepository.findById(id)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("deleteMeetingAction은 존재하지 않는 액션플랜이면 예외를 던진다")
+    void deleteMeetingAction_NotFound_ThrowsException() {
+        // when & then
+        assertThatThrownBy(() -> commandService.deleteMeetingAction(999L))
+            .isInstanceOf(CustomException.class);
+    }
 }

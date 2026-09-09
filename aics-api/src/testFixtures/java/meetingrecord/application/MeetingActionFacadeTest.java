@@ -259,4 +259,38 @@ public class MeetingActionFacadeTest {
         // then
         assertEquals(1, result.contents().size());
     }
+
+    @Test
+    @DisplayName("deleteMeetingAction은 액션플랜을 성공적으로 삭제한다")
+    public void deleteMeetingAction_Success() {
+        // given
+        MeetingActionResponse persisted = meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
+
+        // when
+        meetingActionFacade.deleteMeetingAction(persisted.id(), MEMBER);
+
+        // then
+        assertThatThrownBy(() -> meetingActionFacade.updateMeetingAction(persisted.id(), MEMBER,
+            MeetingActionUpdateRequest.builder().status(MeetingActionStatus.DONE).build()))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("소속되지 않은 팀의 액션플랜은 삭제할 수 없다")
+    public void deleteMeetingAction_NonMember_ThrowsAccessDenied() {
+        // given
+        MeetingActionResponse persisted = meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildCreateRequest());
+
+        // when & then
+        assertThatThrownBy(() -> meetingActionFacade.deleteMeetingAction(persisted.id(), NON_MEMBER))
+            .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("deleteMeetingAction은 존재하지 않는 액션플랜이면 예외를 던진다")
+    public void deleteMeetingAction_NotFound_ThrowsException() {
+        // when & then
+        assertThatThrownBy(() -> meetingActionFacade.deleteMeetingAction(999L, MEMBER))
+            .isInstanceOf(CustomException.class);
+    }
 }

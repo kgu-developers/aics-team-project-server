@@ -44,6 +44,29 @@ class ImportBatchTest {
 	}
 
 	@Test
+	@DisplayName("create는 업로드 경로를 제거한 원본 파일명만 보관한다")
+	void create_NormalizesFileName() {
+		ImportBatch unixPath = ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
+				"/tmp/uploads/학생명단.xlsx", PAYLOAD, CLEAN_SUMMARY, NOW.plusDays(1));
+		ImportBatch windowsPath = ImportBatch.create("202012345", 1L, Type.TEAM,
+				"C:\\fakepath\\팀명단.xlsx", PAYLOAD, CLEAN_SUMMARY, NOW.plusDays(1));
+
+		assertThat(unixPath.getFileName()).isEqualTo("학생명단.xlsx");
+		assertThat(windowsPath.getFileName()).isEqualTo("팀명단.xlsx");
+	}
+
+	@Test
+	@DisplayName("기존 생성 방식과 빈 파일명은 파일명을 null로 보관한다")
+	void create_WithoutFileName() {
+		ImportBatch legacy = batch(CLEAN_SUMMARY, NOW.plusDays(1));
+		ImportBatch blank = ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
+				"  ", PAYLOAD, CLEAN_SUMMARY, NOW.plusDays(1));
+
+		assertThat(legacy.getFileName()).isNull();
+		assertThat(blank.getFileName()).isNull();
+	}
+
+	@Test
 	@DisplayName("payload는 형식 제약이 없고 값의 타입도 보존된다")
 	void anyShapeIsAccepted() {
 		JsonNode alien = JsonConverter.parse("""
