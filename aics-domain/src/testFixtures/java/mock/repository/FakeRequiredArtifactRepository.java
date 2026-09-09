@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Comparator;
 
 import kgu.developers.domain.feedback.domain.RequiredArtifact;
 import kgu.developers.domain.feedback.domain.RequiredArtifactRepository;
@@ -37,13 +38,16 @@ public class FakeRequiredArtifactRepository implements RequiredArtifactRepositor
 
     @Override
     public Optional<RequiredArtifact> findById(Long id) {
-        return Optional.ofNullable(store.get(id));
+        return Optional.ofNullable(store.get(id))
+            .filter(requiredArtifact -> requiredArtifact.getDeletedAt() == null);
     }
 
     @Override
     public List<RequiredArtifact> findAllByMilestoneId(Long milestoneId) {
         return store.values().stream()
             .filter(requiredArtifact -> requiredArtifact.getMilestoneId().equals(milestoneId))
+            .filter(requiredArtifact -> requiredArtifact.getDeletedAt() == null)
+            .sorted(Comparator.comparing(RequiredArtifact::getId))
             .toList();
     }
 }

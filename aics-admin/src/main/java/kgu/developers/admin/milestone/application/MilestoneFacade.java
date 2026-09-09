@@ -11,9 +11,15 @@ import kgu.developers.admin.milestone.presentation.request.MilestoneScheduleRequ
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
+import kgu.developers.admin.milestone.presentation.request.RequiredArtifactRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestoneResponse;
+import kgu.developers.admin.milestone.presentation.response.RequiredArtifactListResponse;
+import kgu.developers.admin.milestone.presentation.response.RequiredArtifactPersistResponse;
+import kgu.developers.domain.feedback.application.command.RequiredArtifactCommandService;
+import kgu.developers.domain.feedback.application.query.RequiredArtifactQueryService;
+import kgu.developers.domain.feedback.exception.InvalidRequiredArtifactRequestException;
 import kgu.developers.domain.milestone.application.command.MilestoneCommandService;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.domain.Milestone;
@@ -28,6 +34,8 @@ public class MilestoneFacade {
     private final MilestoneCommandService milestoneCommandService;
     private final MilestoneQueryService milestoneQueryService;
     private final MilestoneAccessValidator milestoneAccessValidator;
+    private final RequiredArtifactCommandService requiredArtifactCommandService;
+    private final RequiredArtifactQueryService requiredArtifactQueryService;
 
     public MilestonePersistResponse createMilestone(
             Long sectionId,
@@ -127,6 +135,85 @@ public class MilestoneFacade {
                 professorId,
                 request.toDomain()
         ));
+    }
+
+    public RequiredArtifactListResponse getRequiredArtifacts(
+            Long sectionId,
+            String professorId,
+            Long milestoneId
+    ) {
+        validateRequiredArtifactAccess(sectionId, professorId, milestoneId);
+        return RequiredArtifactListResponse.from(
+                requiredArtifactQueryService.getRequiredArtifacts(milestoneId)
+        );
+    }
+
+    public RequiredArtifactPersistResponse createRequiredArtifact(
+            Long sectionId,
+            String professorId,
+            Long milestoneId,
+            RequiredArtifactRequest request
+    ) {
+        validateRequiredArtifactAccess(sectionId, professorId, milestoneId);
+        return asInvalidRequiredArtifactRequest(() -> RequiredArtifactPersistResponse.of(
+                requiredArtifactCommandService.create(
+                        milestoneId,
+                        request.type(),
+                        request.label(),
+                        request.required(),
+                        request.allowedExtensionsValue(),
+                        request.maxFileSizeMb()
+                )
+        ));
+    }
+
+    public void updateRequiredArtifact(
+            Long sectionId,
+            String professorId,
+            Long milestoneId,
+            Long requiredArtifactId,
+            RequiredArtifactRequest request
+    ) {
+        validateRequiredArtifactAccess(sectionId, professorId, milestoneId);
+        asInvalidRequiredArtifactRequest(() -> requiredArtifactCommandService.update(
+                milestoneId,
+                requiredArtifactId,
+                request.type(),
+                request.label(),
+                request.required(),
+                request.allowedExtensionsValue(),
+                request.maxFileSizeMb()
+        ));
+    }
+
+    public void deleteRequiredArtifact(
+            Long sectionId,
+            String professorId,
+            Long milestoneId,
+            Long requiredArtifactId
+    ) {
+        validateRequiredArtifactAccess(sectionId, professorId, milestoneId);
+        requiredArtifactCommandService.delete(milestoneId, requiredArtifactId);
+    }
+
+    private void validateRequiredArtifactAccess(Long sectionId, String professorId, Long milestoneId) {
+        milestoneAccessValidator.validateSectionAccess(sectionId, professorId);
+        milestoneQueryService.getMilestone(sectionId, milestoneId);
+    }
+
+    private void asInvalidRequiredArtifactRequest(Runnable operation) {
+        asInvalidRequiredArtifactRequest(() -> {
+            operation.run();
+            return null;
+        });
+    }
+
+    private <T> T asInvalidRequiredArtifactRequest(Supplier<T> operation) {
+        try {
+            return operation.get();
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidRequiredArtifactRequestException(exception);
+        }
     }
 
     private MilestoneSchedule toSchedule(MilestoneScheduleRequest request) {

@@ -26,7 +26,7 @@ public class RequiredArtifactRepositoryImpl implements RequiredArtifactRepositor
 
     @Override
     public List<RequiredArtifact> findAllByMilestoneId(Long milestoneId) {
-        return jpaRepository.findAllByMilestoneIdAndDeletedAtIsNull(milestoneId).stream()
+        return jpaRepository.findAllByMilestoneIdAndDeletedAtIsNullOrderByIdAsc(milestoneId).stream()
                 .map(RequiredArtifactJpaEntity::toDomain)
                 .toList();
     }

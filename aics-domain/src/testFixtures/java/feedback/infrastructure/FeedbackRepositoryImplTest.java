@@ -62,7 +62,7 @@ class FeedbackRepositoryImplTest {
     @DisplayName("필수 산출물 저장소 어댑터는 마일스톤별 목록을 조회한다")
     void findRequiredArtifactsByMilestone() {
         RequiredArtifactRepositoryImpl repository = new RequiredArtifactRepositoryImpl(jpaRequiredArtifactRepository);
-        given(jpaRequiredArtifactRepository.findAllByMilestoneIdAndDeletedAtIsNull(1L))
+        given(jpaRequiredArtifactRepository.findAllByMilestoneIdAndDeletedAtIsNullOrderByIdAsc(1L))
                 .willReturn(List.of(RequiredArtifactJpaEntity.toEntity(
                         RequiredArtifact.restore(1L, 1L, RequiredArtifactType.FILE, "중간보고서", true, "pdf", 20, null, null, null)
                 )));

@@ -1,6 +1,8 @@
 package kgu.developers.api.milestone.application;
 
 import kgu.developers.api.milestone.presentation.response.MilestoneListResponse;
+import kgu.developers.api.milestone.presentation.response.RequiredArtifactListResponse;
+import kgu.developers.domain.feedback.application.query.RequiredArtifactQueryService;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
@@ -17,6 +19,7 @@ public class MilestoneFacade {
 
     private final MilestoneQueryService milestoneQueryService;
     private final EnrollmentRepository enrollmentRepository;
+    private final RequiredArtifactQueryService requiredArtifactQueryService;
 
     public MilestoneListResponse getMilestones(Long sectionId, String userId) {
         validateActiveStudent(sectionId, userId);
@@ -24,6 +27,20 @@ public class MilestoneFacade {
             milestoneQueryService.getMilestones(sectionId, null).stream()
                 .filter(milestone -> milestone.getStatus() != MilestoneStatus.DRAFT)
                 .toList()
+        );
+    }
+
+    public RequiredArtifactListResponse getRequiredArtifacts(
+            Long sectionId,
+            Long milestoneId,
+            String userId
+    ) {
+        validateActiveStudent(sectionId, userId);
+        if (milestoneQueryService.getMilestone(sectionId, milestoneId).getStatus() == MilestoneStatus.DRAFT) {
+            throw new AccessDeniedException("공개되지 않은 마일스톤은 조회할 수 없습니다.");
+        }
+        return RequiredArtifactListResponse.from(
+                requiredArtifactQueryService.getRequiredArtifacts(milestoneId)
         );
     }
 
