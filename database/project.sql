@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS project (
     goal TEXT NOT NULL,
     data_configuration JSONB,
     screen_configuration JSONB,
-    key_features JSONB,
-    demo_flow JSONB,
+    key_features JSONB NOT NULL DEFAULT '[]'::jsonb,
+    demo_flow JSONB NOT NULL DEFAULT '[]'::jsonb,
     project_schedule TEXT,
     repository_url VARCHAR(255),
     external_links JSONB,
@@ -23,18 +23,37 @@ CREATE TABLE IF NOT EXISTS project (
     CONSTRAINT fk_team_project FOREIGN KEY (team_id) REFERENCES team(id)
 );
 
--- KD3-211 이전에는 data_configuration 이 TEXT 였다. Hibernate ddl-auto=update 는 PostgreSQL의
--- USING 절을 만들지 못하므로, 기존 DB에서는 이 스크립트를 먼저 실행해야 한다. JSON 텍스트는
--- 그대로 JSONB로, 평문은 JSON 문자열로 보존해 데이터 손실 없이 애플리케이션을 기동할 수 있다.
-CREATE OR REPLACE FUNCTION pg_temp.to_jsonb_or_text(value TEXT)
+-- CREATE TABLE IF NOT EXISTS는 기존 테이블에 열을 추가하지 않는다. 기존 제안서의 주요 기능·시연 흐름은
+-- 빈 배열로 채워 새 JSONB 매핑과 동일한 기본값을 보장하고, 일정은 선택값이라 NULL을 유지한다.
+ALTER TABLE project ADD COLUMN IF NOT EXISTS key_features JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE project ADD COLUMN IF NOT EXISTS demo_flow JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE project ADD COLUMN IF NOT EXISTS project_schedule TEXT;
+UPDATE project SET key_features = '[]'::jsonb WHERE key_features IS NULL;
+UPDATE project SET demo_flow = '[]'::jsonb WHERE demo_flow IS NULL;
+ALTER TABLE project ALTER COLUMN key_features SET DEFAULT '[]'::jsonb;
+ALTER TABLE project ALTER COLUMN demo_flow SET DEFAULT '[]'::jsonb;
+ALTER TABLE project ALTER COLUMN key_features SET NOT NULL;
+ALTER TABLE project ALTER COLUMN demo_flow SET NOT NULL;
+
+-- KD3-211 이전에는 data_configuration 이 TEXT 였다. NULL·공백은 빈 배열로, 이미 저장된 JSON 배열은
+-- 그대로 옮긴다. 그 외에는 배열 항목으로 추측 변환할 수 없으므로 실패시켜 운영자가 원본을 확인하게 한다.
+CREATE OR REPLACE FUNCTION pg_temp.to_jsonb_array(value TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
+DECLARE
+    parsed JSONB;
 BEGIN
-    RETURN value::JSONB;
-EXCEPTION WHEN OTHERS THEN
-    RETURN to_jsonb(value);
+    IF value IS NULL OR btrim(value) = '' THEN
+        RETURN '[]'::JSONB;
+    END IF;
+
+    parsed := value::JSONB;
+    IF jsonb_typeof(parsed) <> 'array' THEN
+        RAISE EXCEPTION 'project.data_configuration must be a JSON array';
+    END IF;
+    RETURN parsed;
 END;
 $$;
 
@@ -50,7 +69,7 @@ BEGIN
     ) THEN
         ALTER TABLE project
             ALTER COLUMN data_configuration TYPE JSONB
-            USING pg_temp.to_jsonb_or_text(data_configuration);
+            USING pg_temp.to_jsonb_array(data_configuration);
     END IF;
 END;
 $$;
