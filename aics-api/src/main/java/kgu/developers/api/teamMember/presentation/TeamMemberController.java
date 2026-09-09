@@ -8,12 +8,26 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberListResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "TeamMember", description = "팀원 API")
 public interface TeamMemberController {
+	@Operation(summary = "팀원 검색 API", description = """
+			- Description : 이 API는 로그인한 사용자를 포함한 팀원을 이름 또는 학번으로 검색합니다.
+			- 해당 팀 소속 팀원 또는 담당 교수만 조회할 수 있으며, 그 외에는 403을 응답합니다.
+		""")
+	@ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TeamMemberListResponse.class)))
+	ResponseEntity<TeamMemberListResponse> getTeamMembers(
+		@Parameter(description = "팀 ID는 URL 경로 변수 입니다.", example = "1", required = true)
+		@Positive @PathVariable Long teamId,
+		@Parameter(description = "검색 키워드(이름 또는 학번)", example = "홍길동")
+		@RequestParam(defaultValue = "") String keyword,
+		Authentication authentication
+	);
 
 	@Operation(summary = "팀원 연락처 조회 API", description = """
 			- Description : 이 API는 팀원의 이메일과 연락처를 조회합니다.

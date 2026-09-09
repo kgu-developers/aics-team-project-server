@@ -3,6 +3,7 @@ package kgu.developers.api.teamMember.presentation;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberListResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -10,6 +11,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -19,6 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class TeamMemberControllerImpl implements TeamMemberController {
 
 	private final TeamMemberFacade teamMemberFacade;
+
+	@Override
+	@GetMapping
+	public ResponseEntity<TeamMemberListResponse> getTeamMembers(
+			@Positive @PathVariable Long teamId, @RequestParam(defaultValue = "") String keyword,
+			Authentication authentication) {
+		return ResponseEntity.ok(teamMemberFacade.getTeamMembers(teamId, authentication.getName(), keyword));
+	}
 
 	@Override
 	@GetMapping("/contacts")
