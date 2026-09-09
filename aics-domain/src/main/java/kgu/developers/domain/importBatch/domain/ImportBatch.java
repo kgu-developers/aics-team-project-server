@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.domain.importBatch.exception.ImportBatchAlreadyAppliedException;
 import kgu.developers.domain.importBatch.exception.ImportBatchExpiredException;
+import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
 import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsException;
 import lombok.*;
 
@@ -17,6 +18,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class ImportBatch {
+    private static final int MAX_FILE_NAME_LENGTH = 255;
+
     private Long id;
     private Long version;  // 낙관적 락 버전 (신규는 null)
 
@@ -38,6 +41,9 @@ public class ImportBatch {
 
     public static ImportBatch create(String uploadedBy, Long sectionId, Type type,
                                      JsonNode payload, JsonNode summary, String fileName, LocalDateTime expiredAt) {
+        if (fileName != null && fileName.length() > MAX_FILE_NAME_LENGTH) {
+            throw new ImportBatchFileInvalidException("파일명은 255자를 초과할 수 없습니다.");
+        }
         return ImportBatch.builder()
                 .uploadedBy(requireNonNull(uploadedBy, "uploadedBy"))
                 .sectionId(requireNonNull(sectionId, "sectionId"))

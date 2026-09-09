@@ -16,6 +16,7 @@ import kgu.developers.domain.importBatch.domain.Status;
 import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.exception.ImportBatchAlreadyAppliedException;
 import kgu.developers.domain.importBatch.exception.ImportBatchExpiredException;
+import kgu.developers.domain.importBatch.exception.ImportBatchFileInvalidException;
 import kgu.developers.domain.importBatch.exception.ImportBatchHasInvalidRowsException;
 
 class ImportBatchTest {
@@ -78,6 +79,17 @@ class ImportBatchTest {
 				PAYLOAD, null, "test.xlsx", NOW))
 				.isInstanceOf(NullPointerException.class)
 				.hasMessage("summary");
+	}
+
+	@Test
+	@DisplayName("create는 DB 컬럼보다 긴 원본 파일명을 거부한다")
+	void createRejectsTooLongFileName() {
+		String fileName = "a".repeat(256);
+
+		assertThatThrownBy(() -> ImportBatch.create("202012345", 1L, Type.ENROLLMENT,
+				PAYLOAD, CLEAN_SUMMARY, fileName, NOW.plusDays(1)))
+				.isInstanceOf(ImportBatchFileInvalidException.class)
+				.hasRootCauseMessage("파일명은 255자를 초과할 수 없습니다.");
 	}
 
 	@Test
