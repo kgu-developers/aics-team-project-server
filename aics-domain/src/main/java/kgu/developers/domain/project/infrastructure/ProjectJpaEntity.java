@@ -92,6 +92,7 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(name = "proposal_revision", nullable = false)
     private long proposalRevision;
 
+    @PostLoad
     @PrePersist
     @PreUpdate
     protected void ensureDefaults() {
