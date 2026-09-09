@@ -6,6 +6,7 @@ import java.util.Map;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberListResponse;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
 import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
@@ -33,12 +34,12 @@ public class TeamMemberFacade {
 			.toList());
 	}
 
-	public List<TeamMemberResponse> getTeamMembers(Long teamId, String userId, String keyword) {
+	public TeamMemberListResponse getTeamMembers(Long teamId, String userId, String keyword) {
 		teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
-		return teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
+		return new TeamMemberListResponse(teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
 			.filter(it -> it.member().getUserId().contains(keyword)
 				|| it.user() != null && it.user().getName().contains(keyword))
 			.map(it -> TeamMemberResponse.of(it.member(), it.user()))
-			.toList();
+			.toList());
 	}
 }

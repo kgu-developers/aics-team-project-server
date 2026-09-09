@@ -21,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberListResponse;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
 import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
 import kgu.developers.domain.section.exception.ContactNotVisibleException;
@@ -90,9 +91,9 @@ class TeamMemberFacadeTest {
 			new TeamMemberWithUser(me, User.builder().studentNumber(USER).name("김철수").build()),
 			new TeamMemberWithUser(teammate, User.builder().studentNumber("202611111").name("이영희").build())));
 
-		List<TeamMemberResponse> response = teamMemberFacade.getTeamMembers(1L, USER, "");
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, "");
 
-		assertThat(response).extracting(TeamMemberResponse::studentNumber)
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber)
 			.containsExactly(USER, "202611111");
 	}
 
@@ -104,9 +105,9 @@ class TeamMemberFacadeTest {
 			new TeamMemberWithUser(TeamMember.builder().id(2L).teamId(1L).userId("202611111").build(),
 				User.builder().studentNumber("202611111").name("이영희").build())));
 
-		List<TeamMemberResponse> response = teamMemberFacade.getTeamMembers(1L, USER, "영희");
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, "영희");
 
-		assertThat(response).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
 	}
 
 	@Test
@@ -117,9 +118,9 @@ class TeamMemberFacadeTest {
 			new TeamMemberWithUser(TeamMember.builder().id(2L).teamId(1L).userId("202611111").build(),
 				User.builder().studentNumber("202611111").name("이영희").build())));
 
-		List<TeamMemberResponse> response = teamMemberFacade.getTeamMembers(1L, USER, "1111");
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, "1111");
 
-		assertThat(response).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
 	}
 
 	@Test

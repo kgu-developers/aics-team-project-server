@@ -3,8 +3,7 @@ package kgu.developers.api.teamMember.presentation;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
-import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
-import java.util.List;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberListResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,7 +24,7 @@ public class TeamMemberControllerImpl implements TeamMemberController {
 
 	@Override
 	@GetMapping
-	public ResponseEntity<List<TeamMemberResponse>> getTeamMembers(
+	public ResponseEntity<TeamMemberListResponse> getTeamMembers(
 			@Positive @PathVariable Long teamId, @RequestParam(defaultValue = "") String keyword,
 			Authentication authentication) {
 		return ResponseEntity.ok(teamMemberFacade.getTeamMembers(teamId, authentication.getName(), keyword));
