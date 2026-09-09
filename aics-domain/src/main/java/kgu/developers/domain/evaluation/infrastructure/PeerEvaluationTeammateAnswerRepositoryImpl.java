@@ -26,5 +26,6 @@ public class PeerEvaluationTeammateAnswerRepositoryImpl implements PeerEvaluatio
     @Override
     public void deleteAllBySubmissionId(Long submissionId) {
         jpaRepository.deleteAllBySubmissionId(submissionId);
+        jpaRepository.flush();
     }
 }
