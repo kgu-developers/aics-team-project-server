@@ -221,6 +221,94 @@ class ProjectControllerTest {
             .andExpect(status().isOk());
     }
 
+    // keyFeatures 컬럼은 NOT NULL이고 순서 있는 목록이라 배열이어야 한다. @NotNull만으로는
+    // JSON `null`을 못 막는다 — Jackson이 NullNode로 역직렬화해서 jsonb에 `null`이 저장돼버린다.
+    @ParameterizedTest(name = "keyFeatures가 {0}이면 400을 반환한다")
+    @CsvSource({"null", "'{\"title\":\"학습 분석\"}'", "'\"문자열\"'", "123"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 주요 기능이 배열이 아니면 400을 반환한다")
+    void saveProjectRejectsNonArrayKeyFeatures(String keyFeaturesJson) throws Exception {
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"종류: 학습 로그","screenConfiguration":[],
+             "keyFeatures":%s,"demoFlow":[],
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """.formatted(keyFeaturesJson);
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    // demoFlow 컬럼은 NOT NULL이고 순서 있는 목록이라 배열이어야 한다. @NotNull만으로는
+    // JSON `null`을 못 막는다 — Jackson이 NullNode로 역직렬화해서 jsonb에 `null`이 저장돼버린다.
+    @ParameterizedTest(name = "demoFlow가 {0}이면 400을 반환한다")
+    @CsvSource({"null", "'{\"number\":1,\"title\":\"로그인\"}'", "'\"문자열\"'", "123"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 시연 흐름이 배열이 아니면 400을 반환한다")
+    void saveProjectRejectsNonArrayDemoFlow(String demoFlowJson) throws Exception {
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"종류: 학습 로그","screenConfiguration":[],
+             "keyFeatures":[],"demoFlow":%s,
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """.formatted(demoFlowJson);
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    // 파사드의 검사는 "각 원소가 올바른 구조"라는 전제 위에서 도니까, 그 전제를 여기 입력 경계에서
+    // 400으로 끊어야 검사 없이 저장되는 구멍이 안 생긴다.
+    @ParameterizedTest(name = "keyFeatures 항목이 {0}이면 400을 반환한다")
+    @CsvSource({"'\"학습 분석\"'", "'{\"title\":\"학습 분석\"}'", "'{\"description\":\"AI가 학습 패턴을 분석합니다\"}'", "'{\"title\":123,\"description\":\"설명\"}'", "'{\"title\":\"학습 분석\",\"description\":456}'"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 주요 기능 항목 모양이 잘못되면 400을 반환한다")
+    void saveProjectRejectsMalformedKeyFeatureItem(String featureJson) throws Exception {
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"종류: 학습 로그","screenConfiguration":[],
+             "keyFeatures":[%s],"demoFlow":[],
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """.formatted(featureJson);
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    // 파사드의 검사는 "각 원소가 올바른 구조"라는 전제 위에서 도니까, 그 전제를 여기 입력 경계에서
+    // 400으로 끊어야 검사 없이 저장되는 구멍이 안 생긴다.
+    @ParameterizedTest(name = "demoFlow 항목이 {0}이면 400을 반환한다")
+    @CsvSource({"'\"로그인 화면\"'", "'{\"number\":1}'", "'{\"title\":\"로그인 화면\"}'", "'{\"number\":\"1\",\"title\":\"로그인 화면\"}'", "'{\"number\":1.5,\"title\":\"로그인 화면\"}'", "'{\"number\":1,\"title\":123}'"})
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 시연 흐름 항목 모양이 잘못되면 400을 반환한다")
+    void saveProjectRejectsMalformedDemoFlowItem(String flowJson) throws Exception {
+        String body = """
+            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+             "dataConfiguration":"종류: 학습 로그","screenConfiguration":[],
+             "keyFeatures":[],"demoFlow":[%s],
+             "meetingStyle":"대면","repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
+            """.formatted(flowJson);
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
     @Test
     @DisplayName("PATCH /api/v1/projects/{projectId}/proposal-complete는 완료 처리를 요청한다")
     void completeProposal() throws Exception {
