@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -60,12 +61,23 @@ class ProjectJpaEntityTest {
     ObjectNode externalLinks = objectMapper.createObjectNode();
     externalLinks.put("notion", "https://notion.so/example");
 
+    JsonNode screenConfiguration = objectMapper.createArrayNode()
+        .add(objectMapper.createObjectNode().put("title", "홈").put("description", "요약").put("imageFileId", 1));
+    JsonNode keyFeatures = objectMapper.createArrayNode()
+        .add(objectMapper.createObjectNode().put("title", "로그인").put("description", "사용자 인증"));
+    JsonNode demoFlow = objectMapper.createArrayNode()
+        .add(objectMapper.createObjectNode().put("number", 1).put("title", "로그인 화면"));
+
     Project project = Project.builder()
         .id(1L)
         .teamId(2L)
         .title("팀 프로젝트")
         .description("프로젝트 설명")
         .goal("프로젝트 목표")
+        .dataConfiguration("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집")
+        .screenConfiguration(screenConfiguration)
+        .keyFeatures(keyFeatures)
+        .demoFlow(demoFlow)
         .repositoryUrl("https://github.com/example/repo")
         .externalLinks(externalLinks)
         .approvalStatus(ApprovalStatus.APPROVED)
@@ -84,6 +96,10 @@ class ProjectJpaEntityTest {
     assertThat(domain.getTitle()).isEqualTo("팀 프로젝트");
     assertThat(domain.getDescription()).isEqualTo("프로젝트 설명");
     assertThat(domain.getGoal()).isEqualTo("프로젝트 목표");
+    assertThat(domain.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
+    assertThat(domain.getScreenConfiguration()).isEqualTo(screenConfiguration);
+    assertThat(domain.getKeyFeatures()).isEqualTo(keyFeatures);
+    assertThat(domain.getDemoFlow()).isEqualTo(demoFlow);
     assertThat(domain.getRepositoryUrl()).isEqualTo("https://github.com/example/repo");
     assertThat(domain.getExternalLinks()).isEqualTo(externalLinks);
     assertThat(domain.getApprovalStatus()).isEqualTo(ApprovalStatus.APPROVED);

@@ -1,6 +1,7 @@
 package kgu.developers.domain.project.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -52,6 +53,25 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String goal;
 
+    @Builder.Default
+    @Column(nullable = true, columnDefinition = "TEXT")
+    private String dataConfiguration = "";
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode screenConfiguration = createEmptyJsonNode();
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode keyFeatures = createEmptyJsonNode();
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode demoFlow = createEmptyJsonNode();  // 시연 흐름 [{number, title}, ...] - number로 정렬됨
+
     @Column(length = 255)
     private String repositoryUrl;
 
@@ -72,6 +92,28 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(name = "proposal_revision", nullable = false)
     private long proposalRevision;
 
+    @PostLoad
+    @PrePersist
+    @PreUpdate
+    protected void ensureDefaults() {
+        if (dataConfiguration == null) {
+            dataConfiguration = "";
+        }
+        if (screenConfiguration == null) {
+            screenConfiguration = createEmptyJsonNode();
+        }
+        if (keyFeatures == null) {
+            keyFeatures = createEmptyJsonNode();
+        }
+        if (demoFlow == null) {
+            demoFlow = createEmptyJsonNode();
+        }
+    }
+
+    private static JsonNode createEmptyJsonNode() {
+        return JsonNodeFactory.instance.arrayNode();
+    }
+
     public Project toDomain() {
         return Project.builder()
                 .id(id)
@@ -80,6 +122,10 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .title(title)
                 .description(description)
                 .goal(goal)
+                .dataConfiguration(dataConfiguration)
+                .screenConfiguration(screenConfiguration)
+                .keyFeatures(keyFeatures)
+                .demoFlow(demoFlow)
                 .repositoryUrl(repositoryUrl)
                 .externalLinks(externalLinks)
                 .approvalStatus(approvalStatus)
@@ -101,6 +147,10 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .title(project.getTitle())
                 .description(project.getDescription())
                 .goal(project.getGoal())
+                .dataConfiguration(project.getDataConfiguration())
+                .screenConfiguration(project.getScreenConfiguration())
+                .keyFeatures(project.getKeyFeatures())
+                .demoFlow(project.getDemoFlow())
                 .repositoryUrl(project.getRepositoryUrl())
                 .externalLinks(project.getExternalLinks())
                 .approvalStatus(project.getApprovalStatus())
