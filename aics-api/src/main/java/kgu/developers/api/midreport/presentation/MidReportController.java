@@ -28,6 +28,7 @@ public interface MidReportController {
     @Operation(
         summary = "중간보고서 영역 저장",
         description = "고정 영역 키와 필드 구조를 검증해 저장합니다. 완료 영역을 수정하면 IN_PROGRESS로 돌아가며, 제출된 문서는 읽기 전용입니다."
+            + " GUI 화면 이미지는 기존 파일 업로드 API의 imageFileId를 사용하고, 현재 팀원이 올린 이미지 파일만 연결할 수 있습니다."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "저장 성공"),
@@ -44,7 +45,8 @@ public interface MidReportController {
     @Operation(
         summary = "중간보고서 영역 완료",
         description = "topic(title, description), gui-design(guiScreens), engine-design(features, architecture, testCases), project-plan(completed, inProgress, remaining, help)의 필수값을 검증합니다. "
-            + "guiScreens JSON 행은 id/name/description 문자열을 모두 가져야 하며 imageName은 선택 사항입니다. "
+            + "guiScreens JSON 행은 id/name/description 문자열을 모두 가져야 하며 imageFileId는 선택 사항입니다. "
+            + "조회 응답에는 유효한 이미지의 imageName과 만료되는 imageUrl이 함께 제공됩니다. "
             + "testCases JSON 행은 id/description/input/output 문자열을 모두 가져야 합니다."
     )
     @ApiResponses({
