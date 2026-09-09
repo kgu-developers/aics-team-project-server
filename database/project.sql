@@ -20,6 +20,38 @@ CREATE TABLE IF NOT EXISTS project (
     CONSTRAINT fk_team_project FOREIGN KEY (team_id) REFERENCES team(id)
 );
 
+-- KD3-211 이전에는 data_configuration 이 TEXT 였다. Hibernate ddl-auto=update 는 PostgreSQL의
+-- USING 절을 만들지 못하므로, 기존 DB에서는 이 스크립트를 먼저 실행해야 한다. JSON 텍스트는
+-- 그대로 JSONB로, 평문은 JSON 문자열로 보존해 데이터 손실 없이 애플리케이션을 기동할 수 있다.
+CREATE OR REPLACE FUNCTION pg_temp.to_jsonb_or_text(value TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+    RETURN value::JSONB;
+EXCEPTION WHEN OTHERS THEN
+    RETURN to_jsonb(value);
+END;
+$$;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'project'
+          AND column_name = 'data_configuration'
+          AND data_type <> 'jsonb'
+    ) THEN
+        ALTER TABLE project
+            ALTER COLUMN data_configuration TYPE JSONB
+            USING pg_temp.to_jsonb_or_text(data_configuration);
+    END IF;
+END;
+$$;
+
 -- 부분 유니크 인덱스: 팀당 활성 프로젝트 1개 보장 (deleted_at IS NULL인 경우만)
 CREATE UNIQUE INDEX IF NOT EXISTS uk_project_team_active 
 ON project (team_id) 
