@@ -18,8 +18,6 @@ public record ProjectResponse(
     String goal,
     JsonNode dataConfiguration,
     JsonNode screenConfiguration,
-    JsonNode keyFeatures,
-    JsonNode demoFlow,
     String projectSchedule,
     String repositoryUrl,
     JsonNode externalLinks,
@@ -44,8 +42,6 @@ public record ProjectResponse(
             .goal(project.getGoal())
             .dataConfiguration(project.getDataConfiguration())
             .screenConfiguration(resolvedScreenConfiguration)
-            .keyFeatures(project.getKeyFeatures())
-            .demoFlow(project.getDemoFlow())
             .projectSchedule(project.getProjectSchedule())
             .repositoryUrl(project.getRepositoryUrl())
             .externalLinks(project.getExternalLinks())

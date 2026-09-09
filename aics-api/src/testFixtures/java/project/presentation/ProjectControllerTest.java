@@ -207,44 +207,6 @@ class ProjectControllerTest {
         then(projectFacade).shouldHaveNoInteractions();
     }
 
-    @ParameterizedTest(name = "keyFeatures 항목이 {0}이면 400을 반환한다")
-    @CsvSource({"'\"학습 분석\"'", "'{\"title\":\"학습 분석\"}'", "'{\"title\":1,\"description\":\"설명\"}'"})
-    @DisplayName("PUT /api/v1/teams/{teamId}/project는 주요 기능 항목 모양이 잘못되면 400을 반환한다")
-    void saveProjectRejectsMalformedKeyFeature(String keyFeatureJson) throws Exception {
-        String body = """
-            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
-             "dataConfiguration":[],"screenConfiguration":[],"keyFeatures":[%s],"demoFlow":[],
-             "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
-            """.formatted(keyFeatureJson);
-
-        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
-            .andExpect(status().isBadRequest());
-
-        then(projectFacade).shouldHaveNoInteractions();
-    }
-
-    @ParameterizedTest(name = "demoFlow 항목이 {0}이면 400을 반환한다")
-    @CsvSource({"'\"검색\"'", "'{\"number\":1}'", "'{\"number\":\"1\",\"title\":\"검색\"}'"})
-    @DisplayName("PUT /api/v1/teams/{teamId}/project는 시연 흐름 항목 모양이 잘못되면 400을 반환한다")
-    void saveProjectRejectsMalformedDemoFlow(String demoFlowJson) throws Exception {
-        String body = """
-            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
-             "dataConfiguration":[],"screenConfiguration":[],"keyFeatures":[],"demoFlow":[%s],
-             "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
-            """.formatted(demoFlowJson);
-
-        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
-            .andExpect(status().isBadRequest());
-
-        then(projectFacade).shouldHaveNoInteractions();
-    }
-
     // 주제 확정이 데이터 구성을 빈 문자열로 만들어 두므로(ProjectCommandService.finalizeTopic),
     // 조회한 제안서를 그대로 다시 저장하는 것이 400이 나면 안 된다.
     @Test
@@ -254,7 +216,7 @@ class ProjectControllerTest {
             .willReturn(response());
         String body = """
             {"title":"AI 학습 도우미","description":"설명","goal":"목표",
-             "dataConfiguration":[],"screenConfiguration":[],"keyFeatures":[],"demoFlow":[],
+             "dataConfiguration":[],"screenConfiguration":[],
              "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """;
 

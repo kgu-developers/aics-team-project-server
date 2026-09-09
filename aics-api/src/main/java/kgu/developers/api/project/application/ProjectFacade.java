@@ -90,8 +90,6 @@ public class ProjectFacade {
             request.externalLinks(),
             request.dataConfiguration(),
             stripClientProvidedImageUrls(request.screenConfiguration()),
-            request.keyFeatures(),
-            request.demoFlow(),
             request.projectSchedule()
         );
         return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
