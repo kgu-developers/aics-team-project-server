@@ -41,6 +41,8 @@ import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberWithUser;
 import kgu.developers.domain.user.domain.User;
+import mock.repository.FakeTeamMemberRepository;
+import mock.repository.FakeTeamRepository;
 
 @ExtendWith(MockitoExtension.class)
 class TeamFacadeTest {
@@ -135,7 +137,7 @@ class TeamFacadeTest {
   @DisplayName("updateKickoffContent는 팀명을 유지한 채 운영규칙·회의일정만 바꾸고 동의를 무효화한다")
   void updateKickoffContentKeepsTeamName() {
     given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
-    given(teamCommandService.updateKickoff(1L, "1팀", "새 규칙", "매주 목 19:00"))
+    given(teamCommandService.updateProposalKickoff(1L, "새 규칙", "매주 목 19:00"))
         .willReturn(team("1팀", "새 규칙", "매주 목 19:00"));
 
     teamFacade.updateKickoffContent(1L, USER, "새 규칙", "매주 목 19:00", null);
@@ -148,12 +150,12 @@ class TeamFacadeTest {
   @DisplayName("updateKickoffContent는 null로 넘긴 항목은 지금 값을 유지한다")
   void updateKickoffContentKeepsOmittedFields() {
     given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
-    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "새 일정"))
+    given(teamCommandService.updateProposalKickoff(1L, "기존 규칙", "새 일정"))
         .willReturn(team("1팀", "기존 규칙", "새 일정"));
 
     teamFacade.updateKickoffContent(1L, USER, null, "새 일정", null);
 
-    verify(teamCommandService).updateKickoff(1L, "1팀", "기존 규칙", "새 일정");
+    verify(teamCommandService).updateProposalKickoff(1L, "기존 규칙", "새 일정");
   }
 
   @Test
@@ -162,12 +164,43 @@ class TeamFacadeTest {
     given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(member(1L, "202611111", true), member(2L, USER, false)));
-    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "기존 일정"))
+    given(teamCommandService.updateProposalKickoff(1L, "기존 규칙", "기존 일정"))
         .willReturn(team("1팀", "기존 규칙", "기존 일정"));
 
     teamFacade.updateKickoffContent(1L, USER, null, null, List.of(new MemberRole(USER, "백엔드")));
 
-    verify(teamMemberCommandService).updateKickoffRoles(1L, "202611111", Map.of(USER, "백엔드"));
+    verify(teamMemberCommandService).updateProposalRoles(1L, Map.of(USER, "백엔드"));
+  }
+
+  @Test
+  @DisplayName("updateKickoffContent는 확정된 팀의 규칙·회의·역할분담을 저장한다")
+  void updateKickoffContentUpdatesConfirmedTeam() {
+    FakeTeamRepository fakeTeamRepository = new FakeTeamRepository();
+    FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
+    fakeTeamRepository.save(Team.builder().id(1L).sectionId(10L).name("1팀").kickoffRule("기존 규칙")
+        .meetingSchedule("기존 일정").status(Status.CONFIRMED).build());
+    fakeTeamMemberRepository.save(TeamMember.builder().id(1L).teamId(1L).userId("202611111")
+        .isLeader(true).projectRole("기획").build());
+    fakeTeamMemberRepository.save(TeamMember.builder().id(2L).teamId(1L).userId(USER)
+        .isLeader(false).projectRole("프론트엔드").build());
+    TeamQueryService realTeamQueryService = new TeamQueryService(fakeTeamRepository, null);
+    TeamFacade confirmedTeamFacade = new TeamFacade(
+        realTeamQueryService,
+        new TeamCommandService(realTeamQueryService, fakeTeamRepository, null),
+        new TeamMemberQueryService(fakeTeamMemberRepository, null),
+        new TeamMemberCommandService(fakeTeamMemberRepository, realTeamQueryService, fakeTeamRepository),
+        teamAccessValidator, auditLogCommandService, projectCommandService);
+
+    confirmedTeamFacade.updateKickoffContent(1L, USER, "새 규칙", "새 일정",
+        List.of(new MemberRole(USER, "백엔드")));
+
+    Team updatedTeam = fakeTeamRepository.findById(1L).orElseThrow();
+    assertThat(updatedTeam.getKickoffRule()).isEqualTo("새 규칙");
+    assertThat(updatedTeam.getMeetingSchedule()).isEqualTo("새 일정");
+    assertThat(fakeTeamMemberRepository.findByTeamIdAndUserId(1L, USER).orElseThrow().getProjectRole())
+        .isEqualTo("백엔드");
+    assertThat(fakeTeamMemberRepository.findLeaderByTeamId(1L).orElseThrow().getUserId())
+        .isEqualTo("202611111");
   }
 
   // 제안서 5번(팀 운영방식)이 킥오프 정보를 그대로 보여주므로, 킥오프가 바뀌면 제안서가 바뀐 것이다.

@@ -83,11 +83,16 @@ public class TeamFacade {
     List<TeamMember> before = teamMemberQueryService.getTeamMembersByTeamId(teamId);
     TeamMembersAuditSnapshot beforeMembers = TeamMembersAuditSnapshot.from(before);
 
-    Team team = teamCommandService.updateKickoff(
-        teamId,
-        name != null ? name : beforeTeam.name(),
-        kickoffRule != null ? kickoffRule : beforeTeam.kickoffRule(),
-        meetingSchedule != null ? meetingSchedule : beforeTeam.meetingSchedule());
+    Team team = name == null
+        ? teamCommandService.updateProposalKickoff(
+            teamId,
+            kickoffRule != null ? kickoffRule : beforeTeam.kickoffRule(),
+            meetingSchedule != null ? meetingSchedule : beforeTeam.meetingSchedule())
+        : teamCommandService.updateKickoff(
+            teamId,
+            name,
+            kickoffRule != null ? kickoffRule : beforeTeam.kickoffRule(),
+            meetingSchedule != null ? meetingSchedule : beforeTeam.meetingSchedule());
 
     // 역할분담도 팀장도 넘기지 않았으면 팀원은 손대지 않는다(회의방식·팀규칙만 고치는 경우).
     List<TeamMember> updatedMembers = before;
@@ -96,8 +101,9 @@ public class TeamFacade {
       if (memberRoles != null) {
         memberRoles.forEach(role -> projectRoles.put(role.studentNumber(), role.projectRole()));
       }
-      updatedMembers = teamMemberCommandService.updateKickoffRoles(teamId,
-          leaderStudentNumber != null ? leaderStudentNumber : currentLeaderId(before), projectRoles);
+      updatedMembers = leaderStudentNumber == null
+          ? teamMemberCommandService.updateProposalRoles(teamId, projectRoles)
+          : teamMemberCommandService.updateKickoffRoles(teamId, leaderStudentNumber, projectRoles);
     }
 
     TeamMembersAuditSnapshot afterMembers = TeamMembersAuditSnapshot.from(updatedMembers);
@@ -110,14 +116,6 @@ public class TeamFacade {
     }
 
     return new KickoffResult(team, updatedMembers);
-  }
-
-  private String currentLeaderId(List<TeamMember> members) {
-    return members.stream()
-        .filter(TeamMember::isLeader)
-        .findFirst()
-        .map(TeamMember::getUserId)
-        .orElse(null);  // 팀장이 없으면 updateKickoffRoles가 TeamMemberNotFoundException으로 걸러낸다
   }
 
   @Transactional

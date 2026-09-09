@@ -188,6 +188,25 @@ public class TeamMemberCommandService {
     return List.copyOf(members.values());
   }
 
+  /** 제안서에서는 팀장 변경 없이 역할분담만 갱신하므로 확정 팀도 허용한다. */
+  public List<TeamMember> updateProposalRoles(Long teamId, Map<String, String> projectRoles) {
+    Map<String, TeamMember> members = teamMemberRepository.findAllByTeamId(teamId).stream()
+        .collect(toMap(TeamMember::getUserId, identity()));
+    projectRoles.keySet().forEach(studentNumber -> requireMember(members, studentNumber));
+
+    List<TeamMember> changedMembers = new ArrayList<>();
+    members.values().forEach(member -> {
+      if (applyChanges(member, member.isLeader(), projectRoles)) {
+        changedMembers.add(member);
+      }
+    });
+    if (!changedMembers.isEmpty()) {
+      teamMemberRepository.saveAll(changedMembers)
+          .forEach(saved -> members.put(saved.getUserId(), saved));
+    }
+    return List.copyOf(members.values());
+  }
+
   private boolean applyChanges(TeamMember member, boolean isLeader, Map<String, String> projectRoles) {
     String projectRole = projectRoles.get(member.getUserId());
     boolean changed = member.isLeader() != isLeader

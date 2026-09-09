@@ -445,6 +445,23 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
+    @DisplayName("제안서 역할분담은 팀장과 미지정 팀원을 유지한 채 변경된 역할만 저장한다")
+    void updatesProposalRolesWithoutChangingLeaderOrUnlistedMembers() {
+        TeamMember leader = member("202611111", true, "기획");
+        TeamMember unchanged = member("202622222", false, "프론트엔드");
+        TeamMember changed = member("202633333", false, "디자인");
+        given(teamMemberRepository.findAllByTeamId(1L)).willReturn(List.of(leader, unchanged, changed));
+
+        teamMemberCommandService.updateProposalRoles(1L, Map.of("202633333", "백엔드"));
+
+        assertThat(leader.isLeader()).isTrue();
+        assertThat(leader.getProjectRole()).isEqualTo("기획");
+        assertThat(unchanged.getProjectRole()).isEqualTo("프론트엔드");
+        assertThat(changed.getProjectRole()).isEqualTo("백엔드");
+        assertSavedInOrder(changed);
+    }
+
+    @Test
     @DisplayName("다른 분반의 팀으로는 옮길 수 없다")
     void rejectsMoveToOtherSection() {
         TeamMember member = teamMember();
