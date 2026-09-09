@@ -58,6 +58,9 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 	@Enumerated(STRING)
 	private Status status;
 
+	@Column(length = 255)
+	private String fileName;
+
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(nullable = false, columnDefinition = "jsonb")
 	private String payload;
@@ -77,6 +80,7 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.sectionId(section.getId())
 				.type(type)
 				.status(status)
+				.fileName(fileName)
 				.payload(JsonConverter.parse(payload, ImportBatchPayloadInvalidException::new))
 				.summary(JsonConverter.parse(summary, ImportBatchPayloadInvalidException::new))
 				.expiredAt(expiredAt)
@@ -95,6 +99,7 @@ public class ImportBatchJpaEntity extends BaseTimeEntity {
 				.section(section)
 				.type(importBatch.getType())
 				.status(importBatch.getStatus())
+				.fileName(importBatch.getFileName())
 				.payload(importBatch.getPayload().toString())
 				.summary(importBatch.getSummary().toString())
 				.expiredAt(importBatch.getExpiredAt())
