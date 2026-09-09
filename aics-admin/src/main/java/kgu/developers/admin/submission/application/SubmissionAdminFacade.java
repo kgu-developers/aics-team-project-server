@@ -29,7 +29,10 @@ import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.fileobject.exception.FileObjectNotFoundException;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
+import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.submission.application.query.SubmissionQueryService;
 import kgu.developers.domain.submission.domain.ArtifactType;
@@ -54,6 +57,7 @@ public class SubmissionAdminFacade {
     private final MilestoneRepository milestoneRepository;
     private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
+    private final ProjectRepository projectRepository;
     private final SubmissionQueryService submissionQueryService;
     private final SubmissionVersionRepository submissionVersionRepository;
     private final SubmissionArtifactRepository submissionArtifactRepository;
@@ -64,24 +68,45 @@ public class SubmissionAdminFacade {
     // 팀은 그 마일스톤을 아직 한 번도 조회 안 했으면 Submission 행 자체가 없다(lazy get-or-create).
     // 그대로 findAllByMilestoneId만 쓰면 그런 팀이 목록에서 통째로 빠지므로, 분반의 팀 전체를
     // 기준으로 각자 get-or-create해서 빠짐없이 보여준다.
-    public SubmissionAdminListResponse getSubmissionsByMilestone(Long milestoneId, String professorId) {
+    public SubmissionAdminListResponse getSubmissionsByMilestone(
+            Long milestoneId,
+            Long teamId,
+            String professorId
+    ) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
         if (!sectionQueryService.isActiveSectionOwnedByProfessor(milestone.getSectionId(), professorId)) {
             throw new AccessDeniedException("담당 분반의 제출만 조회할 수 있습니다.");
         }
 
-        List<Team> teams = teamRepository.findAllBySectionId(milestone.getSectionId());
+        List<Team> teams = filterTeam(
+                teamRepository.findAllBySectionId(milestone.getSectionId()), teamId);
+        Map<Long, String> projectTitles = milestone.getType() == MilestoneType.PROPOSAL
+                ? projectRepository.findAllByTeamIdIn(teams.stream().map(Team::getId).toList()).stream()
+                        .collect(Collectors.toMap(Project::getTeamId, Project::getTitle, (first, ignored) -> first))
+                : Map.of();
         List<SubmissionAdminResponse> contents = teams.stream()
                 .map(team -> {
                     Submission submission = submissionQueryService.getOrCreateSubmission(team.getId(), milestoneId);
                     return SubmissionAdminResponse.of(
                             submission, team,
                             submissionQueryService.canSubmitNow(submission),
-                            submissionQueryService.hasPendingReview(submission));
+                            submissionQueryService.hasPendingReview(submission),
+                            projectTitles.get(team.getId()));
                 })
                 .toList();
         return SubmissionAdminListResponse.from(contents);
+    }
+
+    private List<Team> filterTeam(List<Team> teams, Long teamId) {
+        if (teamId == null) {
+            return teams;
+        }
+        return teams.stream()
+                .filter(team -> team.getId().equals(teamId))
+                .findFirst()
+                .map(List::of)
+                .orElseThrow(() -> new AccessDeniedException("담당 분반의 제출만 조회할 수 있습니다."));
     }
 
     public SubmissionAdminResponse getSubmission(Long submissionId, String professorId) {

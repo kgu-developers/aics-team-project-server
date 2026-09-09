@@ -30,6 +30,10 @@ import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.project.domain.ApprovalStatus;
+import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.submission.application.query.SubmissionQueryService;
 import kgu.developers.domain.submission.domain.Submission;
@@ -63,6 +67,7 @@ class SubmissionAdminFacadeTest {
     private MilestoneRepository milestoneRepository;
     private SectionQueryService sectionQueryService;
     private FakeTeamRepository teamRepository;
+    private ProjectRepository projectRepository;
     private FakeSubmissionRepository submissionRepository;
     private FakeSubmissionVersionRepository submissionVersionRepository;
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
@@ -83,6 +88,7 @@ class SubmissionAdminFacadeTest {
                 .status(Status.CONFIRMED)
                 .build());
         teamId = team.getId();
+        projectRepository = mock(ProjectRepository.class);
 
         submissionRepository = new FakeSubmissionRepository();
         submissionVersionRepository = new FakeSubmissionVersionRepository();
@@ -102,6 +108,7 @@ class SubmissionAdminFacadeTest {
                 milestoneRepository,
                 sectionQueryService,
                 teamRepository,
+                projectRepository,
                 submissionQueryService,
                 submissionVersionRepository,
                 submissionArtifactRepository,
@@ -117,7 +124,7 @@ class SubmissionAdminFacadeTest {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
 
-        SubmissionAdminListResponse response = submissionAdminFacade.getSubmissionsByMilestone(MILESTONE_ID, PROFESSOR);
+        SubmissionAdminListResponse response = submissionAdminFacade.getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
 
         assertThat(response.contents()).hasSize(1);
         assertThat(response.contents().get(0).teamId()).isEqualTo(teamId);
@@ -130,7 +137,7 @@ class SubmissionAdminFacadeTest {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
 
-        SubmissionAdminListResponse response = submissionAdminFacade.getSubmissionsByMilestone(MILESTONE_ID, PROFESSOR);
+        SubmissionAdminListResponse response = submissionAdminFacade.getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
 
         assertThat(submissionRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID)).isPresent();
         assertThat(response.contents()).extracting(SubmissionAdminResponse::teamId).containsExactly(teamId);
@@ -142,8 +149,55 @@ class SubmissionAdminFacadeTest {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, OTHER_PROFESSOR)).willReturn(false);
 
-        assertThatThrownBy(() -> submissionAdminFacade.getSubmissionsByMilestone(MILESTONE_ID, OTHER_PROFESSOR))
+        assertThatThrownBy(() -> submissionAdminFacade.getSubmissionsByMilestone(MILESTONE_ID, null, OTHER_PROFESSOR))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("제안서 마일스톤은 팀 프로젝트 주제를 함께 응답한다")
+    void getSubmissionsByMilestone_IncludesProjectTitleForProposal() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
+                teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
+                ApprovalStatus.APPROVED, "온라인")));
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).singleElement()
+                .extracting(SubmissionAdminResponse::projectTitle)
+                .isEqualTo("AI 기반 팀 프로젝트 운영 플랫폼");
+    }
+
+    @Test
+    @DisplayName("teamId를 지정하면 해당 팀의 제출 현황만 응답한다")
+    void getSubmissionsByMilestone_FiltersByTeamId() {
+        Team otherTeam = teamRepository.save(Team.builder()
+                .sectionId(SECTION_ID)
+                .name("B팀")
+                .status(Status.CONFIRMED)
+                .build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, otherTeam.getId(), PROFESSOR);
+
+        assertThat(response.contents()).extracting(SubmissionAdminResponse::teamId)
+                .containsExactly(otherTeam.getId());
+    }
+
+    @Test
+    @DisplayName("마일스톤 분반에 속하지 않은 teamId는 거부한다")
+    void getSubmissionsByMilestone_RejectsForeignTeamId() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        assertThatThrownBy(() -> submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, OTHER_TEAM_ID, PROFESSOR))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("담당 분반의 제출만 조회할 수 있습니다.");
     }
 
     @Test
@@ -333,5 +387,12 @@ class SubmissionAdminFacadeTest {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "마일스톤", null, 2, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null));
+    }
+
+    private Milestone proposalMilestone() {
+        return Milestone.restore(
+                MILESTONE_ID, SECTION_ID, "제안서", null, 2, MilestoneStatus.PUBLISHED,
+                new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
+                MilestoneType.PROPOSAL);
     }
 }

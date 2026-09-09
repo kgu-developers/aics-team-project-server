@@ -19,6 +19,8 @@ public interface ProjectRepository {
 
     List<Project> findAllByTeamId(Long teamId);
 
+    List<Project> findAllByTeamIdIn(List<Long> teamIds);
+
     Optional<Project> findIncludingDeletedByTeamId(Long teamId);
 
     void deleteById(Long id);
