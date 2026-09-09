@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Locale;
 import kgu.developers.domain.feedback.domain.RequiredArtifactType;
 
 public record RequiredArtifactRequest(
@@ -33,6 +34,12 @@ public record RequiredArtifactRequest(
         if (allowedExtensions == null || allowedExtensions.isEmpty()) {
             return null;
         }
-        return String.join(",", allowedExtensions.stream().map(String::trim).toList());
+        List<String> normalized = allowedExtensions.stream()
+                .map(String::trim)
+                .map(extension -> extension.replaceFirst("^\\.+", "").toLowerCase(Locale.ROOT))
+                .filter(extension -> !extension.isBlank())
+                .distinct()
+                .toList();
+        return normalized.isEmpty() ? null : String.join(",", normalized);
     }
 }

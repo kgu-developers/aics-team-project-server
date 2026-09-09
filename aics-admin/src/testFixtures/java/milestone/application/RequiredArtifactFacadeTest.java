@@ -62,6 +62,20 @@ class RequiredArtifactFacadeTest {
     }
 
     @Test
+    @DisplayName("파일 확장자는 선행 점을 제거하고 소문자로 정규화한다")
+    void normalizeAllowedExtensions() {
+        RequiredArtifactRequest request = new RequiredArtifactRequest(
+                RequiredArtifactType.FILE,
+                "발표 자료",
+                true,
+                List.of(" .PDF ", "..Zip", "pdf"),
+                20
+        );
+
+        assertThat(request.allowedExtensionsValue()).isEqualTo("pdf,zip");
+    }
+
+    @Test
     @DisplayName("필수 산출물 목록 조회 전에 담당 분반과 마일스톤 소속을 확인한다")
     void getRequiredArtifacts() {
         given(requiredArtifactQueryService.getRequiredArtifacts(MILESTONE_ID)).willReturn(List.of(
