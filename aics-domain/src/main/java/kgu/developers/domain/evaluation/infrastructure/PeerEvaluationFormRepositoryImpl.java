@@ -1,5 +1,6 @@
 package kgu.developers.domain.evaluation.infrastructure;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,13 @@ public class PeerEvaluationFormRepositoryImpl implements PeerEvaluationFormRepos
     @Override
     public Optional<PeerEvaluationForm> findById(Long id) {
         return jpaRepository.findByIdAndDeletedAtIsNull(id).map(PeerEvaluationFormJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<PeerEvaluationForm> findAllBySectionIdOrderByIdDesc(Long sectionId) {
+        return jpaRepository.findAllBySectionIdAndDeletedAtIsNullOrderByIdDesc(sectionId).stream()
+            .map(PeerEvaluationFormJpaEntity::toDomain)
+            .toList();
     }
 
 }

@@ -26,9 +26,10 @@ public class EditLockControllerImpl implements EditLockController {
     public ResponseEntity<EditLockStatusResponse> getStatus(
         @RequestParam EditLockTargetType targetType,
         @RequestParam Long targetId,
+        @RequestParam String sectionKey,
         Authentication authentication
     ) {
-        return ResponseEntity.ok(editLockFacade.getStatus(targetType, targetId, authentication.getName()));
+        return ResponseEntity.ok(editLockFacade.getStatus(targetType, targetId, sectionKey, authentication.getName()));
     }
 
     @Override
@@ -45,9 +46,10 @@ public class EditLockControllerImpl implements EditLockController {
     public ResponseEntity<Void> release(
         @RequestParam EditLockTargetType targetType,
         @RequestParam Long targetId,
+        @RequestParam String sectionKey,
         Authentication authentication
     ) {
-        editLockFacade.release(targetType, targetId, authentication.getName());
+        editLockFacade.release(targetType, targetId, sectionKey, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 }

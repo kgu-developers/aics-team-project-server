@@ -16,6 +16,7 @@ class EditLockQueryServiceTest {
 
     private static final EditLockTargetType TARGET_TYPE = EditLockTargetType.PRESENTATION_CONTENT;
     private static final Long TARGET_ID = 1L;
+    private static final String SECTION_KEY = "DEFAULT";
 
     private FakeEditLockRepository fakeEditLockRepository;
     private EditLockQueryService queryService;
@@ -30,7 +31,7 @@ class EditLockQueryServiceTest {
     @DisplayName("getActiveLock은 잠금이 없으면 빈 값을 반환한다")
     void getActiveLock_NotExists_ReturnsEmpty() {
         // when
-        Optional<EditLock> result = queryService.getActiveLock(TARGET_TYPE, TARGET_ID);
+        Optional<EditLock> result = queryService.getActiveLock(TARGET_TYPE, TARGET_ID, SECTION_KEY);
 
         // then
         assertThat(result).isEmpty();
@@ -40,10 +41,10 @@ class EditLockQueryServiceTest {
     @DisplayName("getActiveLock은 살아있는 잠금이 있으면 반환한다")
     void getActiveLock_Active_ReturnsIt() {
         // given
-        fakeEditLockRepository.save(EditLock.create(TARGET_TYPE, TARGET_ID, "202412345", LocalDateTime.now()));
+        fakeEditLockRepository.save(EditLock.create(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345", LocalDateTime.now()));
 
         // when
-        Optional<EditLock> result = queryService.getActiveLock(TARGET_TYPE, TARGET_ID);
+        Optional<EditLock> result = queryService.getActiveLock(TARGET_TYPE, TARGET_ID, SECTION_KEY);
 
         // then
         assertThat(result).isPresent();
@@ -55,11 +56,24 @@ class EditLockQueryServiceTest {
     void getActiveLock_Expired_ReturnsEmpty() {
         // given
         fakeEditLockRepository.save(
-            EditLock.create(TARGET_TYPE, TARGET_ID, "202412345", LocalDateTime.now().minusMinutes(10))
+            EditLock.create(TARGET_TYPE, TARGET_ID, SECTION_KEY, "202412345", LocalDateTime.now().minusMinutes(10))
         );
 
         // when
-        Optional<EditLock> result = queryService.getActiveLock(TARGET_TYPE, TARGET_ID);
+        Optional<EditLock> result = queryService.getActiveLock(TARGET_TYPE, TARGET_ID, SECTION_KEY);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("getActiveLock은 같은 대상이어도 다른 섹션의 잠금은 보지 않는다")
+    void getActiveLock_DifferentSection_ReturnsEmpty() {
+        // given
+        fakeEditLockRepository.save(EditLock.create(TARGET_TYPE, TARGET_ID, "TEAM_INFO", "202412345", LocalDateTime.now()));
+
+        // when
+        Optional<EditLock> result = queryService.getActiveLock(TARGET_TYPE, TARGET_ID, "TOPIC");
 
         // then
         assertThat(result).isEmpty();

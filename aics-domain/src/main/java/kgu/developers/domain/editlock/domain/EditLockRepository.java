@@ -6,7 +6,9 @@ public interface EditLockRepository {
 
     EditLock save(EditLock editLock);
 
-    Optional<EditLock> findByTargetTypeAndTargetId(EditLockTargetType targetType, Long targetId);
+    Optional<EditLock> findByTargetTypeAndTargetIdAndSectionKey(
+        EditLockTargetType targetType, Long targetId, String sectionKey
+    );
 
     void deleteById(Long id);
 }
