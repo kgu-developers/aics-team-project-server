@@ -16,6 +16,9 @@ public record EditLockStatusResponse(
     @Schema(description = "잠근 사용자 학번(잠긴 경우만)", example = "202412345")
     String lockedBy,
 
+    @Schema(description = "잠근 사용자 이름(잠긴 경우만)", example = "홍길동")
+    String lockedByName,
+
     @Schema(description = "잠근 시각(잠긴 경우만)", example = "2026-08-24 15:00")
     String lockedAt
 ) {
@@ -27,9 +30,14 @@ public record EditLockStatusResponse(
     }
 
     public static EditLockStatusResponse from(EditLock editLock) {
+        return from(editLock, null);
+    }
+
+    public static EditLockStatusResponse from(EditLock editLock, String lockedByName) {
         return EditLockStatusResponse.builder()
             .locked(true)
             .lockedBy(editLock.getLockedBy())
+            .lockedByName(lockedByName)
             .lockedAt(editLock.getLockedAt().format(FORMATTER))
             .build();
     }

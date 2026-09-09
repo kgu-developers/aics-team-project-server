@@ -12,13 +12,19 @@ import kgu.developers.domain.editlock.domain.EditLockTargetType;
 import kgu.developers.domain.editlock.exception.EditLockUnsupportedTargetException;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionRepository;
 import kgu.developers.domain.submission.exception.SubmissionNotFoundException;
+import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.application.query.UserQueryService;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -32,6 +38,9 @@ public class EditLockFacade {
     private final TeamMemberRepository teamMemberRepository;
     private final MilestoneRepository milestoneRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final MeetingRecordQueryService meetingRecordQueryService;
+    private final TeamRepository teamRepository;
+    private final UserQueryService userQueryService;
 
     // acquire()와 같은 대상 접근 검증을 거친다 — 검증 없이 조회를 허용하면 다른 분반·팀
     // 사용자도 lockedBy(학번)를 알아낼 수 있었다(sunzx0428 PR #87 리뷰 09-03).
@@ -42,8 +51,22 @@ public class EditLockFacade {
 
     private EditLockStatusResponse getStatusWithoutAccessCheck(EditLockTargetType targetType, Long targetId, String sectionKey) {
         return editLockQueryService.getActiveLock(targetType, targetId, sectionKey)
-            .map(EditLockStatusResponse::from)
+            .map(lock -> {
+                String userName = resolveUserName(lock.getLockedBy());
+                return EditLockStatusResponse.from(lock, userName);
+            })
             .orElseGet(EditLockStatusResponse::unlocked);
+    }
+
+    private String resolveUserName(String studentNumber) {
+        if (studentNumber == null || studentNumber.isBlank()) {
+            return null;
+        }
+        try {
+            return userQueryService.getUserByStudentNumber(studentNumber).getName();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public EditLockStatusResponse acquire(String userId, EditLockAcquireRequest request) {
@@ -61,6 +84,7 @@ public class EditLockFacade {
     private void validateTargetAccess(EditLockTargetType targetType, Long targetId, String userId) {
         switch (targetType) {
             case PRESENTATION_CONTENT -> validatePresentationContentAccess(targetId, userId);
+            case MEETING_RECORD -> validateMeetingRecordAccess(targetId, userId);
             // PROJECT(B2)는 아직 이 저장소에 도메인이 없어 검증 대상을 정할 수 없다 — 검증 없이
             // 통과시키면 아무 인증 사용자나 임의 대상을 잠글 수 있게 되므로, Project 도메인이
             // 들어오기 전까지는 아예 지원하지 않는 대상으로 명시적으로 거부한다.
@@ -84,6 +108,23 @@ public class EditLockFacade {
                 .orElse(false);
         if (!activeStudent) {
             throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 편집할 수 있습니다.");
+        }
+    }
+
+    // MEETING_RECORD의 targetId는 meetingRecordId다.
+    // 해당 팀 소속이어야 하고, 그 분반에 활성 학생으로 등록돼 있어야 잠글 수 있다.
+    private void validateMeetingRecordAccess(Long meetingRecordId, String userId) {
+        MeetingRecord meetingRecord = meetingRecordQueryService.getMeetingRecord(meetingRecordId);
+        if (teamMemberRepository.findByTeamIdAndUserId(meetingRecord.getTeamId(), userId).isEmpty()) {
+            throw new AccessDeniedException("해당 팀에 소속된 사용자만 회의록을 편집할 수 있습니다.");
+        }
+        Team team = teamRepository.findById(meetingRecord.getTeamId())
+                .orElseThrow(TeamNotFoundException::new);
+        boolean activeStudent = enrollmentRepository.findBySectionIdAndUserId(team.getSectionId(), userId)
+                .map(Enrollment::isActiveStudent)
+                .orElse(false);
+        if (!activeStudent) {
+            throw new AccessDeniedException("해당 분반의 활성 학생만 회의록을 편집할 수 있습니다.");
         }
     }
 }
