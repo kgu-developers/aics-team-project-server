@@ -23,6 +23,9 @@ public record SubmissionAdminResponse(
         @Schema(description = "팀명", example = "A팀", requiredMode = REQUIRED)
         String teamName,
 
+        @Schema(description = "프로젝트 주제(제안서 마일스톤이 아니거나 프로젝트가 없으면 null)", example = "AI 기반 팀 프로젝트 운영 플랫폼")
+        String projectTitle,
+
         @Schema(description = "마일스톤 식별자", example = "3", requiredMode = REQUIRED)
         Long milestoneId,
 
@@ -49,10 +52,21 @@ public record SubmissionAdminResponse(
 ) {
 
     public static SubmissionAdminResponse of(Submission submission, Team team, boolean canSubmitNow, boolean hasPendingReview) {
+        return of(submission, team, canSubmitNow, hasPendingReview, null);
+    }
+
+    public static SubmissionAdminResponse of(
+            Submission submission,
+            Team team,
+            boolean canSubmitNow,
+            boolean hasPendingReview,
+            String projectTitle
+    ) {
         return SubmissionAdminResponse.builder()
                 .id(submission.getId())
                 .teamId(team.getId())
                 .teamName(team.getName())
+                .projectTitle(projectTitle)
                 .milestoneId(submission.getMilestoneId())
                 .status(submission.getStatus())
                 .currentVersion(submission.getCurrentVersion())

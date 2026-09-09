@@ -65,6 +65,7 @@ class MeetingRecordAdminControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.contents[0].sectionName").value("월3,4/1151"))
             .andExpect(jsonPath("$.contents[0].teamName").value("A팀"))
+            .andExpect(jsonPath("$.contents[0].title").value("3주차 정기 회의"))
             .andExpect(jsonPath("$.pageable.totalElements").value(1));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
@@ -185,6 +186,7 @@ class MeetingRecordAdminControllerTest {
             .sectionName("월3,4/1151")
             .teamId(10L)
             .teamName("A팀")
+            .title("3주차 정기 회의")
             .phase(MeetingPhase.MID_CHECK)
             .authorId("202612345")
             .meetingAt("2026-08-25 19:30")

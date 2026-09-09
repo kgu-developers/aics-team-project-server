@@ -11,14 +11,14 @@ public class RequiredArtifact {
 
     private final Long id;
     private final Long milestoneId;
-    private final RequiredArtifactType type;
-    private final String label;
-    private final boolean required;
-    private final String allowedExtensions;
-    private final Integer maxFileSizeMb;
+    private RequiredArtifactType type;
+    private String label;
+    private boolean required;
+    private String allowedExtensions;
+    private Integer maxFileSizeMb;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
-    private final LocalDateTime deletedAt;
+    private LocalDateTime deletedAt;
 
     private RequiredArtifact(
             Long id,
@@ -42,6 +42,7 @@ public class RequiredArtifact {
                 ALLOWED_EXTENSIONS_MAX_LENGTH
         );
         validateOptionalPositive(maxFileSizeMb, "최대 파일 크기");
+        validateFileOptions(type, normalizedAllowedExtensions, maxFileSizeMb);
 
         this.id = id;
         this.milestoneId = milestoneId;
@@ -53,6 +54,38 @@ public class RequiredArtifact {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.deletedAt = deletedAt;
+    }
+
+    public void update(
+            RequiredArtifactType type,
+            String label,
+            boolean required,
+            String allowedExtensions,
+            Integer maxFileSizeMb
+    ) {
+        validateType(type);
+        String normalizedLabel = normalizeRequiredText(label, "필수 산출물 이름", LABEL_MAX_LENGTH);
+        String normalizedAllowedExtensions = normalizeOptionalText(
+                allowedExtensions,
+                "허용 확장자",
+                ALLOWED_EXTENSIONS_MAX_LENGTH
+        );
+        validateOptionalPositive(maxFileSizeMb, "최대 파일 크기");
+        validateFileOptions(type, normalizedAllowedExtensions, maxFileSizeMb);
+
+        this.type = type;
+        this.label = normalizedLabel;
+        this.required = required;
+        this.allowedExtensions = normalizedAllowedExtensions;
+        this.maxFileSizeMb = maxFileSizeMb;
+    }
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean belongsToMilestone(Long milestoneId) {
+        return this.milestoneId.equals(milestoneId);
     }
 
     public static RequiredArtifact create(
@@ -96,6 +129,17 @@ public class RequiredArtifact {
     private static void validateType(RequiredArtifactType type) {
         if (type == null) {
             throw new IllegalArgumentException("필수 산출물 유형은 비어 있을 수 없습니다.");
+        }
+    }
+
+    private static void validateFileOptions(
+            RequiredArtifactType type,
+            String allowedExtensions,
+            Integer maxFileSizeMb
+    ) {
+        if (type != RequiredArtifactType.FILE
+                && (allowedExtensions != null || maxFileSizeMb != null)) {
+            throw new IllegalArgumentException("허용 확장자와 최대 파일 크기는 FILE 유형에서만 설정할 수 있습니다.");
         }
     }
 

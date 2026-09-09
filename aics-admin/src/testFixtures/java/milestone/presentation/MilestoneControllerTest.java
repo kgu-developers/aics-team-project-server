@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -36,6 +37,8 @@ import kgu.developers.admin.milestone.presentation.MilestoneControllerImpl;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
+import kgu.developers.admin.milestone.presentation.response.RequiredArtifactListResponse;
+import kgu.developers.admin.milestone.presentation.response.RequiredArtifactPersistResponse;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.common.exception.GlobalExceptionHandler;
 import kgu.developers.domain.milestone.domain.MilestoneType;
@@ -399,5 +402,65 @@ class MilestoneControllerTest {
         mockMvc.perform(get(MILESTONES_URL + "/404"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("MILESTONE_NOT_FOUND"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 마일스톤 필수 산출물을 생성한다")
+    void createRequiredArtifact() throws Exception {
+        given(milestoneFacade.createRequiredArtifact(eq(1L), eq("user"), eq(2L), any()))
+                .willReturn(RequiredArtifactPersistResponse.of(3L));
+
+        mockMvc.perform(post(MILESTONES_URL + "/2/required-artifacts").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "type": "FILE",
+                                  "label": "발표자료 PDF",
+                                  "required": true,
+                                  "allowedExtensions": ["pdf"],
+                                  "maxFileSizeMb": 20
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(3));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 마일스톤 필수 산출물 목록을 조회한다")
+    void getRequiredArtifacts() throws Exception {
+        given(milestoneFacade.getRequiredArtifacts(1L, "user", 2L))
+                .willReturn(new RequiredArtifactListResponse(List.of()));
+
+        mockMvc.perform(get(MILESTONES_URL + "/2/required-artifacts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contents").isArray());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 마일스톤 필수 산출물을 삭제한다")
+    void deleteRequiredArtifact() throws Exception {
+        mockMvc.perform(delete(MILESTONES_URL + "/2/required-artifacts/3").with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(milestoneFacade).deleteRequiredArtifact(1L, "user", 2L, 3L);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("필수 여부가 없는 산출물 요청은 400을 응답한다")
+    void rejectRequiredArtifactWithoutRequiredFlag() throws Exception {
+        mockMvc.perform(post(MILESTONES_URL + "/2/required-artifacts").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "type": "LINK",
+                                  "label": "시연 링크"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
     }
 }
