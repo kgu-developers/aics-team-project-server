@@ -17,7 +17,10 @@ public record MidReportBlockResponse(
     MidReportBlockStatus status,
     @Schema(description = "편집 잠금. 현재 기반 구현에서는 기존 숫자형 잠금 ID 계약과 맞지 않아 null입니다.", nullable = true)
     MidReportBlockLockResponse lock,
+    @Schema(description = "마지막 편집자 학번", nullable = true)
     String lastEditedBy,
+    @Schema(description = "마지막 편집자 이름", nullable = true)
+    String lastEditedByName,
     LocalDateTime lastSavedAt
 ) {
     static MidReportBlockResponse from(
@@ -33,6 +36,7 @@ public record MidReportBlockResponse(
             block.getFields(),
             block.getStatus(),
             null,
+            block.getLastEditedBy(),
             editorName == null ? "" : editorName,
             block.getLastSavedAt() == null ? reportCreatedAt : block.getLastSavedAt()
         );

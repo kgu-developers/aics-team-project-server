@@ -18,7 +18,10 @@ public record MidReportResponse(
     MidReportStatus status,
     String teamLeaderName,
     LocalDateTime submittedAt,
+    @Schema(description = "최종 제출자 학번", nullable = true)
     String submittedBy,
+    @Schema(description = "최종 제출자 이름", nullable = true)
+    String submittedByName,
     MidReportRevisionResponse revision,
     List<MidReportBlockResponse> blocks
 ) {
@@ -38,6 +41,7 @@ public record MidReportResponse(
             report.getStatus(),
             teamLeaderName,
             report.getSubmittedAt(),
+            report.getSubmittedBy(),
             submitterName,
             MidReportRevisionResponse.from(report.getRevision()),
             report.getBlocks().stream()

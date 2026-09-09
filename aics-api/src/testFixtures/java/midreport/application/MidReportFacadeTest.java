@@ -97,7 +97,8 @@ class MidReportFacadeTest {
         assertThat(response.teamLeaderName()).isEqualTo("학생 A");
         assertThat(response.blocks()).hasSize(4);
         assertThat(response.blocks()).allSatisfy(block -> {
-            assertThat(block.lastEditedBy()).isNotNull();
+            assertThat(block.lastEditedBy()).isNull();
+            assertThat(block.lastEditedByName()).isEmpty();
             assertThat(block.lastSavedAt()).isNotNull();
         });
         then(teamAccessValidator).should().validateMembership(TEAM_ID, USER_ID);

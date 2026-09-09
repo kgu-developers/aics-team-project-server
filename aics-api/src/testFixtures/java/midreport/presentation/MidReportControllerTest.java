@@ -134,9 +134,10 @@ class MidReportControllerTest {
             null,
             null,
             null,
+            null,
             List.of(new MidReportBlockResponse(
                 "topic", "1. 주제", "설명", objectMapper.readTree("[]"), MidReportBlockStatus.IN_PROGRESS,
-                null, null, null
+                null, null, null, null
             ))
         );
     }
