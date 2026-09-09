@@ -75,4 +75,17 @@ public interface MeetingActionController {
         @RequestParam(required = false) MeetingActionStatus status,
         Authentication authentication
     );
+
+    @Operation(
+        summary = "액션플랜 삭제 API",
+        description = """
+            Description : 특정 액션플랜을 개별 삭제한다.
+            해당 팀에 소속된 팀원만 삭제할 수 있다.
+            """
+    )
+    @ApiResponse(responseCode = "204", description = "액션플랜 삭제 성공")
+    ResponseEntity<Void> deleteMeetingAction(
+        @PathVariable Long id,
+        Authentication authentication
+    );
 }
