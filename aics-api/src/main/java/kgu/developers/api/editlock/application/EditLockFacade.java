@@ -25,6 +25,7 @@ import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -64,7 +65,7 @@ public class EditLockFacade {
         }
         try {
             return userQueryService.getUserByStudentNumber(studentNumber).getName();
-        } catch (Exception e) {
+        } catch (UserNotFoundException e) {
             return null;
         }
     }
