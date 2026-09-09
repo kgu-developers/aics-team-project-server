@@ -3,6 +3,7 @@ package meetingrecord.application;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -84,6 +85,12 @@ public class MeetingActionFacadeTest {
             .build();
     }
 
+    private MeetingActionCreateRequest buildUnassignedCreateRequest() {
+        return MeetingActionCreateRequest.builder()
+            .content("담당자 미지정 작업")
+            .build();
+    }
+
     @Test
     @DisplayName("createMeetingAction은 액션플랜을 생성한다")
     public void createMeetingAction_Success() {
@@ -129,6 +136,17 @@ public class MeetingActionFacadeTest {
 
         // then
         assertEquals(1, result.contents().size());
+    }
+
+    @Test
+    @DisplayName("getMeetingActions는 담당자 미지정 액션플랜을 assignee null로 반환한다")
+    public void getMeetingActions_Unassigned_ReturnsNullAssignee() {
+        meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildUnassignedCreateRequest());
+
+        MeetingActionListResponse result = meetingActionFacade.getMeetingActions(meetingRecordId, MEMBER);
+
+        assertEquals(1, result.contents().size());
+        assertNull(result.contents().get(0).assignee());
     }
 
     @Test
@@ -237,6 +255,17 @@ public class MeetingActionFacadeTest {
 
         // then
         assertEquals(1, result.contents().size());
+    }
+
+    @Test
+    @DisplayName("getTeamActions는 담당자 미지정 액션플랜을 assignee null로 반환한다")
+    public void getTeamActions_Unassigned_ReturnsNullAssignee() {
+        meetingActionFacade.createMeetingAction(meetingRecordId, MEMBER, buildUnassignedCreateRequest());
+
+        TeamMeetingActionListResponse result = meetingActionFacade.getTeamActions(1L, null, MEMBER);
+
+        assertEquals(1, result.contents().size());
+        assertNull(result.contents().get(0).assignee());
     }
 
     @Test

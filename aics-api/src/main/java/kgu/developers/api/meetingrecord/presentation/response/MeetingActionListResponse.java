@@ -19,7 +19,9 @@ public record MeetingActionListResponse(
     public static MeetingActionListResponse from(List<MeetingAction> meetingActions, Map<String, User> usersByStudentNumber) {
         return MeetingActionListResponse.builder()
             .contents(meetingActions.stream()
-                .map(action -> MeetingActionResponse.from(action, usersByStudentNumber.get(action.getAssigneeId())))
+                .map(action -> MeetingActionResponse.from(
+                    action,
+                    action.getAssigneeId() == null ? null : usersByStudentNumber.get(action.getAssigneeId())))
                 .toList())
             .build();
     }

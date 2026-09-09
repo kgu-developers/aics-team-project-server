@@ -102,7 +102,7 @@ public class MeetingActionFacade {
         List<TeamMeetingActionResponse> contents = meetingActions.stream()
             .map(action -> TeamMeetingActionResponse.from(
                 action,
-                usersByStudentNumber.get(action.getAssigneeId()),
+                action.getAssigneeId() == null ? null : usersByStudentNumber.get(action.getAssigneeId()),
                 meetingRecordsById.get(action.getMeetingRecordId())))
             .toList();
 
