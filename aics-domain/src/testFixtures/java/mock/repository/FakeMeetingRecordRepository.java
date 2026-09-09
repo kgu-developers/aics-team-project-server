@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
@@ -48,6 +49,7 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
             .location(meetingRecord.getLocation())
             .content(meetingRecord.getContent())
             .participants(participants)
+            .milestoneIds(MeetingRecord.normalizeMilestoneIds(meetingRecord.getMilestoneIds()))
             .createdAt(createdAt)
             .updatedAt(LocalDateTime.now())
             .build();
@@ -85,6 +87,38 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
         int start = Math.min((int) pageable.getOffset(), records.size());
         int end = Math.min(start + pageable.getPageSize(), records.size());
         return new PageImpl<>(records.subList(start, end), pageable, records.size());
+    }
+
+    @Override
+    public Page<MeetingRecord> findAllByTeamIdInAndMilestoneId(
+        List<Long> teamIds,
+        Long milestoneId,
+        Pageable pageable
+    ) {
+        List<MeetingRecord> records = store.values().stream()
+            .filter(meetingRecord -> teamIds.contains(meetingRecord.getTeamId()))
+            .filter(meetingRecord -> meetingRecord.getMilestoneIds().contains(milestoneId))
+            .toList();
+        records = applySort(records, pageable.getSort());
+        int start = Math.min((int) pageable.getOffset(), records.size());
+        int end = Math.min(start + pageable.getPageSize(), records.size());
+        return new PageImpl<>(records.subList(start, end), pageable, records.size());
+    }
+
+    @Override
+    public long countByTeamIdAndMilestoneId(Long teamId, Long milestoneId) {
+        return store.values().stream()
+            .filter(meetingRecord -> meetingRecord.getTeamId().equals(teamId))
+            .filter(meetingRecord -> meetingRecord.getMilestoneIds().contains(milestoneId))
+            .count();
+    }
+
+    @Override
+    public Map<Long, Long> countByTeamIdInAndMilestoneId(List<Long> teamIds, Long milestoneId) {
+        return store.values().stream()
+            .filter(meetingRecord -> teamIds.contains(meetingRecord.getTeamId()))
+            .filter(meetingRecord -> meetingRecord.getMilestoneIds().contains(milestoneId))
+            .collect(Collectors.groupingBy(MeetingRecord::getTeamId, Collectors.counting()));
     }
 
     private List<MeetingRecord> applySort(List<MeetingRecord> records, Sort sort) {

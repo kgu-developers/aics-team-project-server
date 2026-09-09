@@ -1,6 +1,7 @@
 package kgu.developers.api.meetingrecord.presentation.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
@@ -25,6 +26,9 @@ public record MeetingRecordUpdateRequest(
     String content,
 
     @Schema(description = "참석자 학번 목록(주어지면 기존 참석자 전체를 치환)", example = "[\"202412345\", \"202412347\"]")
-    List<String> participantIds
+    List<String> participantIds,
+
+    @Schema(description = "관련 마일스톤 식별자 목록(주어지면 기존 연결 전체를 치환, 빈 목록이면 모두 해제)", example = "[3, 4]")
+    List<@Positive Long> milestoneIds
 ) {
 }

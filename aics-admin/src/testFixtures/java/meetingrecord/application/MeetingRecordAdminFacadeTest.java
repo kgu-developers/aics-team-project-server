@@ -15,6 +15,8 @@ import kgu.developers.admin.meetingrecord.application.MeetingRecordAdminFacade;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.milestone.domain.Milestone;
+import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
@@ -45,6 +47,9 @@ class MeetingRecordAdminFacadeTest {
 
     @Mock
     private MeetingRecordQueryService meetingRecordQueryService;
+
+    @Mock
+    private MilestoneRepository milestoneRepository;
 
     @InjectMocks
     private MeetingRecordAdminFacade meetingRecordAdminFacade;
@@ -122,6 +127,50 @@ class MeetingRecordAdminFacadeTest {
         meetingRecordAdminFacade.getMeetingRecords(null, 20L, pageable, PROFESSOR_ID);
 
         verify(meetingRecordQueryService).getMeetingRecords(List.of(20L), latestFirstPageable);
+    }
+
+    @Test
+    @DisplayName("milestoneId로 필터하면 담당 분반의 연결 회의록만 조회한다")
+    void getMeetingRecords_FiltersByMilestone() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Pageable latestFirstPageable = latestFirst(pageable);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team team = team(10L, 1L, "A팀");
+        Milestone milestone = org.mockito.Mockito.mock(Milestone.class);
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
+        given(milestoneRepository.findById(3L)).willReturn(Optional.of(milestone));
+        given(milestone.belongsToSection(1L)).willReturn(true);
+        given(meetingRecordQueryService.getMeetingRecords(List.of(10L), 3L, latestFirstPageable))
+            .willReturn(new PageImpl<>(List.of(), latestFirstPageable, 0));
+
+        meetingRecordAdminFacade.getMeetingRecords(1L, null, 3L, pageable, PROFESSOR_ID);
+
+        verify(meetingRecordQueryService).getMeetingRecords(List.of(10L), 3L, latestFirstPageable);
+    }
+
+    @Test
+    @DisplayName("팀과 다른 분반의 마일스톤을 함께 필터하면 조회를 거부한다")
+    void getMeetingRecords_RejectsMilestoneOutsideTeamSection() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Section firstSection = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Section secondSection = section(2L, "월3,4", "1152", PROFESSOR_ID);
+        Team firstTeam = team(10L, 1L, "A팀");
+        Team secondTeam = team(20L, 2L, "B팀");
+        Milestone milestone = org.mockito.Mockito.mock(Milestone.class);
+        given(sectionRepository.findAllByProfessorId(PROFESSOR_ID))
+            .willReturn(List.of(detail(firstSection), detail(secondSection)));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L, 2L)))
+            .willReturn(List.of(firstTeam, secondTeam));
+        given(milestoneRepository.findById(3L)).willReturn(Optional.of(milestone));
+        given(milestone.belongsToSection(1L)).willReturn(false);
+
+        assertThatThrownBy(() ->
+            meetingRecordAdminFacade.getMeetingRecords(null, 10L, 3L, pageable, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
+
+        verify(meetingRecordQueryService, never()).getMeetingRecords(anyList(), any(), any());
     }
 
     @Test

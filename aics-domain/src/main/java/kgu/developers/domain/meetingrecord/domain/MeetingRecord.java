@@ -22,6 +22,8 @@ public class MeetingRecord {
     private String location;
     private String content;
     private List<MeetingParticipant> participants;
+    @Builder.Default
+    private List<Long> milestoneIds = new ArrayList<>();
     private long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -36,6 +38,20 @@ public class MeetingRecord {
         String content,
         List<String> participantUserIds
     ) {
+        return create(teamId, title, phase, authorId, meetingAt, location, content, participantUserIds, List.of());
+    }
+
+    public static MeetingRecord create(
+        Long teamId,
+        String title,
+        MeetingPhase phase,
+        String authorId,
+        LocalDateTime meetingAt,
+        String location,
+        String content,
+        List<String> participantUserIds,
+        List<Long> milestoneIds
+    ) {
         return MeetingRecord.builder()
             .teamId(teamId)
             .title(title)
@@ -45,7 +61,12 @@ public class MeetingRecord {
             .location(location)
             .content(content)
             .participants(toParticipants(null, participantUserIds))
+            .milestoneIds(normalizeMilestoneIds(milestoneIds))
             .build();
+    }
+
+    public static List<Long> normalizeMilestoneIds(List<Long> milestoneIds) {
+        return milestoneIds == null ? new ArrayList<>() : new ArrayList<>(new LinkedHashSet<>(milestoneIds));
     }
 
     public static List<MeetingParticipant> toParticipants(Long meetingRecordId, List<String> userIds) {
@@ -79,6 +100,10 @@ public class MeetingRecord {
 
     public void updateParticipants(List<String> participantUserIds) {
         this.participants = toParticipants(this.id, participantUserIds);
+    }
+
+    public void updateMilestoneIds(List<Long> milestoneIds) {
+        this.milestoneIds = normalizeMilestoneIds(milestoneIds);
     }
 
     public int getParticipantCount() {

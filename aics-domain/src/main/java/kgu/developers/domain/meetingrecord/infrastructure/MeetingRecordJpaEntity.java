@@ -62,7 +62,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
     @Version
     private long version;
 
-    public MeetingRecord toDomain(List<MeetingParticipant> participants) {
+    public MeetingRecord toDomain(List<MeetingParticipant> participants, List<Long> milestoneIds) {
         return MeetingRecord.builder()
             .id(this.id)
             .teamId(this.teamId)
@@ -73,6 +73,7 @@ public class MeetingRecordJpaEntity extends BaseTimeEntity {
             .location(this.location)
             .content(this.content)
             .participants(participants)
+            .milestoneIds(milestoneIds)
             .version(this.version)
             .createdAt(this.getCreatedAt())
             .updatedAt(this.getUpdatedAt())

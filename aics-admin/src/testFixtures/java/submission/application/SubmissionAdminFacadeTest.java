@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -32,6 +33,7 @@ import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
@@ -74,6 +76,7 @@ class SubmissionAdminFacadeTest {
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
     private FakeFileObjectRepository fileObjectRepository;
     private FakeUserRepository userRepository;
+    private MeetingRecordQueryService meetingRecordQueryService;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -105,6 +108,7 @@ class SubmissionAdminFacadeTest {
                 submissionRepository, milestoneRepository,
                 mock(org.springframework.transaction.PlatformTransactionManager.class));
 
+        meetingRecordQueryService = mock(MeetingRecordQueryService.class);
         submissionAdminFacade = new SubmissionAdminFacade(
                 milestoneRepository,
                 sectionQueryService,
@@ -115,7 +119,8 @@ class SubmissionAdminFacadeTest {
                 submissionArtifactRepository,
                 fileObjectRepository,
                 fileStorage,
-                userQueryService
+                userQueryService,
+                meetingRecordQueryService
         );
     }
 
@@ -130,6 +135,22 @@ class SubmissionAdminFacadeTest {
         assertThat(response.contents()).hasSize(1);
         assertThat(response.contents().get(0).teamId()).isEqualTo(teamId);
         assertThat(response.contents().get(0).status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("팀별 제출 현황은 해당 마일스톤과 연결된 회의록 수를 함께 응답한다")
+    void getSubmissionsByMilestone_IncludesMeetingRecordCount() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(meetingRecordQueryService.countMeetingRecords(List.of(teamId), MILESTONE_ID))
+                .willReturn(Map.of(teamId, 2L));
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).singleElement()
+                .extracting(SubmissionAdminResponse::meetingRecordCount)
+                .isEqualTo(2L);
     }
 
     @Test
