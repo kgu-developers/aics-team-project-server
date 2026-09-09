@@ -9,4 +9,6 @@ public interface ImportBatchRepository {
 	Optional<ImportBatch> findById(Long id);
 
 	List<ImportBatch> findAllBySectionId(Long sectionId);
+
+	Optional<ImportBatch> findLatestApplied(Long sectionId, Type type);
 }

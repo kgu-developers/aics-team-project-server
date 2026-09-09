@@ -8,6 +8,8 @@ import org.springframework.stereotype.Repository;
 import jakarta.persistence.EntityManager;
 import kgu.developers.domain.importBatch.domain.ImportBatch;
 import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
+import kgu.developers.domain.importBatch.domain.Status;
+import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import lombok.RequiredArgsConstructor;
@@ -38,5 +40,13 @@ public class ImportBatchRepositoryImpl implements ImportBatchRepository {
 				.stream()
 				.map(ImportBatchJpaEntity::toDomain)
 				.toList();
+	}
+
+	@Override
+	public Optional<ImportBatch> findLatestApplied(Long sectionId, Type type) {
+		return jpaImportBatchRepository
+				.findFirstBySectionIdAndTypeAndStatusAndDeletedAtIsNullOrderByUpdatedAtDescIdDesc(
+						sectionId, type, Status.APPLIED)
+				.map(ImportBatchJpaEntity::toDomain);
 	}
 }

@@ -38,6 +38,7 @@ public class SecurityConfig {
             // SectionStaffValidator를 직접 호출하는 걸 잊지 않도록 각별히 주의할 것.
             .requestMatchers("/api/v1/admin/oop/sections/*/enrollment-imports/**",
                 "/api/v1/admin/oop/sections/*/team-imports/**",
+                "/api/v1/admin/oop/sections/*/roster-import-status",
                 "/api/v1/admin/oop/enrollment-imports/**",
                 "/api/v1/admin/oop/team-imports/**").authenticated()
             .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

@@ -72,6 +72,7 @@ public class EnrollmentImportFacade {
             EnrollmentImportSummary summary = EnrollmentImportSummary.of(rows);
 
             ImportBatch batch = ImportBatch.create(uploaderId, sectionId, Type.ENROLLMENT,
+                file.getOriginalFilename(),
                 JsonConverter.toTree(rows), JsonConverter.toTree(summary),
                 LocalDateTime.now().plus(PREVIEW_TTL));
 

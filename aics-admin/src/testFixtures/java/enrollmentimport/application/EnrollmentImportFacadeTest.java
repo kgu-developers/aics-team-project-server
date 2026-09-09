@@ -24,6 +24,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.support.TransactionCallback;
@@ -142,6 +143,10 @@ public class EnrollmentImportFacadeTest {
         assertThat(rows.get(3).status()).isEqualTo(RowStatus.INVALID);   // 파일 내 중복
         assertThat(rows.get(4).status()).isEqualTo(RowStatus.INVALID);   // 학번 없음
         assertThat(rows.get(5).status()).isEqualTo(RowStatus.INVALID);   // 역할 오류
+
+        ArgumentCaptor<ImportBatch> batchCaptor = ArgumentCaptor.forClass(ImportBatch.class);
+        verify(importBatchRepository).save(batchCaptor.capture());
+        assertThat(batchCaptor.getValue().getFileName()).isEqualTo("enrollments.xlsx");
     }
 
     @Test
