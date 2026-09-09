@@ -47,6 +47,17 @@ public class FakeSubmissionVersionRepository implements SubmissionVersionReposit
     }
 
     @Override
+    public List<SubmissionVersion> findAllBySubmissionIdIn(List<Long> submissionIds) {
+        if (submissionIds == null || submissionIds.isEmpty()) {
+            return List.of();
+        }
+        return store.values().stream()
+            .filter(version -> submissionIds.contains(version.getSubmissionId()))
+            .filter(version -> version.getDeletedAt() == null)
+            .toList();
+    }
+
+    @Override
     public Optional<SubmissionVersion> findBySubmissionIdAndVersion(Long submissionId, int version) {
         return store.values().stream()
             .filter(v -> v.getSubmissionId().equals(submissionId))

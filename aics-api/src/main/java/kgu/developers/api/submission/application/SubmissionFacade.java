@@ -1,9 +1,11 @@
 package kgu.developers.api.submission.application;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -302,15 +304,25 @@ public class SubmissionFacade {
         Map<Long, Project> projectByTeamId = projectRepository.findAllByTeamIdIn(teamIds).stream()
                 .collect(Collectors.toMap(Project::getTeamId, p -> p, (a, b) -> a));
 
+        Map<Long, Set<String>> memberIdsByTeamId = teamMemberRepository.findAllByTeamIdIn(teamIds).stream()
+                .collect(Collectors.groupingBy(
+                        TeamMember::getTeamId,
+                        Collectors.mapping(TeamMember::getUserId, Collectors.toSet())));
+
+        Map<Long, List<SubmissionArtifactResponse>> artifactsBySubmissionId =
+                resolveLatestSubmissionArtifacts(submissions);
+
         List<TeamPresentationResponse> contents = submissions.stream()
                 .map(submission -> {
                     Long teamId = submission.getTeamId();
                     String teamName = teamNames.get(teamId);
                     Project project = projectByTeamId.get(teamId);
+                    Set<String> memberIds = memberIdsByTeamId.getOrDefault(teamId, Set.of());
                     ProjectResponse projectResponse = (project != null)
-                            ? ProjectResponse.from(project, resolveProjectScreenImageUrls(teamId, project.getScreenConfiguration()))
+                            ? ProjectResponse.from(project, resolveProjectScreenImageUrls(memberIds, project.getScreenConfiguration()))
                             : null;
-                    List<SubmissionArtifactResponse> artifacts = getLatestSubmissionArtifacts(submission);
+                    List<SubmissionArtifactResponse> artifacts =
+                            artifactsBySubmissionId.getOrDefault(submission.getId(), List.of());
                     return TeamPresentationResponse.of(submission, teamName, projectResponse, artifacts);
                 })
                 .toList();
@@ -318,29 +330,48 @@ public class SubmissionFacade {
         return MilestonePresentationsResponse.builder().contents(contents).build();
     }
 
-    private List<SubmissionArtifactResponse> getLatestSubmissionArtifacts(Submission submission) {
-        if (submission.getCurrentVersion() <= 0) {
-            return List.of();
+    private Map<Long, List<SubmissionArtifactResponse>> resolveLatestSubmissionArtifacts(List<Submission> submissions) {
+        Map<Long, Integer> currentVersionBySubmissionId = submissions.stream()
+                .filter(s -> s.getCurrentVersion() > 0)
+                .collect(Collectors.toMap(Submission::getId, Submission::getCurrentVersion));
+
+        if (currentVersionBySubmissionId.isEmpty()) {
+            return Map.of();
         }
-        return submissionVersionRepository
-                .findBySubmissionIdAndVersion(submission.getId(), submission.getCurrentVersion())
-                .map(version -> submissionArtifactRepository.findAllByVersionId(version.getId()).stream()
-                        .map(this::toArtifactResponse)
-                        .toList())
-                .orElseGet(List::of);
+
+        List<Long> submissionIds = currentVersionBySubmissionId.keySet().stream().toList();
+        List<SubmissionVersion> allVersions = submissionVersionRepository.findAllBySubmissionIdIn(submissionIds);
+
+        Map<Long, SubmissionVersion> latestVersionBySubmissionId = allVersions.stream()
+                .filter(v -> Objects.equals(v.getVersion(), currentVersionBySubmissionId.get(v.getSubmissionId())))
+                .collect(Collectors.toMap(SubmissionVersion::getSubmissionId, v -> v, (a, b) -> a));
+
+        List<Long> versionIds = latestVersionBySubmissionId.values().stream()
+                .map(SubmissionVersion::getId)
+                .toList();
+
+        Map<Long, List<SubmissionArtifact>> artifactsByVersionId = submissionArtifactRepository
+                .findAllByVersionIdIn(versionIds).stream()
+                .collect(Collectors.groupingBy(SubmissionArtifact::getVersionId));
+
+        Map<Long, List<SubmissionArtifactResponse>> result = new HashMap<>();
+        for (Map.Entry<Long, SubmissionVersion> entry : latestVersionBySubmissionId.entrySet()) {
+            Long submissionId = entry.getKey();
+            SubmissionVersion version = entry.getValue();
+            List<SubmissionArtifact> artifacts = artifactsByVersionId.getOrDefault(version.getId(), List.of());
+            result.put(submissionId, artifacts.stream().map(this::toArtifactResponse).toList());
+        }
+        return result;
     }
 
     // screenConfiguration은 [{title, description, imageFileId}, ...]를 원본 그대로 저장·응답하는데,
     // imageFileId만 내려주면 다른 팀 사용자는 그 이미지를 실제로 볼 방법이 없다(presigned URL을 받는 경로가
     // 이 발표자료 조회 API 말고는 없음). 조회할 때마다 각 화면의 imageFileId를 presigned URL(imageUrl)로
     // 보강해서 내려준다 — 저장은 안 건드린다(15분 후 만료되는 임시 URL이라 영구 저장하면 안 됨).
-    private JsonNode resolveProjectScreenImageUrls(Long teamId, JsonNode screens) {
+    private JsonNode resolveProjectScreenImageUrls(Set<String> memberIds, JsonNode screens) {
         if (screens == null || !screens.isArray()) {
             return screens;
         }
-        Set<String> memberIds = teamMemberRepository.findAllByTeamId(teamId).stream()
-                .map(TeamMember::getUserId)
-                .collect(Collectors.toSet());
         ArrayNode resolved = JsonNodeFactory.instance.arrayNode();
         for (JsonNode screen : screens) {
             if (!screen.isObject()) {

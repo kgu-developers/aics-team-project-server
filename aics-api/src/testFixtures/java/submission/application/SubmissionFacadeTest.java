@@ -511,6 +511,68 @@ class SubmissionFacadeTest {
     }
 
     @Test
+    @DisplayName("다수 팀의 발표 목록 조회 시 각 팀의 최신 버전 산출물만 일괄 조회되어 정확히 매핑된다")
+    void getMilestonePresentations_BatchFetchesLatestArtifactsForMultipleTeams() {
+        Long team1Id = TEAM_ID;
+        Long team2Id = 20L;
+        Long team3Id = 30L;
+
+        teamRepository.save(Team.builder().id(team1Id).sectionId(SECTION_ID).name("1팀").build());
+        teamRepository.save(Team.builder().id(team2Id).sectionId(SECTION_ID).name("2팀").build());
+        teamRepository.save(Team.builder().id(team3Id).sectionId(SECTION_ID).name("3팀").build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+
+        // 팀 1: 버전 1(과거), 버전 2(최신)
+        Submission submission1 = submissionRepository.save(Submission.create(team1Id, MILESTONE_ID));
+        SubmissionVersion sub1v1 = submissionVersionRepository.save(
+                SubmissionVersion.create(submission1.getId(), 1, "v1", null, LEADER, false));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.link(sub1v1.getId(), null, "https://old-link.com")
+        ));
+
+        SubmissionVersion sub1v2 = submissionVersionRepository.save(
+                SubmissionVersion.create(submission1.getId(), 2, "v2", null, LEADER, false));
+        FileObject pdf1 = fileObjectRepository.save(
+                FileObject.create(LEADER, "pdf1-key", "team1_v2.pdf", "application/pdf", 1024L, false, null));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.file(sub1v2.getId(), null, pdf1.getId()),
+                SubmissionArtifact.link(sub1v2.getId(), null, "https://youtube.com/watch?v=team1")
+        ));
+        submission1.recordNewVersion(2);
+        submissionRepository.save(submission1);
+
+        // 팀 2: 버전 1(최신)
+        Submission submission2 = submissionRepository.save(Submission.create(team2Id, MILESTONE_ID));
+        SubmissionVersion sub2v1 = submissionVersionRepository.save(
+                SubmissionVersion.create(submission2.getId(), 1, "v1", null, MEMBER, false));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.link(sub2v1.getId(), null, "https://youtube.com/watch?v=team2")
+        ));
+        submission2.recordNewVersion(1);
+        submissionRepository.save(submission2);
+
+        // 팀 3: 제출 이력 없음
+        submissionRepository.save(Submission.create(team3Id, MILESTONE_ID));
+
+        MilestonePresentationsResponse response = submissionFacade.getMilestonePresentations(MILESTONE_ID, MEMBER);
+
+        assertThat(response.contents()).hasSize(3);
+
+        var p1 = response.contents().stream().filter(c -> c.teamId().equals(team1Id)).findFirst().orElseThrow();
+        assertThat(p1.artifacts()).hasSize(2);
+        assertThat(p1.artifacts()).extracting("downloadUrl").contains("https://fake-storage.local/pdf1-key");
+        assertThat(p1.artifacts()).extracting("url").contains("https://youtube.com/watch?v=team1");
+        assertThat(p1.artifacts()).extracting("url").doesNotContain("https://old-link.com");
+
+        var p2 = response.contents().stream().filter(c -> c.teamId().equals(team2Id)).findFirst().orElseThrow();
+        assertThat(p2.artifacts()).hasSize(1);
+        assertThat(p2.artifacts().get(0).url()).isEqualTo("https://youtube.com/watch?v=team2");
+
+        var p3 = response.contents().stream().filter(c -> c.teamId().equals(team3Id)).findFirst().orElseThrow();
+        assertThat(p3.artifacts()).isEmpty();
+    }
+
+    @Test
     @DisplayName("분반의 일부 팀이 빠지면 발표순서 지정이 거부된다")
     void assignPresentationOrder_RejectsWhenTeamMissing() {
         teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());

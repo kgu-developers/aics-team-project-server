@@ -29,6 +29,17 @@ public class SubmissionVersionRepositoryImpl implements SubmissionVersionReposit
     }
 
     @Override
+    public List<SubmissionVersion> findAllBySubmissionIdIn(List<Long> submissionIds) {
+        if (submissionIds == null || submissionIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaSubmissionVersionRepository
+                .findAllBySubmissionIdInAndDeletedAtIsNull(submissionIds).stream()
+                .map(SubmissionVersionJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<SubmissionVersion> findBySubmissionIdAndVersion(Long submissionId, int version) {
         return jpaSubmissionVersionRepository.findBySubmissionIdAndVersionAndDeletedAtIsNull(submissionId, version)
                 .map(SubmissionVersionJpaEntity::toDomain);
