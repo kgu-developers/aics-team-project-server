@@ -6,27 +6,45 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import kgu.developers.api.project.presentation.request.ProjectRequest;
+import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
+import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
+import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
+import kgu.developers.api.team.application.TeamFacade;
+import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProposalSection;
+import kgu.developers.domain.project.domain.ProposalSectionRepository;
+import kgu.developers.domain.project.domain.ProposalSectionType;
 import kgu.developers.domain.project.exception.ProjectScreenImageOwnershipException;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
 import kgu.developers.domain.projectApproval.domain.ApprovalCount;
 import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toMap;
 
 @Component
 @RequiredArgsConstructor
@@ -41,30 +59,118 @@ public class ProjectFacade {
     private final TeamMemberRepository teamMemberRepository;
     private final FileObjectRepository fileObjectRepository;
     private final FileStorage fileStorage;
+    private final ProposalSectionRepository proposalSectionRepository;
+    private final UserRepository userRepository;
+    private final TeamFacade teamFacade;
 
     public ProjectResponse getProject(Long teamId, String userId) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
         Project project = projectQueryService.getProjectByTeamId(teamId);
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()));
+        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
+            teamFacade.getKickoffByTeamId(teamId, userId));
     }
 
     public ProjectResponse saveProject(Long teamId, String userId, ProjectRequest request) {
         teamAccessValidator.validateMembership(teamId, userId);
         validateScreenImagesOwnedByTeam(teamId, request.screenConfiguration());
+
+        // 팀 운영방식 본문(팀규칙·회의방식·역할분담)은 킥오프와 저장소가 같아서 Team·team_member에 쓴다.
+        // TeamFacade가 감사로그와 동의 무효화까지 같이 처리한다.
+        if (request.kickoffRule() != null || request.meetingSchedule() != null || request.memberRoles() != null) {
+            teamFacade.updateKickoffContent(teamId, userId,
+                request.kickoffRule(), request.meetingSchedule(), request.memberRoles());
+        }
+
         Project project = projectCommandService.saveProject(
             teamId,
             request.title(),
             request.description(),
             request.goal(),
-            request.meetingStyle(),
             request.repositoryUrl(),
             request.externalLinks(),
             request.dataConfiguration(),
             stripClientProvidedImageUrls(request.screenConfiguration()),
             request.keyFeatures(),
-            request.demoFlow()
+            request.demoFlow(),
+            request.projectSchedule()
         );
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()));
+        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
+            teamFacade.getKickoffByTeamId(teamId, userId));
+    }
+
+    public void completeProposal(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        
+        projectCommandService.lockTeam(project.getTeamId());
+        teamAccessValidator.validateLeader(project.getTeamId(), userId);
+
+        projectCommandService.completeProposal(projectId);
+    }
+
+    public void deleteProject(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        teamAccessValidator.validateLeader(project.getTeamId(), userId);
+
+        projectCommandService.deleteProject(projectId);
+    }
+
+    public void approveProject(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        teamAccessValidator.validateMembership(project.getTeamId(), userId);
+        projectApprovalCommandService.approve(projectId, userId, LocalDateTime.now());
+    }
+
+    public ProposalSectionListResponse getProposalSections(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        teamAccessValidator.validateMembershipOrProfessor(project.getTeamId(), userId);
+
+        Map<ProposalSectionType, ProposalSection> saved = proposalSectionRepository.findAllByProjectId(projectId).stream()
+            .collect(toMap(ProposalSection::getType, Function.identity()));
+        Map<String, String> names = assigneeNames(saved.values());
+
+        List<ProposalSectionResponse> contents = Arrays.stream(ProposalSectionType.values())
+            .map(type -> saved.containsKey(type)
+                ? ProposalSectionResponse.of(saved.get(type), names.get(saved.get(type).getAssigneeUserId()))
+                : ProposalSectionResponse.empty(type))
+            .toList();
+        return ProposalSectionListResponse.from(contents);
+    }
+
+    public ProposalSectionResponse updateProposalSection(
+        Long projectId,
+        ProposalSectionType type,
+        String userId,
+        ProposalSectionRequest request
+    ) {
+        Project project = projectQueryService.getProject(projectId);
+        teamAccessValidator.validateMembership(project.getTeamId(), userId);
+
+        ProposalSection section = projectCommandService.updateProposalSection(
+            projectId, type, request.assigneeUserId(), request.completed()
+        );
+        return ProposalSectionResponse.of(section, assigneeNames(List.of(section)).get(section.getAssigneeUserId()));
+    }
+
+    private Map<String, String> assigneeNames(Collection<ProposalSection> sections) {
+        List<String> userIds = sections.stream()
+            .map(ProposalSection::getAssigneeUserId)
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllByStudentNumberIn(userIds).stream()
+            .collect(toMap(User::getStudentNumber, User::getName));
+    }
+
+    public ProjectApprovalSummaryResponse getApprovalSummary(Long projectId, String userId) {
+        Project project = projectQueryService.getProject(projectId);
+        teamAccessValidator.validateMembership(project.getTeamId(), userId);
+        ApprovalCount count = projectApprovalRepository.countApprovalsByTeamMembers(
+            projectId, project.getTeamId(), project.getProposalRevision()
+        );
+        return ProjectApprovalSummaryResponse.of((int) count.approvedMembers(), (int) count.totalMembers());
     }
 
     // screenConfiguration은 [{title, description, imageFileId}, ...]를 원본 그대로 저장·응답하는데,
@@ -81,6 +187,25 @@ public class ProjectFacade {
             return screens;
         }
         Set<String> memberIds = activeMemberIds(teamId);
+
+        // 화면 이미지 ID들을 수집하여 일괄 조회 (N+1 쿼리 방지)
+        List<Long> imageFileIds = new java.util.ArrayList<>();
+        for (JsonNode screen : screens) {
+            JsonNode imageFileId = screen.get("imageFileId");
+            if (imageFileId != null && imageFileId.isIntegralNumber()) {
+                imageFileIds.add(imageFileId.asLong());
+            }
+        }
+
+        Map<Long, FileObject> fileObjectMap = java.util.Collections.emptyMap();
+        if (!imageFileIds.isEmpty()) {
+            fileObjectMap = fileObjectRepository.findAllByIdAndDeletedAtIsNull(imageFileIds.stream().distinct().toList()).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    kgu.developers.domain.fileobject.domain.FileObject::getId,
+                    java.util.function.Function.identity()
+                ));
+        }
+
         ArrayNode resolved = JsonNodeFactory.instance.arrayNode();
         for (JsonNode screen : screens) {
             if (!screen.isObject()) {
@@ -91,9 +216,10 @@ public class ProjectFacade {
             sanitized.remove("imageUrl");
             JsonNode imageFileId = screen.get("imageFileId");
             if (imageFileId != null && imageFileId.isIntegralNumber()) {
-                fileObjectRepository.findById(imageFileId.asLong())
-                    .filter(fileObject -> memberIds.contains(fileObject.getUploadedBy()))
-                    .ifPresent(fileObject -> sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey())));
+                FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
+                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy())) {
+                    sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey()));
+                }
             }
             resolved.add(sanitized);
         }
@@ -109,14 +235,32 @@ public class ProjectFacade {
             return;
         }
         Set<String> memberIds = activeMemberIds(teamId);
+
+        // 화면 이미지 ID들을 수집하여 일괄 조회 (N+1 쿼리 방지)
+        List<Long> imageFileIds = new java.util.ArrayList<>();
+        for (JsonNode screen : screens) {
+            JsonNode imageFileId = screen.get("imageFileId");
+            if (imageFileId != null && imageFileId.isIntegralNumber()) {
+                imageFileIds.add(imageFileId.asLong());
+            }
+        }
+
+        Map<Long, FileObject> fileObjectMap = java.util.Collections.emptyMap();
+        if (!imageFileIds.isEmpty()) {
+            fileObjectMap = fileObjectRepository.findAllByIdAndDeletedAtIsNull(imageFileIds.stream().distinct().toList()).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    kgu.developers.domain.fileobject.domain.FileObject::getId,
+                    java.util.function.Function.identity()
+                ));
+        }
+
         for (JsonNode screen : screens) {
             JsonNode imageFileId = screen.get("imageFileId");
             if (imageFileId == null || imageFileId.isNull()) {
                 continue;
             }
-            boolean ownedByTeam = fileObjectRepository.findById(imageFileId.asLong())
-                .map(fileObject -> memberIds.contains(fileObject.getUploadedBy()))
-                .orElse(false);
+            FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
+            boolean ownedByTeam = fileObject != null && memberIds.contains(fileObject.getUploadedBy());
             if (!ownedByTeam) {
                 throw new ProjectScreenImageOwnershipException();
             }
@@ -146,36 +290,5 @@ public class ProjectFacade {
         return teamMemberRepository.findAllByTeamId(teamId).stream()
             .map(TeamMember::getUserId)
             .collect(Collectors.toSet());
-    }
-
-    public void completeProposal(Long projectId, String userId) {
-        Project project = projectQueryService.getProject(projectId);
-        
-        projectCommandService.lockTeam(project.getTeamId());
-        teamAccessValidator.validateLeader(project.getTeamId(), userId);
-
-        projectCommandService.completeProposal(projectId);
-    }
-
-    public void deleteProject(Long projectId, String userId) {
-        Project project = projectQueryService.getProject(projectId);
-        teamAccessValidator.validateLeader(project.getTeamId(), userId);
-
-        projectCommandService.deleteProject(projectId);
-    }
-
-    public void approveProject(Long projectId, String userId) {
-        Project project = projectQueryService.getProject(projectId);
-        teamAccessValidator.validateMembership(project.getTeamId(), userId);
-        projectApprovalCommandService.approve(projectId, userId, LocalDateTime.now());
-    }
-
-    public ProjectApprovalSummaryResponse getApprovalSummary(Long projectId, String userId) {
-        Project project = projectQueryService.getProject(projectId);
-        teamAccessValidator.validateMembership(project.getTeamId(), userId);
-        ApprovalCount count = projectApprovalRepository.countApprovalsByTeamMembers(
-            projectId, project.getTeamId(), project.getProposalRevision()
-        );
-        return ProjectApprovalSummaryResponse.of((int) count.approvedMembers(), (int) count.totalMembers());
     }
 }

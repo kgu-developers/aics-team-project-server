@@ -3,8 +3,12 @@ package kgu.developers.api.project.presentation;
 import jakarta.validation.Valid;
 import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
+import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
+import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
+import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
+import kgu.developers.domain.project.domain.ProposalSectionType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -46,6 +50,28 @@ public class ProjectControllerImpl implements ProjectController {
     public ResponseEntity<Void> deleteProject(@PathVariable Long projectId, Authentication authentication) {
         projectFacade.deleteProject(projectId, authentication.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @GetMapping("/projects/{projectId}/proposal/sections")
+    public ResponseEntity<ProposalSectionListResponse> getProposalSections(
+        @PathVariable Long projectId,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(projectFacade.getProposalSections(projectId, authentication.getName()));
+    }
+
+    @Override
+    @PutMapping("/projects/{projectId}/proposal/sections/{section}")
+    public ResponseEntity<ProposalSectionResponse> updateProposalSection(
+        @PathVariable Long projectId,
+        @PathVariable ProposalSectionType section,
+        @Valid @RequestBody ProposalSectionRequest request,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+            projectFacade.updateProposalSection(projectId, section, authentication.getName(), request)
+        );
     }
 
     @Override

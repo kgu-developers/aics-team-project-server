@@ -1,5 +1,6 @@
 package kgu.developers.domain.fileobject.infrastructure;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -23,5 +24,19 @@ public class FileObjectRepositoryImpl implements FileObjectRepository {
     public Optional<FileObject> findById(Long id) {
         return jpaFileObjectRepository.findByIdAndDeletedAtIsNull(id)
                 .map(FileObjectJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<FileObject> findAllById(List<Long> ids) {
+        return jpaFileObjectRepository.findAllById(ids).stream()
+                .map(FileObjectJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<FileObject> findAllByIdAndDeletedAtIsNull(List<Long> ids) {
+        return jpaFileObjectRepository.findAllByIdInAndDeletedAtIsNull(ids).stream()
+                .map(FileObjectJpaEntity::toDomain)
+                .toList();
     }
 }

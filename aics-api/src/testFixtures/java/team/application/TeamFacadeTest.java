@@ -31,6 +31,7 @@ import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.Mem
 import kgu.developers.api.team.presentation.response.TeamKickoffResponse;
 import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
 import kgu.developers.domain.auditLog.domain.AuditLogEventType;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
@@ -40,6 +41,8 @@ import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberWithUser;
 import kgu.developers.domain.user.domain.User;
+import mock.repository.FakeTeamMemberRepository;
+import mock.repository.FakeTeamRepository;
 
 @ExtendWith(MockitoExtension.class)
 class TeamFacadeTest {
@@ -61,6 +64,9 @@ class TeamFacadeTest {
 
   @Mock
   private AuditLogCommandService auditLogCommandService;
+
+  @Mock
+  private ProjectCommandService projectCommandService;
 
   @InjectMocks
   private TeamFacade teamFacade;
@@ -124,6 +130,124 @@ class TeamFacadeTest {
     verify(teamMemberCommandService).updateKickoffRoles(1L, "202699999", Map.of("202699999", "백엔드"));
     assertThat(response.members()).singleElement()
         .satisfies(m -> assertThat(m.name()).isEqualTo("김철수"));
+  }
+
+  // 제안서 저장 API가 부르는 경로. 팀명·팀장은 제안서 항목이 아니라 지금 값을 유지해야 한다.
+  @Test
+  @DisplayName("updateKickoffContent는 팀명을 유지한 채 운영규칙·회의일정만 바꾸고 동의를 무효화한다")
+  void updateKickoffContentKeepsTeamName() {
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
+    given(teamCommandService.updateProposalKickoff(1L, "새 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "새 규칙", "매주 목 19:00"));
+
+    teamFacade.updateKickoffContent(1L, USER, "새 규칙", "매주 목 19:00", null);
+
+    verify(teamMemberCommandService, never()).updateKickoffRoles(any(), any(), any());
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+  }
+
+  @Test
+  @DisplayName("updateKickoffContent는 null로 넘긴 항목은 지금 값을 유지한다")
+  void updateKickoffContentKeepsOmittedFields() {
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
+    given(teamCommandService.updateProposalKickoff(1L, "기존 규칙", "새 일정"))
+        .willReturn(team("1팀", "기존 규칙", "새 일정"));
+
+    teamFacade.updateKickoffContent(1L, USER, null, "새 일정", null);
+
+    verify(teamCommandService).updateProposalKickoff(1L, "기존 규칙", "새 일정");
+  }
+
+  @Test
+  @DisplayName("updateKickoffContent는 역할분담을 넘기면 지금 팀장을 유지한 채 역할만 바꾼다")
+  void updateKickoffContentKeepsLeader() {
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "기존 일정"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(member(1L, "202611111", true), member(2L, USER, false)));
+    given(teamCommandService.updateProposalKickoff(1L, "기존 규칙", "기존 일정"))
+        .willReturn(team("1팀", "기존 규칙", "기존 일정"));
+
+    teamFacade.updateKickoffContent(1L, USER, null, null, List.of(new MemberRole(USER, "백엔드")));
+
+    verify(teamMemberCommandService).updateProposalRoles(1L, Map.of(USER, "백엔드"));
+  }
+
+  @Test
+  @DisplayName("updateKickoffContent는 확정된 팀의 규칙·회의·역할분담을 저장한다")
+  void updateKickoffContentUpdatesConfirmedTeam() {
+    FakeTeamRepository fakeTeamRepository = new FakeTeamRepository();
+    FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
+    fakeTeamRepository.save(Team.builder().id(1L).sectionId(10L).name("1팀").kickoffRule("기존 규칙")
+        .meetingSchedule("기존 일정").status(Status.CONFIRMED).build());
+    fakeTeamMemberRepository.save(TeamMember.builder().id(1L).teamId(1L).userId("202611111")
+        .isLeader(true).projectRole("기획").build());
+    fakeTeamMemberRepository.save(TeamMember.builder().id(2L).teamId(1L).userId(USER)
+        .isLeader(false).projectRole("프론트엔드").build());
+    TeamQueryService realTeamQueryService = new TeamQueryService(fakeTeamRepository, null);
+    TeamFacade confirmedTeamFacade = new TeamFacade(
+        realTeamQueryService,
+        new TeamCommandService(realTeamQueryService, fakeTeamRepository, null),
+        new TeamMemberQueryService(fakeTeamMemberRepository, null),
+        new TeamMemberCommandService(fakeTeamMemberRepository, realTeamQueryService, fakeTeamRepository),
+        teamAccessValidator, auditLogCommandService, projectCommandService);
+
+    confirmedTeamFacade.updateKickoffContent(1L, USER, "새 규칙", "새 일정",
+        List.of(new MemberRole(USER, "백엔드")));
+
+    Team updatedTeam = fakeTeamRepository.findById(1L).orElseThrow();
+    assertThat(updatedTeam.getKickoffRule()).isEqualTo("새 규칙");
+    assertThat(updatedTeam.getMeetingSchedule()).isEqualTo("새 일정");
+    assertThat(fakeTeamMemberRepository.findByTeamIdAndUserId(1L, USER).orElseThrow().getProjectRole())
+        .isEqualTo("백엔드");
+    assertThat(fakeTeamMemberRepository.findLeaderByTeamId(1L).orElseThrow().getUserId())
+        .isEqualTo("202611111");
+  }
+
+  // 제안서 5번(팀 운영방식)이 킥오프 정보를 그대로 보여주므로, 킥오프가 바뀌면 제안서가 바뀐 것이다.
+  @Test
+  @DisplayName("updateKickoff는 운영규칙·회의일정이 바뀌면 제안서 동의를 무효화한다")
+  void updateKickoffInvalidatesProposal() {
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "새 규칙", "매주 목 19:00", "202699999", null);
+    given(teamCommandService.updateKickoff(1L, "1팀", "새 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "새 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+  }
+
+  @Test
+  @DisplayName("updateKickoff는 팀명만 바뀌면 제안서 동의를 건드리지 않는다")
+  void updateKickoffKeepsProposalWhenOnlyNameChanged() {
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "새 팀명", "기존 규칙", "매주 목 19:00", "202699999", null);
+    given(teamCommandService.updateKickoff(1L, "새 팀명", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("새 팀명", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService, never()).invalidateProposalForKickoffChange(any());
+  }
+
+  @Test
+  @DisplayName("updateKickoff는 팀장만 바뀌면 제안서 동의를 건드리지 않는다")
+  void updateKickoffKeepsProposalWhenOnlyLeaderChanged() {
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "기존 규칙", "매주 목 19:00", "202611111", null);
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(member(1L, "202699999", true), member(2L, "202611111", false)));
+    given(teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of()))
+        .willReturn(List.of(member(1L, "202699999", false), member(2L, "202611111", true)));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService, never()).invalidateProposalForKickoffChange(any());
   }
 
   @Test
@@ -336,5 +460,54 @@ class TeamFacadeTest {
         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
         org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  @DisplayName("역할분담이 바뀌면 제안서 동의를 무효화한다")
+  void updateKickoffInvalidatesProposalWhenRolesChange() {
+    TeamMember beforeMember = TeamMember.builder().id(1L).teamId(1L).userId("202699999")
+        .isLeader(false).projectRole("백엔드").build();
+    TeamMember afterMember = TeamMember.builder().id(1L).teamId(1L).userId("202699999")
+        .isLeader(false).projectRole("프론트엔드").build();
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "기존 규칙", "매주 목 19:00", "202699999",
+        List.of(new MemberRole("202699999", "프론트엔드")));
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(beforeMember));
+    given(teamMemberCommandService.updateKickoffRoles(1L, "202699999", Map.of("202699999", "프론트엔드")))
+        .willReturn(List.of(afterMember));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+  }
+
+  @Test
+  @DisplayName("역할분담 순서만 다르고 내용이 같으면 제안서 동의를 건드리지 않는다")
+  void updateKickoffKeepsProposalWhenRolesOrderDiffersButContentSame() {
+    TeamMember member1 = TeamMember.builder().id(1L).teamId(1L).userId("202611111")
+        .isLeader(false).projectRole("프론트엔드").build();
+    TeamMember member2 = TeamMember.builder().id(2L).teamId(1L).userId("202699999")
+        .isLeader(false).projectRole("백엔드").build();
+    TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
+        "1팀", "기존 규칙", "매주 목 19:00", "202699999",
+        List.of(new MemberRole("202699999", "백엔드"), new MemberRole("202611111", "프론트엔드")));
+    given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForUpdate(1L))
+        .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L))
+        .willReturn(List.of(member1, member2));
+    given(teamMemberCommandService.updateKickoffRoles(1L, "202699999",
+        Map.of("202699999", "백엔드", "202611111", "프론트엔드")))
+        .willReturn(List.of(member1, member2));
+
+    teamFacade.updateKickoff(1L, USER, request);
+
+    verify(projectCommandService, never()).invalidateProposalForKickoffChange(any());
   }
 }

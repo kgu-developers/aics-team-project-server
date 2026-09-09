@@ -36,6 +36,14 @@ public class TeamCommandService {
         return teamRepository.save(team);
     }
 
+    /** 제안서 팀 운영방식은 확정 후에도 보완할 수 있지만, 팀명은 바꾸지 않는다. */
+    public Team updateProposalKickoff(Long teamId, String kickoffRule, String meetingSchedule) {
+        Team team = teamQueryService.getTeamById(teamId);
+        team.updateKickoffRule(kickoffRule);
+        team.updateMeetingSchedule(meetingSchedule);
+        return teamRepository.save(team);
+    }
+
     private void validateNameNotTaken(Team team, String name) {
         if (teamRepository.existsBySectionIdAndNameAndIdNot(team.getSectionId(), name, team.getId())) {
             throw new DuplicateTeamNameException();

@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectAlreadyExistsException;
+import kgu.developers.domain.project.exception.ProjectDeletedConcurrentlyException;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.project.exception.ProjectVersionConflictException;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
@@ -33,7 +34,7 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             Project existing = findIncludingDeletedByTeamId(project.getTeamId()).orElse(null);
             if (existing != null) {
                 if (existing.getDeletedAt() != null) {
-                    throw new ProjectVersionConflictException();
+                    throw new ProjectDeletedConcurrentlyException();
                 }
                 if (!existing.getId().equals(project.getId())) {
                     throw new ProjectAlreadyExistsException();
@@ -66,8 +67,8 @@ public class ProjectRepositoryImpl implements ProjectRepository {
             }
 
             existing.reactivate(newProject.getTitle(), newProject.getDescription(), newProject.getGoal(),
-                    newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(), newProject.getMeetingStyle(), newProject.getTopicCandidateId(),
-                    newProject.getDataConfiguration(), newProject.getScreenConfiguration(), newProject.getKeyFeatures(), newProject.getDemoFlow());
+                    newProject.getRepositoryUrl(), newProject.getExternalLinks(), newProject.getApprovalStatus(), newProject.getTopicCandidateId(),
+                    newProject.getDataConfiguration(), newProject.getScreenConfiguration(), newProject.getKeyFeatures(), newProject.getDemoFlow(), newProject.getProjectSchedule());
             ProjectJpaEntity entity = ProjectJpaEntity.toEntity(existing, team);
             ProjectJpaEntity savedEntity = jpaProjectRepository.saveAndFlush(entity);
             return savedEntity.toDomain();
