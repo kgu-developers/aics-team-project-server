@@ -110,6 +110,17 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     }
 
     @Override
+    public List<Project> findAllByTeamIdIn(List<Long> teamIds) {
+        if (teamIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaProjectRepository.findAllByTeamIdInAndDeletedAtIsNull(teamIds)
+                .stream()
+                .map(ProjectJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<Project> findIncludingDeletedByTeamId(Long teamId) {
         return jpaProjectRepository.findByTeamId(teamId)
                 .map(ProjectJpaEntity::toDomain);
