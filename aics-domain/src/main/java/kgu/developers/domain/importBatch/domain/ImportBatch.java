@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class ImportBatch {
+    private static final int MAX_FILE_NAME_LENGTH = 255;
+
     private Long id;
     private Long version;  // 낙관적 락 버전 (신규는 null)
 
@@ -25,6 +27,7 @@ public class ImportBatch {
 
     private Type type;  // 유형
     private Status status;  // 상태
+    private String fileName;  // 업로드 원본 파일명(기존 배치는 null)
 
     private JsonNode payload;  // 원본데이터 (형식 제약 없음)
     private JsonNode summary;  // 요약 (형식 제약 없음)
@@ -36,15 +39,37 @@ public class ImportBatch {
 
     public static ImportBatch create(String uploadedBy, Long sectionId, Type type,
                                      JsonNode payload, JsonNode summary, LocalDateTime expiredAt) {
+        return create(uploadedBy, sectionId, type, null, payload, summary, expiredAt);
+    }
+
+    public static ImportBatch create(String uploadedBy, Long sectionId, Type type, String fileName,
+                                     JsonNode payload, JsonNode summary, LocalDateTime expiredAt) {
         return ImportBatch.builder()
                 .uploadedBy(requireNonNull(uploadedBy, "uploadedBy"))
                 .sectionId(requireNonNull(sectionId, "sectionId"))
                 .type(requireNonNull(type, "type"))
                 .status(Status.PREVIEW)
+                .fileName(normalizeFileName(fileName))
                 .payload(requireNonNull(payload, "payload"))
                 .summary(requireNonNull(summary, "summary"))
                 .expiredAt(requireNonNull(expiredAt, "expiredAt"))
                 .build();
+    }
+
+    private static String normalizeFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return null;
+        }
+        String normalized = fileName.replace('\\', '/');
+        int lastSlash = normalized.lastIndexOf('/');
+        String baseName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+        baseName = baseName.strip();
+        if (baseName.isBlank()) {
+            return null;
+        }
+        return baseName.length() <= MAX_FILE_NAME_LENGTH
+                ? baseName
+                : baseName.substring(0, MAX_FILE_NAME_LENGTH);
     }
 
     public boolean hasErrors() {

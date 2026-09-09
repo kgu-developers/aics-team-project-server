@@ -47,6 +47,8 @@ import kgu.developers.globalutils.jwt.TokenRevocationStore;
 class SecurityConfigTest {
 
   private static final String ADMIN_URL = "/api/v1/admin/oop/users";
+  private static final String ROSTER_IMPORT_STATUS_URL =
+      "/api/v1/admin/oop/sections/1/roster-import-status";
   private static final String STUDENT_NUMBER = "202699999";
   private static final String ORIGIN = "http://localhost:5173";
 
@@ -84,6 +86,14 @@ class SecurityConfigTest {
   void notAdmin() throws Exception {
     mockMvc.perform(get(ADMIN_URL))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("명단 반영 현황 경로는 일반 사용자도 인증 후 분반 권한 검증 단계로 전달한다")
+  @WithMockUser(roles = "USER")
+  void rosterImportStatusAuthenticatedUser() throws Exception {
+    mockMvc.perform(get(ROSTER_IMPORT_STATUS_URL))
+        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
   }
 
   @Test
