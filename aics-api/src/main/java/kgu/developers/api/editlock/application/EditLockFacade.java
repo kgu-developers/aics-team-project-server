@@ -1,5 +1,6 @@
 package kgu.developers.api.editlock.application;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -8,7 +9,15 @@ import kgu.developers.api.editlock.presentation.response.EditLockStatusResponse;
 import kgu.developers.domain.editlock.application.command.EditLockCommandService;
 import kgu.developers.domain.editlock.application.query.EditLockQueryService;
 import kgu.developers.domain.editlock.domain.EditLockTargetType;
-import kgu.developers.domain.editlock.exception.EditLockUnsupportedTargetException;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.exception.ProjectNotFoundException;
+import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -18,6 +27,10 @@ public class EditLockFacade {
 
     private final EditLockCommandService editLockCommandService;
     private final EditLockQueryService editLockQueryService;
+    private final ProjectRepository projectRepository;
+    private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     // acquire()와 같은 대상 접근 검증을 거친다 — 검증 없이 조회를 허용하면 다른 분반·팀
     // 사용자도 lockedBy(학번)를 알아낼 수 있었다(sunzx0428 PR #87 리뷰 09-03).
@@ -46,10 +59,26 @@ public class EditLockFacade {
     // targetType/targetId는 폴리모픽 참조(FK 없음)라 여기서 타입별로 갈라서 검증해야 한다.
     private void validateTargetAccess(EditLockTargetType targetType, Long targetId, String userId) {
         switch (targetType) {
-            // PROJECT(B2)는 아직 이 저장소에 도메인이 없어 검증 대상을 정할 수 없다 — 검증 없이
-            // 통과시키면 아무 인증 사용자나 임의 대상을 잠글 수 있게 되므로, Project 도메인이
-            // 들어오기 전까지는 아예 지원하지 않는 대상으로 명시적으로 거부한다.
-            case PROJECT -> throw new EditLockUnsupportedTargetException();
+            case PROJECT -> validateProjectAccess(targetId, userId);
+        }
+    }
+
+    // PROJECT의 targetId는 projectId다.
+    // 팀원 행이 남아있는 것만으로는 부족하고, 지금 이 분반에 활성 학생으로 등록돼 있어야
+    // 잠글 수 있다 — 탈퇴·조교 전환자가 잠금을 잡아 실제 편집자를 막는 걸 방지한다.
+    private void validateProjectAccess(Long projectId, String userId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(ProjectNotFoundException::new);
+        Team team = teamRepository.findById(project.getTeamId())
+                .orElseThrow(TeamNotFoundException::new);
+        if (teamMemberRepository.findByTeamIdAndUserId(team.getId(), userId).isEmpty()) {
+            throw new AccessDeniedException("그 팀 소속만 프로젝트를 편집할 수 있습니다.");
+        }
+        boolean activeStudent = enrollmentRepository.findBySectionIdAndUserId(team.getSectionId(), userId)
+                .map(Enrollment::isActiveStudent)
+                .orElse(false);
+        if (!activeStudent) {
+            throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 편집할 수 있습니다.");
         }
     }
 }
