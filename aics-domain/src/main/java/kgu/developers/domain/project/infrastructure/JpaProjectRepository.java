@@ -20,5 +20,7 @@ public interface JpaProjectRepository extends JpaRepository<ProjectJpaEntity, Lo
 
     List<ProjectJpaEntity> findAllByTeamIdAndDeletedAtIsNull(Long teamId);
 
+    List<ProjectJpaEntity> findAllByTeamIdInAndDeletedAtIsNull(List<Long> teamIds);
+
     Optional<ProjectJpaEntity> findByTeamId(Long teamId);
 }

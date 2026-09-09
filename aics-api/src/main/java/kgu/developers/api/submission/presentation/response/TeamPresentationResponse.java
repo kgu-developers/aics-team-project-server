@@ -2,9 +2,12 @@ package kgu.developers.api.submission.presentation.response;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
+import java.util.List;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
+import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.domain.submission.domain.Submission;
 
 @Builder
@@ -13,20 +16,35 @@ public record TeamPresentationResponse(
         @Schema(description = "팀 식별자", example = "10", requiredMode = REQUIRED)
         Long teamId,
 
+        @Schema(description = "팀명", example = "1조")
+        String teamName,
+
+        @Schema(description = "제출 식별자", example = "1", requiredMode = REQUIRED)
+        Long submissionId,
+
         @Schema(description = "발표 순서(미지정이면 null)", example = "1")
         Integer presentationOrder,
 
-        @Schema(description = "발표 공개자료", requiredMode = REQUIRED)
-        PresentationContentResponse content
+        @Schema(description = "프로젝트 제안서 정보(미작성이면 null)")
+        ProjectResponse project,
+
+        @Schema(description = "제출된 최신 산출물 목록(PDF 다운로드 임시 URL, 시연영상 링크 등)", requiredMode = REQUIRED)
+        List<SubmissionArtifactResponse> artifacts
 ) {
 
-    // content는 호출부(SubmissionFacade)가 imageFileId를 presigned URL로 이미 보강해서 만든
-    // 응답을 그대로 받는다 — 원본 도메인 객체를 받아 여기서 다시 변환하면 그 보강을 놓치기 쉽다.
-    public static TeamPresentationResponse of(Submission submission, PresentationContentResponse content) {
+    public static TeamPresentationResponse of(
+            Submission submission,
+            String teamName,
+            ProjectResponse project,
+            List<SubmissionArtifactResponse> artifacts
+    ) {
         return TeamPresentationResponse.builder()
                 .teamId(submission.getTeamId())
+                .teamName(teamName)
+                .submissionId(submission.getId())
                 .presentationOrder(submission.getPresentationOrder())
-                .content(content)
+                .project(project)
+                .artifacts(artifacts == null ? List.of() : artifacts)
                 .build();
     }
 }
