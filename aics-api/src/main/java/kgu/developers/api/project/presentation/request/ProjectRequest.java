@@ -43,18 +43,6 @@ public record ProjectRequest(
     @NotNull
     JsonNode screenConfiguration,
 
-    @Schema(description = "주요 기능 (JSON 배열: [{title, description}, ...])",
-        example = "[{\"title\":\"학습 분석\",\"description\":\"AI가 학습 패턴을 분석합니다\"}]",
-        requiredMode = REQUIRED)
-    @NotNull
-    JsonNode keyFeatures,
-
-    @Schema(description = "시연 흐름 (JSON 배열: [{number, title}, ...])",
-        example = "[{\"number\":1,\"title\":\"회원과 도서를 검색합니다.\"},{\"number\":2,\"title\":\"대여 후 반납 상태를 확인합니다.\"}]",
-        requiredMode = REQUIRED)
-    @NotNull
-    JsonNode demoFlow,
-
     // 팀 운영방식의 팀규칙·회의방식·역할분담은 킥오프(Team, team_member)가 단일 출처다. 여기서 보낸 값은
     // 그 저장소에 그대로 쓰이므로 킥오프 조회에도 반영된다. 셋 다 선택값이고, 넘기지 않으면 지금 값을 유지한다.
     @Schema(description = "팀 운영방식 - 팀규칙. 넘기지 않으면 지금 값을 유지한다.", example = "매주 화요일 회고")
@@ -77,17 +65,6 @@ public record ProjectRequest(
     @Schema(description = "외부 링크 목록(JSON)", example = "[{\"name\":\"Figma\",\"url\":\"https://figma.com/...\"}]")
     JsonNode externalLinks
 ) {
-    public ProjectRequest(
-        String title, String description, String goal, JsonNode dataConfiguration, JsonNode screenConfiguration,
-        String kickoffRule, String meetingSchedule, List<MemberRole> memberRoles, String projectSchedule,
-        String repositoryUrl, JsonNode externalLinks
-    ) {
-        this(title, description, goal, dataConfiguration, screenConfiguration,
-            com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode(),
-            com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode(),
-            kickoffRule, meetingSchedule, memberRoles, projectSchedule, repositoryUrl, externalLinks);
-    }
-
     // @NotNull은 JSON `null`을 못 막는다 — Jackson이 JsonNode 필드의 JSON null을 Java null이 아니라
     // NullNode로 역직렬화해서, 그대로 두면 jsonb에 `null` 리터럴이 저장된다(컬럼은 NOT NULL인데도).
     // 두 구성 모두 순서 있는 목록이라 배열이어야 하고, 등록할 항목이 없으면 빈 배열을 보낸다.
@@ -124,47 +101,4 @@ public record ProjectRequest(
         return dataConfiguration != null && dataConfiguration.isArray();
     }
 
-    @JsonIgnore
-    @AssertTrue(message = "주요 기능은 JSON 배열이어야 합니다.")
-    public boolean isKeyFeaturesArray() {
-        return keyFeatures != null && keyFeatures.isArray();
-    }
-
-    @JsonIgnore
-    @AssertTrue(message = "주요 기능의 각 항목은 객체여야 하고 title, description 필드를 가져야 합니다.")
-    public boolean isKeyFeaturesShapeValid() {
-        if (keyFeatures == null || !keyFeatures.isArray()) {
-            return true;
-        }
-        for (JsonNode feature : keyFeatures) {
-            if (!feature.isObject()
-                || !feature.path("title").isTextual()
-                || !feature.path("description").isTextual()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @JsonIgnore
-    @AssertTrue(message = "시연 흐름은 JSON 배열이어야 합니다.")
-    public boolean isDemoFlowArray() {
-        return demoFlow != null && demoFlow.isArray();
-    }
-
-    @JsonIgnore
-    @AssertTrue(message = "시연 흐름의 각 항목은 객체여야 하고 number(정수), title 필드를 가져야 합니다.")
-    public boolean isDemoFlowShapeValid() {
-        if (demoFlow == null || !demoFlow.isArray()) {
-            return true;
-        }
-        for (JsonNode flow : demoFlow) {
-            if (!flow.isObject()
-                || !flow.path("number").isIntegralNumber()
-                || !flow.path("title").isTextual()) {
-                return false;
-            }
-        }
-        return true;
-    }
 }

@@ -7,8 +7,6 @@ CREATE TABLE IF NOT EXISTS project (
     goal TEXT NOT NULL,
     data_configuration JSONB,
     screen_configuration JSONB,
-    key_features JSONB NOT NULL DEFAULT '[]'::jsonb,
-    demo_flow JSONB NOT NULL DEFAULT '[]'::jsonb,
     project_schedule TEXT,
     repository_url VARCHAR(255),
     external_links JSONB,
@@ -23,17 +21,9 @@ CREATE TABLE IF NOT EXISTS project (
     CONSTRAINT fk_team_project FOREIGN KEY (team_id) REFERENCES team(id)
 );
 
--- CREATE TABLE IF NOT EXISTS는 기존 테이블에 열을 추가하지 않는다. 기존 제안서의 주요 기능·시연 흐름은
--- 빈 배열로 채워 새 JSONB 매핑과 동일한 기본값을 보장하고, 일정은 선택값이라 NULL을 유지한다.
-ALTER TABLE project ADD COLUMN IF NOT EXISTS key_features JSONB NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE project ADD COLUMN IF NOT EXISTS demo_flow JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE project ADD COLUMN IF NOT EXISTS project_schedule TEXT;
-UPDATE project SET key_features = '[]'::jsonb WHERE key_features IS NULL;
-UPDATE project SET demo_flow = '[]'::jsonb WHERE demo_flow IS NULL;
-ALTER TABLE project ALTER COLUMN key_features SET DEFAULT '[]'::jsonb;
-ALTER TABLE project ALTER COLUMN demo_flow SET DEFAULT '[]'::jsonb;
-ALTER TABLE project ALTER COLUMN key_features SET NOT NULL;
-ALTER TABLE project ALTER COLUMN demo_flow SET NOT NULL;
+ALTER TABLE project DROP COLUMN IF EXISTS key_features;
+ALTER TABLE project DROP COLUMN IF EXISTS demo_flow;
 
 -- KD3-211 이전에는 data_configuration 이 TEXT 였다. NULL·공백은 빈 배열로, 이미 저장된 JSON 배열은
 -- 그대로 옮긴다. 그 외에는 배열 항목으로 추측 변환할 수 없으므로 실패시켜 운영자가 원본을 확인하게 한다.

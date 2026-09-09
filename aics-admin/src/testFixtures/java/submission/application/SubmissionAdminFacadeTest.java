@@ -162,7 +162,6 @@ class SubmissionAdminFacadeTest {
         given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
                 teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
                 ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
-                JsonNodeFactory.instance.arrayNode(), JsonNodeFactory.instance.arrayNode(),
                 JsonNodeFactory.instance.arrayNode(), null)));
 
         SubmissionAdminListResponse response = submissionAdminFacade
@@ -225,7 +224,6 @@ class SubmissionAdminFacadeTest {
         given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
                 teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
                 ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
-                JsonNodeFactory.instance.arrayNode(), JsonNodeFactory.instance.arrayNode(),
                 JsonNodeFactory.instance.arrayNode(), null)));
 
         SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
