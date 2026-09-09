@@ -44,9 +44,9 @@ import kgu.developers.globalutils.jwt.TokenRevocationStore;
 })
 class SecurityConfigTest {
 
-  private static final String LOGIN_URL = "/api/v1/oop/auth/login";
-  private static final String REFRESH_URL = "/api/v1/oop/auth/refresh";
-  private static final String LOGOUT_URL = "/api/v1/oop/auth/logout";
+  private static final String LOGIN_URL = "/api/v1/auth/login";
+  private static final String REFRESH_URL = "/api/v1/auth/refresh";
+  private static final String LOGOUT_URL = "/api/v1/auth/logout";
   private static final String CSRF_COOKIE = "XSRF-TOKEN";
   private static final String LOGIN_BODY = """
       {"studentNumber":"202699999","password":"12345678"}""";
@@ -107,11 +107,11 @@ class SecurityConfigTest {
   @Test
   @DisplayName("이미 XSRF-TOKEN을 가진 요청도 같은 토큰을 다시 내려받아 수명이 갱신된다")
   void csrfCookieSlidesOnEveryResponse() throws Exception {
-    Cookie issued = mockMvc.perform(get("/api/v1/oop/auth/none"))
+    Cookie issued = mockMvc.perform(get("/api/v1/auth/none"))
         .andReturn().getResponse().getCookie(CSRF_COOKIE);
 
     // 쿠키가 있을 때 재발급을 멈추면 만료 시각이 고정돼, 결국 refreshToken보다 먼저 죽는다
-    Cookie renewed = mockMvc.perform(get("/api/v1/oop/auth/none").cookie(issued))
+    Cookie renewed = mockMvc.perform(get("/api/v1/auth/none").cookie(issued))
         .andReturn().getResponse().getCookie(CSRF_COOKIE);
 
     assertThat(renewed).isNotNull();

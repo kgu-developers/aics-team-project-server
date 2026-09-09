@@ -69,7 +69,7 @@ class AuditLogControllerTest {
         org.mockito.BDDMockito.given(auditLogFacade.getTeamHistories(eq(3L), any(Pageable.class), eq(USER_ID)))
                 .willReturn(response);
 
-        mockMvc.perform(get("/api/v1/oop/teams/{teamId}/histories", 3L)
+        mockMvc.perform(get("/api/v1/teams/{teamId}/histories", 3L)
                         .cookie(accessTokenCookie()))
                 .andExpect(status().isOk());
 
@@ -82,7 +82,7 @@ class AuditLogControllerTest {
         org.mockito.BDDMockito.given(auditLogFacade.getTeamActivitySummary(3L, USER_ID))
                 .willReturn(new TeamActivitySummaryResponse(3L, List.of()));
 
-        mockMvc.perform(get("/api/v1/oop/teams/{teamId}/activity-summary", 3L)
+        mockMvc.perform(get("/api/v1/teams/{teamId}/activity-summary", 3L)
                         .cookie(accessTokenCookie()))
                 .andExpect(status().isOk());
 
@@ -92,7 +92,7 @@ class AuditLogControllerTest {
     @Test
     @DisplayName("팀 식별자가 양수가 아니면 400을 응답한다")
     void invalidTeamId() throws Exception {
-        mockMvc.perform(get("/api/v1/oop/teams/{teamId}/histories", 0L)
+        mockMvc.perform(get("/api/v1/teams/{teamId}/histories", 0L)
                         .cookie(accessTokenCookie()))
                 .andExpect(status().isBadRequest());
 
@@ -102,7 +102,7 @@ class AuditLogControllerTest {
     @Test
     @DisplayName("인증 토큰이 없으면 401을 응답한다")
     void unauthenticated() throws Exception {
-        mockMvc.perform(get("/api/v1/oop/teams/{teamId}/activity-summary", 3L))
+        mockMvc.perform(get("/api/v1/teams/{teamId}/activity-summary", 3L))
                 .andExpect(status().isUnauthorized());
 
         verify(auditLogFacade, never()).getTeamActivitySummary(any(), any());

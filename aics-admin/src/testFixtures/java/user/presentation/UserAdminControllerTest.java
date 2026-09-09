@@ -37,7 +37,7 @@ import kgu.developers.domain.user.domain.User;
 @ExtendWith(MockitoExtension.class)
 class UserAdminControllerTest {
 
-  private static final String BASE_URL = "/api/v1/admin/oop/users";
+  private static final String BASE_URL = "/api/v1/admin/users";
   private static final String STUDENT_NUMBER = "202699999";
 
   @Mock

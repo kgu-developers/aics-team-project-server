@@ -52,7 +52,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class PeerEvaluationFormControllerTest {
 
     private static final String URL =
-            "/api/v1/admin/oop/sections/{sectionId}/peer-evaluation-forms";
+            "/api/v1/admin/sections/{sectionId}/peer-evaluation-forms";
     private static final String VALID_BODY =
             """
             {

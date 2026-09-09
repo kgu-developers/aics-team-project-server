@@ -56,7 +56,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class TeamEvaluationCriterionControllerTest {
 
   private static final String URL =
-      "/api/v1/admin/oop/sections/{sectionId}/team-evaluation-criteria";
+      "/api/v1/admin/sections/{sectionId}/team-evaluation-criteria";
   private static final String VALID_BODY =
       """
       {"title":"객체지향 설계","maxScore":30,"displayOrder":0}

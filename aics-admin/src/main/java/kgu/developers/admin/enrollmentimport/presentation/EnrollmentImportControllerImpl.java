@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop")
+@RequestMapping("/api/v1/admin")
 public class EnrollmentImportControllerImpl implements EnrollmentImportController {
 
     private final EnrollmentImportFacade enrollmentImportFacade;

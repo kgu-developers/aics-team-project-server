@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/oop")
+@RequestMapping("/api/v1")
 public class AuditLogControllerImpl implements AuditLogController {
 
     private final AuditLogFacade auditLogFacade;

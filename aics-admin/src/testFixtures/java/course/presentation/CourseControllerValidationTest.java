@@ -38,7 +38,7 @@ import kgu.developers.common.exception.GlobalExceptionHandler;
 })
 class CourseControllerValidationTest {
 
-  private static final String COURSE_URL = "/api/v1/admin/oop/courses/{id}";
+  private static final String COURSE_URL = "/api/v1/admin/courses/{id}";
   private static final String VALID_BODY = """
       {"name":"객체지향프로그래밍","year":2026,"semester":"FALL","status":"DRAFT"}
       """;

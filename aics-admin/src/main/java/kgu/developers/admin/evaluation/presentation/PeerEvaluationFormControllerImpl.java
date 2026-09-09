@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop/sections/{sectionId}/peer-evaluation-forms")
+@RequestMapping("/api/v1/admin/sections/{sectionId}/peer-evaluation-forms")
 public class PeerEvaluationFormControllerImpl implements PeerEvaluationFormController {
 
     private final PeerEvaluationFormFacade facade;

@@ -58,7 +58,7 @@ import kgu.developers.domain.user.domain.UserGlobalRole;
 @ExtendWith(MockitoExtension.class)
 class SectionAdminControllerTest {
 
-    private static final String BASE_URL = "/api/v1/admin/oop/sections";
+    private static final String BASE_URL = "/api/v1/admin/sections";
     private static final String PROFESSOR_ID = "202699999";
     private static final LocalDateTime FROM = LocalDateTime.of(2026, 3, 2, 0, 0);
     private static final LocalDateTime UNTIL = LocalDateTime.of(2026, 6, 20, 18, 0);
