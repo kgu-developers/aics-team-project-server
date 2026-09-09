@@ -1,6 +1,5 @@
 package kgu.developers.api.teamMember.application;
 
-import java.util.List;
 import java.util.Map;
 
 import kgu.developers.api.team.application.TeamAccessValidator;
@@ -36,9 +35,10 @@ public class TeamMemberFacade {
 
 	public TeamMemberListResponse getTeamMembers(Long teamId, String userId, String keyword) {
 		teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
+		String searchKeyword = keyword == null ? "" : keyword.trim();
 		return new TeamMemberListResponse(teamMemberQueryService.getTeamMembersWithUsers(teamId).stream()
-			.filter(it -> it.member().getUserId().contains(keyword)
-				|| it.user() != null && it.user().getName().contains(keyword))
+			.filter(it -> it.member().getUserId().contains(searchKeyword)
+				|| it.user() != null && it.user().getName().contains(searchKeyword))
 			.map(it -> TeamMemberResponse.of(it.member(), it.user()))
 			.toList());
 	}

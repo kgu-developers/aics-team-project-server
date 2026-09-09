@@ -111,6 +111,30 @@ class TeamMemberFacadeTest {
 	}
 
 	@Test
+	@DisplayName("검색어 앞뒤 공백을 제거한다")
+	void trimsKeyword() {
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(member(), User.builder().studentNumber(USER).name("김철수").build()),
+			new TeamMemberWithUser(TeamMember.builder().id(2L).teamId(1L).userId("202611111").build(),
+				User.builder().studentNumber("202611111").name("이영희").build())));
+
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, " 영희 ");
+
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
+	}
+
+	@Test
+	@DisplayName("검색어가 null이면 전체 팀원을 응답한다")
+	void returnsAllMembersForNullKeyword() {
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(member(), User.builder().studentNumber(USER).name("김철수").build())));
+
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, null);
+
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly(USER);
+	}
+
+	@Test
 	@DisplayName("팀원을 학번으로 검색한다")
 	void searchesTeamMembersByStudentNumber() {
 		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
