@@ -82,6 +82,13 @@ public class MeetingActionFacade {
         return MeetingActionResponse.from(updated, resolveAssignee(updated.getAssigneeId()));
     }
 
+    public void deleteMeetingAction(Long id, String userId) {
+        MeetingAction meetingAction = meetingActionQueryService.getMeetingAction(id);
+        MeetingRecord meetingRecord = meetingRecordQueryService.getMeetingRecord(meetingAction.getMeetingRecordId());
+        validateTeamMembership(meetingRecord.getTeamId(), userId);
+        meetingActionCommandService.deleteMeetingAction(id);
+    }
+
     public TeamMeetingActionListResponse getTeamActions(Long teamId, MeetingActionStatus status, String userId) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
         List<MeetingAction> meetingActions = meetingActionQueryService.getTeamActions(teamId, status);
