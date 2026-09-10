@@ -13,6 +13,10 @@ public interface FileStorage {
         return upload(file);
     }
 
+    default String upload(MultipartFile file, String contentType, String fileName) {
+        return upload(file, contentType);
+    }
+
     default void delete(String storageKey) {
     }
 

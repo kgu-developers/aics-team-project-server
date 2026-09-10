@@ -42,8 +42,13 @@ public class S3FileStorage implements FileStorage {
 
     @Override
     public String upload(MultipartFile file, String contentType) {
+        return upload(file, contentType, file.getOriginalFilename());
+    }
+
+    @Override
+    public String upload(MultipartFile file, String contentType, String fileName) {
         // 원본 파일명이 같아도 서로 덮어쓰지 않도록 저장 키는 UUID로 새로 만든다.
-        String storageKey = "submissions/" + UUID.randomUUID() + "-" + sanitize(file.getOriginalFilename());
+        String storageKey = "submissions/" + UUID.randomUUID() + "-" + sanitize(fileName);
         try {
             s3Client.putObject(
                     PutObjectRequest.builder()

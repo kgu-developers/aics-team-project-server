@@ -63,6 +63,7 @@ public class ProjectFacade {
 
     private static final int MAX_IMAGE_DIMENSION = 4_096;
     private static final long MAX_IMAGE_PIXELS = 16_000_000L;
+    private static final int MAX_FILE_NAME_LENGTH = 255;
 
     private final ProjectCommandService projectCommandService;
     private final ProjectQueryService projectQueryService;
@@ -116,11 +117,12 @@ public class ProjectFacade {
             throw new FileObjectInvalidTypeException();
         }
 
-        String storageKey = fileStorage.upload(file, contentType);
+        String fileName = imageFileName(file.getOriginalFilename());
+        String storageKey = fileStorage.upload(file, contentType, fileName);
         FileObject saved;
         try {
             saved = fileObjectRepository.save(FileObject.create(
-                userId, storageKey, file.getOriginalFilename(), contentType, file.getSize(), false, null
+                userId, storageKey, fileName, contentType, file.getSize(), false, null
             ));
         } catch (RuntimeException exception) {
             try {
@@ -131,6 +133,15 @@ public class ProjectFacade {
             throw exception;
         }
         return new ProjectImageUploadResponse(saved.getId(), fileStorage.presignedUrl(saved.getStorageKey()));
+    }
+
+    private String imageFileName(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "image";
+        }
+        return originalFilename.length() <= MAX_FILE_NAME_LENGTH
+            ? originalFilename
+            : originalFilename.substring(0, MAX_FILE_NAME_LENGTH);
     }
 
     private String imageContentType(MultipartFile file) {

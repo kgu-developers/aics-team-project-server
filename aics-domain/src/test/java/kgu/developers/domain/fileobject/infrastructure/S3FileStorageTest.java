@@ -49,4 +49,17 @@ class S3FileStorageTest {
         assertThat(request.getValue().bucket()).isEqualTo("bucket");
         assertThat(request.getValue().key()).isEqualTo("projects/screen.png");
     }
+
+    @Test
+    void upload_usesProvidedFileNameForS3Key() {
+        S3FileStorage storage = new S3FileStorage(s3Client, s3Presigner);
+        ReflectionTestUtils.setField(storage, "bucket", "bucket");
+        MockMultipartFile file = new MockMultipartFile("file", "raw-name.png", "image/png", new byte[] {1});
+
+        storage.upload(file, "image/png", "image");
+
+        ArgumentCaptor<PutObjectRequest> request = ArgumentCaptor.forClass(PutObjectRequest.class);
+        then(s3Client).should().putObject(request.capture(), any(RequestBody.class));
+        assertThat(request.getValue().key()).endsWith("-image");
+    }
 }
