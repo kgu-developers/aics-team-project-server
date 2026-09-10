@@ -13,6 +13,8 @@ import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.midreport.application.query.MidReportQueryService;
+import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
@@ -36,6 +38,7 @@ public class EditLockFacade {
     private final TeamMemberRepository teamMemberRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final MeetingRecordQueryService meetingRecordQueryService;
+    private final MidReportQueryService midReportQueryService;
     private final UserQueryService userQueryService;
 
     // acquire()와 같은 대상 접근 검증을 거친다 — 검증 없이 조회를 허용하면 다른 분반·팀
@@ -81,6 +84,7 @@ public class EditLockFacade {
         switch (targetType) {
             case PROJECT -> validateProjectAccess(targetId, userId);
             case MEETING_RECORD -> validateMeetingRecordAccess(targetId, userId);
+            case MID_REPORT, MID_REPORT_BLOCK -> validateMidReportAccess(targetId, userId);
         }
     }
 
@@ -117,6 +121,23 @@ public class EditLockFacade {
                 .orElse(false);
         if (!activeStudent) {
             throw new AccessDeniedException("해당 분반의 활성 학생만 회의록을 편집할 수 있습니다.");
+        }
+    }
+
+    // MID_REPORT, MID_REPORT_BLOCK의 targetId는 midReportId다.
+    // 해당 팀 소속이어야 하고, 그 분반에 활성 학생으로 등록돼 있어야 잠글 수 있다.
+    private void validateMidReportAccess(Long midReportId, String userId) {
+        MidReport midReport = midReportQueryService.getById(midReportId);
+        Team team = teamRepository.findById(midReport.getTeamId())
+                .orElseThrow(TeamNotFoundException::new);
+        if (teamMemberRepository.findByTeamIdAndUserId(team.getId(), userId).isEmpty()) {
+            throw new AccessDeniedException("해당 팀에 소속된 사용자만 중간보고서를 편집할 수 있습니다.");
+        }
+        boolean activeStudent = enrollmentRepository.findBySectionIdAndUserId(team.getSectionId(), userId)
+                .map(Enrollment::isActiveStudent)
+                .orElse(false);
+        if (!activeStudent) {
+            throw new AccessDeniedException("해당 분반의 활성 학생만 중간보고서를 편집할 수 있습니다.");
         }
     }
 }
