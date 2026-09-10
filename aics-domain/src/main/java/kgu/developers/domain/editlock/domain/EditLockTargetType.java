@@ -7,6 +7,8 @@ package kgu.developers.domain.editlock.domain;
  */
 public enum EditLockTargetType {
     PROJECT,
-    MEETING_RECORD
+    MEETING_RECORD,
+    MID_REPORT,
+    MID_REPORT_BLOCK
 }
 

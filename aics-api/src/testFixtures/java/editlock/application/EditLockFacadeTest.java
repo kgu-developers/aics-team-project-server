@@ -26,6 +26,10 @@ import static org.mockito.Mockito.mock;
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.midreport.application.query.MidReportQueryService;
+import kgu.developers.domain.midreport.domain.MidReport;
+import kgu.developers.domain.midreport.domain.MidReportStatus;
+import kgu.developers.domain.midreport.exception.MidReportNotFoundException;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.exception.ProjectNotFoundException;
@@ -49,6 +53,7 @@ public class EditLockFacadeTest {
     private static final Long TEAM_ID = 100L;
     private static final Long PROJECT_ID = 1L;
     private static final Long MEETING_RECORD_ID = 200L;
+    private static final Long MID_REPORT_ID = 300L;
     private static final String SECTION_KEY = "DEFAULT";
 
     private EditLockFacade facade;
@@ -57,6 +62,7 @@ public class EditLockFacadeTest {
     private FakeTeamMemberRepository teamMemberRepository;
     private FakeEnrollmentRepository enrollmentRepository;
     private MeetingRecordQueryService meetingRecordQueryService;
+    private MidReportQueryService midReportQueryService;
     private UserQueryService userQueryService;
 
     @BeforeEach
@@ -67,6 +73,7 @@ public class EditLockFacadeTest {
         teamMemberRepository = new FakeTeamMemberRepository();
         enrollmentRepository = new FakeEnrollmentRepository();
         meetingRecordQueryService = mock(MeetingRecordQueryService.class);
+        midReportQueryService = mock(MidReportQueryService.class);
         userQueryService = mock(UserQueryService.class);
 
         MeetingRecord meetingRecord = MeetingRecord.builder()
@@ -76,6 +83,19 @@ public class EditLockFacadeTest {
             .authorId(MEMBER)
             .build();
         given(meetingRecordQueryService.getMeetingRecord(MEETING_RECORD_ID)).willReturn(meetingRecord);
+
+        MidReport midReport = MidReport.builder()
+            .id(MID_REPORT_ID)
+            .teamId(TEAM_ID)
+            .milestoneId(1L)
+            .title("중간보고서")
+            .dueDate(java.time.LocalDateTime.now().plusDays(7))
+            .status(MidReportStatus.DRAFT)
+            .version(1L)
+            .blocks(java.util.List.of())
+            .build();
+        given(midReportQueryService.getById(MID_REPORT_ID)).willReturn(midReport);
+        given(midReportQueryService.getById(999999L)).willThrow(new MidReportNotFoundException());
 
         given(userQueryService.getUserByStudentNumber(MEMBER))
             .willReturn(User.builder().studentNumber(MEMBER).name(MEMBER_NAME).build());
@@ -90,6 +110,7 @@ public class EditLockFacadeTest {
             teamMemberRepository,
             enrollmentRepository,
             meetingRecordQueryService,
+            midReportQueryService,
             userQueryService
         );
 
@@ -340,5 +361,101 @@ public class EditLockFacadeTest {
 
         assertThatThrownBy(() -> facade.acquire(assistant, request))
             .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("중간보고서에 대해 acquire는 잠금을 획득하고 lockedByName을 포함해 반환한다 (MID_REPORT)")
+    public void acquire_MidReport_Success() {
+        EditLockAcquireRequest request = EditLockAcquireRequest.builder()
+            .targetType(EditLockTargetType.MID_REPORT)
+            .targetId(MID_REPORT_ID)
+            .sectionKey("topic")
+            .build();
+
+        EditLockStatusResponse result = facade.acquire(MEMBER, request);
+
+        assertTrue(result.locked());
+        assertEquals(MEMBER, result.lockedBy());
+        assertEquals(MEMBER_NAME, result.lockedByName());
+    }
+
+    @Test
+    @DisplayName("중간보고서에 대해 MID_REPORT_BLOCK 타입으로도 잠금을 획득할 수 있다")
+    public void acquire_MidReportBlock_Success() {
+        EditLockAcquireRequest request = EditLockAcquireRequest.builder()
+            .targetType(EditLockTargetType.MID_REPORT_BLOCK)
+            .targetId(MID_REPORT_ID)
+            .sectionKey("gui-design")
+            .build();
+
+        EditLockStatusResponse result = facade.acquire(MEMBER, request);
+
+        assertTrue(result.locked());
+        assertEquals(MEMBER, result.lockedBy());
+        assertEquals(MEMBER_NAME, result.lockedByName());
+    }
+
+    @Test
+    @DisplayName("중간보고서에 대해 타인이 이미 동일 섹션을 잠그고 있으면 acquire 시 예외를 던진다")
+    public void acquire_MidReport_Conflict_ThrowsException() {
+        teamMemberRepository.save(TeamMember.builder()
+            .teamId(TEAM_ID)
+            .userId(OTHER_MEMBER)
+            .build());
+        enrollmentRepository.save(Enrollment.builder()
+            .sectionId(SECTION_ID)
+            .userId(OTHER_MEMBER)
+            .role(Role.STUDENT)
+            .status(Status.ACTIVE)
+            .build());
+
+        EditLockAcquireRequest request = EditLockAcquireRequest.builder()
+            .targetType(EditLockTargetType.MID_REPORT)
+            .targetId(MID_REPORT_ID)
+            .sectionKey("topic")
+            .build();
+        facade.acquire(MEMBER, request);
+
+        assertThatThrownBy(() -> facade.acquire(OTHER_MEMBER, request))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("중간보고서의 팀 소속이 아니면 getStatus 조회를 거부한다")
+    public void getStatus_MidReport_RejectsNonMember() {
+        String outsider = "202400000";
+
+        assertThatThrownBy(() -> facade.getStatus(EditLockTargetType.MID_REPORT, MID_REPORT_ID, "topic", outsider))
+            .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("분반의 활성 학생이 아니면 중간보고서 잠금을 획득할 수 없다")
+    public void acquire_MidReport_RejectsInactiveStudent() {
+        String assistant = "202488888";
+        teamMemberRepository.save(TeamMember.create(TEAM_ID, assistant, false, "조교"));
+        enrollmentRepository.save(Enrollment.create(SECTION_ID, assistant, Role.ASSISTANT, Status.ACTIVE));
+
+        EditLockAcquireRequest request = EditLockAcquireRequest.builder()
+            .targetType(EditLockTargetType.MID_REPORT)
+            .targetId(MID_REPORT_ID)
+            .sectionKey("topic")
+            .build();
+
+        assertThatThrownBy(() -> facade.acquire(assistant, request))
+            .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 중간보고서 ID로 잠금을 획득하려 하면 MidReportNotFoundException이 발생한다")
+    public void acquire_MidReport_RejectsNonExistent() {
+        EditLockAcquireRequest request = EditLockAcquireRequest.builder()
+            .targetType(EditLockTargetType.MID_REPORT)
+            .targetId(999999L)
+            .sectionKey("topic")
+            .build();
+
+        assertThatThrownBy(() -> facade.acquire(MEMBER, request))
+            .isInstanceOf(MidReportNotFoundException.class);
     }
 }
