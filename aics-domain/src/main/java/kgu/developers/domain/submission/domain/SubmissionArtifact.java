@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 
 import static lombok.AccessLevel.PROTECTED;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Builder
 @AllArgsConstructor
@@ -19,6 +21,9 @@ public class SubmissionArtifact {
     private Long fileId;
     private String url;
     private String content;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
 
     public static SubmissionArtifact file(Long versionId, Long requiredArtifactId, Long fileId) {
         return SubmissionArtifact.builder()
