@@ -36,7 +36,7 @@ subprojects {
 
 	dependencyManagement {
 		imports {
-			mavenBom 'software.amazon.awssdk:bom:2.29.9'
+			mavenBom 'software.amazon.awssdk:bom:2.54.13'
 		}
 	}
 
