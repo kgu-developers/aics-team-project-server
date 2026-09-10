@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
+import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.submission.domain.SubmissionMemberConfirmation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,7 +30,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
-public class SubmissionMemberConfirmationJpaEntity {
+public class SubmissionMemberConfirmationJpaEntity extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = IDENTITY)
@@ -48,13 +49,16 @@ public class SubmissionMemberConfirmationJpaEntity {
     private LocalDateTime confirmedAt;
 
     public static SubmissionMemberConfirmationJpaEntity fromDomain(SubmissionMemberConfirmation confirmation) {
-        return SubmissionMemberConfirmationJpaEntity.builder()
+        SubmissionMemberConfirmationJpaEntity entity = SubmissionMemberConfirmationJpaEntity.builder()
                 .id(confirmation.getId())
                 .submissionId(confirmation.getSubmissionId())
                 .userId(confirmation.getUserId())
                 .version(confirmation.getVersion())
                 .confirmedAt(confirmation.getConfirmedAt())
                 .build();
+        entity.createdAt = confirmation.getCreatedAt();
+        entity.setDeletedAt(confirmation.getDeletedAt());
+        return entity;
     }
 
     public SubmissionMemberConfirmation toDomain() {
@@ -64,6 +68,9 @@ public class SubmissionMemberConfirmationJpaEntity {
                 .userId(userId)
                 .version(version)
                 .confirmedAt(confirmedAt)
+                .createdAt(getCreatedAt())
+                .updatedAt(getUpdatedAt())
+                .deletedAt(getDeletedAt())
                 .build();
     }
 }

@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.submission.domain.ArtifactType;
 import kgu.developers.domain.submission.domain.SubmissionArtifact;
 import lombok.AllArgsConstructor;
@@ -24,7 +25,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
-public class SubmissionArtifactJpaEntity {
+public class SubmissionArtifactJpaEntity extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = IDENTITY)
@@ -50,7 +51,7 @@ public class SubmissionArtifactJpaEntity {
     private String content;
 
     public static SubmissionArtifactJpaEntity fromDomain(SubmissionArtifact artifact) {
-        return SubmissionArtifactJpaEntity.builder()
+        SubmissionArtifactJpaEntity entity = SubmissionArtifactJpaEntity.builder()
                 .id(artifact.getId())
                 .versionId(artifact.getVersionId())
                 .requiredArtifactId(artifact.getRequiredArtifactId())
@@ -59,6 +60,9 @@ public class SubmissionArtifactJpaEntity {
                 .url(artifact.getUrl())
                 .content(artifact.getContent())
                 .build();
+        entity.createdAt = artifact.getCreatedAt();
+        entity.setDeletedAt(artifact.getDeletedAt());
+        return entity;
     }
 
     public SubmissionArtifact toDomain() {
@@ -70,6 +74,9 @@ public class SubmissionArtifactJpaEntity {
                 .fileId(fileId)
                 .url(url)
                 .content(content)
+                .createdAt(getCreatedAt())
+                .updatedAt(getUpdatedAt())
+                .deletedAt(getDeletedAt())
                 .build();
     }
 }

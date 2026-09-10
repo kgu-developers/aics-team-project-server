@@ -115,11 +115,14 @@ public class SubmissionCommandService {
         SubmissionMemberConfirmation existing = submissionMemberConfirmationRepository
                 .findBySubmissionIdAndUserId(submissionId, userId)
                 .orElse(null);
-        if (existing != null && existing.confirmsVersion(submission.getCurrentVersion())) {
-            return existing;
+        if (existing != null) {
+            if (existing.confirmsVersion(submission.getCurrentVersion())) {
+                return existing;
+            }
+            return submissionMemberConfirmationRepository.save(
+                    existing.updateConfirm(submission.getCurrentVersion()));
         }
         SubmissionMemberConfirmation toSave = SubmissionMemberConfirmation.builder()
-                .id(existing != null ? existing.getId() : null)
                 .submissionId(submissionId)
                 .userId(userId)
                 .version(submission.getCurrentVersion())
