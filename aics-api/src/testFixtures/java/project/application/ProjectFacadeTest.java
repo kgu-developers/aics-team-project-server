@@ -102,7 +102,6 @@ class ProjectFacadeTest {
     void uploadProjectImage() throws Exception {
         MockMultipartFile image = new MockMultipartFile("file", "screen.png", "image/png", png());
         given(fileStorage.upload(image, "image/png", "screen.png")).willReturn("projects/screen.png");
-        given(fileStorage.presignedUrl("projects/screen.png")).willReturn("https://s3/presigned");
         given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class))).willAnswer(invocation -> {
             FileObject file = invocation.getArgument(0);
             return FileObject.builder()
@@ -118,10 +117,9 @@ class ProjectFacadeTest {
         var response = projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image);
 
         assertThat(response.fileId()).isEqualTo(42L);
-        assertThat(response.imageUrl()).isEqualTo("https://s3/presigned");
         then(teamAccessValidator).should().validateMembership(TEAM_ID, MEMBER_ID);
         then(fileStorage).should().upload(image, "image/png", "screen.png");
-        then(fileStorage).should().presignedUrl("projects/screen.png");
+        then(fileStorage).should(org.mockito.Mockito.never()).presignedUrl("projects/screen.png");
         then(fileObjectRepository).should().save(org.mockito.ArgumentMatchers.argThat(file ->
             file.getUploadedBy().equals(MEMBER_ID)
                 && file.getFileName().equals("screen.png")
@@ -140,7 +138,6 @@ class ProjectFacadeTest {
             FileObject file = invocation.getArgument(0);
             return FileObject.builder().id(42L).storageKey(file.getStorageKey()).build();
         });
-        given(fileStorage.presignedUrl("projects/screen.png")).willReturn("https://s3/presigned");
 
         projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image);
 
@@ -243,7 +240,6 @@ class ProjectFacadeTest {
         given(fileStorage.upload(image, "image/png", "image")).willReturn("projects/image");
         given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class))).willAnswer(invocation ->
             FileObject.builder().id(42L).storageKey(invocation.<FileObject>getArgument(0).getStorageKey()).build());
-        given(fileStorage.presignedUrl("projects/image")).willReturn("https://s3/presigned");
 
         projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image);
 
@@ -259,7 +255,6 @@ class ProjectFacadeTest {
         given(fileStorage.upload(image, "image/png", normalized)).willReturn("projects/image");
         given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class))).willAnswer(invocation ->
             FileObject.builder().id(42L).storageKey(invocation.<FileObject>getArgument(0).getStorageKey()).build());
-        given(fileStorage.presignedUrl("projects/image")).willReturn("https://s3/presigned");
 
         projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image);
 

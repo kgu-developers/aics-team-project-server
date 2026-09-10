@@ -125,14 +125,13 @@ class ProjectControllerTest {
     void uploadProjectImage() throws Exception {
         MockMultipartFile image = new MockMultipartFile("file", "screen.png", "image/png", "image".getBytes());
         given(projectFacade.uploadProjectImage(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any()))
-            .willReturn(new ProjectImageUploadResponse(42L, "https://s3/presigned"));
+            .willReturn(new ProjectImageUploadResponse(42L));
 
         mockMvc.perform(multipart("/api/v1/teams/{teamId}/project/images/upload", TEAM_ID)
                 .file(image)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.fileId").value(42L))
-            .andExpect(jsonPath("$.imageUrl").value("https://s3/presigned"));
+            .andExpect(jsonPath("$.fileId").value(42L));
 
         then(projectFacade).should().uploadProjectImage(eq(TEAM_ID), eq(USER_ID), eq(image));
         then(projectFacade).shouldHaveNoMoreInteractions();

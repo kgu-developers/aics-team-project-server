@@ -33,7 +33,8 @@ public interface ProjectController {
         Authentication authentication
     );
 
-    @Operation(summary = "제안서 화면 이미지 업로드", description = "이미지만 저장하고 파일 식별자와 임시 URL을 반환한다. 제안서 저장·제출 상태는 변경하지 않는다.")
+    @Operation(summary = "제안서 화면 이미지 업로드",
+        description = "이미지를 저장하고 제안서 화면 구성의 imageFileId에 사용할 fileId를 반환한다. 제안서 저장·제출 상태는 변경하지 않는다.")
     ResponseEntity<ProjectImageUploadResponse> uploadProjectImage(
         @PathVariable Long teamId,
         MultipartFile file,

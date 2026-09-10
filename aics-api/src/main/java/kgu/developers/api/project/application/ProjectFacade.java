@@ -132,7 +132,7 @@ public class ProjectFacade {
             }
             throw exception;
         }
-        return new ProjectImageUploadResponse(saved.getId(), fileStorage.presignedUrl(saved.getStorageKey()));
+        return new ProjectImageUploadResponse(saved.getId());
     }
 
     private String imageFileName(String originalFilename) {
