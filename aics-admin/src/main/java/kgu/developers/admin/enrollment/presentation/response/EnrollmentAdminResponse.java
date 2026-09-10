@@ -27,6 +27,9 @@ public record EnrollmentAdminResponse(
     @Schema(description = "전화번호", example = "010-1234-6789")
     String phone,
 
+    @Schema(description = "전공 (등록되지 않은 경우 null)", example = "컴퓨터공학부")
+    String major,
+
     @Schema(description = "역할", example = "STUDENT", requiredMode = REQUIRED)
     Role role,
 
@@ -46,6 +49,7 @@ public record EnrollmentAdminResponse(
             user.getName(),
             user.getEmail(),
             user.getPhone(),
+            user.getMajor(),
             enrollment.getRole(),
             enrollment.getStatus(),
             enrollment.getCreatedAt()

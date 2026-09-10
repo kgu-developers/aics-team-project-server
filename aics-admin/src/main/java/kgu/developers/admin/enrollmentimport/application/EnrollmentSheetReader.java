@@ -31,12 +31,13 @@ public final class EnrollmentSheetReader {
                 column(header, "성명", "이름"),
                 column(header, "이메일", "메일", "E-mail"),
                 column(header, "연락처", "전화번호", "휴대전화"),
+                column(header, "전공", "학과"),
                 column(header, "역할"));
             return (row, rowNumber) -> toRow(row, rowNumber, columns);
         });
     }
 
-    private record Columns(int studentNumber, int name, int email, int phone, int role) {
+    private record Columns(int studentNumber, int name, int email, int phone, int major, int role) {
     }
 
     private static EnrollmentImportRow toRow(Row row, int rowNumber, Columns columns) {
@@ -47,26 +48,27 @@ public final class EnrollmentSheetReader {
         String name = cell(row, columns.name());
         String email = cell(row, columns.email());
         String phone = cell(row, columns.phone());
+        String major = cell(row, columns.major());
         String roleText = cell(row, columns.role());
 
         if (studentNumber.isEmpty() && name.isEmpty()) {
             return null;
         }
         if (studentNumber.isEmpty()) {
-            return invalid(rowNumber, studentNumber, name, email, phone, "학번이 비어 있습니다.");
+            return invalid(rowNumber, studentNumber, name, email, phone, major, "학번이 비어 있습니다.");
         }
         if (name.isEmpty()) {
-            return invalid(rowNumber, studentNumber, name, email, phone, "이름이 비어 있습니다.");
+            return invalid(rowNumber, studentNumber, name, email, phone, major, "이름이 비어 있습니다.");
         }
 
         Role role = parseRole(roleText);
         if (role == null) {
-            return invalid(rowNumber, studentNumber, name, email, phone, "역할은 학생 또는 조교만 가능합니다.");
+            return invalid(rowNumber, studentNumber, name, email, phone, major, "역할은 학생 또는 조교만 가능합니다.");
         }
         if (email.isEmpty()) {
             email = studentNumber + SCHOOL_MAIL_DOMAIN;
         } else if (!EMAIL_PATTERN.matcher(email).matches()) {
-            return invalid(rowNumber, studentNumber, name, email, phone, "이메일 형식이 올바르지 않습니다.");
+            return invalid(rowNumber, studentNumber, name, email, phone, major, "이메일 형식이 올바르지 않습니다.");
         }
 
         // 저장 시 잘리거나 실패하지 않도록 user 테이블 컬럼 길이를 미리 확인한다
@@ -74,15 +76,18 @@ public final class EnrollmentSheetReader {
         tooLong = tooLong != null ? tooLong : tooLong("이름", name, 32);
         tooLong = tooLong != null ? tooLong : tooLong("이메일", email, 64);
         tooLong = tooLong != null ? tooLong : tooLong("연락처", phone, 20);
+        tooLong = tooLong != null ? tooLong : tooLong("전공", major, 64);
         if (tooLong != null) {
-            return invalid(rowNumber, studentNumber, name, email, phone, tooLong);
+            return invalid(rowNumber, studentNumber, name, email, phone, major, tooLong);
         }
-        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone, role, VALID, null);
+        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone,
+            major.isEmpty() ? null : major, role, VALID, null);
     }
 
     private static EnrollmentImportRow invalid(int rowNumber, String studentNumber, String name,
-        String email, String phone, String message) {
-        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone, null, INVALID, message);
+        String email, String phone, String major, String message) {
+        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone,
+            major.isEmpty() ? null : major, null, INVALID, message);
     }
 
     private static Role parseRole(String roleText) {

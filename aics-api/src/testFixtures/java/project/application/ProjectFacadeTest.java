@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.team.application.TeamAccessValidator;
+import kgu.developers.api.team.application.TeamFacade;
+import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.fileobject.domain.FileObject;
@@ -22,7 +24,14 @@ import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.projectApproval.application.command.ProjectApprovalCommandService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
-
+import kgu.developers.domain.project.domain.ProposalSection;
+import kgu.developers.domain.project.domain.ProposalSectionRepository;
+import kgu.developers.domain.project.domain.ProposalSectionType;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
+import kgu.developers.domain.user.domain.UserRepository;
+import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
+import kgu.developers.common.json.JsonConverter;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +57,9 @@ class ProjectFacadeTest {
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private FileObjectRepository fileObjectRepository;
     @Mock private FileStorage fileStorage;
+    @Mock private ProposalSectionRepository proposalSectionRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private TeamFacade teamFacade;
     @InjectMocks private ProjectFacade projectFacade;
 
     @Test
@@ -88,7 +100,6 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
 
         assertThat(projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()).goal()).isEqualTo("피드백 자동화");
@@ -111,22 +122,20 @@ class ProjectFacadeTest {
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
-        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화", "데이터",
+        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
+            new ObjectMapper().readTree("[]"),
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://evil/forever\"}]"),
-            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
-            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"),
-            "대면", null, null);
+            null, null, null, null, null, new ObjectMapper().readTree("[]"));
 
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
 
         var saved = org.mockito.ArgumentCaptor.forClass(com.fasterxml.jackson.databind.JsonNode.class);
         then(projectCommandService).should().saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), saved.capture(),
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+            org.mockito.ArgumentMatchers.any());
         assertThat(saved.getValue().get(0).has("imageUrl")).isFalse();
     }
 
@@ -156,15 +165,36 @@ class ProjectFacadeTest {
         assertThat(screens.get(0).get("imageFileId").asLong()).isEqualTo(1L);
     }
 
+    @Test
+    @DisplayName("getProject는 같은 이미지를 여러 화면이 참조해도 정상 처리한다")
+    void getProject_handlesDuplicateImageIds() throws Exception {
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(projectWithScreens(
+            "[{\"title\":\"홈\",\"imageFileId\":1},{\"title\":\"대시보드\",\"imageFileId\":1}]"));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID))
+            .willReturn(List.of(TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장")));
+        given(fileObjectRepository.findAllByIdAndDeletedAtIsNull(List.of(1L)))
+            .willReturn(List.of(FileObject.builder()
+                .id(1L).uploadedBy(MEMBER_ID).storageKey("teams/1/shared.png").build()));
+        given(fileStorage.presignedUrl("teams/1/shared.png")).willReturn("https://s3/presigned");
+
+        var screens = projectFacade.getProject(TEAM_ID, MEMBER_ID).screenConfiguration();
+
+        assertThat(screens).hasSize(2);
+        assertThat(screens.get(0).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+        assertThat(screens.get(1).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+        then(fileObjectRepository).should().findAllByIdAndDeletedAtIsNull(List.of(1L));
+    }
+
     private void givenImageUploadedBy(String uploaderId) {
         given(teamMemberRepository.findAllByTeamId(TEAM_ID))
             .willReturn(List.of(TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장")));
-        given(fileObjectRepository.findById(1L)).willReturn(Optional.of(FileObject.builder()
+        // 화면 이미지는 N+1을 피하려고 한 번에 조회한다(ProjectFacade.resolveScreenImageUrls).
+        given(fileObjectRepository.findAllByIdAndDeletedAtIsNull(List.of(1L))).willReturn(List.of(FileObject.builder()
             .id(1L).uploadedBy(uploaderId).storageKey("teams/1/home.png").build()));
     }
 
     @Test
-    @DisplayName("completeProposal은 팀장이고 모든 팀원이 승인하면 완료 처리한다")
+    @DisplayName("completeProposal은 팀장이면 완료 처리한다")
     void completeProposal() {
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
@@ -175,7 +205,7 @@ class ProjectFacadeTest {
     }
 
     @Test
-    @DisplayName("completeProposal은 팀 행을 잠근 뒤 팀장 권한과 동의 목록을 확인한다")
+    @DisplayName("completeProposal은 팀 행을 잠근 뒤 팀장 권한을 확인한다")
     void completeProposal_locksTeamBeforeValidation() {
         given(projectQueryService.getProject(10L)).willReturn(project());
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
@@ -198,16 +228,6 @@ class ProjectFacadeTest {
         assertThatThrownBy(() -> projectFacade.completeProposal(10L, MEMBER_ID))
             .isInstanceOf(AccessDeniedException.class);
         then(projectCommandService).should(org.mockito.Mockito.never()).completeProposal(10L);
-    }
-
-    @Test
-    @DisplayName("completeProposal은 동의 검증을 잠금 경계의 커맨드 서비스에 위임한다")
-    void completeProposal_delegatesApprovalValidationToCommandService() {
-        given(projectQueryService.getProject(10L)).willReturn(project());
-        org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateLeader(TEAM_ID, MEMBER_ID);
-        projectFacade.completeProposal(10L, MEMBER_ID);
-
-        then(projectCommandService).should().completeProposal(10L);
     }
 
     @Test
@@ -261,13 +281,89 @@ class ProjectFacadeTest {
         assertThat(response.progress()).isEqualTo("1/2");
     }
 
+    @Test
+    @DisplayName("getProposalSections는 저장된 행이 없는 섹션까지 고정 구성 전체를 내려준다")
+    void getProposalSections() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        ProposalSection screen = ProposalSection.create(10L, ProposalSectionType.SCREEN);
+        screen.assign(MEMBER_ID);
+        screen.updateCompleted(true);
+        given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(List.of(screen));
+        given(userRepository.findAllByStudentNumberIn(List.of(MEMBER_ID))).willReturn(List.of(member()));
+
+        var response = projectFacade.getProposalSections(10L, MEMBER_ID);
+
+        assertThat(response.contents()).hasSize(ProposalSectionType.values().length);
+        assertThat(response.allCompleted()).isFalse();
+        assertThat(response.contents()).anySatisfy(section -> {
+            assertThat(section.section()).isEqualTo(ProposalSectionType.SCREEN);
+            assertThat(section.assigneeName()).isEqualTo("홍길동");
+            assertThat(section.completed()).isTrue();
+        });
+    }
+
+    @Test
+    @DisplayName("updateProposalSection은 팀원이 아니면 접근을 거부한다")
+    void updateProposalSection_deniesNonMember() {
+        given(projectQueryService.getProject(10L)).willReturn(project());
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.updateProposalSection(
+            10L, ProposalSectionType.SCREEN, MEMBER_ID, new ProposalSectionRequest(MEMBER_ID, true)))
+            .isInstanceOf(AccessDeniedException.class);
+        then(projectCommandService).should(org.mockito.Mockito.never())
+            .updateProposalSection(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    // 제안서 5번 본문은 킥오프와 저장소가 같아서 Team·team_member로 흘러가야 한다.
+    @Test
+    @DisplayName("saveProject는 팀 운영방식 본문을 킥오프 저장소에 반영한다")
+    void saveProject_writesTeamOperationToKickoff() throws Exception {
+        givenImageUploadedBy(MEMBER_ID);
+        given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
+        List<MemberRole> roles = List.of(new MemberRole(MEMBER_ID, "백엔드"));
+        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
+            JsonConverter.parse("[]"), new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
+            "매주 화요일 회고", "매주 목 19:00 온라인", roles, "4월: 설계", null, null);
+
+        projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
+
+        then(teamFacade).should().updateKickoffContent(
+            TEAM_ID, MEMBER_ID, "매주 화요일 회고", "매주 목 19:00 온라인", roles);
+    }
+
+    @Test
+    @DisplayName("saveProject는 팀 운영방식을 넘기지 않으면 킥오프를 건드리지 않는다")
+    void saveProject_keepsKickoffWhenTeamOperationOmitted() throws Exception {
+        givenImageUploadedBy(MEMBER_ID);
+        given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
+
+        projectFacade.saveProject(TEAM_ID, MEMBER_ID, request());
+
+        // 응답에 5번 본문을 담느라 킥오프를 읽기는 한다. 쓰지 않는 것만 확인한다.
+        then(teamFacade).should(org.mockito.Mockito.never()).updateKickoffContent(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any());
+    }
+
+    private User member() {
+        return User.create(MEMBER_ID, "member@kgu.ac.kr", "홍길동", "password", UserGlobalRole.USER, "01000000000");
+    }
+
     private ProjectRequest request() throws Exception {
         return new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
-            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
+            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
             new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
-            new ObjectMapper().readTree("[{\"title\":\"로그인\",\"description\":\"사용자 인증\"}]"),
-            new ObjectMapper().readTree("[{\"number\":1,\"title\":\"로그인 화면\"}]"),
-            "대면", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
+            null, null, null, "4월: 설계, 5월: 개발", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
     }
 
     private Project project() {

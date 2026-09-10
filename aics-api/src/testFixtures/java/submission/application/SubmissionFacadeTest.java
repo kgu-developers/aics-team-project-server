@@ -426,28 +426,18 @@ class SubmissionFacadeTest {
         var screensNode = om.readTree("""
                 [{"title":"메인 화면","description":"로그인 후 첫 화면","imageFileId":%d}]
                 """.formatted(screenImage.getId()));
-        var featuresNode = om.readTree("""
-                [{"title":"AI 요약","description":"회의록 요약 기능"}]
-                """);
-        var flowNode = om.readTree("""
-                [{"number":1,"title":"로그인"}]
-                """);
 
-        projectRepository.save(Project.create(
-                TEAM_ID,
-                "AI 협업 플랫폼",
-                "팀 프로젝트 관리 및 AI 보조 도구",
-                "개발 생산성 30% 향상",
-                "https://github.com/test/repo",
-                null,
-                ApprovalStatus.APPROVED,
-                "주 1회 대면 회의",
-                null,
-                "로그 데이터",
-                screensNode,
-                featuresNode,
-                flowNode
-        ));
+        projectRepository.save(Project.builder()
+                .teamId(TEAM_ID)
+                .title("AI 협업 플랫폼")
+                .description("팀 프로젝트 관리 및 AI 보조 도구")
+                .goal("개발 생산성 30% 향상")
+                .repositoryUrl("https://github.com/test/repo")
+                .approvalStatus(ApprovalStatus.APPROVED)
+                .projectSchedule("주 1회 대면 회의")
+                .dataConfiguration(om.readTree("[]"))
+                .screenConfiguration(screensNode)
+                .build());
 
         // 발표 마일스톤 제출물 및 산출물 (PDF 파일 + YouTube 시연영상 링크)
         Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));

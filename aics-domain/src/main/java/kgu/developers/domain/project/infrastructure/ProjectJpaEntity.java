@@ -54,23 +54,17 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     private String goal;
 
     @Builder.Default
-    @Column(nullable = true, columnDefinition = "TEXT")
-    private String dataConfiguration = "";
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = true, columnDefinition = "jsonb")
+    private JsonNode dataConfiguration = createEmptyJsonNode();
 
     @Builder.Default
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = true, columnDefinition = "jsonb")
     private JsonNode screenConfiguration = createEmptyJsonNode();
 
-    @Builder.Default
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = true, columnDefinition = "jsonb")
-    private JsonNode keyFeatures = createEmptyJsonNode();
-
-    @Builder.Default
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = true, columnDefinition = "jsonb")
-    private JsonNode demoFlow = createEmptyJsonNode();  // 시연 흐름 [{number, title}, ...] - number로 정렬됨
+    @Column(columnDefinition = "TEXT")
+    private String projectSchedule;
 
     @Column(length = 255)
     private String repositoryUrl;
@@ -83,30 +77,20 @@ public class ProjectJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private ApprovalStatus approvalStatus;
 
-    @Column(length = 200)
-    private String meetingStyle;
-
     @Column(name = "proposal_completed_at")
     private LocalDateTime proposalCompletedAt;
 
     @Column(name = "proposal_revision", nullable = false)
     private long proposalRevision;
 
-    @PostLoad
     @PrePersist
     @PreUpdate
     protected void ensureDefaults() {
         if (dataConfiguration == null) {
-            dataConfiguration = "";
+            dataConfiguration = createEmptyJsonNode();
         }
         if (screenConfiguration == null) {
             screenConfiguration = createEmptyJsonNode();
-        }
-        if (keyFeatures == null) {
-            keyFeatures = createEmptyJsonNode();
-        }
-        if (demoFlow == null) {
-            demoFlow = createEmptyJsonNode();
         }
     }
 
@@ -124,12 +108,10 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .goal(goal)
                 .dataConfiguration(dataConfiguration)
                 .screenConfiguration(screenConfiguration)
-                .keyFeatures(keyFeatures)
-                .demoFlow(demoFlow)
                 .repositoryUrl(repositoryUrl)
                 .externalLinks(externalLinks)
                 .approvalStatus(approvalStatus)
-                .meetingStyle(meetingStyle)
+                .projectSchedule(projectSchedule)
                 .proposalCompletedAt(proposalCompletedAt)
                 .proposalRevision(proposalRevision)
                 .version(version)
@@ -149,12 +131,10 @@ public class ProjectJpaEntity extends BaseTimeEntity {
                 .goal(project.getGoal())
                 .dataConfiguration(project.getDataConfiguration())
                 .screenConfiguration(project.getScreenConfiguration())
-                .keyFeatures(project.getKeyFeatures())
-                .demoFlow(project.getDemoFlow())
                 .repositoryUrl(project.getRepositoryUrl())
                 .externalLinks(project.getExternalLinks())
                 .approvalStatus(project.getApprovalStatus())
-                .meetingStyle(project.getMeetingStyle())
+                .projectSchedule(project.getProjectSchedule())
                 .proposalCompletedAt(project.getProposalCompletedAt())
                 .proposalRevision(project.getProposalRevision())
                 .version(project.getVersion())

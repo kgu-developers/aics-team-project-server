@@ -5,10 +5,12 @@ CREATE TABLE IF NOT EXISTS project (
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
     goal TEXT NOT NULL,
+    data_configuration JSONB,
+    screen_configuration JSONB,
+    project_schedule TEXT,
     repository_url VARCHAR(255),
     external_links JSONB,
     approval_status VARCHAR(50) NOT NULL,
-    meeting_style VARCHAR(200),
     proposal_completed_at TIMESTAMP,
     -- 제안서 내용이 바뀔 때마다 증가한다. 이전 리비전의 동의는 무효가 된다.
     proposal_revision BIGINT NOT NULL DEFAULT 0,
@@ -18,6 +20,49 @@ CREATE TABLE IF NOT EXISTS project (
     deleted_at TIMESTAMP NULL,
     CONSTRAINT fk_team_project FOREIGN KEY (team_id) REFERENCES team(id)
 );
+
+ALTER TABLE project ADD COLUMN IF NOT EXISTS project_schedule TEXT;
+ALTER TABLE project DROP COLUMN IF EXISTS key_features;
+ALTER TABLE project DROP COLUMN IF EXISTS demo_flow;
+
+-- KD3-211 이전에는 data_configuration 이 TEXT 였다. NULL·공백은 빈 배열로, 이미 저장된 JSON 배열은
+-- 그대로 옮긴다. 그 외에는 배열 항목으로 추측 변환할 수 없으므로 실패시켜 운영자가 원본을 확인하게 한다.
+CREATE OR REPLACE FUNCTION pg_temp.to_jsonb_array(value TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+    parsed JSONB;
+BEGIN
+    IF value IS NULL OR btrim(value) = '' THEN
+        RETURN '[]'::JSONB;
+    END IF;
+
+    parsed := value::JSONB;
+    IF jsonb_typeof(parsed) <> 'array' THEN
+        RAISE EXCEPTION 'project.data_configuration must be a JSON array';
+    END IF;
+    RETURN parsed;
+END;
+$$;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'project'
+          AND column_name = 'data_configuration'
+          AND data_type <> 'jsonb'
+    ) THEN
+        ALTER TABLE project
+            ALTER COLUMN data_configuration TYPE JSONB
+            USING pg_temp.to_jsonb_array(data_configuration);
+    END IF;
+END;
+$$;
 
 -- 부분 유니크 인덱스: 팀당 활성 프로젝트 1개 보장 (deleted_at IS NULL인 경우만)
 CREATE UNIQUE INDEX IF NOT EXISTS uk_project_team_active 

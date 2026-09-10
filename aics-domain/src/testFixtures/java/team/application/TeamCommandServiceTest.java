@@ -149,6 +149,20 @@ class TeamCommandServiceTest {
     }
 
     @Test
+    @DisplayName("확정된 팀도 제안서용 운영규칙과 회의일정은 팀명 변경 없이 수정할 수 있다")
+    void updatesProposalKickoffOnConfirmedTeam() {
+        Team team = team(1L, Status.CONFIRMED);
+        given(teamQueryService.getTeamById(1L)).willReturn(team);
+        willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
+
+        Team updated = teamCommandService.updateProposalKickoff(1L, "새 규칙", "새 일정");
+
+        assertThat(updated.getName()).isEqualTo("1팀");
+        assertThat(updated.getKickoffRule()).isEqualTo("새 규칙");
+        assertThat(updated.getMeetingSchedule()).isEqualTo("새 일정");
+    }
+
+    @Test
     @DisplayName("같은 분반에 이미 있는 팀명으로는 바꿀 수 없다")
     void rejectsDuplicateName() {
         Team team = team(1L, Status.FORMING);

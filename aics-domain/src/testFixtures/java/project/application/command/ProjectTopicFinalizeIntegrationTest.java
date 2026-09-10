@@ -28,6 +28,7 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.common.exception.CustomException;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.course.domain.SemesterType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.course.infrastructure.CourseJpaEntity;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
@@ -35,6 +36,7 @@ import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.infrastructure.ProjectJpaEntity;
 import kgu.developers.domain.project.infrastructure.ProjectRepositoryImpl;
+import kgu.developers.domain.project.infrastructure.ProposalSectionRepositoryImpl;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalJpaEntity;
 import kgu.developers.domain.projectApproval.infrastructure.ProjectApprovalRepositoryImpl;
 import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
@@ -51,7 +53,7 @@ import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 @DataJpaTest
 @Testcontainers
 @Import({ProjectCommandService.class, ProjectRepositoryImpl.class, ProjectApprovalRepositoryImpl.class,
-    TeamMemberRepositoryImpl.class})
+    ProposalSectionRepositoryImpl.class, TeamMemberRepositoryImpl.class})
 @AutoConfigureTestDatabase(replace = NONE)
 @Transactional(propagation = NOT_SUPPORTED)
 class ProjectTopicFinalizeIntegrationTest {
@@ -82,6 +84,7 @@ class ProjectTopicFinalizeIntegrationTest {
     @Autowired
     private EntityManager entityManager;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private TransactionTemplate tx;
     private Long teamId;
 
@@ -93,6 +96,7 @@ class ProjectTopicFinalizeIntegrationTest {
     @BeforeEach
     void setUp() {
         tx.executeWithoutResult(status -> {
+            entityManager.createQuery("delete from ProposalSectionJpaEntity").executeUpdate();
             entityManager.createQuery("delete from ProjectApprovalJpaEntity").executeUpdate();
             entityManager.createQuery("delete from ProjectJpaEntity").executeUpdate();
             entityManager.createQuery("delete from TeamJpaEntity").executeUpdate();
@@ -195,24 +199,22 @@ class ProjectTopicFinalizeIntegrationTest {
     }
 
     @Test
-    @DisplayName("제안서 수정으로 채운 회의방식·저장소·데이터/화면 구성은 주제 확정 후에도 유지된다")
+    @DisplayName("제안서 수정으로 채운 저장소·데이터/화면 구성·일정은 주제 확정 후에도 유지된다")
     void finalizeTopic_keepsProposalFieldsOutsideTopic() {
         Project created = tx.execute(status -> projectCommandService.saveProject(
-            teamId, "첫 주제", "첫 설명", "첫 목표", "대면", "https://github.com/kgu/project", null,
-            "종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집",
-            JsonConverter.parse("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
-            JsonConverter.parse("[]"),
-            JsonConverter.parse("[{\"number\":1,\"title\":\"로그인 화면\"}]")));
+            teamId, "첫 주제", "첫 설명", "첫 목표", "https://github.com/kgu/project", null,
+            kgu.developers.common.json.JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
+            JsonConverter.parse("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"), "4월: 설계, 5월: 개발, 6월: 통합 테스트"));
 
         tx.execute(status -> projectCommandService.finalizeTopic(
             teamId, FIRST_CANDIDATE_ID, "두 번째 주제", "두 번째 설명", "두 번째 목표"));
 
         ProjectJpaEntity persisted = reload(created.getId());
-        assertThat(persisted.getMeetingStyle()).isEqualTo("대면");
         assertThat(persisted.getRepositoryUrl()).isEqualTo("https://github.com/kgu/project");
         assertThat(persisted.getTopicCandidateId()).isEqualTo(FIRST_CANDIDATE_ID);
-        assertThat(persisted.getDataConfiguration()).isEqualTo("종류: 학습 로그, 개수: 약 1만 건, 수집: 자체 수집");
+        assertThat(persisted.getDataConfiguration().get(0).get("name").asText()).isEqualTo("학습 로그");
         assertThat(persisted.getScreenConfiguration().get(0).get("title").asText()).isEqualTo("홈");
+        assertThat(persisted.getProjectSchedule()).isEqualTo("4월: 설계, 5월: 개발, 6월: 통합 테스트");
     }
 
     @Test

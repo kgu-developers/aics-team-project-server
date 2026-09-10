@@ -21,6 +21,8 @@ import org.springframework.security.access.AccessDeniedException;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teamMember.application.TeamMemberFacade;
 import kgu.developers.api.teamMember.presentation.response.TeamMemberContactListResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberListResponse;
+import kgu.developers.api.teamMember.presentation.response.TeamMemberResponse;
 import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService;
 import kgu.developers.domain.section.exception.ContactNotVisibleException;
 import kgu.developers.domain.team.domain.Team;
@@ -77,6 +79,84 @@ class TeamMemberFacadeTest {
 			// 학년은 팀원이 아니라 분반 수강 정보에서 온다
 			assertThat(contact.grade()).isEqualTo("3");
 		});
+	}
+
+	@Test
+	@DisplayName("팀원을 조회하면 본인을 포함해 응답한다")
+	void getTeamMembers() {
+		TeamMember me = member();
+		TeamMember teammate = TeamMember.builder()
+			.id(2L).teamId(1L).userId("202611111").isLeader(true).projectRole("프론트엔드").build();
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(me, User.builder().studentNumber(USER).name("김철수").build()),
+			new TeamMemberWithUser(teammate, User.builder().studentNumber("202611111").name("이영희").build())));
+
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, "");
+
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber)
+			.containsExactly(USER, "202611111");
+	}
+
+	@Test
+	@DisplayName("팀원을 이름으로 검색한다")
+	void searchesTeamMembersByName() {
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(member(), User.builder().studentNumber(USER).name("김철수").build()),
+			new TeamMemberWithUser(TeamMember.builder().id(2L).teamId(1L).userId("202611111").build(),
+				User.builder().studentNumber("202611111").name("이영희").build())));
+
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, "영희");
+
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
+	}
+
+	@Test
+	@DisplayName("검색어 앞뒤 공백을 제거한다")
+	void trimsKeyword() {
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(member(), User.builder().studentNumber(USER).name("김철수").build()),
+			new TeamMemberWithUser(TeamMember.builder().id(2L).teamId(1L).userId("202611111").build(),
+				User.builder().studentNumber("202611111").name("이영희").build())));
+
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, " 영희 ");
+
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
+	}
+
+	@Test
+	@DisplayName("검색어가 null이면 전체 팀원을 응답한다")
+	void returnsAllMembersForNullKeyword() {
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(member(), User.builder().studentNumber(USER).name("김철수").build())));
+
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, null);
+
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly(USER);
+	}
+
+	@Test
+	@DisplayName("팀원을 학번으로 검색한다")
+	void searchesTeamMembersByStudentNumber() {
+		given(teamMemberQueryService.getTeamMembersWithUsers(1L)).willReturn(List.of(
+			new TeamMemberWithUser(member(), User.builder().studentNumber(USER).name("김철수").build()),
+			new TeamMemberWithUser(TeamMember.builder().id(2L).teamId(1L).userId("202611111").build(),
+				User.builder().studentNumber("202611111").name("이영희").build())));
+
+		TeamMemberListResponse response = teamMemberFacade.getTeamMembers(1L, USER, "1111");
+
+		assertThat(response.contents()).extracting(TeamMemberResponse::studentNumber).containsExactly("202611111");
+	}
+
+	@Test
+	@DisplayName("팀원도 담당 교수도 아니면 팀원을 조회하지 않는다")
+	void rejectsTeamMembersForOutsider() {
+		willThrow(new AccessDeniedException("denied"))
+			.given(teamAccessValidator).validateMembershipOrProfessor(1L, USER);
+
+		assertThatThrownBy(() -> teamMemberFacade.getTeamMembers(1L, USER, ""))
+			.isInstanceOf(AccessDeniedException.class);
+
+		verify(teamMemberQueryService, never()).getTeamMembersWithUsers(1L);
 	}
 
 	@Test

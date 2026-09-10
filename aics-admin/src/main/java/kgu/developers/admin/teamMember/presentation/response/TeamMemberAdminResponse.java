@@ -16,6 +16,9 @@ public record TeamMemberAdminResponse(
 	@Schema(description = "이름", example = "김철수")
 	String name,
 
+	@Schema(description = "전공", example = "컴퓨터공학과")
+	String major,
+
 	@Schema(description = "팀장 여부", example = "true", requiredMode = REQUIRED)
 	boolean isLeader,
 
@@ -28,6 +31,7 @@ public record TeamMemberAdminResponse(
 			teamMember.getId(),
 			teamMember.getUserId(),
 			user == null ? null : user.getName(),
+			user == null ? null : user.getMajor(),
 			teamMember.isLeader(),
 			teamMember.getProjectRole()
 		);

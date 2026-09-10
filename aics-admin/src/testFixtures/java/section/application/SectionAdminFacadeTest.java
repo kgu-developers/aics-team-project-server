@@ -143,7 +143,7 @@ class SectionAdminFacadeTest {
         Enrollment updated = Enrollment.builder()
                 .id(1L).sectionId(1L).userId("202699999").role(Role.ASSISTANT).status(Status.WITHDRAWN).build();
         User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
-                UserGlobalRole.USER, "010-1234-6789");
+                UserGlobalRole.USER, "010-1234-6789", "컴퓨터공학부");
         given(enrollmentQueryService.getEnrollment(1L, "202699999"))
                 .willReturn(new EnrollmentDetail(updated, student));
 
@@ -163,7 +163,7 @@ class SectionAdminFacadeTest {
         Enrollment updated = Enrollment.builder()
                 .id(1L).sectionId(1L).userId("202699999").role(Role.STUDENT).status(Status.ACTIVE).build();
         User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
-                UserGlobalRole.USER, "010-1234-6789");
+                UserGlobalRole.USER, "010-1234-6789", "컴퓨터공학부");
         given(enrollmentQueryService.getEnrollment(1L, "202699999"))
                 .willReturn(new EnrollmentDetail(updated, student));
 
@@ -185,7 +185,7 @@ class SectionAdminFacadeTest {
                 .status(Status.ACTIVE)
                 .build();
         User student = User.create("202699999", "kgu@kyonggi.ac.kr", "김철수", "encoded",
-                UserGlobalRole.USER, "010-1234-6789");
+                UserGlobalRole.USER, "010-1234-6789", "컴퓨터공학부");
         given(enrollmentQueryService.getEnrollmentsBySectionId(1L))
                 .willReturn(List.of(new EnrollmentDetail(enrollment, student)));
 
@@ -194,6 +194,7 @@ class SectionAdminFacadeTest {
                 .satisfies(response -> {
                     assertThat(response.studentNumber()).isEqualTo("202699999");
                     assertThat(response.name()).isEqualTo("김철수");
+                    assertThat(response.major()).isEqualTo("컴퓨터공학부");
                     assertThat(response.status()).isEqualTo(Status.ACTIVE);
                 });
     }

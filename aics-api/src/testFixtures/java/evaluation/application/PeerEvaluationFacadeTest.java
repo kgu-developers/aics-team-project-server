@@ -212,6 +212,56 @@ class PeerEvaluationFacadeTest {
     }
 
     @Test
+    @DisplayName("기존 임시저장된 응답이 존재할 때 재차 저장하면 기존 submission을 업데이트하고 답변을 재등록한다")
+    void updatesExistingDraftSubmission() {
+        given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(enrollment(REQUESTER, Role.STUDENT, Status.ACTIVE)));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(member(REQUESTER, true, "개발")));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(
+            member(REQUESTER, true, "개발"), member(ACTIVE_MEMBER, false, "디자인")
+        ));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, ACTIVE_MEMBER))
+            .willReturn(Optional.of(enrollment(ACTIVE_MEMBER, Role.STUDENT, Status.ACTIVE)));
+
+        PeerEvaluationSubmission existing = PeerEvaluationSubmission.builder()
+            .id(10L)
+            .formId(FORM_ID)
+            .evaluatorId(REQUESTER)
+            .selfContribution("이전 자기 기여도")
+            .projectReviewComment("이전 리뷰")
+            .reflectionComment("이전 회고")
+            .status(PeerEvaluationSubmissionStatus.DRAFT)
+            .build();
+        given(submissionRepository.findByFormIdAndEvaluatorId(FORM_ID, REQUESTER))
+            .willReturn(Optional.of(existing));
+        given(submissionRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(teammateAnswerRepository.saveAll(any())).willReturn(List.of(
+            PeerEvaluationTeammateAnswer.create(10L, ACTIVE_MEMBER, 100, "새로운 기여", "새로운 평가")
+        ));
+
+        PeerEvaluationResponseRequest request = new PeerEvaluationResponseRequest(
+            "새로운 자기 기여도",
+            "새로운 리뷰",
+            List.of(
+                new PeerEvaluationAnswerRequest(
+                    PeerEvaluationAnswerKind.TEAMMATE_CONTRIBUTION, ACTIVE_MEMBER, 100,
+                    "새로운 기여", "새로운 평가", null
+                )
+            ),
+            false
+        );
+
+        var response = facade.submitResponse(FORM_ID, REQUESTER, request);
+
+        assertThat(response.id()).isEqualTo(10L);
+        assertThat(response.selfContribution()).isEqualTo("새로운 자기 기여도");
+        assertThat(response.status()).isEqualTo(PeerEvaluationSubmissionStatus.DRAFT);
+        then(teammateAnswerRepository).should().deleteAllBySubmissionId(10L);
+        then(teammateAnswerRepository).should().saveAll(any());
+    }
+
+    @Test
     @DisplayName("최종 제출의 팀원 기여도 합계가 100이 아니면 거부한다")
     void rejectsInvalidContributionSum() {
         given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, REQUESTER))

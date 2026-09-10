@@ -6,5 +6,7 @@ package kgu.developers.domain.editlock.domain;
  * 폐기되며 함께 제거됨. 다른 공동편집 폼이 추가되면 값만 늘리면 된다.
  */
 public enum EditLockTargetType {
-    PROJECT
+    PROJECT,
+    MEETING_RECORD
 }
+

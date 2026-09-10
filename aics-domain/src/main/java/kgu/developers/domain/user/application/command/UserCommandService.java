@@ -26,6 +26,11 @@ public class UserCommandService {
 
     public String createUser(String studentNumber, String email, String name, String password,
                              UserGlobalRole globalRole, String phone, boolean reactivate) {
+        return createUser(studentNumber, email, name, password, globalRole, phone, null, reactivate);
+    }
+
+    public String createUser(String studentNumber, String email, String name, String password,
+                             UserGlobalRole globalRole, String phone, String major, boolean reactivate) {
         if (userRepository.existsByStudentNumber(studentNumber)) {
             User existing = userRepository.findIncludingDeleted(studentNumber)
                     .orElseThrow(DuplicateStudentNumberException::new);
@@ -35,7 +40,7 @@ public class UserCommandService {
             userRepository.archiveAndHardDelete(existing);
         }
         checkEmailAvailable(email, studentNumber);
-        User user = User.create(studentNumber, email, name, passwordEncoder.encode(password), globalRole, phone);
+        User user = User.create(studentNumber, email, name, passwordEncoder.encode(password), globalRole, phone, major);
         return userRepository.save(user).getStudentNumber();
     }
 

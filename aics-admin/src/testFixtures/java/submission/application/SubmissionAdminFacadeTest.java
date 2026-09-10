@@ -161,8 +161,8 @@ class SubmissionAdminFacadeTest {
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
         given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
                 teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
-                ApprovalStatus.APPROVED, "온라인", null, "데이터 구성",
-                JsonNodeFactory.instance.arrayNode(), null, null)));
+                ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
+                JsonNodeFactory.instance.arrayNode(), null)));
 
         SubmissionAdminListResponse response = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
@@ -223,8 +223,8 @@ class SubmissionAdminFacadeTest {
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
         given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
                 teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
-                ApprovalStatus.APPROVED, "온라인", null, "데이터 구성",
-                JsonNodeFactory.instance.arrayNode(), null, null)));
+                ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
+                JsonNodeFactory.instance.arrayNode(), null)));
 
         SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
