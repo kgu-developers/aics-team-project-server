@@ -65,11 +65,14 @@ public class EditLockJpaEntity extends BaseTimeEntity {
             .lockedBy(this.lockedBy)
             .lockedAt(this.lockedAt)
             .version(this.version)
+            .createdAt(getCreatedAt())
+            .updatedAt(getUpdatedAt())
+            .deletedAt(getDeletedAt())
             .build();
     }
 
     public static EditLockJpaEntity toEntity(EditLock domain) {
-        return EditLockJpaEntity.builder()
+        EditLockJpaEntity entity = EditLockJpaEntity.builder()
             .id(domain.getId())
             .targetType(domain.getTargetType())
             .targetId(domain.getTargetId())
@@ -78,5 +81,10 @@ public class EditLockJpaEntity extends BaseTimeEntity {
             .lockedAt(domain.getLockedAt())
             .version(domain.getVersion())
             .build();
+        // KD3-238: 기존 잠금을 갱신/인수할 때 BaseTimeEntity의 createdAt이 null로 날아가지 않도록 보존한다.
+        // 누락 시 PostgreSQL의 created_at NOT NULL 제약조건 위반(409)이 발생한다.
+        entity.createdAt = domain.getCreatedAt();
+        entity.setDeletedAt(domain.getDeletedAt());
+        return entity;
     }
 }

@@ -66,8 +66,9 @@ public class SubmissionVersionJpaEntity extends BaseTimeEntity {
                 .submittedAt(version.getSubmittedAt())
                 .late(version.isLate())
                 .build();
-        // deletedAt은 BaseTimeEntity 상속 필드라 이 클래스의 @Builder에는 없다(sunzx0428 PR #87
+        // deletedAt, createdAt은 BaseTimeEntity 상속 필드라 이 클래스의 @Builder에는 없다(sunzx0428 PR #87
         // 리뷰 09-03 — SubmissionJpaEntity와 같은 이유).
+        entity.createdAt = version.getCreatedAt();
         entity.setDeletedAt(version.getDeletedAt());
         return entity;
     }
