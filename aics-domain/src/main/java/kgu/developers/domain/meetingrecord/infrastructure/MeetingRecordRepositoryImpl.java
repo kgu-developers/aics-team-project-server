@@ -21,6 +21,7 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
     private final JpaMeetingRecordRepository jpaMeetingRecordRepository;
     private final JpaMeetingParticipantRepository jpaMeetingParticipantRepository;
     private final JpaMeetingActionRepository jpaMeetingActionRepository;
+    private final JpaMeetingRecordMilestoneRepository jpaMeetingRecordMilestoneRepository;
 
     @Override
     public MeetingRecord save(MeetingRecord meetingRecord) {
@@ -31,14 +32,15 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
         MeetingRecordJpaEntity savedEntity = jpaMeetingRecordRepository.save(MeetingRecordJpaEntity.toEntity(meetingRecord));
 
         List<MeetingParticipant> savedParticipants = syncParticipants(savedEntity.getId(), meetingRecord.getParticipants());
+        List<Long> savedMilestoneIds = syncMilestones(savedEntity.getId(), meetingRecord.getMilestoneIds());
 
-        return savedEntity.toDomain(savedParticipants);
+        return savedEntity.toDomain(savedParticipants, savedMilestoneIds);
     }
 
     @Override
     public Optional<MeetingRecord> findById(Long id) {
         return jpaMeetingRecordRepository.findById(id)
-            .map(entity -> entity.toDomain(findParticipants(id)));
+            .map(entity -> entity.toDomain(findParticipants(id), findMilestoneIds(id)));
     }
 
     @Override
@@ -50,9 +52,12 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
         List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
         Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId =
             findParticipantsByMeetingRecordId(meetingRecordIds);
+        Map<Long, List<Long>> milestoneIdsByMeetingRecordId = findMilestoneIdsByMeetingRecordId(meetingRecordIds);
 
         return entities.stream()
-            .map(entity -> entity.toDomain(participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of())))
+            .map(entity -> entity.toDomain(
+                participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of()),
+                milestoneIdsByMeetingRecordId.getOrDefault(entity.getId(), List.of())))
             .toList();
     }
 
@@ -66,9 +71,12 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
         List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
         Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId =
             findParticipantsByMeetingRecordId(meetingRecordIds);
+        Map<Long, List<Long>> milestoneIdsByMeetingRecordId = findMilestoneIdsByMeetingRecordId(meetingRecordIds);
 
         return entities.stream()
-            .map(entity -> entity.toDomain(participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of())))
+            .map(entity -> entity.toDomain(
+                participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of()),
+                milestoneIdsByMeetingRecordId.getOrDefault(entity.getId(), List.of())))
             .toList();
     }
 
@@ -79,17 +87,54 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
         }
 
         Page<MeetingRecordJpaEntity> entities = jpaMeetingRecordRepository.findAllByTeamIdIn(teamIds, pageable);
+        return toDomainPage(entities);
+    }
+
+    @Override
+    public Page<MeetingRecord> findAllByTeamIdInAndMilestoneId(
+        List<Long> teamIds,
+        Long milestoneId,
+        Pageable pageable
+    ) {
+        if (teamIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return toDomainPage(jpaMeetingRecordRepository.findAllByTeamIdInAndMilestoneId(
+            teamIds, milestoneId, pageable));
+    }
+
+    @Override
+    public long countByTeamIdAndMilestoneId(Long teamId, Long milestoneId) {
+        return jpaMeetingRecordRepository.countByTeamIdAndMilestoneId(teamId, milestoneId);
+    }
+
+    @Override
+    public Map<Long, Long> countByTeamIdInAndMilestoneId(List<Long> teamIds, Long milestoneId) {
+        if (teamIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaMeetingRecordRepository.countByTeamIdInAndMilestoneId(teamIds, milestoneId).stream()
+            .collect(Collectors.toMap(
+                JpaMeetingRecordRepository.MeetingRecordCountProjection::getTeamId,
+                JpaMeetingRecordRepository.MeetingRecordCountProjection::getMeetingRecordCount
+            ));
+    }
+
+    private Page<MeetingRecord> toDomainPage(Page<MeetingRecordJpaEntity> entities) {
         List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
         Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId = findParticipantsByMeetingRecordId(
             meetingRecordIds);
+        Map<Long, List<Long>> milestoneIdsByMeetingRecordId = findMilestoneIdsByMeetingRecordId(meetingRecordIds);
 
         return entities.map(entity -> entity.toDomain(
-            participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of())));
+            participantsByMeetingRecordId.getOrDefault(entity.getId(), List.of()),
+            milestoneIdsByMeetingRecordId.getOrDefault(entity.getId(), List.of())));
     }
 
     @Override
     public void deleteById(Long id) {
         jpaMeetingParticipantRepository.deleteAllByMeetingRecordId(id);
+        jpaMeetingRecordMilestoneRepository.deleteAllByMeetingRecordId(id);
         jpaMeetingActionRepository.deleteAllByMeetingRecordId(id);
         jpaMeetingRecordRepository.deleteById(id);
     }
@@ -129,6 +174,53 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
         return jpaMeetingParticipantRepository.findAllByMeetingRecordId(meetingRecordId).stream()
             .map(MeetingParticipantJpaEntity::toDomain)
             .toList();
+    }
+
+    private List<Long> syncMilestones(Long meetingRecordId, List<Long> milestoneIds) {
+        List<Long> incoming = MeetingRecord.normalizeMilestoneIds(milestoneIds);
+        List<MeetingRecordMilestoneJpaEntity> existing =
+            jpaMeetingRecordMilestoneRepository.findAllByMeetingRecordId(meetingRecordId);
+        Set<Long> incomingIds = Set.copyOf(incoming);
+        Set<Long> existingIds = existing.stream()
+            .map(MeetingRecordMilestoneJpaEntity::getMilestoneId)
+            .collect(Collectors.toSet());
+
+        List<Long> linkIdsToRemove = existing.stream()
+            .filter(link -> !incomingIds.contains(link.getMilestoneId()))
+            .map(MeetingRecordMilestoneJpaEntity::getId)
+            .toList();
+        if (!linkIdsToRemove.isEmpty()) {
+            jpaMeetingRecordMilestoneRepository.deleteAllById(linkIdsToRemove);
+        }
+
+        List<MeetingRecordMilestoneJpaEntity> linksToAdd = incoming.stream()
+            .filter(milestoneId -> !existingIds.contains(milestoneId))
+            .map(milestoneId -> MeetingRecordMilestoneJpaEntity.builder()
+                .meetingRecordId(meetingRecordId)
+                .milestoneId(milestoneId)
+                .build())
+            .toList();
+        if (!linksToAdd.isEmpty()) {
+            jpaMeetingRecordMilestoneRepository.saveAll(linksToAdd);
+        }
+        return findMilestoneIds(meetingRecordId);
+    }
+
+    private List<Long> findMilestoneIds(Long meetingRecordId) {
+        return jpaMeetingRecordMilestoneRepository.findAllByMeetingRecordId(meetingRecordId).stream()
+            .map(MeetingRecordMilestoneJpaEntity::getMilestoneId)
+            .toList();
+    }
+
+    private Map<Long, List<Long>> findMilestoneIdsByMeetingRecordId(List<Long> meetingRecordIds) {
+        if (meetingRecordIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaMeetingRecordMilestoneRepository.findAllByMeetingRecordIdIn(meetingRecordIds).stream()
+            .collect(Collectors.groupingBy(
+                MeetingRecordMilestoneJpaEntity::getMeetingRecordId,
+                Collectors.mapping(MeetingRecordMilestoneJpaEntity::getMilestoneId, Collectors.toList())
+            ));
     }
 
     private Map<Long, List<MeetingParticipant>> findParticipantsByMeetingRecordId(List<Long> meetingRecordIds) {

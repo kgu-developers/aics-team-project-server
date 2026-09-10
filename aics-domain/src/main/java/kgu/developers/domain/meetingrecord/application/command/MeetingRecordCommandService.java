@@ -29,7 +29,23 @@ public class MeetingRecordCommandService {
         String content,
         List<String> participantIds
     ) {
-        MeetingRecord meetingRecord = MeetingRecord.create(teamId, title, phase, authorId, meetingAt, location, content, participantIds);
+        return createMeetingRecord(
+            teamId, title, phase, authorId, meetingAt, location, content, participantIds, List.of());
+    }
+
+    public Long createMeetingRecord(
+        Long teamId,
+        String title,
+        MeetingPhase phase,
+        String authorId,
+        LocalDateTime meetingAt,
+        String location,
+        String content,
+        List<String> participantIds,
+        List<Long> milestoneIds
+    ) {
+        MeetingRecord meetingRecord = MeetingRecord.create(
+            teamId, title, phase, authorId, meetingAt, location, content, participantIds, milestoneIds);
         return meetingRecordRepository.save(meetingRecord).getId();
     }
 
@@ -41,6 +57,19 @@ public class MeetingRecordCommandService {
         MeetingPhase phase,
         String content,
         List<String> participantIds
+    ) {
+        updateMeetingRecord(id, title, meetingAt, location, phase, content, participantIds, null);
+    }
+
+    public void updateMeetingRecord(
+        Long id,
+        String title,
+        LocalDateTime meetingAt,
+        String location,
+        MeetingPhase phase,
+        String content,
+        List<String> participantIds,
+        List<Long> milestoneIds
     ) {
         MeetingRecord meetingRecord = findOrThrow(id);
 
@@ -67,6 +96,9 @@ public class MeetingRecordCommandService {
         }
         if (participantIds != null) {
             meetingRecord.updateParticipants(participantIds);
+        }
+        if (milestoneIds != null) {
+            meetingRecord.updateMilestoneIds(milestoneIds);
         }
 
         meetingRecordRepository.save(meetingRecord);

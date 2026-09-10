@@ -5,9 +5,11 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.milestone.domain.Milestone;
 import lombok.Builder;
 
 @Builder
@@ -40,6 +42,9 @@ public record MeetingRecordDetailResponse(
     @Schema(description = "참석자 학번 목록", requiredMode = REQUIRED)
     List<String> participantIds,
 
+    @Schema(description = "관련 마일스톤 목록", requiredMode = REQUIRED)
+    List<MeetingRecordMilestoneResponse> milestones,
+
     @Schema(description = "생성일", example = "2026-08-01 10:00", requiredMode = REQUIRED)
     String createdAt,
 
@@ -50,6 +55,10 @@ public record MeetingRecordDetailResponse(
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public static MeetingRecordDetailResponse from(MeetingRecord meetingRecord) {
+        return from(meetingRecord, Map.of());
+    }
+
+    public static MeetingRecordDetailResponse from(MeetingRecord meetingRecord, Map<Long, Milestone> milestonesById) {
         return MeetingRecordDetailResponse.builder()
             .id(meetingRecord.getId())
             .teamId(meetingRecord.getTeamId())
@@ -61,6 +70,11 @@ public record MeetingRecordDetailResponse(
             .content(meetingRecord.getContent())
             .participantIds(meetingRecord.getParticipants().stream()
                 .map(MeetingParticipant::getUserId)
+                .toList())
+            .milestones(meetingRecord.getMilestoneIds().stream()
+                .map(milestonesById::get)
+                .filter(java.util.Objects::nonNull)
+                .map(MeetingRecordMilestoneResponse::from)
                 .toList())
             .createdAt(meetingRecord.getCreatedAt().format(FORMATTER))
             .updatedAt(meetingRecord.getUpdatedAt().format(FORMATTER))

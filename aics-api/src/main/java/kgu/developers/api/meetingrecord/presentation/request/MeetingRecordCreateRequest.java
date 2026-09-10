@@ -5,6 +5,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
@@ -33,6 +34,9 @@ public record MeetingRecordCreateRequest(
     String content,
 
     @Schema(description = "참석자 학번 목록", example = "[\"202412345\", \"202412346\"]")
-    List<String> participantIds
+    List<String> participantIds,
+
+    @Schema(description = "관련 마일스톤 식별자 목록. 같은 분반의 마일스톤만 연결할 수 있습니다.", example = "[3, 4]")
+    List<@Positive Long> milestoneIds
 ) {
 }

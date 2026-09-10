@@ -8,6 +8,9 @@ import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdm
 import kgu.developers.admin.meetingrecord.presentation.response.MeetingRecordAdminPageResponse;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.milestone.domain.Milestone;
+import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
@@ -36,6 +39,7 @@ public class MeetingRecordAdminFacade {
     private final SectionRepository sectionRepository;
     private final TeamRepository teamRepository;
     private final MeetingRecordQueryService meetingRecordQueryService;
+    private final MilestoneRepository milestoneRepository;
 
     public MeetingRecordAdminPageResponse getMeetingRecords(
         Long sectionId,
@@ -43,18 +47,30 @@ public class MeetingRecordAdminFacade {
         Pageable pageable,
         String professorId
     ) {
+        return getMeetingRecords(sectionId, teamId, null, pageable, professorId);
+    }
+
+    public MeetingRecordAdminPageResponse getMeetingRecords(
+        Long sectionId,
+        Long teamId,
+        Long milestoneId,
+        Pageable pageable,
+        String professorId
+    ) {
         List<Section> sections = resolveSections(sectionId, professorId);
         List<Team> teams = teamRepository.findAllBySectionIdIn(
             sections.stream().map(Section::getId).toList());
         List<Long> teamIds = resolveTeamIds(teams, teamId);
+        validateMilestoneFilter(milestoneId, sections, teams, teamId);
 
         Pageable latestFirstPageable = PageRequest.of(
             pageable.getPageNumber(),
             pageable.getPageSize(),
             LATEST_FIRST
         );
-        Page<MeetingRecord> meetingRecords = meetingRecordQueryService.getMeetingRecords(
-            teamIds, latestFirstPageable);
+        Page<MeetingRecord> meetingRecords = milestoneId == null
+            ? meetingRecordQueryService.getMeetingRecords(teamIds, latestFirstPageable)
+            : meetingRecordQueryService.getMeetingRecords(teamIds, milestoneId, latestFirstPageable);
         Map<Long, Team> teamsById = teams.stream()
             .collect(Collectors.toMap(Team::getId, Function.identity()));
         Map<Long, Section> sectionsById = sections.stream()
@@ -100,5 +116,29 @@ public class MeetingRecordAdminFacade {
             throw new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다.");
         }
         return List.of(teamId);
+    }
+
+    private void validateMilestoneFilter(
+        Long milestoneId,
+        List<Section> sections,
+        List<Team> teams,
+        Long teamId
+    ) {
+        if (milestoneId == null) {
+            return;
+        }
+        Milestone milestone = milestoneRepository.findById(milestoneId)
+            .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
+        List<Long> allowedSectionIds = teamId == null
+            ? sections.stream().map(Section::getId).toList()
+            : teams.stream()
+                .filter(team -> team.getId().equals(teamId))
+                .map(Team::getSectionId)
+                .toList();
+        boolean belongsToSearchScope = allowedSectionIds.stream()
+            .anyMatch(milestone::belongsToSection);
+        if (!belongsToSearchScope) {
+            throw new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다.");
+        }
     }
 }

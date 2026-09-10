@@ -31,6 +31,7 @@ import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
+import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.section.application.query.SectionQueryService;
@@ -64,6 +65,7 @@ public class SubmissionAdminFacade {
     private final FileObjectRepository fileObjectRepository;
     private final FileStorage fileStorage;
     private final UserQueryService userQueryService;
+    private final MeetingRecordQueryService meetingRecordQueryService;
 
     // 팀은 그 마일스톤을 아직 한 번도 조회 안 했으면 Submission 행 자체가 없다(lazy get-or-create).
     // 그대로 findAllByMilestoneId만 쓰면 그런 팀이 목록에서 통째로 빠지므로, 분반의 팀 전체를
@@ -85,6 +87,8 @@ public class SubmissionAdminFacade {
                 ? projectRepository.findAllByTeamIdIn(teams.stream().map(Team::getId).toList()).stream()
                         .collect(Collectors.toMap(Project::getTeamId, Project::getTitle, (first, ignored) -> first))
                 : Map.of();
+        Map<Long, Long> meetingRecordCounts = meetingRecordQueryService.countMeetingRecords(
+                teams.stream().map(Team::getId).toList(), milestoneId);
         List<SubmissionAdminResponse> contents = teams.stream()
                 .map(team -> {
                     Submission submission = submissionQueryService.getOrCreateSubmission(team.getId(), milestoneId);
@@ -92,7 +96,8 @@ public class SubmissionAdminFacade {
                             submission, team,
                             submissionQueryService.canSubmitNow(submission),
                             submissionQueryService.hasPendingReview(submission),
-                            projectTitles.get(team.getId()));
+                            projectTitles.get(team.getId()),
+                            meetingRecordCounts.getOrDefault(team.getId(), 0L));
                 })
                 .toList();
         return SubmissionAdminListResponse.from(contents);
@@ -117,7 +122,8 @@ public class SubmissionAdminFacade {
                 submission, team,
                 submissionQueryService.canSubmitNow(submission),
                 submissionQueryService.hasPendingReview(submission),
-                projectTitle);
+                projectTitle,
+                meetingRecordQueryService.countMeetingRecords(team.getId(), submission.getMilestoneId()));
     }
 
     private String resolveProjectTitle(Submission submission, Team team) {

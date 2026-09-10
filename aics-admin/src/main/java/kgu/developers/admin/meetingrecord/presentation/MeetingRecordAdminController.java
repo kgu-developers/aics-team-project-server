@@ -25,6 +25,7 @@ public interface MeetingRecordAdminController {
             Description : 담당 교수가 맡은 전체 분반의 회의록을 최신순으로 조회한다.
                 sectionId를 전달하면 해당 분반으로 범위를 좁힌다.
                 teamId를 전달하면 해당 팀 하나로 범위를 좁힌다(담당 분반 소속 팀이 아니면 403).
+                milestoneId를 전달하면 해당 마일스톤과 연결된 회의록만 조회한다(담당 분반 마일스톤이 아니면 403).
             Assignee : 최태양
             """
     )
@@ -35,6 +36,7 @@ public interface MeetingRecordAdminController {
     ResponseEntity<MeetingRecordAdminPageResponse> getMeetingRecords(
         @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
         @Parameter(description = "팀 필터") @RequestParam(required = false) @Positive Long teamId,
+        @Parameter(description = "마일스톤 필터") @RequestParam(required = false) @Positive Long milestoneId,
         @Parameter(description = "페이지 번호(0부터 시작)", example = "0")
         @RequestParam(defaultValue = "0") @PositiveOrZero int page,
         @Parameter(description = "페이지 크기(최대 100)", example = "20")
