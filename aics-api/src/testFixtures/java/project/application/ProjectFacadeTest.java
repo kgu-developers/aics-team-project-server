@@ -198,6 +198,30 @@ class ProjectFacadeTest {
     }
 
     @Test
+    @DisplayName("uploadProjectImage는 가로 또는 세로가 4096px를 초과하면 저장하지 않는다")
+    void uploadProjectImage_rejectsImageExceedingDimensions() throws Exception {
+        MockMultipartFile image = new MockMultipartFile("file", "wide.png", "image/png", png(4097, 1));
+
+        assertThatThrownBy(() -> projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+
+        then(fileStorage).shouldHaveNoInteractions();
+        then(fileObjectRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("uploadProjectImage는 총 픽셀 수가 16,000,000px를 초과하면 저장하지 않는다")
+    void uploadProjectImage_rejectsImageExceedingPixelLimit() throws Exception {
+        MockMultipartFile image = new MockMultipartFile("file", "large.png", "image/png", png(4000, 4001));
+
+        assertThatThrownBy(() -> projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+
+        then(fileStorage).shouldHaveNoInteractions();
+        then(fileObjectRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("saveProject는 우리 팀원이 올린 PDF를 화면 이미지로 연결하지 않는다")
     void saveProject_rejectsNonImageFile() throws Exception {
         givenImageUploadedBy(MEMBER_ID, "application/pdf");
@@ -469,8 +493,12 @@ class ProjectFacadeTest {
     }
 
     private byte[] png() throws Exception {
+        return png(1, 1);
+    }
+
+    private byte[] png(int width, int height) throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", output);
+        ImageIO.write(new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB), "png", output);
         return output.toByteArray();
     }
 

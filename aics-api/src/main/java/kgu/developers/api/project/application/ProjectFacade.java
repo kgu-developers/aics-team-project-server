@@ -61,6 +61,9 @@ import static java.util.stream.Collectors.toMap;
 @Transactional
 public class ProjectFacade {
 
+    private static final int MAX_IMAGE_DIMENSION = 4_096;
+    private static final long MAX_IMAGE_PIXELS = 16_000_000L;
+
     private final ProjectCommandService projectCommandService;
     private final ProjectQueryService projectQueryService;
     private final TeamAccessValidator teamAccessValidator;
@@ -132,12 +135,21 @@ public class ProjectFacade {
             ImageReader reader = readers.next();
             try {
                 reader.setInput(input);
-                reader.read(0);
-                return switch (reader.getFormatName().toLowerCase(Locale.ROOT)) {
+                String contentType = switch (reader.getFormatName().toLowerCase(Locale.ROOT)) {
                     case "jpg", "jpeg" -> "image/jpeg";
                     case "png", "gif", "bmp" -> "image/" + reader.getFormatName().toLowerCase(Locale.ROOT);
                     default -> null;
                 };
+                if (contentType == null) {
+                    return null;
+                }
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width <= 0 || height <= 0 || width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION
+                    || (long) width * height > MAX_IMAGE_PIXELS) {
+                    return null;
+                }
+                return contentType;
             } finally {
                 reader.dispose();
             }
