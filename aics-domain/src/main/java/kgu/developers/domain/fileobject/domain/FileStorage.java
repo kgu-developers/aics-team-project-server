@@ -9,16 +9,11 @@ import org.springframework.web.multipart.MultipartFile;
 public interface FileStorage {
     String upload(MultipartFile file);
 
-    default String upload(MultipartFile file, String contentType) {
-        return upload(file);
-    }
+    String upload(MultipartFile file, String contentType);
 
-    default String upload(MultipartFile file, String contentType, String fileName) {
-        return upload(file, contentType);
-    }
+    String upload(MultipartFile file, String contentType, String fileName);
 
-    default void delete(String storageKey) {
-    }
+    void delete(String storageKey);
 
     String presignedUrl(String storageKey);
 
