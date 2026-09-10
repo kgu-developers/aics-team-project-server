@@ -66,7 +66,7 @@ public class MeetingActionJpaEntity extends BaseTimeEntity {
     }
 
     public static MeetingActionJpaEntity toEntity(MeetingAction domain) {
-        return MeetingActionJpaEntity.builder()
+        MeetingActionJpaEntity entity = MeetingActionJpaEntity.builder()
             .id(domain.getId())
             .meetingRecordId(domain.getMeetingRecordId())
             .assigneeId(domain.getAssigneeId())
@@ -75,5 +75,12 @@ public class MeetingActionJpaEntity extends BaseTimeEntity {
             .dueAt(domain.getDueAt())
             .version(domain.getVersion())
             .build();
+        // createdAt은 @Column(updatable = false)라 UPDATE SQL엔 안 들어가지만, 여기서 안 채워두면
+        // merge() 직후 같은 트랜잭션 안에서 재조회한 도메인 객체의 createdAt이 null로 남는다.
+        // MeetingActionFacade.updateMeetingAction()이 수정 직후 같은 트랜잭션에서 바로 재조회해
+        // 응답을 만드는데, 그 응답(MeetingActionResponse.from())이 createdAt.format()을 null
+        // 체크 없이 호출해서 NPE(500)로 이어졌다(KD3-233).
+        entity.createdAt = domain.getCreatedAt();
+        return entity;
     }
 }
