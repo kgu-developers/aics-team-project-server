@@ -23,6 +23,7 @@ import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationQuestion;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationQuestionType;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationResponse;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationTeammateAnswer;
 import kgu.developers.domain.evaluation.infrastructure.GradeJpaEntity;
 import kgu.developers.domain.evaluation.infrastructure.GradeRepositoryImpl;
 import kgu.developers.domain.evaluation.infrastructure.JpaGradeRepository;
@@ -30,6 +31,7 @@ import kgu.developers.domain.evaluation.infrastructure.JpaPeerEvaluationAnswerRe
 import kgu.developers.domain.evaluation.infrastructure.JpaPeerEvaluationFormRepository;
 import kgu.developers.domain.evaluation.infrastructure.JpaPeerEvaluationQuestionRepository;
 import kgu.developers.domain.evaluation.infrastructure.JpaPeerEvaluationResponseRepository;
+import kgu.developers.domain.evaluation.infrastructure.JpaPeerEvaluationTeammateAnswerRepository;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationAnswerJpaEntity;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationAnswerRepositoryImpl;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationFormJpaEntity;
@@ -38,6 +40,8 @@ import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationQuestionJpa
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationQuestionRepositoryImpl;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationResponseJpaEntity;
 import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationResponseRepositoryImpl;
+import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationTeammateAnswerJpaEntity;
+import kgu.developers.domain.evaluation.infrastructure.PeerEvaluationTeammateAnswerRepositoryImpl;
 
 @ExtendWith(MockitoExtension.class)
 class PeerEvaluationRepositoryImplTest {
@@ -58,6 +62,9 @@ class PeerEvaluationRepositoryImplTest {
 
     @Mock
     private JpaGradeRepository gradeJpaRepository;
+
+    @Mock
+    private JpaPeerEvaluationTeammateAnswerRepository teammateAnswerJpaRepository;
 
     @Test
     @DisplayName("상호평가 양식 저장소 어댑터는 저장 후 도메인을 반환한다")
@@ -177,5 +184,43 @@ class PeerEvaluationRepositoryImplTest {
 
         assertThat(result).isPresent();
         assertThat(result.get().getFinalScore()).isEqualByComparingTo("90.00");
+    }
+
+    @Test
+    @DisplayName("상호평가 팀원 답변 저장소 어댑터는 제출 ID로 삭제 후 플러시한다")
+    void deleteAllTeammateAnswersBySubmissionId() {
+        PeerEvaluationTeammateAnswerRepositoryImpl repository = new PeerEvaluationTeammateAnswerRepositoryImpl(teammateAnswerJpaRepository);
+
+        repository.deleteAllBySubmissionId(10L);
+
+        verify(teammateAnswerJpaRepository).deleteAllBySubmissionId(10L);
+        verify(teammateAnswerJpaRepository).flush();
+    }
+
+    @Test
+    @DisplayName("상호평가 팀원 답변 저장소 어댑터는 답변들을 일괄 저장한다")
+    void saveAllTeammateAnswers() {
+        PeerEvaluationTeammateAnswer answer = PeerEvaluationTeammateAnswer.create(10L, "20260002", 100, "기여도", "평가");
+        given(teammateAnswerJpaRepository.saveAll(any())).willReturn(List.of(PeerEvaluationTeammateAnswerJpaEntity.from(answer)));
+        PeerEvaluationTeammateAnswerRepositoryImpl repository = new PeerEvaluationTeammateAnswerRepositoryImpl(teammateAnswerJpaRepository);
+
+        List<PeerEvaluationTeammateAnswer> results = repository.saveAll(List.of(answer));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getTargetUserId()).isEqualTo("20260002");
+    }
+
+    @Test
+    @DisplayName("상호평가 팀원 답변 저장소 어댑터는 제출 ID로 답변 목록을 조회한다")
+    void findAllTeammateAnswersBySubmissionId() {
+        PeerEvaluationTeammateAnswer answer = PeerEvaluationTeammateAnswer.create(10L, "20260002", 100, "기여도", "평가");
+        given(teammateAnswerJpaRepository.findAllBySubmissionIdOrderById(10L))
+            .willReturn(List.of(PeerEvaluationTeammateAnswerJpaEntity.from(answer)));
+        PeerEvaluationTeammateAnswerRepositoryImpl repository = new PeerEvaluationTeammateAnswerRepositoryImpl(teammateAnswerJpaRepository);
+
+        List<PeerEvaluationTeammateAnswer> results = repository.findAllBySubmissionId(10L);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getTargetUserId()).isEqualTo("20260002");
     }
 }
