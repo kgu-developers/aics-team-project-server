@@ -111,11 +111,11 @@ public class EditLockFacade {
     // 해당 팀 소속이어야 하고, 그 분반에 활성 학생으로 등록돼 있어야 잠글 수 있다.
     private void validateMeetingRecordAccess(Long meetingRecordId, String userId) {
         MeetingRecord meetingRecord = meetingRecordQueryService.getMeetingRecord(meetingRecordId);
-        if (teamMemberRepository.findByTeamIdAndUserId(meetingRecord.getTeamId(), userId).isEmpty()) {
-            throw new AccessDeniedException("해당 팀에 소속된 사용자만 회의록을 편집할 수 있습니다.");
-        }
         Team team = teamRepository.findById(meetingRecord.getTeamId())
                 .orElseThrow(TeamNotFoundException::new);
+        if (teamMemberRepository.findByTeamIdAndUserId(team.getId(), userId).isEmpty()) {
+            throw new AccessDeniedException("해당 팀에 소속된 사용자만 회의록을 편집할 수 있습니다.");
+        }
         boolean activeStudent = enrollmentRepository.findBySectionIdAndUserId(team.getSectionId(), userId)
                 .map(Enrollment::isActiveStudent)
                 .orElse(false);
