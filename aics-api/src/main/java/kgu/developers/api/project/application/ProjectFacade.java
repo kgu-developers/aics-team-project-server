@@ -116,7 +116,7 @@ public class ProjectFacade {
             throw new FileObjectInvalidTypeException();
         }
 
-        String storageKey = fileStorage.upload(file);
+        String storageKey = fileStorage.upload(file, contentType);
         FileObject saved = fileObjectRepository.save(FileObject.create(
             userId, storageKey, file.getOriginalFilename(), contentType, file.getSize(), false, null
         ));

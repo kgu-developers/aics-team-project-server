@@ -101,7 +101,7 @@ class ProjectFacadeTest {
     @DisplayName("uploadProjectImage는 이미지 파일만 저장하고 파일 식별자를 반환한다")
     void uploadProjectImage() throws Exception {
         MockMultipartFile image = new MockMultipartFile("file", "screen.png", "image/png", png());
-        given(fileStorage.upload(image)).willReturn("projects/screen.png");
+        given(fileStorage.upload(image, "image/png")).willReturn("projects/screen.png");
         given(fileStorage.presignedUrl("projects/screen.png")).willReturn("https://s3/presigned");
         given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class))).willAnswer(invocation -> {
             FileObject file = invocation.getArgument(0);
@@ -120,7 +120,7 @@ class ProjectFacadeTest {
         assertThat(response.fileId()).isEqualTo(42L);
         assertThat(response.imageUrl()).isEqualTo("https://s3/presigned");
         then(teamAccessValidator).should().validateMembership(TEAM_ID, MEMBER_ID);
-        then(fileStorage).should().upload(image);
+        then(fileStorage).should().upload(image, "image/png");
         then(fileStorage).should().presignedUrl("projects/screen.png");
         then(fileObjectRepository).should().save(org.mockito.ArgumentMatchers.argThat(file ->
             file.getUploadedBy().equals(MEMBER_ID)
@@ -135,7 +135,7 @@ class ProjectFacadeTest {
     @DisplayName("uploadProjectImage는 실제 PNG면 multipart MIME이 octet-stream이어도 저장한다")
     void uploadProjectImage_acceptsImageWithGenericMimeType() throws Exception {
         MockMultipartFile image = new MockMultipartFile("file", "screen.png", "application/octet-stream", png());
-        given(fileStorage.upload(image)).willReturn("projects/screen.png");
+        given(fileStorage.upload(image, "image/png")).willReturn("projects/screen.png");
         given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class))).willAnswer(invocation -> {
             FileObject file = invocation.getArgument(0);
             return FileObject.builder().id(42L).storageKey(file.getStorageKey()).build();
