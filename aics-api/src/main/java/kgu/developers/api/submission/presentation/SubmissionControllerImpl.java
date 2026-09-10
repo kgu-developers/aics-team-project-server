@@ -18,12 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import kgu.developers.api.submission.application.SubmissionFacade;
-import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
-import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
@@ -120,24 +118,6 @@ public class SubmissionControllerImpl implements SubmissionController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(submissionFacade.reopenSubmission(submissionId, authentication.getName(), request));
-    }
-
-    @Override
-    @GetMapping("/submissions/{submissionId}/presentation-content")
-    public ResponseEntity<PresentationContentResponse> getPresentationContent(
-        @PathVariable Long submissionId, Authentication authentication
-    ) {
-        return ResponseEntity.ok(submissionFacade.getPresentationContent(submissionId, authentication.getName()));
-    }
-
-    @Override
-    @PutMapping("/submissions/{submissionId}/presentation-content")
-    public ResponseEntity<PresentationContentResponse> updatePresentationContent(
-        @PathVariable Long submissionId,
-        @RequestBody PresentationContentRequest request,
-        Authentication authentication
-    ) {
-        return ResponseEntity.ok(submissionFacade.updatePresentationContent(submissionId, authentication.getName(), request));
     }
 
     @Override

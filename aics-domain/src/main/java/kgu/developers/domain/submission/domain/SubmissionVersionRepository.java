@@ -8,6 +8,8 @@ public interface SubmissionVersionRepository {
 
     List<SubmissionVersion> findAllBySubmissionId(Long submissionId);
 
+    List<SubmissionVersion> findAllBySubmissionIdIn(List<Long> submissionIds);
+
     Optional<SubmissionVersion> findBySubmissionIdAndVersion(Long submissionId, int version);
 
     int countBySubmissionId(Long submissionId);

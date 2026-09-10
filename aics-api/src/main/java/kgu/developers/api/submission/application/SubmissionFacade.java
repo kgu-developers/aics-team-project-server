@@ -1,9 +1,12 @@
 package kgu.developers.api.submission.application;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -17,20 +20,17 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
+import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
-import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionArtifactResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
 import kgu.developers.api.submission.presentation.response.TeamPresentationResponse;
-import kgu.developers.domain.editlock.application.query.EditLockQueryService;
-import kgu.developers.domain.editlock.domain.EditLockTargetType;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
 import kgu.developers.domain.fileobject.domain.FileObject;
@@ -41,9 +41,8 @@ import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
-import kgu.developers.domain.presentationcontent.application.command.PresentationContentCommandService;
-import kgu.developers.domain.presentationcontent.domain.PresentationContent;
-import kgu.developers.domain.presentationcontent.domain.PresentationContentRepository;
+import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.submission.application.command.SubmissionArtifactInput;
 import kgu.developers.domain.submission.application.command.SubmissionCommandService;
@@ -61,12 +60,12 @@ import kgu.developers.domain.submission.exception.SubmissionArtifactCountMismatc
 import kgu.developers.domain.submission.exception.SubmissionArtifactTypeRequiredException;
 import kgu.developers.domain.submission.exception.SubmissionInvalidArtifactTypeException;
 import kgu.developers.domain.submission.exception.SubmissionInvalidPresentationOrderException;
-import kgu.developers.domain.submission.exception.SubmissionInvalidScreensException;
 import kgu.developers.domain.submission.exception.SubmissionLeaderOnlyException;
 import kgu.developers.domain.submission.exception.SubmissionMemberConfirmationNotApplicableException;
 import kgu.developers.domain.submission.exception.SubmissionMilestoneTypeMismatchException;
-import kgu.developers.domain.submission.exception.SubmissionPresentationImageOwnershipException;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
+import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -82,14 +81,13 @@ public class SubmissionFacade {
     private final SubmissionVersionRepository submissionVersionRepository;
     private final SubmissionArtifactRepository submissionArtifactRepository;
     private final SubmissionMemberConfirmationRepository submissionMemberConfirmationRepository;
-    private final PresentationContentRepository presentationContentRepository;
-    private final PresentationContentCommandService presentationContentCommandService;
+    private final TeamRepository teamRepository;
+    private final ProjectRepository projectRepository;
     private final FileObjectRepository fileObjectRepository;
     private final FileStorage fileStorage;
     private final MilestoneRepository milestoneRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final EnrollmentRepository enrollmentRepository;
-    private final EditLockQueryService editLockQueryService;
     private final SectionQueryService sectionQueryService;
     private final UserQueryService userQueryService;
 
@@ -295,60 +293,82 @@ public class SubmissionFacade {
         return toResponse(submissionQueryService.getSubmission(submissionId), professorId);
     }
 
-    // 발표 공개자료는 다른 팀도 상시 열람 가능(PRD 그대로) — 로그인만 하면 되고 팀 소속 검증은 안 한다.
-    // 단, 대상 마일스톤이 실제로 발표(PRESENTATION) 타입인지는 확인한다.
-    public PresentationContentResponse getPresentationContent(Long submissionId, String userId) {
-        Submission submission = submissionQueryService.getSubmission(submissionId);
-        validatePresentationMilestone(submission.getMilestoneId());
-        return toPresentationContentResponse(
-                submissionId, presentationContentRepository.findBySubmissionId(submissionId).orElse(null));
-    }
-
-    public PresentationContentResponse updatePresentationContent(Long submissionId, String userId, PresentationContentRequest request) {
-        Submission submission = submissionQueryService.getSubmission(submissionId);
-        validatePresentationMilestone(submission.getMilestoneId());
-        validateActiveTeamMembership(submission, userId);
-        validateNotLockedByAnother(submissionId, userId);
-        validateScreenImagesOwnedBySubmission(submissionId, request.screens());
-        PresentationContent content = presentationContentCommandService.upsert(
-                submissionId, request.introText(), request.features(),
-                stripClientProvidedImageUrls(request.screens()), request.youtubeUrl());
-        return toPresentationContentResponse(submissionId, content);
-    }
-
     public MilestonePresentationsResponse getMilestonePresentations(Long milestoneId, String userId) {
         validatePresentationMilestone(milestoneId);
         List<Submission> submissions = submissionQueryService.getSubmissionsOrderedForPresentation(milestoneId);
-        List<Long> submissionIds = submissions.stream().map(Submission::getId).toList();
-        Map<Long, PresentationContent> contentBySubmissionId = presentationContentRepository
-                .findAllBySubmissionIdIn(submissionIds).stream()
-                .collect(Collectors.toMap(PresentationContent::getSubmissionId, c -> c));
+        List<Long> teamIds = submissions.stream().map(Submission::getTeamId).distinct().toList();
+
+        Map<Long, String> teamNames = teamRepository.findAllById(teamIds).stream()
+                .collect(Collectors.toMap(Team::getId, Team::getName));
+
+        Map<Long, Project> projectByTeamId = projectRepository.findAllByTeamIdIn(teamIds).stream()
+                .collect(Collectors.toMap(Project::getTeamId, p -> p, (a, b) -> a));
+
+        Map<Long, Set<String>> memberIdsByTeamId = teamMemberRepository.findAllByTeamIdIn(teamIds).stream()
+                .collect(Collectors.groupingBy(
+                        TeamMember::getTeamId,
+                        Collectors.mapping(TeamMember::getUserId, Collectors.toSet())));
+
+        Map<Long, List<SubmissionArtifactResponse>> artifactsBySubmissionId =
+                resolveLatestSubmissionArtifacts(submissions);
 
         List<TeamPresentationResponse> contents = submissions.stream()
-                .map(submission -> TeamPresentationResponse.of(
-                        submission, toPresentationContentResponse(submission.getId(), contentBySubmissionId.get(submission.getId()))))
+                .map(submission -> {
+                    Long teamId = submission.getTeamId();
+                    String teamName = teamNames.get(teamId);
+                    Project project = projectByTeamId.get(teamId);
+                    Set<String> memberIds = memberIdsByTeamId.getOrDefault(teamId, Set.of());
+                    ProjectResponse projectResponse = (project != null)
+                            ? ProjectResponse.from(project, resolveProjectScreenImageUrls(memberIds, project.getScreenConfiguration()))
+                            : null;
+                    List<SubmissionArtifactResponse> artifacts =
+                            artifactsBySubmissionId.getOrDefault(submission.getId(), List.of());
+                    return TeamPresentationResponse.of(submission, teamName, projectResponse, artifacts);
+                })
                 .toList();
+
         return MilestonePresentationsResponse.builder().contents(contents).build();
     }
 
-    // screens는 [{imageFileId, caption}, ...] 형식의 원본 JSON을 그대로 저장·응답하는데, imageFileId만
-    // 내려주면 다른 팀 사용자는 그 이미지를 실제로 볼 방법이 없었다(presigned URL을 받는 경로가
-    // 이 발표자료 조회 API 말고는 없음, sunzx0428 PR #87 리뷰 09-03). 조회할 때마다 각 화면의
-    // imageFileId를 presigned URL(imageUrl)로 보강해서 내려준다 — 저장은 안 건드린다(15분 후
-    // 만료되는 임시 URL이라 영구 저장하면 안 됨).
-    private PresentationContentResponse toPresentationContentResponse(Long submissionId, PresentationContent content) {
-        if (content == null) {
-            return PresentationContentResponse.from(null, null);
+    private Map<Long, List<SubmissionArtifactResponse>> resolveLatestSubmissionArtifacts(List<Submission> submissions) {
+        Map<Long, Integer> currentVersionBySubmissionId = submissions.stream()
+                .filter(s -> s.getCurrentVersion() > 0)
+                .collect(Collectors.toMap(Submission::getId, Submission::getCurrentVersion));
+
+        if (currentVersionBySubmissionId.isEmpty()) {
+            return Map.of();
         }
-        return PresentationContentResponse.from(content, resolveScreenImageUrls(submissionId, content.getScreens()));
+
+        List<Long> submissionIds = currentVersionBySubmissionId.keySet().stream().toList();
+        List<SubmissionVersion> allVersions = submissionVersionRepository.findAllBySubmissionIdIn(submissionIds);
+
+        Map<Long, SubmissionVersion> latestVersionBySubmissionId = allVersions.stream()
+                .filter(v -> Objects.equals(v.getVersion(), currentVersionBySubmissionId.get(v.getSubmissionId())))
+                .collect(Collectors.toMap(SubmissionVersion::getSubmissionId, v -> v, (a, b) -> a));
+
+        List<Long> versionIds = latestVersionBySubmissionId.values().stream()
+                .map(SubmissionVersion::getId)
+                .toList();
+
+        Map<Long, List<SubmissionArtifact>> artifactsByVersionId = submissionArtifactRepository
+                .findAllByVersionIdIn(versionIds).stream()
+                .collect(Collectors.groupingBy(SubmissionArtifact::getVersionId));
+
+        Map<Long, List<SubmissionArtifactResponse>> result = new HashMap<>();
+        for (Map.Entry<Long, SubmissionVersion> entry : latestVersionBySubmissionId.entrySet()) {
+            Long submissionId = entry.getKey();
+            SubmissionVersion version = entry.getValue();
+            List<SubmissionArtifact> artifacts = artifactsByVersionId.getOrDefault(version.getId(), List.of());
+            result.put(submissionId, artifacts.stream().map(this::toArtifactResponse).toList());
+        }
+        return result;
     }
 
-    // imageFileId 소유권을 저장 시점(validateScreenImagesOwnedBySubmission)에만 확인하고 끝내면,
-    // 그 뒤 뭔가의 이유로 저장된 값이 오염돼도 조회할 때마다 계속 URL이 나가버린다. 여기서도
-    // isFileArtifactOfSubmission으로 다시 확인해서, 지금 시점에 소유가 아니면 URL을 만들지 않는다
-    // (sunzx0428 PR #87 리뷰 09-03 2차). "imageUrl"은 항상 먼저 지우고 다시 계산한다 — 클라이언트가
-    // 보낸 값이든 과거에 잘못 저장된 값이든 그대로 흘려보내지 않기 위해서다.
-    private JsonNode resolveScreenImageUrls(Long submissionId, JsonNode screens) {
+    // screenConfiguration은 [{title, description, imageFileId}, ...]를 원본 그대로 저장·응답하는데,
+    // imageFileId만 내려주면 다른 팀 사용자는 그 이미지를 실제로 볼 방법이 없다(presigned URL을 받는 경로가
+    // 이 발표자료 조회 API 말고는 없음). 조회할 때마다 각 화면의 imageFileId를 presigned URL(imageUrl)로
+    // 보강해서 내려준다 — 저장은 안 건드린다(15분 후 만료되는 임시 URL이라 영구 저장하면 안 됨).
+    private JsonNode resolveProjectScreenImageUrls(Set<String> memberIds, JsonNode screens) {
         if (screens == null || !screens.isArray()) {
             return screens;
         }
@@ -361,34 +381,14 @@ public class SubmissionFacade {
             ObjectNode sanitized = (ObjectNode) screen.deepCopy();
             sanitized.remove("imageUrl");
             JsonNode imageFileIdNode = screen.get("imageFileId");
-            if (imageFileIdNode != null && imageFileIdNode.isIntegralNumber()
-                    && isFileArtifactOfSubmission(submissionId, imageFileIdNode.asLong())) {
+            if (imageFileIdNode != null && imageFileIdNode.isIntegralNumber()) {
                 fileObjectRepository.findById(imageFileIdNode.asLong())
+                        .filter(fileObject -> memberIds.contains(fileObject.getUploadedBy()))
                         .ifPresent(fileObject -> sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey())));
             }
             resolved.add(sanitized);
         }
         return resolved;
-    }
-
-    // presigned URL은 조회 시점에 서버가 매번 새로 만드는 값이라 저장하면 안 되는데, 클라이언트가
-    // 요청 JSON에 임의의 "imageUrl"을 넣어 보내면 그게 그대로 DB에 남을 수 있었다. 저장 전에
-    // 걸러낸다(sunzx0428 PR #87 리뷰 09-03 2차).
-    private JsonNode stripClientProvidedImageUrls(JsonNode screens) {
-        if (screens == null || !screens.isArray()) {
-            return screens;
-        }
-        ArrayNode sanitized = JsonNodeFactory.instance.arrayNode();
-        for (JsonNode screen : screens) {
-            if (!screen.isObject()) {
-                sanitized.add(screen);
-                continue;
-            }
-            ObjectNode copy = (ObjectNode) screen.deepCopy();
-            copy.remove("imageUrl");
-            sanitized.add(copy);
-        }
-        return sanitized;
     }
 
     public void assignPresentationOrder(Long milestoneId, String professorId, PresentationOrderRequest request) {
@@ -491,61 +491,11 @@ public class SubmissionFacade {
                 .orElse(false);
     }
 
-    // 발표자료 관련 API는 그 마일스톤이 실제로 PRESENTATION 타입일 때만 의미가 있다.
-    // 다른 타입 마일스톤의 submissionId/milestoneId로 잘못 호출되는 것을 막는다.
     private void validatePresentationMilestone(Long milestoneId) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
         if (milestone.getType() != MilestoneType.PRESENTATION) {
             throw new SubmissionMilestoneTypeMismatchException();
         }
-    }
-
-    // screens는 형식이 자유로운 JSON([{imageFileId, caption}, ...])이라 형식 자체와 그 안의
-    // imageFileId 소유권을 여기서 별도로 검증해야 한다.
-    private void validateScreenImagesOwnedBySubmission(Long submissionId, JsonNode screens) {
-        if (screens == null) {
-            return;
-        }
-        if (!screens.isArray()) {
-            throw new SubmissionInvalidScreensException();
-        }
-        for (JsonNode screen : screens) {
-            if (!screen.isObject()) {
-                throw new SubmissionInvalidScreensException();
-            }
-            JsonNode imageFileIdNode = screen.get("imageFileId");
-            if (imageFileIdNode == null || imageFileIdNode.isNull()) {
-                continue;
-            }
-            if (!imageFileIdNode.isIntegralNumber()) {
-                throw new SubmissionInvalidScreensException();
-            }
-            if (!isFileArtifactOfSubmission(submissionId, imageFileIdNode.asLong())) {
-                throw new SubmissionPresentationImageOwnershipException();
-            }
-        }
-    }
-
-    // imageFileId가 실제로 이 제출물 자신의 버전 이력에 FILE 아티팩트로 첨부된 적 있는 파일인지
-    // 확인한다. 이 관계(Submission→SubmissionVersion→SubmissionArtifact)는 한 번 만들어지면
-    // 안 바뀌므로, "업로더가 지금 이 순간 이 팀 소속인가"와 달리 팀 이동에 영향받지 않는다.
-    private boolean isFileArtifactOfSubmission(Long submissionId, Long fileId) {
-        return submissionVersionRepository.findAllBySubmissionId(submissionId).stream()
-                .flatMap(version -> submissionArtifactRepository.findAllByVersionId(version.getId()).stream())
-                .anyMatch(artifact -> artifact.getType() == ArtifactType.FILE && fileId.equals(artifact.getFileId()));
-    }
-
-    // 다른 사람이 지금 이 발표자료를 편집 중(EditLock 보유)이면 덮어쓰지 못하게 막는다.
-    // 잠금을 아무도 안 잡았으면 그대로 허용 — 잠금 자체는 여전히 선택 사항이고, 이건
-    // "잡은 잠금이 있으면 그 소유자만 쓸 수 있다"는 최소한의 강제만 건다.
-    private void validateNotLockedByAnother(Long submissionId, String userId) {
-        // PRESENTATION_CONTENT는 섹션 구분이 없는 대상이라 고정 섹션키 "DEFAULT"를 쓴다(KD3-213).
-        // 이 대상 자체가 KD3-163에서 통째로 삭제될 예정이라 임시 처리다.
-        editLockQueryService.getActiveLock(EditLockTargetType.PRESENTATION_CONTENT, submissionId, "DEFAULT")
-                .filter(lock -> !lock.isOwnedBy(userId))
-                .ifPresent(lock -> {
-                    throw new SubmissionAccessDeniedException();
-                });
     }
 }

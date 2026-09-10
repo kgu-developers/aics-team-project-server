@@ -12,7 +12,7 @@ import lombok.Builder;
 @Builder
 public record EditLockAcquireRequest(
 
-    @Schema(description = "잠금 대상 종류", example = "PRESENTATION_CONTENT", requiredMode = REQUIRED)
+    @Schema(description = "잠금 대상 종류", example = "PROJECT", requiredMode = REQUIRED)
     @NotNull
     EditLockTargetType targetType,
 

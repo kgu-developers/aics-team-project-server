@@ -14,24 +14,21 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import kgu.developers.api.submission.application.SubmissionFacade;
-import kgu.developers.api.submission.presentation.request.PresentationContentRequest;
 import kgu.developers.api.submission.presentation.request.PresentationOrderRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionArtifactRequest;
 import kgu.developers.api.submission.presentation.request.SubmissionReopenRequest;
 import kgu.developers.api.submission.presentation.response.MilestonePresentationsResponse;
-import kgu.developers.api.submission.presentation.response.PresentationContentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionMemberConsentResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionDetailResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionListResponse;
 import kgu.developers.api.submission.presentation.response.SubmissionVersionSummaryResponse;
-import kgu.developers.domain.editlock.application.command.EditLockCommandService;
-import kgu.developers.domain.editlock.application.query.EditLockQueryService;
 import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.project.domain.ApprovalStatus;
+import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.fileobject.domain.FileObject;
@@ -40,7 +37,6 @@ import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
-import kgu.developers.domain.presentationcontent.application.command.PresentationContentCommandService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.submission.application.command.SubmissionCommandService;
 import kgu.developers.domain.submission.application.query.SubmissionQueryService;
@@ -56,11 +52,10 @@ import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 
-import mock.repository.FakeEditLockRepository;
 import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakeFileObjectRepository;
 import mock.repository.FakeFileStorage;
-import mock.repository.FakePresentationContentRepository;
+import mock.repository.FakeProjectRepository;
 import mock.repository.FakeRequiredArtifactRepository;
 import mock.repository.FakeSubmissionArtifactRepository;
 import mock.repository.FakeSubmissionMemberConfirmationRepository;
@@ -85,8 +80,9 @@ class SubmissionFacadeTest {
     private FakeTeamMemberRepository teamMemberRepository;
     private FakeSubmissionRepository submissionRepository;
     private FakeTeamRepository teamRepository;
-    private FakeEditLockRepository editLockRepository;
+    private FakeProjectRepository projectRepository;
     private FakeFileObjectRepository fileObjectRepository;
+    private FakeFileStorage fileStorage;
     private FakeSubmissionVersionRepository submissionVersionRepository;
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
     private FakeUserRepository userRepository;
@@ -107,9 +103,8 @@ class SubmissionFacadeTest {
         submissionArtifactRepository = new FakeSubmissionArtifactRepository();
         FakeSubmissionMemberConfirmationRepository submissionMemberConfirmationRepository =
                 new FakeSubmissionMemberConfirmationRepository();
-        FakePresentationContentRepository presentationContentRepository = new FakePresentationContentRepository();
         fileObjectRepository = new FakeFileObjectRepository();
-        FakeFileStorage fileStorage = new FakeFileStorage();
+        fileStorage = new FakeFileStorage();
         FakeEnrollmentRepository enrollmentRepository = new FakeEnrollmentRepository();
         enrollmentRepository.save(Enrollment.create(SECTION_ID, LEADER, Role.STUDENT, Status.ACTIVE));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE));
@@ -119,8 +114,7 @@ class SubmissionFacadeTest {
         UserQueryService userQueryService = new UserQueryService(userRepository, enrollmentRepository);
         FakeRequiredArtifactRepository requiredArtifactRepository = new FakeRequiredArtifactRepository();
         teamRepository = new FakeTeamRepository();
-        editLockRepository = new FakeEditLockRepository();
-        EditLockQueryService editLockQueryService = new EditLockQueryService(editLockRepository);
+        projectRepository = new FakeProjectRepository();
 
         SubmissionQueryService submissionQueryService =
                 new SubmissionQueryService(submissionRepository, milestoneRepository, mock(org.springframework.transaction.PlatformTransactionManager.class));
@@ -138,8 +132,6 @@ class SubmissionFacadeTest {
                 teamRepository,
                 submissionQueryService
         );
-        PresentationContentCommandService presentationContentCommandService =
-                new PresentationContentCommandService(presentationContentRepository);
 
         submissionFacade = new SubmissionFacade(
                 submissionCommandService,
@@ -147,14 +139,13 @@ class SubmissionFacadeTest {
                 submissionVersionRepository,
                 submissionArtifactRepository,
                 submissionMemberConfirmationRepository,
-                presentationContentRepository,
-                presentationContentCommandService,
+                teamRepository,
+                projectRepository,
                 fileObjectRepository,
                 fileStorage,
                 milestoneRepository,
                 teamMemberRepository,
                 enrollmentRepository,
-                editLockQueryService,
                 sectionQueryService,
                 userQueryService
         );
@@ -401,45 +392,6 @@ class SubmissionFacadeTest {
     }
 
     @Test
-    @DisplayName("다른 팀 소속은 발표 공개자료를 수정할 수 없다")
-    void updatePresentationContent_RejectsNonTeamMember() {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-
-        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
-                submission.getId(), NON_MEMBER, new PresentationContentRequest("소개", null, null, null)))
-                .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    @DisplayName("팀원은 발표 공개자료를 작성할 수 있고, 팀 소속이 아니어도 조회는 가능하다")
-    void updateAndGetPresentationContent_TeamWriteAnyoneRead() {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-
-        PresentationContentResponse updated = submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, null, "https://youtube.com/x"));
-        assertThat(updated.introText()).isEqualTo("소개");
-
-        PresentationContentResponse fetched = submissionFacade.getPresentationContent(submission.getId(), NON_MEMBER);
-        assertThat(fetched.introText()).isEqualTo("소개");
-    }
-
-    @Test
-    @DisplayName("다른 사람이 편집잠금을 쥐고 있으면 발표 공개자료를 수정할 수 없다")
-    void updatePresentationContent_RejectsWhenLockedByAnother() {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-
-        new EditLockCommandService(editLockRepository).acquire(
-                kgu.developers.domain.editlock.domain.EditLockTargetType.PRESENTATION_CONTENT, submission.getId(), "DEFAULT", LEADER);
-
-        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, null, null)))
-                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionAccessDeniedException.class);
-    }
-
-    @Test
     @DisplayName("담당 교수는 발표순서를 일괄 지정할 수 있고, 지정된 순서대로 목록이 조회된다")
     void assignPresentationOrder_ThenListedInOrder() {
         teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());
@@ -455,7 +407,159 @@ class SubmissionFacadeTest {
         MilestonePresentationsResponse response = submissionFacade.getMilestonePresentations(MILESTONE_ID, MEMBER);
         assertThat(response.contents()).hasSize(2);
         assertThat(response.contents().get(0).teamId()).isEqualTo(20L);
+        assertThat(response.contents().get(0).teamName()).isEqualTo("다른팀");
         assertThat(response.contents().get(1).teamId()).isEqualTo(TEAM_ID);
+        assertThat(response.contents().get(1).teamName()).isEqualTo("우리팀");
+    }
+
+    @Test
+    @DisplayName("발표자료 조회 시 해당 팀의 제안서 정보와 제출된 산출물(PDF, 영상 링크)이 함께 반환된다")
+    void getMilestonePresentations_IncludesProjectAndArtifacts() throws Exception {
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("캡스톤1조").build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+
+        // 팀원이 업로드한 화면 캡처 이미지
+        FileObject screenImage = fileObjectRepository.save(
+                FileObject.create(MEMBER, "screen-key-1", "screen1.png", "image/png", 2048L, false, null));
+
+        ObjectMapper om = new ObjectMapper();
+        var screensNode = om.readTree("""
+                [{"title":"메인 화면","description":"로그인 후 첫 화면","imageFileId":%d}]
+                """.formatted(screenImage.getId()));
+
+        projectRepository.save(Project.builder()
+                .teamId(TEAM_ID)
+                .title("AI 협업 플랫폼")
+                .description("팀 프로젝트 관리 및 AI 보조 도구")
+                .goal("개발 생산성 30% 향상")
+                .repositoryUrl("https://github.com/test/repo")
+                .approvalStatus(ApprovalStatus.APPROVED)
+                .projectSchedule("주 1회 대면 회의")
+                .dataConfiguration(om.readTree("[]"))
+                .screenConfiguration(screensNode)
+                .build());
+
+        // 발표 마일스톤 제출물 및 산출물 (PDF 파일 + YouTube 시연영상 링크)
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        FileObject pdfFile = fileObjectRepository.save(
+                FileObject.create(LEADER, "pdf-key", "발표자료.pdf", "application/pdf", 1048576L, false, null));
+        SubmissionVersion version = submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 1, "최종 발표자료", null, LEADER, false));
+        submission.recordNewVersion(1);
+        submissionRepository.save(submission);
+
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.file(version.getId(), null, pdfFile.getId()),
+                SubmissionArtifact.link(version.getId(), null, "https://youtube.com/watch?v=demo123")
+        ));
+
+        MilestonePresentationsResponse response = submissionFacade.getMilestonePresentations(MILESTONE_ID, MEMBER);
+
+        assertThat(response.contents()).hasSize(1);
+        var presentation = response.contents().get(0);
+        assertThat(presentation.teamId()).isEqualTo(TEAM_ID);
+        assertThat(presentation.teamName()).isEqualTo("캡스톤1조");
+        assertThat(presentation.submissionId()).isEqualTo(submission.getId());
+
+        // 제안서 검증
+        assertThat(presentation.project()).isNotNull();
+        assertThat(presentation.project().title()).isEqualTo("AI 협업 플랫폼");
+        assertThat(presentation.project().description()).isEqualTo("팀 프로젝트 관리 및 AI 보조 도구");
+        assertThat(presentation.project().goal()).isEqualTo("개발 생산성 30% 향상");
+        // 화면 이미지 presigned url 보강 확인
+        var resolvedScreens = presentation.project().screenConfiguration();
+        assertThat(resolvedScreens.get(0).get("imageUrl").asText()).isEqualTo("https://fake-storage.local/screen-key-1");
+
+        // 산출물 검증
+        assertThat(presentation.artifacts()).hasSize(2);
+        var fileArtifact = presentation.artifacts().stream()
+                .filter(a -> a.type() == kgu.developers.domain.submission.domain.ArtifactType.FILE).findFirst().orElseThrow();
+        assertThat(fileArtifact.fileName()).isEqualTo("발표자료.pdf");
+        assertThat(fileArtifact.downloadUrl()).isEqualTo("https://fake-storage.local/pdf-key");
+
+        var linkArtifact = presentation.artifacts().stream()
+                .filter(a -> a.type() == kgu.developers.domain.submission.domain.ArtifactType.LINK).findFirst().orElseThrow();
+        assertThat(linkArtifact.url()).isEqualTo("https://youtube.com/watch?v=demo123");
+    }
+
+    @Test
+    @DisplayName("제안서가 없거나 제출 이력이 없어도 오류 없이 안전하게 조회된다")
+    void getMilestonePresentations_WhenProjectOrVersionAbsent() {
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("캡스톤1조").build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+
+        MilestonePresentationsResponse response = submissionFacade.getMilestonePresentations(MILESTONE_ID, MEMBER);
+
+        assertThat(response.contents()).hasSize(1);
+        var presentation = response.contents().get(0);
+        assertThat(presentation.teamId()).isEqualTo(TEAM_ID);
+        assertThat(presentation.teamName()).isEqualTo("캡스톤1조");
+        assertThat(presentation.project()).isNull();
+        assertThat(presentation.artifacts()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("다수 팀의 발표 목록 조회 시 각 팀의 최신 버전 산출물만 일괄 조회되어 정확히 매핑된다")
+    void getMilestonePresentations_BatchFetchesLatestArtifactsForMultipleTeams() {
+        Long team1Id = TEAM_ID;
+        Long team2Id = 20L;
+        Long team3Id = 30L;
+
+        teamRepository.save(Team.builder().id(team1Id).sectionId(SECTION_ID).name("1팀").build());
+        teamRepository.save(Team.builder().id(team2Id).sectionId(SECTION_ID).name("2팀").build());
+        teamRepository.save(Team.builder().id(team3Id).sectionId(SECTION_ID).name("3팀").build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+
+        // 팀 1: 버전 1(과거), 버전 2(최신)
+        Submission submission1 = submissionRepository.save(Submission.create(team1Id, MILESTONE_ID));
+        SubmissionVersion sub1v1 = submissionVersionRepository.save(
+                SubmissionVersion.create(submission1.getId(), 1, "v1", null, LEADER, false));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.link(sub1v1.getId(), null, "https://old-link.com")
+        ));
+
+        SubmissionVersion sub1v2 = submissionVersionRepository.save(
+                SubmissionVersion.create(submission1.getId(), 2, "v2", null, LEADER, false));
+        FileObject pdf1 = fileObjectRepository.save(
+                FileObject.create(LEADER, "pdf1-key", "team1_v2.pdf", "application/pdf", 1024L, false, null));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.file(sub1v2.getId(), null, pdf1.getId()),
+                SubmissionArtifact.link(sub1v2.getId(), null, "https://youtube.com/watch?v=team1")
+        ));
+        submission1.recordNewVersion(2);
+        submissionRepository.save(submission1);
+
+        // 팀 2: 버전 1(최신)
+        Submission submission2 = submissionRepository.save(Submission.create(team2Id, MILESTONE_ID));
+        SubmissionVersion sub2v1 = submissionVersionRepository.save(
+                SubmissionVersion.create(submission2.getId(), 1, "v1", null, MEMBER, false));
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.link(sub2v1.getId(), null, "https://youtube.com/watch?v=team2")
+        ));
+        submission2.recordNewVersion(1);
+        submissionRepository.save(submission2);
+
+        // 팀 3: 제출 이력 없음
+        submissionRepository.save(Submission.create(team3Id, MILESTONE_ID));
+
+        MilestonePresentationsResponse response = submissionFacade.getMilestonePresentations(MILESTONE_ID, MEMBER);
+
+        assertThat(response.contents()).hasSize(3);
+
+        var p1 = response.contents().stream().filter(c -> c.teamId().equals(team1Id)).findFirst().orElseThrow();
+        assertThat(p1.artifacts()).hasSize(2);
+        assertThat(p1.artifacts()).extracting("downloadUrl").contains("https://fake-storage.local/pdf1-key");
+        assertThat(p1.artifacts()).extracting("url").contains("https://youtube.com/watch?v=team1");
+        assertThat(p1.artifacts()).extracting("url").doesNotContain("https://old-link.com");
+
+        var p2 = response.contents().stream().filter(c -> c.teamId().equals(team2Id)).findFirst().orElseThrow();
+        assertThat(p2.artifacts()).hasSize(1);
+        assertThat(p2.artifacts().get(0).url()).isEqualTo("https://youtube.com/watch?v=team2");
+
+        var p3 = response.contents().stream().filter(c -> c.teamId().equals(team3Id)).findFirst().orElseThrow();
+        assertThat(p3.artifacts()).isEmpty();
     }
 
     @Test
@@ -497,104 +601,6 @@ class SubmissionFacadeTest {
         assertThatThrownBy(() -> submissionFacade.submitVersion(
                 submission.getId(), MEMBER, "완료 후 재제출 시도", null, List.of(), List.of(), List.of()))
                 .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionNotAllowedNowException.class);
-    }
-
-    @Test
-    @DisplayName("발표 타입이 아닌 마일스톤에는 발표 공개자료를 조회·수정할 수 없다")
-    void updatePresentationContent_RejectsNonPresentationMilestone() {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
-
-        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, null, null)))
-                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionMilestoneTypeMismatchException.class);
-    }
-
-    @Test
-    @DisplayName("우리 제출물에 첨부된 적 없는 파일은 발표 화면에 지정할 수 없다")
-    void updatePresentationContent_RejectsImageNotAttachedToOurSubmission() throws Exception {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-        // 다른 팀이 올렸든, 아무 데도 첨부된 적 없는 파일이든 — 우리 제출물 버전 이력에 없으면 동일하게 거부돼야 한다.
-        FileObject unattachedFile = fileObjectRepository.save(
-                FileObject.create(NON_MEMBER, "key", "screen.png", "image/png", 1024L, true, "IMAGE"));
-        JsonNode screens = new ObjectMapper().readTree(
-                "[{\"imageFileId\": " + unattachedFile.getId() + ", \"caption\": \"홈 화면\"}]");
-
-        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null)))
-                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionPresentationImageOwnershipException.class);
-    }
-
-    @Test
-    @DisplayName("우리 제출물에 FILE 아티팩트로 첨부된 적 있는 이미지는 발표 화면에 지정할 수 있다")
-    void updatePresentationContent_AllowsImageAttachedToOurSubmission() throws Exception {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-        FileObject ourFile = fileObjectRepository.save(
-                FileObject.create(MEMBER, "key", "screen.png", "image/png", 1024L, true, "IMAGE"));
-        SubmissionVersion version = submissionVersionRepository.save(
-                SubmissionVersion.create(submission.getId(), 1, "1차 제출", null, MEMBER, false));
-        submissionArtifactRepository.saveAll(
-                List.of(SubmissionArtifact.file(version.getId(), null, ourFile.getId())));
-        JsonNode screens = new ObjectMapper().readTree(
-                "[{\"imageFileId\": " + ourFile.getId() + ", \"caption\": \"홈 화면\"}]");
-
-        PresentationContentResponse response = submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null));
-
-        assertThat(response.introText()).isEqualTo("소개");
-        // screens는 imageFileId뿐 아니라 다운로드 가능한 imageUrl로도 보강돼야 한다 — 다른 팀
-        // 사용자가 공개 발표자료를 볼 때 imageFileId만으로는 이미지를 못 띄우던 문제
-        // (sunzx0428 PR #87 리뷰 09-03).
-        assertThat(response.screens().get(0).get("imageUrl").asText()).isEqualTo("https://fake-storage.local/key");
-    }
-
-    @Test
-    @DisplayName("다른 팀 사용자가 조회하는 공개 발표자료에도 imageUrl이 보강된다")
-    void getPresentationContent_ResolvesImageUrlForOtherTeamViewer() throws Exception {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-        FileObject ourFile = fileObjectRepository.save(
-                FileObject.create(MEMBER, "screen-key", "screen.png", "image/png", 1024L, true, "IMAGE"));
-        SubmissionVersion version = submissionVersionRepository.save(
-                SubmissionVersion.create(submission.getId(), 1, "1차 제출", null, MEMBER, false));
-        submissionArtifactRepository.saveAll(
-                List.of(SubmissionArtifact.file(version.getId(), null, ourFile.getId())));
-        JsonNode screens = new ObjectMapper().readTree(
-                "[{\"imageFileId\": " + ourFile.getId() + ", \"caption\": \"홈 화면\"}]");
-        submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null));
-
-        // when: 팀 소속이 아닌 사용자가 공개 발표자료를 조회
-        PresentationContentResponse fetched = submissionFacade.getPresentationContent(submission.getId(), NON_MEMBER);
-
-        // then
-        assertThat(fetched.screens().get(0).get("imageUrl").asText()).isEqualTo("https://fake-storage.local/screen-key");
-    }
-
-    @Test
-    @DisplayName("screens가 배열이 아니면 거부된다")
-    void updatePresentationContent_RejectsNonArrayScreens() throws Exception {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-        JsonNode screens = new ObjectMapper().readTree("{\"imageFileId\": 1}");
-
-        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null)))
-                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionInvalidScreensException.class);
-    }
-
-    @Test
-    @DisplayName("screens 원소의 imageFileId가 숫자가 아니면 거부된다")
-    void updatePresentationContent_RejectsNonNumericImageFileId() throws Exception {
-        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
-        JsonNode screens = new ObjectMapper().readTree("[{\"imageFileId\": \"not-a-number\"}]");
-
-        assertThatThrownBy(() -> submissionFacade.updatePresentationContent(
-                submission.getId(), MEMBER, new PresentationContentRequest("소개", null, screens, null)))
-                .isInstanceOf(kgu.developers.domain.submission.exception.SubmissionInvalidScreensException.class);
     }
 
     @Test
