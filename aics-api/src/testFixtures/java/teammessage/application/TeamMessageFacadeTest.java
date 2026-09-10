@@ -22,6 +22,10 @@ import kgu.developers.domain.teammessage.application.query.TeamMessageQueryServi
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teamthread.application.command.TeamThreadCommandService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
+import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakeSectionRepository;
 import mock.repository.FakeTeamMemberRepository;
 import mock.repository.FakeTeamMessageReadReceiptRepository;
@@ -29,6 +33,7 @@ import mock.repository.FakeTeamMessageRepository;
 import mock.repository.FakeTeamMessageUnreadRepository;
 import mock.repository.FakeTeamRepository;
 import mock.repository.FakeTeamThreadRepository;
+import mock.repository.FakeUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +51,7 @@ public class TeamMessageFacadeTest {
     private FakeTeamThreadRepository fakeTeamThreadRepository;
     private FakeTeamRepository fakeTeamRepository;
     private FakeSectionRepository fakeSectionRepository;
+    private FakeUserRepository fakeUserRepository;
 
     @BeforeEach
     void init() {
@@ -55,6 +61,12 @@ public class TeamMessageFacadeTest {
         FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
         fakeTeamRepository = new FakeTeamRepository();
         fakeSectionRepository = new FakeSectionRepository();
+        fakeUserRepository = new FakeUserRepository();
+        FakeEnrollmentRepository fakeEnrollmentRepository = new FakeEnrollmentRepository();
+
+        fakeUserRepository.save(User.create(USER_A, "a@kgu.ac.kr", "학생A", "pw", UserGlobalRole.USER, "010-0000-0001"));
+        fakeUserRepository.save(User.create(USER_B, "b@kgu.ac.kr", "학생B", "pw", UserGlobalRole.USER, "010-0000-0002"));
+        fakeUserRepository.save(User.create(PROFESSOR_ID, "prof@kgu.ac.kr", "교수님", "pw", UserGlobalRole.ADMIN, "010-0000-0003"));
 
         fakeTeamMemberRepository.save(TeamMember.create(1L, USER_A, false, "기록자"));
         fakeTeamMemberRepository.save(TeamMember.create(1L, USER_B, false, "발표자"));
@@ -64,6 +76,8 @@ public class TeamMessageFacadeTest {
         fakeTeamRepository.save(team(1L));
         fakeTeamRepository.save(team(2L));
         fakeTeamRepository.save(team(99L));
+
+        UserQueryService userQueryService = new UserQueryService(fakeUserRepository, fakeEnrollmentRepository);
 
         teamMessageFacade = new TeamMessageFacade(
             new TeamThreadCommandService(fakeTeamThreadRepository),
@@ -77,7 +91,8 @@ public class TeamMessageFacadeTest {
                     fakeTeamMessageReadReceiptRepository
                 )
             ),
-            new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository)
+            new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository),
+            userQueryService
         );
     }
 
@@ -296,5 +311,57 @@ public class TeamMessageFacadeTest {
         assertThatThrownBy(() -> teamMessageFacade.postMessage(
             1L, otherProfessorId, createRequest("확인했습니다.")))
             .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("postMessage는 메시지 등록 시 발신자 이름(senderName)을 포함하여 응답한다")
+    void postMessage_ReturnsSenderName() {
+        // given
+        Long teamId = 1L;
+
+        // when (학생 등록)
+        TeamMessagePersistResponse studentMsg = teamMessageFacade.postMessage(teamId, USER_A, createRequest("학생 메시지"));
+        // when (교수 등록)
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+        TeamMessagePersistResponse profMsg = teamMessageFacade.postMessage(teamId, PROFESSOR_ID, createRequest("교수 메시지"));
+
+        // then
+        assertEquals("학생A", studentMsg.senderName());
+        assertEquals("교수님", profMsg.senderName());
+    }
+
+    @Test
+    @DisplayName("getMessages는 메시지 목록 조회 시 발신자 이름(senderName)을 포함하여 응답한다")
+    void getMessages_IncludesSenderName() {
+        // given
+        Long teamId = 1L;
+        teamMessageFacade.postMessage(teamId, USER_A, createRequest("A 메시지"));
+        teamMessageFacade.postMessage(teamId, USER_B, createRequest("B 메시지"));
+
+        // when
+        TeamMessagePageResponse response = teamMessageFacade.getMessages(teamId, null, PageRequest.of(0, 10), USER_A);
+
+        // then (최신순 정렬이므로 나중에 등록한 B가 0번째)
+        assertEquals(2, response.contents().size());
+        assertEquals("학생B", response.contents().get(0).senderName());
+        assertEquals("학생A", response.contents().get(1).senderName());
+    }
+
+    @Test
+    @DisplayName("getMessages는 발신자가 이후 탈퇴하더라도 메시지 목록에서 발신자 이름이 계속 조회된다")
+    void getMessages_KeepsSenderNameAfterUserDeleted() {
+        // given
+        Long teamId = 1L;
+        teamMessageFacade.postMessage(teamId, USER_A, createRequest("탈퇴 전 메시지"));
+
+        // 발신자 사용자 탈퇴(소프트 삭제)
+        fakeUserRepository.findByStudentNumber(USER_A).orElseThrow().delete();
+
+        // when
+        TeamMessagePageResponse response = teamMessageFacade.getMessages(teamId, null, PageRequest.of(0, 10), USER_B);
+
+        // then
+        assertEquals(1, response.contents().size());
+        assertEquals("학생A", response.contents().get(0).senderName());
     }
 }
