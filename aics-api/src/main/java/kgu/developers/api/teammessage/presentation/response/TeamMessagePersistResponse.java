@@ -21,6 +21,9 @@ public record TeamMessagePersistResponse(
     @Schema(description = "발신자 학번", example = "202412345", requiredMode = REQUIRED)
     String senderId,
 
+    @Schema(description = "발신자 이름", example = "홍길동", requiredMode = NOT_REQUIRED)
+    String senderName,
+
     @Schema(description = "메시지 본문", example = "다음 회의 일정 문의드립니다.", requiredMode = REQUIRED)
     String message,
 
@@ -36,10 +39,15 @@ public record TeamMessagePersistResponse(
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public static TeamMessagePersistResponse of(TeamMessage teamMessage) {
+        return of(teamMessage, null);
+    }
+
+    public static TeamMessagePersistResponse of(TeamMessage teamMessage, String senderName) {
         return TeamMessagePersistResponse.builder()
             .id(teamMessage.getId())
             .threadId(teamMessage.getThreadId())
             .senderId(teamMessage.getSenderId())
+            .senderName(senderName)
             .message(teamMessage.getMessage())
             .relatedType(teamMessage.getRelatedType())
             .relatedId(teamMessage.getRelatedId())

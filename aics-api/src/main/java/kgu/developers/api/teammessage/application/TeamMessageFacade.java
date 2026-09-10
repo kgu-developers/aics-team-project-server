@@ -1,7 +1,9 @@
 package kgu.developers.api.teammessage.application;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teammessage.presentation.request.TeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePageResponse;
@@ -14,6 +16,9 @@ import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teamthread.application.command.TeamThreadCommandService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,13 +35,15 @@ public class TeamMessageFacade {
     private final TeamMessageCommandService teamMessageCommandService;
     private final TeamMessageQueryService teamMessageQueryService;
     private final TeamAccessValidator teamAccessValidator;
+    private final UserQueryService userQueryService;
 
     public TeamMessagePersistResponse postMessage(Long teamId, String senderId, TeamMessageCreateRequest request) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, senderId);
         TeamThread teamThread = teamThreadCommandService.getOrCreateThread(teamId);
         TeamMessage teamMessage = teamMessageCommandService.postMessage(
             teamThread.getId(), senderId, request.relatedType(), request.relatedId(), request.message());
-        return TeamMessagePersistResponse.of(teamMessage);
+        String senderName = resolveSenderName(senderId);
+        return TeamMessagePersistResponse.of(teamMessage, senderName);
     }
 
     public TeamMessagePageResponse getMessages(Long teamId, TeamMessageRelatedType relatedType, Pageable pageable, String userId) {
@@ -45,7 +52,26 @@ public class TeamMessageFacade {
         Page<TeamMessage> messages = teamMessageQueryService.getMessages(teamThread.getId(), relatedType, pageable);
         List<Long> messageIds = messages.getContent().stream().map(TeamMessage::getId).toList();
         Set<Long> readMessageIds = teamMessageQueryService.findReadMessageIds(userId, messageIds);
-        return TeamMessagePageResponse.from(messages, readMessageIds);
+        List<String> senderIds = messages.getContent().stream()
+            .map(TeamMessage::getSenderId)
+            .filter(id -> id != null && !id.isBlank())
+            .distinct()
+            .toList();
+        Map<String, String> senderNamesBySenderId = userQueryService
+            .getUsersByStudentNumbersIncludingDeleted(senderIds).stream()
+            .collect(Collectors.toMap(User::getStudentNumber, User::getName));
+        return TeamMessagePageResponse.from(messages, readMessageIds, senderNamesBySenderId);
+    }
+
+    private String resolveSenderName(String studentNumber) {
+        if (studentNumber == null || studentNumber.isBlank()) {
+            return null;
+        }
+        try {
+            return userQueryService.getUserByStudentNumber(studentNumber).getName();
+        } catch (UserNotFoundException e) {
+            return null;
+        }
     }
 
     public void updateImportant(Long messageId, boolean important, String userId) {
