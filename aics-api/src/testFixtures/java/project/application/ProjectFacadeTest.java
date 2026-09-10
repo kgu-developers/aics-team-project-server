@@ -198,6 +198,16 @@ class ProjectFacadeTest {
     }
 
     @Test
+    @DisplayName("saveProject는 우리 팀원이 올린 PDF를 화면 이미지로 연결하지 않는다")
+    void saveProject_rejectsNonImageFile() throws Exception {
+        givenImageUploadedBy(MEMBER_ID, "application/pdf");
+
+        assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+        then(projectCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("saveProject는 클라이언트가 보낸 imageUrl을 저장 전에 지운다")
     void saveProject_stripsClientImageUrl() throws Exception {
         givenImageUploadedBy(MEMBER_ID);
@@ -248,6 +258,19 @@ class ProjectFacadeTest {
     }
 
     @Test
+    @DisplayName("getProject는 PDF로 저장된 기존 화면 파일의 URL을 발급하지 않는다")
+    void getProject_dropsImageUrlForNonImageFile() throws Exception {
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(projectWithScreens(
+            "[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://stale/url\"}]"));
+        givenImageUploadedBy(MEMBER_ID, "application/pdf");
+
+        var screens = projectFacade.getProject(TEAM_ID, MEMBER_ID).screenConfiguration();
+
+        assertThat(screens.get(0).has("imageUrl")).isFalse();
+        then(fileStorage).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("getProject는 같은 이미지를 여러 화면이 참조해도 정상 처리한다")
     void getProject_handlesDuplicateImageIds() throws Exception {
         given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(projectWithScreens(
@@ -256,7 +279,7 @@ class ProjectFacadeTest {
             .willReturn(List.of(TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장")));
         given(fileObjectRepository.findAllByIdAndDeletedAtIsNull(List.of(1L)))
             .willReturn(List.of(FileObject.builder()
-                .id(1L).uploadedBy(MEMBER_ID).storageKey("teams/1/shared.png").build()));
+                .id(1L).uploadedBy(MEMBER_ID).storageKey("teams/1/shared.png").contentType("image/png").build()));
         given(fileStorage.presignedUrl("teams/1/shared.png")).willReturn("https://s3/presigned");
 
         var screens = projectFacade.getProject(TEAM_ID, MEMBER_ID).screenConfiguration();
@@ -268,11 +291,15 @@ class ProjectFacadeTest {
     }
 
     private void givenImageUploadedBy(String uploaderId) {
+        givenImageUploadedBy(uploaderId, "image/png");
+    }
+
+    private void givenImageUploadedBy(String uploaderId, String contentType) {
         given(teamMemberRepository.findAllByTeamId(TEAM_ID))
             .willReturn(List.of(TeamMember.create(TEAM_ID, MEMBER_ID, true, "팀장")));
         // 화면 이미지는 N+1을 피하려고 한 번에 조회한다(ProjectFacade.resolveScreenImageUrls).
         given(fileObjectRepository.findAllByIdAndDeletedAtIsNull(List.of(1L))).willReturn(List.of(FileObject.builder()
-            .id(1L).uploadedBy(uploaderId).storageKey("teams/1/home.png").build()));
+            .id(1L).uploadedBy(uploaderId).storageKey("teams/1/home.png").contentType(contentType).build()));
     }
 
     @Test

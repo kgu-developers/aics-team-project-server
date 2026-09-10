@@ -265,7 +265,7 @@ public class ProjectFacade {
             JsonNode imageFileId = screen.get("imageFileId");
             if (imageFileId != null && imageFileId.isIntegralNumber()) {
                 FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
-                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy())) {
+                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy()) && isAllowedImage(fileObject)) {
                     sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey()));
                 }
             }
@@ -308,11 +308,23 @@ public class ProjectFacade {
                 continue;
             }
             FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
-            boolean ownedByTeam = fileObject != null && memberIds.contains(fileObject.getUploadedBy());
-            if (!ownedByTeam) {
+            boolean validScreenImage = fileObject != null
+                && memberIds.contains(fileObject.getUploadedBy())
+                && isAllowedImage(fileObject);
+            if (!validScreenImage) {
+                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy())) {
+                    throw new FileObjectInvalidTypeException();
+                }
                 throw new ProjectScreenImageOwnershipException();
             }
         }
+    }
+
+    private boolean isAllowedImage(FileObject fileObject) {
+        return "image/jpeg".equals(fileObject.getContentType())
+            || "image/png".equals(fileObject.getContentType())
+            || "image/gif".equals(fileObject.getContentType())
+            || "image/bmp".equals(fileObject.getContentType());
     }
 
     // presigned URL은 조회 시점에 서버가 매번 새로 만드는 값이라 저장하면 안 되는데, 클라이언트가
