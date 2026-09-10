@@ -5,8 +5,14 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import java.io.IOException;
+
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
+import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
@@ -16,6 +22,7 @@ import kgu.developers.api.team.application.TeamFacade;
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
+import kgu.developers.domain.fileobject.exception.FileObjectInvalidTypeException;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
@@ -33,11 +40,14 @@ import kgu.developers.domain.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -94,6 +104,46 @@ public class ProjectFacade {
         );
         return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
             teamFacade.getKickoffByTeamId(teamId, userId));
+    }
+
+    public ProjectImageUploadResponse uploadProjectImage(Long teamId, String userId, MultipartFile file) {
+        teamAccessValidator.validateMembership(teamId, userId);
+        String contentType = file == null || file.isEmpty() ? null : imageContentType(file);
+        if (contentType == null) {
+            throw new FileObjectInvalidTypeException();
+        }
+
+        String storageKey = fileStorage.upload(file);
+        FileObject saved = fileObjectRepository.save(FileObject.create(
+            userId, storageKey, file.getOriginalFilename(), contentType, file.getSize(), false, null
+        ));
+        return new ProjectImageUploadResponse(saved.getId(), fileStorage.presignedUrl(saved.getStorageKey()));
+    }
+
+    private String imageContentType(MultipartFile file) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(file.getInputStream())) {
+            if (input == null) {
+                return null;
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                return null;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input);
+                reader.read(0);
+                return switch (reader.getFormatName().toLowerCase(Locale.ROOT)) {
+                    case "jpg", "jpeg" -> "image/jpeg";
+                    case "png", "gif", "bmp" -> "image/" + reader.getFormatName().toLowerCase(Locale.ROOT);
+                    default -> null;
+                };
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException exception) {
+            return null;
+        }
     }
 
     public void completeProposal(Long projectId, String userId) {

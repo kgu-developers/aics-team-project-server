@@ -16,6 +16,7 @@ import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.ProjectControllerImpl;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
 import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
@@ -40,6 +41,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.mock.web.MockMultipartFile;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectControllerTest {
@@ -115,6 +118,24 @@ class ProjectControllerTest {
             .containsExactly("AI 학습 도우미", "학습 기록을 분석하는 서비스", "개인별 피드백 자동화");
         org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().externalLinks())
             .isEqualTo(request.externalLinks());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/teams/{teamId}/project/images/upload은 제안서 상태를 바꾸지 않고 파일 정보을 반환한다")
+    void uploadProjectImage() throws Exception {
+        MockMultipartFile image = new MockMultipartFile("file", "screen.png", "image/png", "image".getBytes());
+        given(projectFacade.uploadProjectImage(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any()))
+            .willReturn(new ProjectImageUploadResponse(42L, "https://s3/presigned"));
+
+        mockMvc.perform(multipart("/api/v1/teams/{teamId}/project/images/upload", TEAM_ID)
+                .file(image)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.fileId").value(42L))
+            .andExpect(jsonPath("$.imageUrl").value("https://s3/presigned"));
+
+        then(projectFacade).should().uploadProjectImage(eq(TEAM_ID), eq(USER_ID), eq(image));
+        then(projectFacade).shouldHaveNoMoreInteractions();
     }
 
     @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")

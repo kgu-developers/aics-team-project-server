@@ -6,8 +6,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import javax.imageio.ImageIO;
 import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
+import kgu.developers.domain.fileobject.exception.FileObjectInvalidTypeException;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.team.application.TeamFacade;
 import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
@@ -42,6 +46,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectFacadeTest {
@@ -90,6 +95,83 @@ class ProjectFacadeTest {
         assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
             .isInstanceOf(AccessDeniedException.class);
         then(projectCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("uploadProjectImage는 이미지 파일만 저장하고 파일 식별자를 반환한다")
+    void uploadProjectImage() throws Exception {
+        MockMultipartFile image = new MockMultipartFile("file", "screen.png", "image/png", png());
+        given(fileStorage.upload(image)).willReturn("projects/screen.png");
+        given(fileStorage.presignedUrl("projects/screen.png")).willReturn("https://s3/presigned");
+        given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class))).willAnswer(invocation -> {
+            FileObject file = invocation.getArgument(0);
+            return FileObject.builder()
+                .id(42L)
+                .uploadedBy(file.getUploadedBy())
+                .storageKey(file.getStorageKey())
+                .fileName(file.getFileName())
+                .contentType(file.getContentType())
+                .size(file.getSize())
+                .build();
+        });
+
+        var response = projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image);
+
+        assertThat(response.fileId()).isEqualTo(42L);
+        assertThat(response.imageUrl()).isEqualTo("https://s3/presigned");
+        then(teamAccessValidator).should().validateMembership(TEAM_ID, MEMBER_ID);
+        then(fileStorage).should().upload(image);
+        then(fileStorage).should().presignedUrl("projects/screen.png");
+        then(fileObjectRepository).should().save(org.mockito.ArgumentMatchers.argThat(file ->
+            file.getUploadedBy().equals(MEMBER_ID)
+                && file.getFileName().equals("screen.png")
+                && file.getContentType().equals("image/png")
+                && file.getSize() == image.getSize()
+        ));
+        then(projectCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("uploadProjectImage는 실제 PNG면 multipart MIME이 octet-stream이어도 저장한다")
+    void uploadProjectImage_acceptsImageWithGenericMimeType() throws Exception {
+        MockMultipartFile image = new MockMultipartFile("file", "screen.png", "application/octet-stream", png());
+        given(fileStorage.upload(image)).willReturn("projects/screen.png");
+        given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class))).willAnswer(invocation -> {
+            FileObject file = invocation.getArgument(0);
+            return FileObject.builder().id(42L).storageKey(file.getStorageKey()).build();
+        });
+        given(fileStorage.presignedUrl("projects/screen.png")).willReturn("https://s3/presigned");
+
+        projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image);
+
+        then(fileObjectRepository).should().save(org.mockito.ArgumentMatchers.argThat(file ->
+            file.getContentType().equals("image/png")
+        ));
+    }
+
+    @Test
+    @DisplayName("uploadProjectImage는 이미지가 아닌 파일을 저장하지 않는다")
+    void uploadProjectImage_rejectsNonImage() {
+        MockMultipartFile file = new MockMultipartFile("file", "document.pdf", "application/pdf", "content".getBytes());
+
+        assertThatThrownBy(() -> projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, file))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+
+        then(fileStorage).shouldHaveNoInteractions();
+        then(fileObjectRepository).shouldHaveNoInteractions();
+        then(projectCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("uploadProjectImage는 이미지 Content-Type으로 위장한 파일을 저장하지 않는다")
+    void uploadProjectImage_rejectsInvalidImageContent() {
+        MockMultipartFile file = new MockMultipartFile("file", "malware.png", "image/png", "not an image".getBytes());
+
+        assertThatThrownBy(() -> projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, file))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+
+        then(fileStorage).shouldHaveNoInteractions();
+        then(fileObjectRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -357,6 +439,12 @@ class ProjectFacadeTest {
 
     private User member() {
         return User.create(MEMBER_ID, "member@kgu.ac.kr", "홍길동", "password", UserGlobalRole.USER, "01000000000");
+    }
+
+    private byte[] png() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", output);
+        return output.toByteArray();
     }
 
     private ProjectRequest request() throws Exception {
