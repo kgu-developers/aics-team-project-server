@@ -15,6 +15,7 @@ import kgu.developers.domain.fileobject.exception.FileUploadFailedException;
 import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -69,6 +70,18 @@ public class S3FileStorage implements FileStorage {
                                 .build())
                         .build());
         return presigned.url().toString();
+    }
+
+    @Override
+    public void delete(String storageKey) {
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(bucket)
+                .key(storageKey)
+                .build());
+        } catch (S3Exception exception) {
+            throw new FileUploadFailedException(exception);
+        }
     }
 
     @Override

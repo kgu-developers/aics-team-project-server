@@ -117,9 +117,19 @@ public class ProjectFacade {
         }
 
         String storageKey = fileStorage.upload(file, contentType);
-        FileObject saved = fileObjectRepository.save(FileObject.create(
-            userId, storageKey, file.getOriginalFilename(), contentType, file.getSize(), false, null
-        ));
+        FileObject saved;
+        try {
+            saved = fileObjectRepository.save(FileObject.create(
+                userId, storageKey, file.getOriginalFilename(), contentType, file.getSize(), false, null
+            ));
+        } catch (RuntimeException exception) {
+            try {
+                fileStorage.delete(storageKey);
+            } catch (RuntimeException cleanupException) {
+                exception.addSuppressed(cleanupException);
+            }
+            throw exception;
+        }
         return new ProjectImageUploadResponse(saved.getId(), fileStorage.presignedUrl(saved.getStorageKey()));
     }
 

@@ -13,6 +13,9 @@ public interface FileStorage {
         return upload(file);
     }
 
+    default void delete(String storageKey) {
+    }
+
     String presignedUrl(String storageKey);
 
     InputStream download(String storageKey);

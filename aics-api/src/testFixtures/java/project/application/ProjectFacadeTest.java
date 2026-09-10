@@ -222,6 +222,21 @@ class ProjectFacadeTest {
     }
 
     @Test
+    @DisplayName("uploadProjectImage는 DB 저장이 실패하면 업로드한 파일을 삭제한다")
+    void uploadProjectImage_deletesUploadedFileWhenSaveFails() throws Exception {
+        MockMultipartFile image = new MockMultipartFile("file", "screen.png", "image/png", png());
+        given(fileStorage.upload(image, "image/png")).willReturn("projects/screen.png");
+        given(fileObjectRepository.save(org.mockito.ArgumentMatchers.any(FileObject.class)))
+            .willThrow(new IllegalStateException("DB 저장 실패"));
+
+        assertThatThrownBy(() -> projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, image))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("DB 저장 실패");
+
+        then(fileStorage).should().delete("projects/screen.png");
+    }
+
+    @Test
     @DisplayName("saveProject는 우리 팀원이 올린 PDF를 화면 이미지로 연결하지 않는다")
     void saveProject_rejectsNonImageFile() throws Exception {
         givenImageUploadedBy(MEMBER_ID, "application/pdf");

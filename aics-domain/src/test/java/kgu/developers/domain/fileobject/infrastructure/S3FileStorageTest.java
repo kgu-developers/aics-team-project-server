@@ -14,6 +14,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
@@ -34,5 +35,18 @@ class S3FileStorageTest {
         ArgumentCaptor<PutObjectRequest> request = ArgumentCaptor.forClass(PutObjectRequest.class);
         then(s3Client).should().putObject(request.capture(), any(RequestBody.class));
         assertThat(request.getValue().contentType()).isEqualTo("image/png");
+    }
+
+    @Test
+    void delete_removesObjectFromS3() {
+        S3FileStorage storage = new S3FileStorage(s3Client, s3Presigner);
+        ReflectionTestUtils.setField(storage, "bucket", "bucket");
+
+        storage.delete("projects/screen.png");
+
+        ArgumentCaptor<DeleteObjectRequest> request = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        then(s3Client).should().deleteObject(request.capture());
+        assertThat(request.getValue().bucket()).isEqualTo("bucket");
+        assertThat(request.getValue().key()).isEqualTo("projects/screen.png");
     }
 }
