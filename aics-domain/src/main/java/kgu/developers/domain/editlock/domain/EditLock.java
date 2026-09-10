@@ -1,13 +1,17 @@
 package kgu.developers.domain.editlock.domain;
 
+import static lombok.AccessLevel.PROTECTED;
+
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @Builder
 @AllArgsConstructor
+@NoArgsConstructor(access = PROTECTED)
 public class EditLock {
 
     // 프론트가 편집 중 30초~1분 주기로 하트비트를 재호출하는 걸 전제로, 몇 번 놓쳐도 바로
@@ -21,6 +25,9 @@ public class EditLock {
     private String lockedBy;
     private LocalDateTime lockedAt;
     private Long version;  // 낙관적 락 버전 (신규는 null)
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
 
     public static EditLock create(
         EditLockTargetType targetType, Long targetId, String sectionKey, String lockedBy, LocalDateTime lockedAt

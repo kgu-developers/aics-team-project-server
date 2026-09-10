@@ -45,14 +45,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
-        log.warn("[{}] {}", DATA_CONFLICT.getCode(), exception.getMostSpecificCause().getMessage());
+        // KD3-238: 409 충돌 시 정확한 DB 제약조건 위반(테이블, 컬럼, 외래키 등)을 추적할 수 있도록
+        // 원인 메시지와 스택트레이스를 error 레벨로 남긴다. 클라이언트 응답에는 보안상 세부 DB 스키마를
+        // 노출하지 않고 일관된 에러 코드를 유지한다.
+        log.error("[{}] DB 제약조건 위반 충돌: {}", DATA_CONFLICT.getCode(), exception.getMostSpecificCause().getMessage(), exception);
         ErrorResponse response = new ErrorResponse(DATA_CONFLICT.getCode(), DATA_CONFLICT.getMessage());
         return ResponseEntity.status(DATA_CONFLICT.getStatus()).body(response);
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(OptimisticLockingFailureException exception) {
-        log.warn("[{}] {}", DATA_CONFLICT.getCode(), exception.getMessage());
+        log.error("[{}] 낙관적 락 충돌: {}", DATA_CONFLICT.getCode(), exception.getMessage(), exception);
         ErrorResponse response = new ErrorResponse(DATA_CONFLICT.getCode(), DATA_CONFLICT.getMessage());
         return ResponseEntity.status(DATA_CONFLICT.getStatus()).body(response);
     }

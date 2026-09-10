@@ -7,9 +7,11 @@ import kgu.developers.domain.editlock.domain.EditLockRepository;
 import kgu.developers.domain.editlock.domain.EditLockTargetType;
 import kgu.developers.domain.editlock.exception.EditLockConflictException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class EditLockRepositoryImpl implements EditLockRepository {
@@ -28,6 +30,8 @@ public class EditLockRepositoryImpl implements EditLockRepository {
                 EditLockConflictException::new
             );
         } catch (DataIntegrityViolationException e) {
+            // KD3-238: 유니크 충돌인지 NOT NULL 등 기타 DB 제약조건 위반인지 추적할 수 있도록 상세 로그를 남긴다.
+            log.warn("EditLock 저장 실패 (DB 제약조건 위반): {}", e.getMostSpecificCause().getMessage(), e);
             throw new EditLockConflictException();
         }
     }
