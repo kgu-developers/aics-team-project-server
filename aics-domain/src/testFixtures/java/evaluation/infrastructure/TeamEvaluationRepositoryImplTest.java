@@ -132,4 +132,30 @@ class TeamEvaluationRepositoryImplTest {
         assertThat(captor.getValue().getTeamEvaluationId()).isEqualTo(1L);
         assertThat(captor.getValue().getCriterionId()).isEqualTo(2L);
     }
+
+    @Test
+    @DisplayName("평가 점수 저장소 어댑터는 점수 목록을 한 번에 저장한다")
+    void saveAllScores() {
+        TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
+        List<TeamEvaluationScore> scores = List.of(TeamEvaluationScore.create(1L, 2L, 7, 10));
+        given(jpaScoreRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+                .willReturn(List.of(TeamEvaluationScoreJpaEntity.toEntity(
+                        TeamEvaluationScore.restore(3L, 1L, 2L, 7, null, null, null)
+                )));
+
+        List<TeamEvaluationScore> saved = repository.saveAll(scores);
+
+        assertThat(saved).singleElement().satisfies(score -> assertThat(score.getId()).isEqualTo(3L));
+    }
+
+    @Test
+    @DisplayName("평가 점수 저장소 어댑터는 재제출 전에 기존 점수를 삭제하고 반영한다")
+    void deleteAllScoresByEvaluationId() {
+        TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
+
+        repository.deleteAllByTeamEvaluationId(1L);
+
+        verify(jpaScoreRepository).deleteAllByTeamEvaluationId(1L);
+        verify(jpaScoreRepository).flush();
+    }
 }
