@@ -24,5 +24,7 @@ public interface MeetingRecordRepository {
 
     Map<Long, Long> countByTeamIdInAndMilestoneId(List<Long> teamIds, Long milestoneId);
 
+    Map<Long, Long> countByTeamIdIn(List<Long> teamIds);
+
     void deleteById(Long id);
 }

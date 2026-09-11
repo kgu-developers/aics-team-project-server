@@ -7,5 +7,7 @@ public interface PeerEvaluationTeammateAnswerRepository {
 
     List<PeerEvaluationTeammateAnswer> findAllBySubmissionId(Long submissionId);
 
+    List<PeerEvaluationTeammateAnswer> findAllBySubmissionIdIn(List<Long> submissionIds);
+
     void deleteAllBySubmissionId(Long submissionId);
 }

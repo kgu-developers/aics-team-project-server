@@ -120,6 +120,18 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
             ));
     }
 
+    @Override
+    public Map<Long, Long> countByTeamIdIn(List<Long> teamIds) {
+        if (teamIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaMeetingRecordRepository.countByTeamIdIn(teamIds).stream()
+            .collect(Collectors.toMap(
+                JpaMeetingRecordRepository.MeetingRecordCountProjection::getTeamId,
+                JpaMeetingRecordRepository.MeetingRecordCountProjection::getMeetingRecordCount
+            ));
+    }
+
     private Page<MeetingRecord> toDomainPage(Page<MeetingRecordJpaEntity> entities) {
         List<Long> meetingRecordIds = entities.stream().map(MeetingRecordJpaEntity::getId).toList();
         Map<Long, List<MeetingParticipant>> participantsByMeetingRecordId = findParticipantsByMeetingRecordId(

@@ -61,6 +61,16 @@ public interface JpaMeetingRecordRepository extends JpaRepository<MeetingRecordJ
         @Param("milestoneId") Long milestoneId
     );
 
+    @Query("""
+        select m.teamId as teamId, count(m) as meetingRecordCount
+        from MeetingRecordJpaEntity m
+        where m.teamId in :teamIds
+        group by m.teamId
+        """)
+    List<MeetingRecordCountProjection> countByTeamIdIn(
+        @Param("teamIds") List<Long> teamIds
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from MeetingRecordJpaEntity m where m.id = :id")
     Optional<MeetingRecordJpaEntity> findByIdForUpdate(@Param("id") Long id);

@@ -24,6 +24,15 @@ public class PeerEvaluationTeammateAnswerRepositoryImpl implements PeerEvaluatio
     }
 
     @Override
+    public List<PeerEvaluationTeammateAnswer> findAllBySubmissionIdIn(List<Long> submissionIds) {
+        if (submissionIds == null || submissionIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllBySubmissionIdInOrderById(submissionIds).stream()
+            .map(PeerEvaluationTeammateAnswerJpaEntity::toDomain).toList();
+    }
+
+    @Override
     public void deleteAllBySubmissionId(Long submissionId) {
         jpaRepository.deleteAllBySubmissionId(submissionId);
         jpaRepository.flush();
