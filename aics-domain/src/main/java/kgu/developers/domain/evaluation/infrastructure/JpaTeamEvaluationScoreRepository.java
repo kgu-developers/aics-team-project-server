@@ -9,4 +9,6 @@ public interface JpaTeamEvaluationScoreRepository extends JpaRepository<TeamEval
     Optional<TeamEvaluationScoreJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
     List<TeamEvaluationScoreJpaEntity> findAllByTeamEvaluationIdAndDeletedAtIsNull(Long teamEvaluationId);
+
+    List<TeamEvaluationScoreJpaEntity> findAllByTeamEvaluationIdInAndDeletedAtIsNull(List<Long> teamEvaluationIds);
 }

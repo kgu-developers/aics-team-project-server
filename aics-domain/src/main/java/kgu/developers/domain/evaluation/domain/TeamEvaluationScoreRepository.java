@@ -9,4 +9,6 @@ public interface TeamEvaluationScoreRepository {
     Optional<TeamEvaluationScore> findById(Long id);
 
     List<TeamEvaluationScore> findAllByTeamEvaluationId(Long teamEvaluationId);
+
+    List<TeamEvaluationScore> findAllByTeamEvaluationIds(List<Long> teamEvaluationIds);
 }

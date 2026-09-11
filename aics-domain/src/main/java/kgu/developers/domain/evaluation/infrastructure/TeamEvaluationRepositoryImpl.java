@@ -48,6 +48,30 @@ public class TeamEvaluationRepositoryImpl implements TeamEvaluationRepository {
                 .toList();
     }
 
+    @Override
+    public List<TeamEvaluation> findAllByMilestoneId(Long milestoneId) {
+        return jpaRepository.findAllByMilestoneIdAndDeletedAtIsNull(milestoneId).stream()
+                .map(TeamEvaluationJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<TeamEvaluation> findAllByMilestoneIdAndRateeTeamId(Long milestoneId, Long rateeTeamId) {
+        return jpaRepository.findAllByMilestoneIdAndRateeTeamIdAndDeletedAtIsNull(milestoneId, rateeTeamId).stream()
+                .map(TeamEvaluationJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<TeamEvaluation> findAllByMilestoneIdAndRateeTeamIdIn(Long milestoneId, List<Long> rateeTeamIds) {
+        if (rateeTeamIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllByMilestoneIdAndRateeTeamIdInAndDeletedAtIsNull(milestoneId, rateeTeamIds).stream()
+                .map(TeamEvaluationJpaEntity::toDomain)
+                .toList();
+    }
+
     private static String normalizeRaterId(String raterId) {
         return raterId == null ? null : raterId.trim();
     }

@@ -30,4 +30,14 @@ public class TeamEvaluationScoreRepositoryImpl implements TeamEvaluationScoreRep
                 .map(TeamEvaluationScoreJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<TeamEvaluationScore> findAllByTeamEvaluationIds(List<Long> teamEvaluationIds) {
+        if (teamEvaluationIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllByTeamEvaluationIdInAndDeletedAtIsNull(teamEvaluationIds).stream()
+                .map(TeamEvaluationScoreJpaEntity::toDomain)
+                .toList();
+    }
 }

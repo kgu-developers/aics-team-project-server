@@ -132,4 +132,66 @@ class TeamEvaluationRepositoryImplTest {
         assertThat(captor.getValue().getTeamEvaluationId()).isEqualTo(1L);
         assertThat(captor.getValue().getCriterionId()).isEqualTo(2L);
     }
+
+    @Test
+    @DisplayName("팀간 발표평가 저장소 어댑터는 마일스톤 식별자로 평가 목록을 조회한다")
+    void findAllByMilestoneId() {
+        TeamEvaluationRepositoryImpl repository = new TeamEvaluationRepositoryImpl(jpaEvaluationRepository);
+        given(jpaEvaluationRepository.findAllByMilestoneIdAndDeletedAtIsNull(2L))
+                .willReturn(List.of(TeamEvaluationJpaEntity.toEntity(
+                        TeamEvaluation.restore(1L, 2L, "20260001", 3L, null, null, null, null)
+                )));
+
+        List<TeamEvaluation> evaluations = repository.findAllByMilestoneId(2L);
+
+        assertThat(evaluations).hasSize(1);
+        assertThat(evaluations.get(0).getRateeTeamId()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("팀간 발표평가 저장소 어댑터는 마일스톤과 피평가팀 식별자로 평가 목록을 조회한다")
+    void findAllByMilestoneIdAndRateeTeamId() {
+        TeamEvaluationRepositoryImpl repository = new TeamEvaluationRepositoryImpl(jpaEvaluationRepository);
+        given(jpaEvaluationRepository.findAllByMilestoneIdAndRateeTeamIdAndDeletedAtIsNull(2L, 3L))
+                .willReturn(List.of(TeamEvaluationJpaEntity.toEntity(
+                        TeamEvaluation.restore(1L, 2L, "20260001", 3L, null, null, null, null)
+                )));
+
+        List<TeamEvaluation> evaluations = repository.findAllByMilestoneIdAndRateeTeamId(2L, 3L);
+
+        assertThat(evaluations).hasSize(1);
+        assertThat(evaluations.get(0).getRaterId()).isEqualTo("20260001");
+    }
+
+    @Test
+    @DisplayName("팀간 발표평가 저장소 어댑터는 마일스톤과 피평가팀 식별자 목록으로 평가 목록을 일괄 조회한다")
+    void findAllByMilestoneIdAndRateeTeamIdIn() {
+        TeamEvaluationRepositoryImpl repository = new TeamEvaluationRepositoryImpl(jpaEvaluationRepository);
+        given(jpaEvaluationRepository.findAllByMilestoneIdAndRateeTeamIdInAndDeletedAtIsNull(2L, List.of(3L, 4L)))
+                .willReturn(List.of(
+                        TeamEvaluationJpaEntity.toEntity(TeamEvaluation.restore(1L, 2L, "20260001", 3L, null, null, null, null)),
+                        TeamEvaluationJpaEntity.toEntity(TeamEvaluation.restore(2L, 2L, "20260001", 4L, null, null, null, null))
+                ));
+
+        List<TeamEvaluation> evaluations = repository.findAllByMilestoneIdAndRateeTeamIdIn(2L, List.of(3L, 4L));
+
+        assertThat(evaluations).hasSize(2);
+        assertThat(evaluations).extracting(TeamEvaluation::getRateeTeamId).containsExactly(3L, 4L);
+    }
+
+    @Test
+    @DisplayName("평가 점수 저장소 어댑터는 여러 평가 식별자로 점수 목록을 일괄 조회한다")
+    void findAllScoresByTeamEvaluationIds() {
+        TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
+        given(jpaScoreRepository.findAllByTeamEvaluationIdInAndDeletedAtIsNull(List.of(1L, 2L)))
+                .willReturn(List.of(
+                        TeamEvaluationScoreJpaEntity.toEntity(TeamEvaluationScore.restore(1L, 1L, 10L, 7, null, null, null)),
+                        TeamEvaluationScoreJpaEntity.toEntity(TeamEvaluationScore.restore(2L, 2L, 10L, 8, null, null, null))
+                ));
+
+        List<TeamEvaluationScore> scores = repository.findAllByTeamEvaluationIds(List.of(1L, 2L));
+
+        assertThat(scores).hasSize(2);
+        assertThat(scores).extracting(TeamEvaluationScore::getTeamEvaluationId).containsExactly(1L, 2L);
+    }
 }
