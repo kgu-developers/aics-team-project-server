@@ -47,6 +47,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectFacadeTest {
@@ -163,6 +164,20 @@ class ProjectFacadeTest {
     @DisplayName("uploadProjectImage는 이미지 Content-Type으로 위장한 파일을 저장하지 않는다")
     void uploadProjectImage_rejectsInvalidImageContent() {
         MockMultipartFile file = new MockMultipartFile("file", "malware.png", "image/png", "not an image".getBytes());
+
+        assertThatThrownBy(() -> projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, file))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+
+        then(fileStorage).shouldHaveNoInteractions();
+        then(fileObjectRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("uploadProjectImage는 이미지 파싱 중 런타임 예외가 나면 저장하지 않는다")
+    void uploadProjectImage_rejectsRuntimeExceptionWhileParsingImage() throws Exception {
+        MultipartFile file = org.mockito.Mockito.mock(MultipartFile.class);
+        given(file.isEmpty()).willReturn(false);
+        given(file.getInputStream()).willThrow(new IndexOutOfBoundsException("손상된 이미지"));
 
         assertThatThrownBy(() -> projectFacade.uploadProjectImage(TEAM_ID, MEMBER_ID, file))
             .isInstanceOf(FileObjectInvalidTypeException.class);

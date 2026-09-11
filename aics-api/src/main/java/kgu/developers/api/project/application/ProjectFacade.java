@@ -174,7 +174,7 @@ public class ProjectFacade {
             } finally {
                 reader.dispose();
             }
-        } catch (IOException exception) {
+        } catch (IOException | RuntimeException exception) {
             return null;
         }
     }
