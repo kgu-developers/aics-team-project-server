@@ -1,5 +1,6 @@
 package project.presentation;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.api.project.application.ProjectFacade;
+import kgu.developers.api.project.presentation.ProjectController;
 import kgu.developers.api.project.presentation.ProjectControllerImpl;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
@@ -38,10 +40,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 
 @ExtendWith(MockitoExtension.class)
@@ -62,6 +67,17 @@ class ProjectControllerTest {
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(USER_ID, null)
         );
+    }
+
+    @Test
+    @DisplayName("ProjectController는 화면 이미지 파일을 file RequestPart로 선언한다")
+    void projectController_declaresImageFileRequestPart() throws Exception {
+        RequestPart requestPart = ProjectController.class
+            .getMethod("uploadProjectImage", Long.class, MultipartFile.class, Authentication.class)
+            .getParameters()[1]
+            .getAnnotation(RequestPart.class);
+
+        assertThat(requestPart.value()).isEqualTo("file");
     }
 
     @AfterEach

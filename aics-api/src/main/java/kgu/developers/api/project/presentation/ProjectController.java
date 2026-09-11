@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "Project", description = "프로젝트 제안서 API")
@@ -37,7 +38,7 @@ public interface ProjectController {
         description = "이미지를 저장하고 제안서 화면 구성의 imageFileId에 사용할 fileId를 반환한다. 제안서 저장·제출 상태는 변경하지 않는다.")
     ResponseEntity<ProjectImageUploadResponse> uploadProjectImage(
         @PathVariable Long teamId,
-        MultipartFile file,
+        @RequestPart("file") MultipartFile file,
         Authentication authentication
     );
 
