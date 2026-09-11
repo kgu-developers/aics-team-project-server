@@ -66,6 +66,8 @@ springdoc:
   default-produces-media-type: application/json
   swagger-ui:
     enabled: false
+    csrf:
+      enabled: true
     operations-sorter: alpha
     tags-sorter: alpha
     urls:
