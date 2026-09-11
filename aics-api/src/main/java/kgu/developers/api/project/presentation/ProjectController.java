@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
 import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
@@ -14,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "Project", description = "프로젝트 제안서 API")
 public interface ProjectController {
@@ -28,6 +31,14 @@ public interface ProjectController {
     ResponseEntity<ProjectResponse> saveProject(
         @PathVariable Long teamId,
         @Valid @RequestBody ProjectRequest request,
+        Authentication authentication
+    );
+
+    @Operation(summary = "제안서 화면 이미지 업로드",
+        description = "이미지를 저장하고 제안서 화면 구성의 imageFileId에 사용할 fileId를 반환한다. 제안서 저장·제출 상태는 변경하지 않는다.")
+    ResponseEntity<ProjectImageUploadResponse> uploadProjectImage(
+        @PathVariable Long teamId,
+        @RequestPart("file") MultipartFile file,
         Authentication authentication
     );
 

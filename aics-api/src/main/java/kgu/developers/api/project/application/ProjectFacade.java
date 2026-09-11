@@ -5,8 +5,14 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import java.io.IOException;
+
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
+import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
@@ -16,6 +22,7 @@ import kgu.developers.api.team.application.TeamFacade;
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
+import kgu.developers.domain.fileobject.exception.FileObjectInvalidTypeException;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
@@ -33,11 +40,14 @@ import kgu.developers.domain.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -50,6 +60,10 @@ import static java.util.stream.Collectors.toMap;
 @RequiredArgsConstructor
 @Transactional
 public class ProjectFacade {
+
+    private static final int MAX_IMAGE_DIMENSION = 4_096;
+    private static final long MAX_IMAGE_PIXELS = 16_000_000L;
+    private static final int MAX_FILE_NAME_LENGTH = 255;
 
     private final ProjectCommandService projectCommandService;
     private final ProjectQueryService projectQueryService;
@@ -94,6 +108,75 @@ public class ProjectFacade {
         );
         return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
             teamFacade.getKickoffByTeamId(teamId, userId));
+    }
+
+    public ProjectImageUploadResponse uploadProjectImage(Long teamId, String userId, MultipartFile file) {
+        teamAccessValidator.validateMembership(teamId, userId);
+        String contentType = file == null || file.isEmpty() ? null : imageContentType(file);
+        if (contentType == null) {
+            throw new FileObjectInvalidTypeException();
+        }
+
+        String fileName = imageFileName(file.getOriginalFilename());
+        String storageKey = fileStorage.upload(file, contentType, fileName);
+        FileObject saved;
+        try {
+            saved = fileObjectRepository.save(FileObject.create(
+                userId, storageKey, fileName, contentType, file.getSize(), false, null
+            ));
+        } catch (RuntimeException exception) {
+            try {
+                fileStorage.delete(storageKey);
+            } catch (RuntimeException cleanupException) {
+                exception.addSuppressed(cleanupException);
+            }
+            throw exception;
+        }
+        return new ProjectImageUploadResponse(saved.getId());
+    }
+
+    private String imageFileName(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "image";
+        }
+        return originalFilename.length() <= MAX_FILE_NAME_LENGTH
+            ? originalFilename
+            : originalFilename.substring(0, MAX_FILE_NAME_LENGTH);
+    }
+
+    private String imageContentType(MultipartFile file) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(file.getInputStream())) {
+            if (input == null) {
+                return null;
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                return null;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input);
+                String contentType = switch (reader.getFormatName().toLowerCase(Locale.ROOT)) {
+                    case "jpg", "jpeg" -> "image/jpeg";
+                    case "png", "gif", "bmp" -> "image/" + reader.getFormatName().toLowerCase(Locale.ROOT);
+                    default -> null;
+                };
+                if (contentType == null) {
+                    return null;
+                }
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width <= 0 || height <= 0 || width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION
+                    || (long) width * height > MAX_IMAGE_PIXELS) {
+                    return null;
+                }
+                return contentType;
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException | RuntimeException exception) {
+            return null;
+        }
     }
 
     public void completeProposal(Long projectId, String userId) {
@@ -215,7 +298,7 @@ public class ProjectFacade {
             JsonNode imageFileId = screen.get("imageFileId");
             if (imageFileId != null && imageFileId.isIntegralNumber()) {
                 FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
-                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy())) {
+                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy()) && isAllowedImage(fileObject)) {
                     sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey()));
                 }
             }
@@ -258,11 +341,23 @@ public class ProjectFacade {
                 continue;
             }
             FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
-            boolean ownedByTeam = fileObject != null && memberIds.contains(fileObject.getUploadedBy());
-            if (!ownedByTeam) {
+            boolean validScreenImage = fileObject != null
+                && memberIds.contains(fileObject.getUploadedBy())
+                && isAllowedImage(fileObject);
+            if (!validScreenImage) {
+                if (fileObject != null && memberIds.contains(fileObject.getUploadedBy())) {
+                    throw new FileObjectInvalidTypeException();
+                }
                 throw new ProjectScreenImageOwnershipException();
             }
         }
+    }
+
+    private boolean isAllowedImage(FileObject fileObject) {
+        return "image/jpeg".equals(fileObject.getContentType())
+            || "image/png".equals(fileObject.getContentType())
+            || "image/gif".equals(fileObject.getContentType())
+            || "image/bmp".equals(fileObject.getContentType());
     }
 
     // presigned URL은 조회 시점에 서버가 매번 새로 만드는 값이라 저장하면 안 되는데, 클라이언트가

@@ -1,5 +1,6 @@
 package project.presentation;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -13,9 +14,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kgu.developers.api.project.application.ProjectFacade;
+import kgu.developers.api.project.presentation.ProjectController;
 import kgu.developers.api.project.presentation.ProjectControllerImpl;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
 import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
@@ -37,9 +40,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectControllerTest {
@@ -59,6 +67,17 @@ class ProjectControllerTest {
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(USER_ID, null)
         );
+    }
+
+    @Test
+    @DisplayName("ProjectController는 화면 이미지 파일을 file RequestPart로 선언한다")
+    void projectController_declaresImageFileRequestPart() throws Exception {
+        RequestPart requestPart = ProjectController.class
+            .getMethod("uploadProjectImage", Long.class, MultipartFile.class, Authentication.class)
+            .getParameters()[1]
+            .getAnnotation(RequestPart.class);
+
+        assertThat(requestPart.value()).isEqualTo("file");
     }
 
     @AfterEach
@@ -115,6 +134,23 @@ class ProjectControllerTest {
             .containsExactly("AI 학습 도우미", "학습 기록을 분석하는 서비스", "개인별 피드백 자동화");
         org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().externalLinks())
             .isEqualTo(request.externalLinks());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/teams/{teamId}/project/images/upload은 제안서 상태를 바꾸지 않고 파일 정보을 반환한다")
+    void uploadProjectImage() throws Exception {
+        MockMultipartFile image = new MockMultipartFile("file", "screen.png", "image/png", "image".getBytes());
+        given(projectFacade.uploadProjectImage(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any()))
+            .willReturn(new ProjectImageUploadResponse(42L));
+
+        mockMvc.perform(multipart("/api/v1/teams/{teamId}/project/images/upload", TEAM_ID)
+                .file(image)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.fileId").value(42L));
+
+        then(projectFacade).should().uploadProjectImage(eq(TEAM_ID), eq(USER_ID), eq(image));
+        then(projectFacade).shouldHaveNoMoreInteractions();
     }
 
     @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")

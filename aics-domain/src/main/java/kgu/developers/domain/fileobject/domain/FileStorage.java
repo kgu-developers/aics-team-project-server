@@ -9,6 +9,12 @@ import org.springframework.web.multipart.MultipartFile;
 public interface FileStorage {
     String upload(MultipartFile file);
 
+    String upload(MultipartFile file, String contentType);
+
+    String upload(MultipartFile file, String contentType, String fileName);
+
+    void delete(String storageKey);
+
     String presignedUrl(String storageKey);
 
     InputStream download(String storageKey);

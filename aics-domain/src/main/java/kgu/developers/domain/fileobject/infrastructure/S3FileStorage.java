@@ -15,6 +15,7 @@ import kgu.developers.domain.fileobject.exception.FileUploadFailedException;
 import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -36,14 +37,24 @@ public class S3FileStorage implements FileStorage {
 
     @Override
     public String upload(MultipartFile file) {
+        return upload(file, file.getContentType());
+    }
+
+    @Override
+    public String upload(MultipartFile file, String contentType) {
+        return upload(file, contentType, file.getOriginalFilename());
+    }
+
+    @Override
+    public String upload(MultipartFile file, String contentType, String fileName) {
         // 원본 파일명이 같아도 서로 덮어쓰지 않도록 저장 키는 UUID로 새로 만든다.
-        String storageKey = "submissions/" + UUID.randomUUID() + "-" + sanitize(file.getOriginalFilename());
+        String storageKey = "submissions/" + UUID.randomUUID() + "-" + sanitize(fileName);
         try {
             s3Client.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucket)
                             .key(storageKey)
-                            .contentType(file.getContentType())
+                            .contentType(contentType)
                             .build(),
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize())
             );
@@ -64,6 +75,18 @@ public class S3FileStorage implements FileStorage {
                                 .build())
                         .build());
         return presigned.url().toString();
+    }
+
+    @Override
+    public void delete(String storageKey) {
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder()
+                .bucket(bucket)
+                .key(storageKey)
+                .build());
+        } catch (S3Exception exception) {
+            throw new FileUploadFailedException(exception);
+        }
     }
 
     @Override

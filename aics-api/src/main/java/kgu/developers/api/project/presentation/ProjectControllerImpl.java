@@ -5,6 +5,7 @@ import kgu.developers.api.project.application.ProjectFacade;
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
+import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
 import kgu.developers.api.project.presentation.response.ProposalSectionListResponse;
 import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
@@ -20,7 +21,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -43,6 +47,16 @@ public class ProjectControllerImpl implements ProjectController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(projectFacade.saveProject(teamId, authentication.getName(), request));
+    }
+
+    @Override
+    @PostMapping(value = "/teams/{teamId}/project/images/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProjectImageUploadResponse> uploadProjectImage(
+        @PathVariable Long teamId,
+        @RequestPart MultipartFile file,
+        Authentication authentication
+    ) {
+        return ResponseEntity.status(201).body(projectFacade.uploadProjectImage(teamId, authentication.getName(), file));
     }
 
     @Override
