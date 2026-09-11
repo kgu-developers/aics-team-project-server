@@ -244,9 +244,9 @@ public class PeerEvaluationAdminFacade {
                     .submittedAt(submission != null ? submission.getSubmittedAt() : null)
                     .averageScore(averageScore)
                     .scores(scores)
-                    .selfContribution(submission != null ? submission.getSelfContribution() : null)
-                    .projectReviewComment(submission != null ? submission.getProjectReviewComment() : null)
-                    .reflectionComment(submission != null ? submission.getReflectionComment() : null)
+                    .selfContribution(isSubmitted ? submission.getSelfContribution() : null)
+                    .projectReviewComment(isSubmitted ? submission.getProjectReviewComment() : null)
+                    .reflectionComment(isSubmitted ? submission.getReflectionComment() : null)
                     .teammateAssessments(teammateAssessments)
                     .build();
             })

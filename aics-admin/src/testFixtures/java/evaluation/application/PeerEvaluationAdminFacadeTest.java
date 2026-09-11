@@ -322,4 +322,68 @@ class PeerEvaluationAdminFacadeTest {
         assertThatThrownBy(() -> facade.getTeamPeerEvaluationDetail(SECTION_ID, 10L, null, PROFESSOR_ID))
             .isInstanceOf(PeerEvaluationFormNotFoundException.class);
     }
+
+    @Test
+    @DisplayName("DRAFT 상태의 임시저장 제출물은 서술형 답변과 점수가 노출되지 않는다")
+    void getTeamPeerEvaluationDetail_DraftSubmission_ExcludesCommentsAndScores() {
+        // given
+        Long teamId = 10L;
+        Long formId = 100L;
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+
+        Team team = Team.builder().id(teamId).sectionId(SECTION_ID).name("OOP-01 - 1팀").build();
+        given(teamRepository.findById(teamId)).willReturn(Optional.of(team));
+
+        PeerEvaluationForm form = PeerEvaluationForm.restore(
+            formId, SECTION_ID, 5L, false,
+            LocalDateTime.of(2026, 12, 1, 0, 0),
+            LocalDateTime.of(2026, 12, 15, 23, 59),
+            null, null, null
+        );
+        given(formRepository.findAllBySectionIdOrderByIdDesc(SECTION_ID)).willReturn(List.of(form));
+
+        Enrollment en1 = Enrollment.builder().sectionId(SECTION_ID).userId("20260001").role(kgu.developers.domain.enrollment.domain.Role.STUDENT).status(kgu.developers.domain.enrollment.domain.Status.ACTIVE).build();
+        Enrollment en2 = Enrollment.builder().sectionId(SECTION_ID).userId("20260002").role(kgu.developers.domain.enrollment.domain.Role.STUDENT).status(kgu.developers.domain.enrollment.domain.Status.ACTIVE).build();
+        given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(en1, en2));
+
+        TeamMember leader = TeamMember.builder().id(1L).teamId(teamId).userId("20260001").isLeader(true).projectRole("백엔드").build();
+        TeamMember member = TeamMember.builder().id(2L).teamId(teamId).userId("20260002").isLeader(false).projectRole("프론트").build();
+        given(teamMemberRepository.findAllByTeamId(teamId)).willReturn(List.of(leader, member));
+
+        User user1 = User.builder().studentNumber("20260001").name("김민준").build();
+        User user2 = User.builder().studentNumber("20260002").name("이서연").build();
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("20260001", "20260002")))
+            .willReturn(List.of(user1, user2));
+
+        // DRAFT 상태의 제출물
+        PeerEvaluationSubmission draftSub = PeerEvaluationSubmission.builder()
+            .id(1001L)
+            .formId(formId)
+            .evaluatorId("20260001")
+            .status(PeerEvaluationSubmissionStatus.DRAFT)
+            .selfContribution("임시 작성한 기여 내용")
+            .projectReviewComment("임시 작성한 총평")
+            .reflectionComment("임시 작성한 회고")
+            .build();
+        given(submissionRepository.findAllByFormIdAndEvaluatorIdIn(formId, List.of("20260001", "20260002")))
+            .willReturn(List.of(draftSub));
+        given(meetingRecordQueryService.getMeetingRecords(teamId, null)).willReturn(List.of());
+
+        // when
+        PeerEvaluationAdminTeamDetailResponse detail = facade.getTeamPeerEvaluationDetail(SECTION_ID, teamId, null, PROFESSOR_ID);
+
+        // then
+        assertThat(detail.evaluations()).hasSize(2);
+        var eval1 = detail.evaluations().get(0);
+        assertThat(eval1.evaluatorId()).isEqualTo("20260001");
+        assertThat(eval1.status()).isEqualTo(PeerEvaluationSubmissionStatus.DRAFT);
+        assertThat(eval1.selfContribution()).isNull();
+        assertThat(eval1.projectReviewComment()).isNull();
+        assertThat(eval1.reflectionComment()).isNull();
+        assertThat(eval1.averageScore()).isNull();
+        assertThat(eval1.scores().get(0).contributionPercent()).isNull();
+        assertThat(eval1.teammateAssessments()).hasSize(1);
+        assertThat(eval1.teammateAssessments().get(0).contributionDetail()).isNull();
+        assertThat(eval1.teammateAssessments().get(0).teammateAssessment()).isNull();
+    }
 }
