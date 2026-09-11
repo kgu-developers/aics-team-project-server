@@ -1,6 +1,7 @@
 package kgu.developers.api.evaluation.presentation.response;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import kgu.developers.domain.evaluation.domain.TeamEvaluation;
 import kgu.developers.domain.evaluation.domain.TeamEvaluationScore;
@@ -19,7 +20,10 @@ public record TeamEvaluationResponse(
                 evaluation.getId(),
                 evaluation.getRateeTeamId(),
                 evaluation.getSubmittedAt(),
-                scores.stream().map(TeamEvaluationScoreResponse::from).toList()
+                scores.stream()
+                        .sorted(Comparator.comparing(TeamEvaluationScore::getCriterionId))
+                        .map(TeamEvaluationScoreResponse::from)
+                        .toList()
         );
     }
 }

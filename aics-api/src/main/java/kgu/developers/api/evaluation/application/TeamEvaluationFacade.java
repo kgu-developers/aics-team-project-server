@@ -112,9 +112,8 @@ public class TeamEvaluationFacade {
         TeamEvaluation evaluation = evaluationRepository
                 .findByMilestoneIdAndRaterIdAndRateeTeamId(milestoneId, userId, teamId)
                 .orElseGet(() -> TeamEvaluation.create(milestoneId, userId, teamId));
-        TeamEvaluation savedEvaluation = evaluation.getId() == null
-                ? evaluationRepository.save(evaluation)
-                : evaluation;
+        evaluation.submit(LocalDateTime.now());
+        TeamEvaluation savedEvaluation = evaluationRepository.save(evaluation);
         Long evaluationId = savedEvaluation.getId();
 
         scoreRepository.deleteAllByTeamEvaluationId(evaluationId);
@@ -126,8 +125,6 @@ public class TeamEvaluationFacade {
                         criteriaById.get(score.criterionId()).getMaxScore()
                 ))
                 .toList());
-        savedEvaluation.submit(LocalDateTime.now());
-        savedEvaluation = evaluationRepository.save(savedEvaluation);
         return TeamEvaluationResponse.of(savedEvaluation, savedScores);
     }
 

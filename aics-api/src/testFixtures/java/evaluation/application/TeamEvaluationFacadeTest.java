@@ -80,29 +80,38 @@ class TeamEvaluationFacadeTest {
                 .willReturn(Optional.of(enrollment()));
         given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, USER_ID))
                 .willReturn(Optional.of(membership()));
-        TeamEvaluationCriterion criterion = criterion(10L, "발표 완성도", 10, 1);
         TeamEvaluation evaluation = TeamEvaluation.restore(
                 20L, MILESTONE_ID, USER_ID, TARGET_TEAM_ID,
                 LocalDateTime.now(), null, null, null
         );
         given(criterionRepository.findAllBySectionIdOrderByDisplayOrder(SECTION_ID))
-                .willReturn(List.of(criterion));
+                .willReturn(List.of(
+                        criterion(10L, "발표 완성도", 10, 1),
+                        criterion(11L, "질의응답", 5, 2)
+                ));
         given(evaluationRepository.findAllByMilestoneIdAndRaterId(MILESTONE_ID, USER_ID))
                 .willReturn(List.of(evaluation));
         given(scoreRepository.findAllByTeamEvaluationIds(List.of(20L)))
-                .willReturn(List.of(TeamEvaluationScore.restore(30L, 20L, 10L, 8, null, null, null)));
+                .willReturn(List.of(
+                        TeamEvaluationScore.restore(31L, 20L, 11L, 4, null, null, null),
+                        TeamEvaluationScore.restore(30L, 20L, 10L, 8, null, null, null)
+                ));
 
         var response = facade.getMyEvaluations(MILESTONE_ID, USER_ID);
 
         assertThat(response.windowState()).isEqualTo(TeamEvaluationWindowState.OPEN);
-        assertThat(response.criteria()).singleElement().satisfies(item -> {
-            assertThat(item.id()).isEqualTo(10L);
-            assertThat(item.maxScore()).isEqualTo(10);
-        });
+        assertThat(response.criteria()).extracting("id", "maxScore")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(10L, 10),
+                        org.assertj.core.groups.Tuple.tuple(11L, 5)
+                );
         assertThat(response.evaluations()).singleElement().satisfies(item -> {
             assertThat(item.teamId()).isEqualTo(TARGET_TEAM_ID);
-            assertThat(item.scores()).singleElement().satisfies(score ->
-                    assertThat(score.score()).isEqualTo(8));
+            assertThat(item.scores()).extracting("criterionId", "score")
+                    .containsExactly(
+                            org.assertj.core.groups.Tuple.tuple(10L, 8),
+                            org.assertj.core.groups.Tuple.tuple(11L, 4)
+                    );
         });
         then(scoreRepository).should().findAllByTeamEvaluationIds(List.of(20L));
         then(scoreRepository).shouldHaveNoMoreInteractions();
