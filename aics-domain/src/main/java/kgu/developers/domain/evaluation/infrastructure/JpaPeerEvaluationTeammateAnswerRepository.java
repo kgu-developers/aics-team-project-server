@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 public interface JpaPeerEvaluationTeammateAnswerRepository extends JpaRepository<PeerEvaluationTeammateAnswerJpaEntity, Long> {
     List<PeerEvaluationTeammateAnswerJpaEntity> findAllBySubmissionIdOrderById(Long submissionId);
 
+    List<PeerEvaluationTeammateAnswerJpaEntity> findAllBySubmissionIdInOrderById(List<Long> submissionIds);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM PeerEvaluationTeammateAnswerJpaEntity e WHERE e.submissionId = :submissionId")
     void deleteAllBySubmissionId(@Param("submissionId") Long submissionId);

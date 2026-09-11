@@ -121,6 +121,13 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
             .collect(Collectors.groupingBy(MeetingRecord::getTeamId, Collectors.counting()));
     }
 
+    @Override
+    public Map<Long, Long> countByTeamIdIn(List<Long> teamIds) {
+        return store.values().stream()
+            .filter(meetingRecord -> teamIds.contains(meetingRecord.getTeamId()))
+            .collect(Collectors.groupingBy(MeetingRecord::getTeamId, Collectors.counting()));
+    }
+
     private List<MeetingRecord> applySort(List<MeetingRecord> records, Sort sort) {
         if (sort.isUnsorted()) {
             return records;
