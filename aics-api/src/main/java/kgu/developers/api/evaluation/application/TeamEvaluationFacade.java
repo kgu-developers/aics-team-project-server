@@ -27,6 +27,7 @@ import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
+import kgu.developers.domain.submission.domain.SubmissionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
@@ -52,16 +53,24 @@ public class TeamEvaluationFacade {
     private final TeamEvaluationCriterionRepository criterionRepository;
     private final TeamEvaluationRepository evaluationRepository;
     private final TeamEvaluationScoreRepository scoreRepository;
+    private final SubmissionRepository submissionRepository;
 
     public MyTeamEvaluationsResponse getMyEvaluations(Long milestoneId, String userId) {
         AccessContext context = accessContext(milestoneId, userId, false);
         List<TeamEvaluationCriterion> criteria = criterionRepository
                 .findAllBySectionIdOrderByDisplayOrder(context.milestone().getSectionId());
-        List<TeamEvaluationResponse> evaluations = evaluationRepository
-                .findAllByMilestoneIdAndRaterId(milestoneId, userId).stream()
+        List<TeamEvaluation> evaluations = evaluationRepository
+                .findAllByMilestoneIdAndRaterId(milestoneId, userId);
+        Map<Long, List<TeamEvaluationScore>> scoresByEvaluationId = evaluations.isEmpty()
+                ? Map.of()
+                : scoreRepository.findAllByTeamEvaluationIds(evaluations.stream()
+                                .map(TeamEvaluation::getId)
+                                .toList()).stream()
+                        .collect(Collectors.groupingBy(TeamEvaluationScore::getTeamEvaluationId));
+        List<TeamEvaluationResponse> evaluationResponses = evaluations.stream()
                 .map(evaluation -> TeamEvaluationResponse.of(
                         evaluation,
-                        scoreRepository.findAllByTeamEvaluationId(evaluation.getId())
+                        scoresByEvaluationId.getOrDefault(evaluation.getId(), List.of())
                 ))
                 .toList();
 
@@ -71,7 +80,7 @@ public class TeamEvaluationFacade {
                 context.milestone().getSchedule().evaluationOpensAt(),
                 context.milestone().getSchedule().evaluationClosesAt(),
                 criteria.stream().map(TeamEvaluationCriterionResponse::from).toList(),
-                evaluations
+                evaluationResponses
         );
     }
 
@@ -89,6 +98,9 @@ public class TeamEvaluationFacade {
         }
         if (targetTeam.getId().equals(context.membership().getTeamId())) {
             throw new AccessDeniedException("본인 팀은 발표 평가 대상이 아닙니다.");
+        }
+        if (submissionRepository.findByTeamIdAndMilestoneId(teamId, milestoneId).isEmpty()) {
+            throw new AccessDeniedException("해당 발표 마일스톤의 제출 대상 팀만 평가할 수 있습니다.");
         }
 
         List<TeamEvaluationCriterion> criteria = criterionRepository

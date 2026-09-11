@@ -41,6 +41,13 @@ public class TeamEvaluationScoreRepositoryImpl implements TeamEvaluationScoreRep
     }
 
     @Override
+    public List<TeamEvaluationScore> findAllByTeamEvaluationIds(List<Long> teamEvaluationIds) {
+        return jpaRepository.findAllByTeamEvaluationIdInAndDeletedAtIsNull(teamEvaluationIds).stream()
+                .map(TeamEvaluationScoreJpaEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public void deleteAllByTeamEvaluationId(Long teamEvaluationId) {
         jpaRepository.deleteAllByTeamEvaluationId(teamEvaluationId);
         jpaRepository.flush();

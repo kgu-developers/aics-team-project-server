@@ -115,6 +115,23 @@ class TeamEvaluationRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("평가 점수 저장소 어댑터는 여러 평가의 점수를 한 번에 조회한다")
+    void findScoresByEvaluations() {
+        TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
+        given(jpaScoreRepository.findAllByTeamEvaluationIdInAndDeletedAtIsNull(List.of(1L, 2L)))
+                .willReturn(List.of(
+                        TeamEvaluationScoreJpaEntity.toEntity(
+                                TeamEvaluationScore.restore(1L, 1L, 10L, 7, null, null, null)),
+                        TeamEvaluationScoreJpaEntity.toEntity(
+                                TeamEvaluationScore.restore(2L, 2L, 10L, 8, null, null, null))
+                ));
+
+        List<TeamEvaluationScore> scores = repository.findAllByTeamEvaluationIds(List.of(1L, 2L));
+
+        assertThat(scores).extracting(TeamEvaluationScore::getTeamEvaluationId).containsExactly(1L, 2L);
+    }
+
+    @Test
     @DisplayName("평가 점수 저장소 어댑터는 저장할 때 스칼라 식별자를 JPA entity로 전달한다")
     void saveScore() {
         TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);

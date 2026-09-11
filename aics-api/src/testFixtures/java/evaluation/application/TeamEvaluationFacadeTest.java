@@ -30,6 +30,8 @@ import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.submission.domain.Submission;
+import kgu.developers.domain.submission.domain.SubmissionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -62,6 +64,7 @@ class TeamEvaluationFacadeTest {
     @Mock private TeamEvaluationCriterionRepository criterionRepository;
     @Mock private TeamEvaluationRepository evaluationRepository;
     @Mock private TeamEvaluationScoreRepository scoreRepository;
+    @Mock private SubmissionRepository submissionRepository;
     @InjectMocks private TeamEvaluationFacade facade;
 
     @BeforeEach
@@ -86,7 +89,7 @@ class TeamEvaluationFacadeTest {
                 .willReturn(List.of(criterion));
         given(evaluationRepository.findAllByMilestoneIdAndRaterId(MILESTONE_ID, USER_ID))
                 .willReturn(List.of(evaluation));
-        given(scoreRepository.findAllByTeamEvaluationId(20L))
+        given(scoreRepository.findAllByTeamEvaluationIds(List.of(20L)))
                 .willReturn(List.of(TeamEvaluationScore.restore(30L, 20L, 10L, 8, null, null, null)));
 
         var response = facade.getMyEvaluations(MILESTONE_ID, USER_ID);
@@ -101,6 +104,8 @@ class TeamEvaluationFacadeTest {
             assertThat(item.scores()).singleElement().satisfies(score ->
                     assertThat(score.score()).isEqualTo(8));
         });
+        then(scoreRepository).should().findAllByTeamEvaluationIds(List.of(20L));
+        then(scoreRepository).shouldHaveNoMoreInteractions();
     }
 
     @Test
@@ -111,6 +116,8 @@ class TeamEvaluationFacadeTest {
         given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, USER_ID))
                 .willReturn(Optional.of(membership()));
         given(teamRepository.findById(TARGET_TEAM_ID)).willReturn(Optional.of(targetTeam()));
+        given(submissionRepository.findByTeamIdAndMilestoneId(TARGET_TEAM_ID, MILESTONE_ID))
+                .willReturn(Optional.of(Submission.create(TARGET_TEAM_ID, MILESTONE_ID)));
         given(criterionRepository.findAllBySectionIdOrderByDisplayOrder(SECTION_ID)).willReturn(List.of(
                 criterion(10L, "발표 완성도", 10, 1),
                 criterion(11L, "질의응답", 5, 2)
@@ -148,6 +155,23 @@ class TeamEvaluationFacadeTest {
     }
 
     @Test
+    @DisplayName("발표 마일스톤의 제출 대상이 아닌 팀은 평가할 수 없다")
+    void rejectsTeamWithoutPresentationSubmission() {
+        given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(enrollment()));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(membership()));
+        given(teamRepository.findById(TARGET_TEAM_ID)).willReturn(Optional.of(targetTeam()));
+        given(submissionRepository.findByTeamIdAndMilestoneId(TARGET_TEAM_ID, MILESTONE_ID))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> facade.submit(MILESTONE_ID, TARGET_TEAM_ID, USER_ID,
+                new TeamEvaluationSubmitRequest(List.of(new TeamEvaluationScoreRequest(10L, 5)))))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("해당 발표 마일스톤의 제출 대상 팀만 평가할 수 있습니다.");
+    }
+
+    @Test
     @DisplayName("본인 팀은 발표 평가할 수 없다")
     void rejectsOwnTeam() {
         given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, USER_ID))
@@ -170,6 +194,8 @@ class TeamEvaluationFacadeTest {
         given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, USER_ID))
                 .willReturn(Optional.of(membership()));
         given(teamRepository.findById(TARGET_TEAM_ID)).willReturn(Optional.of(targetTeam()));
+        given(submissionRepository.findByTeamIdAndMilestoneId(TARGET_TEAM_ID, MILESTONE_ID))
+                .willReturn(Optional.of(Submission.create(TARGET_TEAM_ID, MILESTONE_ID)));
         given(criterionRepository.findAllBySectionIdOrderByDisplayOrder(SECTION_ID)).willReturn(List.of(
                 criterion(10L, "발표 완성도", 10, 1),
                 criterion(11L, "질의응답", 5, 2)

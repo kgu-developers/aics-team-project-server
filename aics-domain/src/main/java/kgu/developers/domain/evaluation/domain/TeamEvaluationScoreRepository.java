@@ -12,5 +12,7 @@ public interface TeamEvaluationScoreRepository {
 
     List<TeamEvaluationScore> findAllByTeamEvaluationId(Long teamEvaluationId);
 
+    List<TeamEvaluationScore> findAllByTeamEvaluationIds(List<Long> teamEvaluationIds);
+
     void deleteAllByTeamEvaluationId(Long teamEvaluationId);
 }
