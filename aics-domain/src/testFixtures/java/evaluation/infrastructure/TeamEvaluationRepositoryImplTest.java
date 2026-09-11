@@ -115,6 +115,23 @@ class TeamEvaluationRepositoryImplTest {
     }
 
     @Test
+    @DisplayName("평가 점수 저장소 어댑터는 여러 평가의 점수를 한 번에 조회한다")
+    void findScoresByEvaluations() {
+        TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
+        given(jpaScoreRepository.findAllByTeamEvaluationIdInAndDeletedAtIsNull(List.of(1L, 2L)))
+                .willReturn(List.of(
+                        TeamEvaluationScoreJpaEntity.toEntity(
+                                TeamEvaluationScore.restore(1L, 1L, 10L, 7, null, null, null)),
+                        TeamEvaluationScoreJpaEntity.toEntity(
+                                TeamEvaluationScore.restore(2L, 2L, 10L, 8, null, null, null))
+                ));
+
+        List<TeamEvaluationScore> scores = repository.findAllByTeamEvaluationIds(List.of(1L, 2L));
+
+        assertThat(scores).extracting(TeamEvaluationScore::getTeamEvaluationId).containsExactly(1L, 2L);
+    }
+
+    @Test
     @DisplayName("평가 점수 저장소 어댑터는 저장할 때 스칼라 식별자를 JPA entity로 전달한다")
     void saveScore() {
         TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
@@ -131,5 +148,31 @@ class TeamEvaluationRepositoryImplTest {
         verify(jpaScoreRepository).save(captor.capture());
         assertThat(captor.getValue().getTeamEvaluationId()).isEqualTo(1L);
         assertThat(captor.getValue().getCriterionId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("평가 점수 저장소 어댑터는 점수 목록을 한 번에 저장한다")
+    void saveAllScores() {
+        TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
+        List<TeamEvaluationScore> scores = List.of(TeamEvaluationScore.create(1L, 2L, 7, 10));
+        given(jpaScoreRepository.saveAll(org.mockito.ArgumentMatchers.anyList()))
+                .willReturn(List.of(TeamEvaluationScoreJpaEntity.toEntity(
+                        TeamEvaluationScore.restore(3L, 1L, 2L, 7, null, null, null)
+                )));
+
+        List<TeamEvaluationScore> saved = repository.saveAll(scores);
+
+        assertThat(saved).singleElement().satisfies(score -> assertThat(score.getId()).isEqualTo(3L));
+    }
+
+    @Test
+    @DisplayName("평가 점수 저장소 어댑터는 재제출 전에 기존 점수를 삭제하고 반영한다")
+    void deleteAllScoresByEvaluationId() {
+        TeamEvaluationScoreRepositoryImpl repository = new TeamEvaluationScoreRepositoryImpl(jpaScoreRepository);
+
+        repository.deleteAllByTeamEvaluationId(1L);
+
+        verify(jpaScoreRepository).deleteAllByTeamEvaluationId(1L);
+        verify(jpaScoreRepository).flush();
     }
 }

@@ -1,6 +1,9 @@
 package kgu.developers.domain.evaluation.infrastructure;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,4 +12,10 @@ public interface JpaTeamEvaluationScoreRepository extends JpaRepository<TeamEval
     Optional<TeamEvaluationScoreJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
     List<TeamEvaluationScoreJpaEntity> findAllByTeamEvaluationIdAndDeletedAtIsNull(Long teamEvaluationId);
+
+    List<TeamEvaluationScoreJpaEntity> findAllByTeamEvaluationIdInAndDeletedAtIsNull(List<Long> teamEvaluationIds);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM TeamEvaluationScoreJpaEntity e WHERE e.teamEvaluationId = :teamEvaluationId")
+    void deleteAllByTeamEvaluationId(@Param("teamEvaluationId") Long teamEvaluationId);
 }
