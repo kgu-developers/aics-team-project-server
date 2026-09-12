@@ -14,6 +14,7 @@ import kgu.developers.domain.project.domain.ProjectRepository;
 import kgu.developers.domain.project.domain.ProposalSection;
 import kgu.developers.domain.project.domain.ProposalSectionRepository;
 import kgu.developers.domain.project.domain.ProposalSectionType;
+import kgu.developers.domain.project.exception.ProjectNotFoundException;
 import kgu.developers.domain.project.exception.ProjectProposalCompletedException;
 import kgu.developers.domain.project.exception.ProposalSectionAssigneeNotMemberException;
 import kgu.developers.domain.project.exception.ProposalSectionIncompleteException;
@@ -280,6 +281,23 @@ class ProjectCommandServiceTest {
         inOrder.verify(projectRepository).findById(10L);
         inOrder.verify(projectRepository).lockTeam(1L);
         inOrder.verify(projectRepository).findByIdForUpdate(10L);
+    }
+
+    @Test
+    @DisplayName("reopenProposal은 팀 잠금 뒤 다른 팀의 프로젝트로 바뀌었으면 중단한다")
+    void reopenProposal_rejectsProjectFromDifferentTeamAfterLock() {
+        Project beforeLock = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        Project afterLock = Project.builder().id(10L).teamId(2L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(beforeLock));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(afterLock));
+
+        assertThatThrownBy(() -> projectCommandService.reopenProposal(10L))
+            .isInstanceOf(ProjectNotFoundException.class);
+
+        then(projectApprovalRepository).shouldHaveNoInteractions();
+        then(projectRepository).should(org.mockito.Mockito.never()).save(afterLock);
     }
 
     @Test

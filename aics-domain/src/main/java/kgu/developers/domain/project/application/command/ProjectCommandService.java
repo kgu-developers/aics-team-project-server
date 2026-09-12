@@ -315,7 +315,11 @@ public class ProjectCommandService {
             .orElseThrow(ProjectNotFoundException::new)
             .getTeamId();
         projectRepository.lockTeam(teamId);
-        return projectRepository.findByIdForUpdate(projectId)
+        Project project = projectRepository.findByIdForUpdate(projectId)
             .orElseThrow(ProjectNotFoundException::new);
+        if (!teamId.equals(project.getTeamId())) {
+            throw new ProjectNotFoundException();
+        }
+        return project;
     }
 }
