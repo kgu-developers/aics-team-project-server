@@ -285,8 +285,7 @@ public class ProjectCommandService {
      * 고정 섹션이 모두 작성 완료된 것만 확인한다.
      */
     public void completeProposal(Long projectId) {
-        Project project = projectRepository.findByIdForUpdate(projectId)
-            .orElseThrow(ProjectNotFoundException::new);
+        Project project = findProjectAfterLockingTeam(projectId);
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
@@ -302,13 +301,21 @@ public class ProjectCommandService {
     }
 
     public void reopenProposal(Long projectId) {
-        Project project = projectRepository.findByIdForUpdate(projectId)
-            .orElseThrow(ProjectNotFoundException::new);
+        Project project = findProjectAfterLockingTeam(projectId);
         if (project.getProposalCompletedAt() == null) {
             return;
         }
         project.reopenProposalForRevision();
         projectApprovalRepository.deleteAllByProjectId(projectId);
         projectRepository.save(project);
+    }
+
+    private Project findProjectAfterLockingTeam(Long projectId) {
+        Long teamId = projectRepository.findById(projectId)
+            .orElseThrow(ProjectNotFoundException::new)
+            .getTeamId();
+        projectRepository.lockTeam(teamId);
+        return projectRepository.findByIdForUpdate(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
     }
 }

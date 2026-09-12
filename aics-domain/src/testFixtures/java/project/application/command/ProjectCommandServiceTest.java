@@ -137,6 +137,7 @@ class ProjectCommandServiceTest {
     void completeProposal() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(completedSections(ProposalSectionType.values()));
 
@@ -153,6 +154,7 @@ class ProjectCommandServiceTest {
     void completeProposal_rejectsIncompleteSections() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(proposalSectionRepository.findAllByProjectId(10L))
             .willReturn(completedSections(ProposalSectionType.TOPIC, ProposalSectionType.SCREEN, ProposalSectionType.DATA));
@@ -242,6 +244,7 @@ class ProjectCommandServiceTest {
     void completeProposal_rejectsCompletedProject() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
@@ -252,6 +255,7 @@ class ProjectCommandServiceTest {
     void reopenProposal_reopensAndClearsApprovals() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         projectCommandService.reopenProposal(10L);
@@ -263,10 +267,27 @@ class ProjectCommandServiceTest {
     }
 
     @Test
+    @DisplayName("reopenProposal은 팀 잠금 뒤 프로젝트 잠금을 획득한다")
+    void reopenProposal_locksTeamBeforeProject() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
+
+        projectCommandService.reopenProposal(10L);
+
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(projectRepository);
+        inOrder.verify(projectRepository).findById(10L);
+        inOrder.verify(projectRepository).lockTeam(1L);
+        inOrder.verify(projectRepository).findByIdForUpdate(10L);
+    }
+
+    @Test
     @DisplayName("reopenProposal은 이미 열린 제안서의 리비전과 동의를 다시 무효화하지 않는다")
     void reopenProposal_doesNothingWhenProposalIsAlreadyOpen() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.REVISION_REQUESTED).proposalRevision(3L).build();
+        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         projectCommandService.reopenProposal(10L);
