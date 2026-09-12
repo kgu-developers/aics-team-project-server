@@ -152,7 +152,9 @@ public class ProjectCommandService {
         if (topicCandidateId != null) {
             project.updateTopicCandidateId(topicCandidateId);
         }
-        project.updateApprovalStatus(ApprovalStatus.DRAFT);
+        if (project.getApprovalStatus() != ApprovalStatus.REVISION_REQUESTED) {
+            project.updateApprovalStatus(ApprovalStatus.DRAFT);
+        }
         project.increaseProposalRevision();
         projectApprovalRepository.deleteAllByProjectId(project.getId());
 
@@ -283,8 +285,7 @@ public class ProjectCommandService {
      * 고정 섹션이 모두 작성 완료된 것만 확인한다.
      */
     public void completeProposal(Long projectId) {
-        Project project = projectRepository.findByIdForUpdate(projectId)
-            .orElseThrow(ProjectNotFoundException::new);
+        Project project = findProjectAfterLockingTeam(projectId);
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
@@ -297,5 +298,27 @@ public class ProjectCommandService {
         }
         project.completeProposal();
         projectRepository.save(project);
+    }
+
+    public void reopenProposal(Long projectId) {
+        Project project = findProjectAfterLockingTeam(projectId);
+        if (project.getProposalCompletedAt() == null) {
+            return;
+        }
+        project.reopenProposalForRevision();
+        projectApprovalRepository.deleteAllByProjectId(projectId);
+        projectRepository.save(project);
+    }
+
+    private Project findProjectAfterLockingTeam(Long projectId) {
+        Long teamId = projectRepository.findTeamIdByProjectId(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
+        projectRepository.lockTeam(teamId);
+        Project project = projectRepository.findByIdForUpdate(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
+        if (!teamId.equals(project.getTeamId())) {
+            throw new ProjectNotFoundException();
+        }
+        return project;
     }
 }

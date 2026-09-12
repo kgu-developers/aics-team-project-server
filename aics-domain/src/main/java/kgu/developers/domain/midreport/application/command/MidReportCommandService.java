@@ -69,6 +69,14 @@ public class MidReportCommandService {
         return midReportRepository.save(report);
     }
 
+    public MidReport requestRevision(Long reportId, java.util.List<String> affectedBlockKeys, LocalDateTime requestedAt) {
+        MidReport report = get(reportId);
+        if (!report.requestRevision(affectedBlockKeys, requestedAt)) {
+            return report;
+        }
+        return midReportRepository.save(report);
+    }
+
     private MidReport get(Long reportId) {
         return midReportRepository.findById(reportId).orElseThrow(MidReportNotFoundException::new);
     }

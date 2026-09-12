@@ -24,4 +24,9 @@ public class ProjectQueryService {
         return projectRepository.findById(projectId)
             .orElseThrow(ProjectNotFoundException::new);
     }
+
+    public Long getTeamId(Long projectId) {
+        return projectRepository.findTeamIdByProjectId(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
+    }
 }

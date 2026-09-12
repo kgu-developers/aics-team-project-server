@@ -19,11 +19,16 @@ import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.exception.UserNotFoundException;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
+import kgu.developers.domain.project.application.query.ProjectQueryService;
+import kgu.developers.domain.midreport.application.command.MidReportCommandService;
+import kgu.developers.domain.midreport.application.query.MidReportQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
 
 @Component
 @Transactional
@@ -36,14 +41,35 @@ public class TeamMessageFacade {
     private final TeamMessageQueryService teamMessageQueryService;
     private final TeamAccessValidator teamAccessValidator;
     private final UserQueryService userQueryService;
+    private final ProjectQueryService projectQueryService;
+    private final ProjectCommandService projectCommandService;
+    private final MidReportQueryService midReportQueryService;
+    private final MidReportCommandService midReportCommandService;
 
     public TeamMessagePersistResponse postMessage(Long teamId, String senderId, TeamMessageCreateRequest request) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, senderId);
+        reopenRelatedDocument(teamId, request);
         TeamThread teamThread = teamThreadCommandService.getOrCreateThread(teamId);
         TeamMessage teamMessage = teamMessageCommandService.postMessage(
             teamThread.getId(), senderId, request.relatedType(), request.relatedId(), request.message());
         String senderName = resolveSenderName(senderId);
         return TeamMessagePersistResponse.of(teamMessage, senderName);
+    }
+
+    private void reopenRelatedDocument(Long teamId, TeamMessageCreateRequest request) {
+        if (request.relatedType() == TeamMessageRelatedType.PROPOSAL && request.relatedId() != null) {
+            if (!projectQueryService.getTeamId(request.relatedId()).equals(teamId)) {
+                throw new AccessDeniedException("해당 팀의 제안서에만 피드백을 남길 수 있습니다.");
+            }
+            projectCommandService.reopenProposal(request.relatedId());
+        }
+        if (request.relatedType() == TeamMessageRelatedType.MID_REPORT && request.relatedId() != null) {
+            var report = midReportQueryService.getById(request.relatedId());
+            if (!report.getTeamId().equals(teamId)) {
+                throw new AccessDeniedException("해당 팀의 중간보고서에만 피드백을 남길 수 있습니다.");
+            }
+            midReportCommandService.requestRevision(report.getId(), java.util.List.of(), java.time.LocalDateTime.now());
+        }
     }
 
     public TeamMessagePageResponse getMessages(Long teamId, TeamMessageRelatedType relatedType, Pageable pageable, String userId) {

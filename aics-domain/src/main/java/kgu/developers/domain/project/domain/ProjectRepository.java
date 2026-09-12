@@ -15,6 +15,8 @@ public interface ProjectRepository {
 
     Optional<Project> findById(Long id);
 
+    Optional<Long> findTeamIdByProjectId(Long projectId);
+
     Optional<Project> findByIdForUpdate(Long id);
 
     List<Project> findAllByTeamId(Long teamId);

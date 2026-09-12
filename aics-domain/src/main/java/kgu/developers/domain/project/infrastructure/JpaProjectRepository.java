@@ -13,6 +13,9 @@ import jakarta.persistence.LockModeType;
 public interface JpaProjectRepository extends JpaRepository<ProjectJpaEntity, Long> {
     Optional<ProjectJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
+    @Query("select p.team.id from ProjectJpaEntity p where p.id = :id and p.deletedAt is null")
+    Optional<Long> findTeamIdByProjectId(@Param("id") Long id);
+
     // 제안 완료·동의 경로의 read-modify-write 경쟁 방지: 조회 시점에 행을 잠근다 (호출자 트랜잭션 필수)
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from ProjectJpaEntity p where p.id = :id and p.deletedAt is null")

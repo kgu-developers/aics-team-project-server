@@ -78,9 +78,27 @@ public class MidReport {
         if (!allBlocksCompleted) {
             throw new MidReportBlockIncompleteException();
         }
+        if (status == MidReportStatus.REVISION_REQUESTED && revision != null) {
+            List<String> changedBlockKeys = revision.requestedAt() == null ? List.of() : blocks.stream()
+                .filter(block -> block.getLastSavedAt() != null && block.getLastSavedAt().isAfter(revision.requestedAt()))
+                .map(MidReportBlock::getKey)
+                .toList();
+            this.revision = new MidReportRevision(
+                revision.affectedBlockKeys(), changedBlockKeys, revision.requestedAt(), submittedAt
+            );
+        }
         this.status = MidReportStatus.SUBMITTED;
         this.submittedBy = submitterId;
         this.submittedAt = submittedAt;
+    }
+
+    public boolean requestRevision(List<String> affectedBlockKeys, LocalDateTime requestedAt) {
+        if (status != MidReportStatus.SUBMITTED) {
+            return false;
+        }
+        this.status = MidReportStatus.REVISION_REQUESTED;
+        this.revision = new MidReportRevision(List.copyOf(affectedBlockKeys), List.of(), requestedAt, null);
+        return true;
     }
 
     private void validateMutable(long expectedVersion) {

@@ -18,6 +18,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -81,11 +82,14 @@ class ProjectRepositoryJpaIntegrationTest {
   private EntityManager entityManager;
 
   private TransactionTemplate tx;
+  private TransactionTemplate requiresNewTx;
   private Long projectId;
 
   @Autowired
   void setTransactionTemplate(PlatformTransactionManager transactionManager) {
     this.tx = new TransactionTemplate(transactionManager);
+    this.requiresNewTx = new TransactionTemplate(transactionManager);
+    this.requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
   }
 
   @BeforeEach
@@ -214,6 +218,24 @@ class ProjectRepositoryJpaIntegrationTest {
         entityManager.find(ProjectJpaEntity.class, projectId));
     assertThat(current.getTitle()).isEqualTo("먼저 수정");
     assertThat(current.getVersion()).isEqualTo(1L);
+  }
+
+  @Test
+  @DisplayName("스칼라 팀 조회 뒤 완료가 커밋되면 잠금 프로젝트 조회는 최신 완료 상태를 본다")
+  void lockedReadAfterScalarLookupSeesCommittedCompletion() {
+    tx.executeWithoutResult(status -> {
+      Long teamId = repository.findTeamIdByProjectId(projectId).orElseThrow();
+
+      requiresNewTx.executeWithoutResult(innerStatus -> {
+        Project project = repository.findById(projectId).orElseThrow();
+        project.completeProposal();
+        repository.save(project);
+      });
+
+      repository.lockTeam(teamId);
+      Project lockedProject = repository.findByIdForUpdate(projectId).orElseThrow();
+      assertThat(lockedProject.getProposalCompletedAt()).isNotNull();
+    });
   }
 
   private Project withTitle(Project source, String title) {
