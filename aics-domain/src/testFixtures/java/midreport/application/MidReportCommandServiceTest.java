@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
 import kgu.developers.domain.midreport.domain.MidReport;
@@ -72,5 +73,33 @@ class MidReportCommandServiceTest {
 
         then(report).should().submit(3L, "202600001", submittedAt);
         then(midReportRepository).should().save(report);
+    }
+
+    @Test
+    @DisplayName("수정 요청은 보고서를 다시 열고 수정 대상 영역을 기록한다")
+    void requestsRevision() {
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+        MidReport report = org.mockito.Mockito.mock(MidReport.class);
+        given(midReportRepository.findById(10L)).willReturn(Optional.of(report));
+        given(midReportRepository.save(report)).willReturn(report);
+        given(report.requestRevision(java.util.List.of("topic"), requestedAt)).willReturn(true);
+
+        assertThat(midReportCommandService.requestRevision(10L, java.util.List.of("topic"), requestedAt)).isSameAs(report);
+
+        then(report).should().requestRevision(java.util.List.of("topic"), requestedAt);
+        then(midReportRepository).should().save(report);
+    }
+
+    @Test
+    @DisplayName("이미 열린 중간보고서의 피드백은 버전을 바꾸지 않는다")
+    void doesNotSaveWhenRevisionIsAlreadyOpen() {
+        MidReport report = MidReport.builder().id(10L).status(kgu.developers.domain.midreport.domain.MidReportStatus.DRAFT)
+            .blocks(List.of()).build();
+        given(midReportRepository.findById(10L)).willReturn(Optional.of(report));
+
+        assertThat(midReportCommandService.requestRevision(10L, List.of(), LocalDateTime.of(2026, 9, 9, 10, 0)))
+            .isSameAs(report);
+
+        then(midReportRepository).should(org.mockito.Mockito.never()).save(report);
     }
 }

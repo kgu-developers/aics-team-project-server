@@ -207,13 +207,27 @@ class ProjectTest {
   @Test
   @DisplayName("completeProposal은 제안 완료 시각을 기록한다")
   void completeProposal() {
-    Project project = createDefaultProject();
+        Project project = createDefaultProject();
 
     assertThat(project.getProposalCompletedAt()).isNull();
 
     project.completeProposal();
 
     assertThat(project.getProposalCompletedAt()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("완료된 제안서를 수정 요청으로 다시 열면 기존 동의 리비전이 무효화된다")
+  void reopenProposalForRevision() {
+    Project project = createDefaultProject();
+    project.completeProposal();
+    long completedRevision = project.getProposalRevision();
+
+    project.reopenProposalForRevision();
+
+    assertThat(project.getProposalCompletedAt()).isNull();
+    assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.REVISION_REQUESTED);
+    assertThat(project.getProposalRevision()).isEqualTo(completedRevision + 1);
   }
 
   @Test

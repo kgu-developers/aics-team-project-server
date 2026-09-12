@@ -130,6 +130,47 @@ class MidReportTest {
             .isInstanceOf(MidReportBlockIncompleteException.class);
     }
 
+    @Test
+    @DisplayName("제출된 중간보고서를 수정 요청으로 다시 열면 팀원이 다시 편집할 수 있다")
+    void reopensSubmittedReportForRevision() {
+        MidReport report = completedReport();
+        report.submit(0L, "202600001", LocalDateTime.of(2026, 9, 8, 14, 0));
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+
+        report.requestRevision(List.of("topic"), requestedAt);
+        report.updateBlock("topic", 0L, topicFields(), "202600002", requestedAt.plusMinutes(1));
+
+        assertThat(report.getStatus()).isEqualTo(MidReportStatus.REVISION_REQUESTED);
+        assertThat(report.getRevision().affectedBlockKeys()).containsExactly("topic");
+        assertThat(report.getRevision().requestedAt()).isEqualTo(requestedAt);
+    }
+
+    @Test
+    @DisplayName("초안 중간보고서의 피드백은 재제출 상태를 만들지 않는다")
+    void doesNotRequestRevisionForDraftReport() {
+        MidReport report = report(0L, MidReportStatus.DRAFT);
+
+        report.requestRevision(List.of("topic"), LocalDateTime.of(2026, 9, 9, 10, 0));
+
+        assertThat(report.getStatus()).isEqualTo(MidReportStatus.DRAFT);
+        assertThat(report.getRevision()).isNull();
+    }
+
+    @Test
+    @DisplayName("이미 재제출이 열린 중간보고서의 후속 피드백은 최초 리비전을 보존한다")
+    void keepsExistingRevisionWhenAlreadyRequested() {
+        MidReport report = completedReport();
+        report.submit(0L, "202600001", LocalDateTime.of(2026, 9, 8, 14, 0));
+        LocalDateTime firstRequestedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+        report.requestRevision(List.of("topic"), firstRequestedAt);
+
+        report.requestRevision(List.of("gui-design"), firstRequestedAt.plusHours(1));
+
+        assertThat(report.getStatus()).isEqualTo(MidReportStatus.REVISION_REQUESTED);
+        assertThat(report.getRevision().affectedBlockKeys()).containsExactly("topic");
+        assertThat(report.getRevision().requestedAt()).isEqualTo(firstRequestedAt);
+    }
+
     private MidReport report(Long version, MidReportStatus status) {
         MidReport created = MidReport.create(
             1L, 2L, "CineFlow 중간보고서", LocalDateTime.of(2026, 10, 26, 23, 59), "CineFlow", "영화관 관리"

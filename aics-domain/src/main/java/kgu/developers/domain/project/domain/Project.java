@@ -114,6 +114,12 @@ public class Project {
         this.approvalStatus = ApprovalStatus.APPROVED;
     }
 
+    public void reopenProposalForRevision() {
+        this.proposalCompletedAt = null;
+        this.approvalStatus = ApprovalStatus.REVISION_REQUESTED;
+        this.proposalRevision++;
+    }
+
     /**
      * 제안서 내용이 바뀌면 리비전을 올려 이전 리비전의 동의를 무효화한다.
      */

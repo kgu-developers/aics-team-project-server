@@ -152,7 +152,9 @@ public class ProjectCommandService {
         if (topicCandidateId != null) {
             project.updateTopicCandidateId(topicCandidateId);
         }
-        project.updateApprovalStatus(ApprovalStatus.DRAFT);
+        if (project.getApprovalStatus() != ApprovalStatus.REVISION_REQUESTED) {
+            project.updateApprovalStatus(ApprovalStatus.DRAFT);
+        }
         project.increaseProposalRevision();
         projectApprovalRepository.deleteAllByProjectId(project.getId());
 
@@ -296,6 +298,17 @@ public class ProjectCommandService {
             throw new ProposalSectionIncompleteException();
         }
         project.completeProposal();
+        projectRepository.save(project);
+    }
+
+    public void reopenProposal(Long projectId) {
+        Project project = projectRepository.findByIdForUpdate(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
+        if (project.getProposalCompletedAt() == null) {
+            return;
+        }
+        project.reopenProposalForRevision();
+        projectApprovalRepository.deleteAllByProjectId(projectId);
         projectRepository.save(project);
     }
 }

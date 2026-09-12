@@ -83,6 +83,15 @@ public class MidReport {
         this.submittedAt = submittedAt;
     }
 
+    public boolean requestRevision(List<String> affectedBlockKeys, LocalDateTime requestedAt) {
+        if (status != MidReportStatus.SUBMITTED) {
+            return false;
+        }
+        this.status = MidReportStatus.REVISION_REQUESTED;
+        this.revision = new MidReportRevision(List.copyOf(affectedBlockKeys), List.of(), requestedAt, null);
+        return true;
+    }
+
     private void validateMutable(long expectedVersion) {
         long currentVersion = version == null ? 0L : version;
         if (currentVersion != expectedVersion) {

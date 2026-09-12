@@ -72,6 +72,19 @@ class ProjectCommandServiceTest {
     }
 
     @Test
+    @DisplayName("수정 요청된 제안서는 팀원이 내용을 수정해도 수정 요청 상태를 유지한다")
+    void saveProject_keepsRevisionRequestedStatus() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).title("기존 제목").description("기존 설명")
+            .goal("기존 목표").approvalStatus(ApprovalStatus.REVISION_REQUESTED).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+
+        Project result = saveProject();
+
+        assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.REVISION_REQUESTED);
+    }
+
+    @Test
     @DisplayName("saveProject는 내용이 같으면 승인 이력을 초기화하지 않는다")
     void saveProject_keepsApprovalsWhenContentIsUnchanged() throws Exception {
         Project existing = Project.builder().id(10L).teamId(1L).title("새 제목").description("새 설명")
@@ -232,6 +245,36 @@ class ProjectCommandServiceTest {
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("reopenProposal은 완료된 제안서를 다시 열고 기존 동의를 무효화한다")
+    void reopenProposal_reopensAndClearsApprovals() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
+
+        projectCommandService.reopenProposal(10L);
+
+        assertThat(project.getProposalCompletedAt()).isNull();
+        assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.REVISION_REQUESTED);
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+        then(projectRepository).should().save(project);
+    }
+
+    @Test
+    @DisplayName("reopenProposal은 이미 열린 제안서의 리비전과 동의를 다시 무효화하지 않는다")
+    void reopenProposal_doesNothingWhenProposalIsAlreadyOpen() {
+        Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
+            .approvalStatus(ApprovalStatus.REVISION_REQUESTED).proposalRevision(3L).build();
+        given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
+
+        projectCommandService.reopenProposal(10L);
+
+        assertThat(project.getApprovalStatus()).isEqualTo(ApprovalStatus.REVISION_REQUESTED);
+        assertThat(project.getProposalRevision()).isEqualTo(3L);
+        then(projectApprovalRepository).shouldHaveNoInteractions();
+        then(projectRepository).should(org.mockito.Mockito.never()).save(project);
     }
 
     @Test

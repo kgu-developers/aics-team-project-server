@@ -92,7 +92,11 @@ public class TeamMessageFacadeTest {
                 )
             ),
             new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository),
-            userQueryService
+            userQueryService,
+            null,
+            null,
+            null,
+            null
         );
     }
 
