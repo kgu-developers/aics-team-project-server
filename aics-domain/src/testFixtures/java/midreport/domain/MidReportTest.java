@@ -139,10 +139,15 @@ class MidReportTest {
 
         report.requestRevision(List.of("topic"), requestedAt);
         report.updateBlock("topic", 0L, topicFields(), "202600002", requestedAt.plusMinutes(1));
+        report.completeBlock("topic", 0L, "202600002", requestedAt.plusMinutes(2));
+        LocalDateTime resubmittedAt = requestedAt.plusMinutes(3);
+        report.submit(0L, "202600002", resubmittedAt);
 
-        assertThat(report.getStatus()).isEqualTo(MidReportStatus.REVISION_REQUESTED);
+        assertThat(report.getStatus()).isEqualTo(MidReportStatus.SUBMITTED);
         assertThat(report.getRevision().affectedBlockKeys()).containsExactly("topic");
         assertThat(report.getRevision().requestedAt()).isEqualTo(requestedAt);
+        assertThat(report.getRevision().changedBlockKeys()).containsExactly("topic");
+        assertThat(report.getRevision().resubmittedAt()).isEqualTo(resubmittedAt);
     }
 
     @Test
