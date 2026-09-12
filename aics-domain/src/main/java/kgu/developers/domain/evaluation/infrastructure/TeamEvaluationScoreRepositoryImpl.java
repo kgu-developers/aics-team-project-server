@@ -42,6 +42,9 @@ public class TeamEvaluationScoreRepositoryImpl implements TeamEvaluationScoreRep
 
     @Override
     public List<TeamEvaluationScore> findAllByTeamEvaluationIds(List<Long> teamEvaluationIds) {
+        if (teamEvaluationIds == null || teamEvaluationIds.isEmpty()) {
+            return List.of();
+        }
         return jpaRepository.findAllByTeamEvaluationIdInAndDeletedAtIsNull(teamEvaluationIds).stream()
                 .map(TeamEvaluationScoreJpaEntity::toDomain)
                 .toList();

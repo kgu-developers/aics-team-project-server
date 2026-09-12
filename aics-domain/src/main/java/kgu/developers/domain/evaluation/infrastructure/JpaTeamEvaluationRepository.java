@@ -15,4 +15,10 @@ public interface JpaTeamEvaluationRepository extends JpaRepository<TeamEvaluatio
     );
 
     List<TeamEvaluationJpaEntity> findAllByMilestoneIdAndRaterIdAndDeletedAtIsNull(Long milestoneId, String raterId);
+
+    List<TeamEvaluationJpaEntity> findAllByMilestoneIdAndDeletedAtIsNull(Long milestoneId);
+
+    List<TeamEvaluationJpaEntity> findAllByMilestoneIdAndRateeTeamIdAndDeletedAtIsNull(Long milestoneId, Long rateeTeamId);
+
+    List<TeamEvaluationJpaEntity> findAllByMilestoneIdAndRateeTeamIdInAndDeletedAtIsNull(Long milestoneId, List<Long> rateeTeamIds);
 }

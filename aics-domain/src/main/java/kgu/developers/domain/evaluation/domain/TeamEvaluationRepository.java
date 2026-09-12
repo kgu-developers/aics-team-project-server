@@ -11,4 +11,10 @@ public interface TeamEvaluationRepository {
     Optional<TeamEvaluation> findByMilestoneIdAndRaterIdAndRateeTeamId(Long milestoneId, String raterId, Long rateeTeamId);
 
     List<TeamEvaluation> findAllByMilestoneIdAndRaterId(Long milestoneId, String raterId);
+
+    List<TeamEvaluation> findAllByMilestoneId(Long milestoneId);
+
+    List<TeamEvaluation> findAllByMilestoneIdAndRateeTeamId(Long milestoneId, Long rateeTeamId);
+
+    List<TeamEvaluation> findAllByMilestoneIdAndRateeTeamIdIn(Long milestoneId, List<Long> rateeTeamIds);
 }
