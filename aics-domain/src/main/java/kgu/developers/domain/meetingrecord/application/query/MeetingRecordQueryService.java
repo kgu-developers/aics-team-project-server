@@ -49,4 +49,8 @@ public class MeetingRecordQueryService {
     public Map<Long, Long> countMeetingRecords(List<Long> teamIds, Long milestoneId) {
         return meetingRecordRepository.countByTeamIdInAndMilestoneId(teamIds, milestoneId);
     }
+
+    public Map<Long, Long> countMeetingRecords(List<Long> teamIds) {
+        return meetingRecordRepository.countByTeamIdIn(teamIds);
+    }
 }

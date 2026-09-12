@@ -119,4 +119,18 @@ class MeetingRecordQueryServiceTest {
             .extracting(MeetingRecord::getId)
             .containsExactly(first.getId(), second.getId());
     }
+
+    @Test
+    @DisplayName("countMeetingRecords는 마일스톤 없이 팀 식별자 목록으로 회의록 개수를 집계한다")
+    void countMeetingRecords_ByTeamIds() {
+        save(1L, MeetingPhase.PROPOSAL);
+        save(1L, MeetingPhase.FINAL);
+        save(2L, MeetingPhase.PROPOSAL);
+
+        var result = queryService.countMeetingRecords(List.of(1L, 2L, 3L));
+
+        assertThat(result.get(1L)).isEqualTo(2L);
+        assertThat(result.get(2L)).isEqualTo(1L);
+        assertThat(result.get(3L)).isNull();
+    }
 }
