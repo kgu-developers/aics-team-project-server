@@ -62,6 +62,11 @@ public class FakeProjectRepository implements ProjectRepository {
     }
 
     @Override
+    public Optional<Long> findTeamIdByProjectId(Long projectId) {
+        return findById(projectId).map(Project::getTeamId);
+    }
+
+    @Override
     public Optional<Project> findByIdForUpdate(Long id) {
         return findById(id);
     }

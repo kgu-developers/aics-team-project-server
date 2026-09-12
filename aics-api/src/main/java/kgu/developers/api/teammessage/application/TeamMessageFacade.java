@@ -58,11 +58,10 @@ public class TeamMessageFacade {
 
     private void reopenRelatedDocument(Long teamId, TeamMessageCreateRequest request) {
         if (request.relatedType() == TeamMessageRelatedType.PROPOSAL && request.relatedId() != null) {
-            var project = projectQueryService.getProject(request.relatedId());
-            if (!project.getTeamId().equals(teamId)) {
+            if (!projectQueryService.getTeamId(request.relatedId()).equals(teamId)) {
                 throw new AccessDeniedException("해당 팀의 제안서에만 피드백을 남길 수 있습니다.");
             }
-            projectCommandService.reopenProposal(project.getId());
+            projectCommandService.reopenProposal(request.relatedId());
         }
         if (request.relatedType() == TeamMessageRelatedType.MID_REPORT && request.relatedId() != null) {
             var report = midReportQueryService.getById(request.relatedId());

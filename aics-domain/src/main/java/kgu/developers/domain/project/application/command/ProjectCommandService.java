@@ -311,9 +311,8 @@ public class ProjectCommandService {
     }
 
     private Project findProjectAfterLockingTeam(Long projectId) {
-        Long teamId = projectRepository.findById(projectId)
-            .orElseThrow(ProjectNotFoundException::new)
-            .getTeamId();
+        Long teamId = projectRepository.findTeamIdByProjectId(projectId)
+            .orElseThrow(ProjectNotFoundException::new);
         projectRepository.lockTeam(teamId);
         Project project = projectRepository.findByIdForUpdate(projectId)
             .orElseThrow(ProjectNotFoundException::new);

@@ -138,7 +138,7 @@ class ProjectCommandServiceTest {
     void completeProposal() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findTeamIdByProjectId(10L)).willReturn(Optional.of(1L));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(completedSections(ProposalSectionType.values()));
 
@@ -155,7 +155,7 @@ class ProjectCommandServiceTest {
     void completeProposal_rejectsIncompleteSections() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findTeamIdByProjectId(10L)).willReturn(Optional.of(1L));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
         given(proposalSectionRepository.findAllByProjectId(10L))
             .willReturn(completedSections(ProposalSectionType.TOPIC, ProposalSectionType.SCREEN, ProposalSectionType.DATA));
@@ -245,7 +245,7 @@ class ProjectCommandServiceTest {
     void completeProposal_rejectsCompletedProject() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.DRAFT).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findTeamIdByProjectId(10L)).willReturn(Optional.of(1L));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         assertThatThrownBy(() -> projectCommandService.completeProposal(10L)).isInstanceOf(CustomException.class);
@@ -256,7 +256,7 @@ class ProjectCommandServiceTest {
     void reopenProposal_reopensAndClearsApprovals() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findTeamIdByProjectId(10L)).willReturn(Optional.of(1L));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         projectCommandService.reopenProposal(10L);
@@ -272,13 +272,13 @@ class ProjectCommandServiceTest {
     void reopenProposal_locksTeamBeforeProject() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findTeamIdByProjectId(10L)).willReturn(Optional.of(1L));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         projectCommandService.reopenProposal(10L);
 
         org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(projectRepository);
-        inOrder.verify(projectRepository).findById(10L);
+        inOrder.verify(projectRepository).findTeamIdByProjectId(10L);
         inOrder.verify(projectRepository).lockTeam(1L);
         inOrder.verify(projectRepository).findByIdForUpdate(10L);
     }
@@ -290,7 +290,7 @@ class ProjectCommandServiceTest {
             .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
         Project afterLock = Project.builder().id(10L).teamId(2L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(LocalDateTime.now()).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(beforeLock));
+        given(projectRepository.findTeamIdByProjectId(10L)).willReturn(Optional.of(beforeLock.getTeamId()));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(afterLock));
 
         assertThatThrownBy(() -> projectCommandService.reopenProposal(10L))
@@ -305,7 +305,7 @@ class ProjectCommandServiceTest {
     void reopenProposal_doesNothingWhenProposalIsAlreadyOpen() {
         Project project = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
             .approvalStatus(ApprovalStatus.REVISION_REQUESTED).proposalRevision(3L).build();
-        given(projectRepository.findById(10L)).willReturn(Optional.of(project));
+        given(projectRepository.findTeamIdByProjectId(10L)).willReturn(Optional.of(1L));
         given(projectRepository.findByIdForUpdate(10L)).willReturn(Optional.of(project));
 
         projectCommandService.reopenProposal(10L);

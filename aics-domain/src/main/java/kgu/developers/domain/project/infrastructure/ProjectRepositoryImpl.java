@@ -97,6 +97,11 @@ public class ProjectRepositoryImpl implements ProjectRepository {
     }
 
     @Override
+    public Optional<Long> findTeamIdByProjectId(Long projectId) {
+        return jpaProjectRepository.findTeamIdByProjectId(projectId);
+    }
+
+    @Override
     public Optional<Project> findByIdForUpdate(Long id) {
         return jpaProjectRepository.findByIdForUpdate(id)
                 .map(ProjectJpaEntity::toDomain);
