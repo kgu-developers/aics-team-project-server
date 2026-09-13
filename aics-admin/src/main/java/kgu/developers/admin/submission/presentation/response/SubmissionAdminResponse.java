@@ -108,7 +108,7 @@ public record SubmissionAdminResponse(
             int currentVersion
     ) {
         return SubmissionAdminResponse.builder()
-                .id(midReportId != null ? midReportId : submission.getId())
+                .id(submission.getId())
                 .teamId(team.getId())
                 .teamName(team.getName())
                 .projectTitle(projectTitle)

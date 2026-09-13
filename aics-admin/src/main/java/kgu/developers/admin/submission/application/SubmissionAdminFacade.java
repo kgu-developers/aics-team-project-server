@@ -143,7 +143,7 @@ public class SubmissionAdminFacade {
     }
 
     public SubmissionAdminResponse getSubmission(Long submissionId, String professorId) {
-        Submission submission = resolveSubmission(submissionId);
+        Submission submission = submissionQueryService.getSubmission(submissionId);
         Team team = validateProfessorOwnsSubmission(submission, professorId);
         String projectTitle = resolveProjectTitle(submission, team);
         Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
@@ -199,16 +199,6 @@ public class SubmissionAdminFacade {
         }
         return (schedule.dueAt() != null && now.isBefore(schedule.dueAt()))
             || (schedule.lateSubmissionUntil() != null && now.isBefore(schedule.lateSubmissionUntil()));
-    }
-
-    private Submission resolveSubmission(Long submissionId) {
-        try {
-            return submissionQueryService.getSubmission(submissionId);
-        } catch (kgu.developers.domain.submission.exception.SubmissionNotFoundException exception) {
-            kgu.developers.domain.midreport.domain.MidReport midReport = midReportRepository.findById(submissionId)
-                    .orElseThrow(() -> exception);
-            return submissionQueryService.getOrCreateSubmission(midReport.getTeamId(), midReport.getMilestoneId());
-        }
     }
 
     private String resolveProjectTitle(Submission submission, Team team) {

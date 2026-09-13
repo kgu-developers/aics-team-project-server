@@ -449,12 +449,12 @@ class SubmissionAdminFacadeTest {
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
 
         assertThat(response.contents()).singleElement().satisfies(item -> {
-            assertThat(item.id()).isEqualTo(77L);
             assertThat(item.teamId()).isEqualTo(teamId);
             assertThat(item.status()).isEqualTo(SubmissionStatus.SUBMITTED);
             assertThat(item.canSubmitNow()).isFalse();
             assertThat(item.midReportId()).isEqualTo(77L);
             assertThat(item.currentVersion()).isEqualTo(2);
+            assertThat(item.id()).isNotNull().isNotEqualTo(77L);
         });
     }
 
@@ -478,15 +478,15 @@ class SubmissionAdminFacadeTest {
 
         SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
-        assertThat(response.id()).isEqualTo(77L);
+        assertThat(response.id()).isEqualTo(submission.getId());
         assertThat(response.midReportId()).isEqualTo(77L);
         assertThat(response.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
         assertThat(response.canSubmitNow()).isTrue();
     }
 
     @Test
-    @DisplayName("중간보고서 ID로 제출 상세를 조회하더라도 정상적으로 응답한다 (폴백 지원)")
-    void getSubmission_WithMidReportIdFallback_Success() {
+    @DisplayName("회귀 검증: 중간보고서 마일스톤 목록에서 얻은 submission id로 버전 목록 조회가 정상 연계된다")
+    void getSubmissionsByMilestone_IdCanBeUsedForVersionsLookup() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
         MidReport report = MidReport.builder()
@@ -498,16 +498,22 @@ class SubmissionAdminFacadeTest {
                 .status(MidReportStatus.SUBMITTED)
                 .dueDate(LocalDateTime.now().plusDays(1))
                 .build();
-        given(midReportRepository.findById(77L)).willReturn(Optional.of(report));
-        given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID))
-                .willReturn(Optional.of(report));
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MILESTONE_ID))
+                .willReturn(List.of(report));
 
-        SubmissionAdminResponse response = submissionAdminFacade.getSubmission(77L, PROFESSOR);
+        SubmissionAdminListResponse listResponse = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
 
-        assertThat(response.id()).isEqualTo(77L);
-        assertThat(response.midReportId()).isEqualTo(77L);
-        assertThat(response.status()).isEqualTo(SubmissionStatus.SUBMITTED);
-        assertThat(response.canSubmitNow()).isFalse();
+        Long submissionId = listResponse.contents().get(0).id();
+        assertThat(submissionId).isNotNull();
+        assertThat(submissionId).isNotEqualTo(77L);
+
+        // 목록 응답에서 얻은 submissionId를 통해 버전 목록 조회 호출 시 404 없이 정상 연계 검증
+        SubmissionVersionAdminListResponse versionsResponse = submissionAdminFacade
+                .getVersions(submissionId, PROFESSOR);
+
+        assertThat(versionsResponse).isNotNull();
+        assertThat(versionsResponse.contents()).isEmpty();
     }
 
     private Milestone milestone() {
