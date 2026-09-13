@@ -39,11 +39,26 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
     }
 
     @Override
+    public Page<TeamMessage> findByThreadIdAndRelatedTypeAndRelatedId(Long threadId, TeamMessageRelatedType relatedType, Long relatedId, Pageable pageable) {
+        return jpaTeamMessageRepository.findByThreadIdAndRelatedTypeAndRelatedId(threadId, relatedType, relatedId, pageable)
+            .map(TeamMessageJpaEntity::toDomain);
+    }
+
+    @Override
     public Page<TeamMessage> findByThreadIdIn(List<Long> threadIds, Pageable pageable) {
         if (threadIds.isEmpty()) {
             return Page.empty(pageable);
         }
         return jpaTeamMessageRepository.findByThreadIdIn(threadIds, pageable)
+            .map(TeamMessageJpaEntity::toDomain);
+    }
+
+    @Override
+    public Page<TeamMessage> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable) {
+        if (threadIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return jpaTeamMessageRepository.findByThreadIdInAndRelatedType(threadIds, relatedType, pageable)
             .map(TeamMessageJpaEntity::toDomain);
     }
 

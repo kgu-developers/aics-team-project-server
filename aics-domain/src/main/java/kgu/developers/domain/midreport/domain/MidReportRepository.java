@@ -1,5 +1,6 @@
 package kgu.developers.domain.midreport.domain;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface MidReportRepository {
@@ -8,4 +9,6 @@ public interface MidReportRepository {
     Optional<MidReport> findById(Long id);
 
     Optional<MidReport> findByTeamIdAndMilestoneId(Long teamId, Long milestoneId);
+
+    List<MidReport> findAllByTeamIdInAndMilestoneId(List<Long> teamIds, Long milestoneId);
 }

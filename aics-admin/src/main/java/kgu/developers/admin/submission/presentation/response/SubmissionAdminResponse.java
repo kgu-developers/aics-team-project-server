@@ -51,7 +51,10 @@ public record SubmissionAdminResponse(
         LocalDateTime completedAt,
 
         @Schema(description = "완료 처리한 팀장 학번(미완료면 null)")
-        String completedBy
+        String completedBy,
+
+        @Schema(description = "중간보고서 식별자 (MID_REPORT 마일스톤 전용, 없으면 null)", example = "1")
+        Long midReportId
 ) {
 
     public static SubmissionAdminResponse of(Submission submission, Team team, boolean canSubmitNow, boolean hasPendingReview) {
@@ -90,6 +93,35 @@ public record SubmissionAdminResponse(
                 .presentationOrder(submission.getPresentationOrder())
                 .completedAt(submission.getCompletedAt())
                 .completedBy(submission.getCompletedBy())
+                .build();
+    }
+
+    public static SubmissionAdminResponse of(
+            Submission submission,
+            Team team,
+            boolean canSubmitNow,
+            boolean hasPendingReview,
+            String projectTitle,
+            long meetingRecordCount,
+            Long midReportId,
+            SubmissionStatus status,
+            int currentVersion
+    ) {
+        return SubmissionAdminResponse.builder()
+                .id(submission.getId())
+                .teamId(team.getId())
+                .teamName(team.getName())
+                .projectTitle(projectTitle)
+                .meetingRecordCount(meetingRecordCount)
+                .milestoneId(submission.getMilestoneId())
+                .status(status != null ? status : submission.getStatus())
+                .currentVersion(currentVersion)
+                .canSubmitNow(canSubmitNow)
+                .hasPendingReview(hasPendingReview)
+                .presentationOrder(submission.getPresentationOrder())
+                .completedAt(submission.getCompletedAt())
+                .completedBy(submission.getCompletedBy())
+                .midReportId(midReportId)
                 .build();
     }
 }

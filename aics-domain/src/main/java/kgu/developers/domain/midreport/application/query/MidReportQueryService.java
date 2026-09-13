@@ -16,4 +16,12 @@ public class MidReportQueryService {
     public MidReport getById(Long id) {
         return midReportRepository.findById(id).orElseThrow(MidReportNotFoundException::new);
     }
+
+    public java.util.Optional<MidReport> findByTeamIdAndMilestoneId(Long teamId, Long milestoneId) {
+        return midReportRepository.findByTeamIdAndMilestoneId(teamId, milestoneId);
+    }
+
+    public java.util.List<MidReport> findAllByTeamIdInAndMilestoneId(java.util.List<Long> teamIds, Long milestoneId) {
+        return midReportRepository.findAllByTeamIdInAndMilestoneId(teamIds, milestoneId);
+    }
 }

@@ -14,7 +14,11 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
 
     Page<TeamMessageJpaEntity> findByThreadIdAndRelatedType(Long threadId, TeamMessageRelatedType relatedType, Pageable pageable);
 
+    Page<TeamMessageJpaEntity> findByThreadIdAndRelatedTypeAndRelatedId(Long threadId, TeamMessageRelatedType relatedType, Long relatedId, Pageable pageable);
+
     Page<TeamMessageJpaEntity> findByThreadIdIn(List<Long> threadIds, Pageable pageable);
+
+    Page<TeamMessageJpaEntity> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable);
 
     @Query("""
         SELECT COUNT(message)

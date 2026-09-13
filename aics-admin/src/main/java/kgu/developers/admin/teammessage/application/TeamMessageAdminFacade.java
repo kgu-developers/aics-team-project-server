@@ -42,9 +42,27 @@ public class TeamMessageAdminFacade {
     private final TeamMessageQueryService teamMessageQueryService;
 
     public TeamMessageAdminPageResponse getMessages(Long sectionId, Pageable pageable, String professorId) {
+        return getMessages(sectionId, null, null, pageable, professorId);
+    }
+
+    public TeamMessageAdminPageResponse getMessages(
+        Long sectionId,
+        Long teamId,
+        kgu.developers.domain.teammessage.domain.TeamMessageRelatedType relatedType,
+        Pageable pageable,
+        String professorId
+    ) {
         List<Section> sections = resolveSections(sectionId, professorId);
         List<Team> teams = teamRepository.findAllBySectionIdIn(
             sections.stream().map(Section::getId).toList());
+        if (teamId != null) {
+            teams = teams.stream()
+                .filter(team -> team.getId().equals(teamId))
+                .toList();
+            if (teams.isEmpty()) {
+                throw new AccessDeniedException("담당 분반의 팀 메시지만 조회할 수 있습니다.");
+            }
+        }
         List<TeamThread> threads = teamThreadQueryService.getThreads(teams.stream().map(Team::getId).toList());
         List<Long> threadIds = threads.stream().map(TeamThread::getId).toList();
 
@@ -53,7 +71,9 @@ public class TeamMessageAdminFacade {
             pageable.getPageSize(),
             LATEST_FIRST
         );
-        Page<TeamMessage> messages = teamMessageQueryService.getMessages(threadIds, latestFirstPageable);
+        Page<TeamMessage> messages = relatedType == null
+            ? teamMessageQueryService.getMessages(threadIds, latestFirstPageable)
+            : teamMessageQueryService.getMessages(threadIds, relatedType, latestFirstPageable);
         List<Long> pageMessageIds = messages.getContent().stream().map(TeamMessage::getId).toList();
         Set<Long> readMessageIds = teamMessageQueryService.findReadMessageIds(professorId, pageMessageIds);
         long unreadCount = teamMessageQueryService.countUnread(threadIds, professorId);

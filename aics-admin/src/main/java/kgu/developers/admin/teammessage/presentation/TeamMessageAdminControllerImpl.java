@@ -26,13 +26,15 @@ public class TeamMessageAdminControllerImpl implements TeamMessageAdminControlle
     @GetMapping
     public ResponseEntity<TeamMessageAdminPageResponse> getMessages(
         @RequestParam(required = false) Long sectionId,
+        @RequestParam(required = false) Long teamId,
+        @RequestParam(required = false) kgu.developers.domain.teammessage.domain.TeamMessageRelatedType relatedType,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
         Authentication authentication
     ) {
         return ResponseEntity.ok(
             teamMessageAdminFacade.getMessages(
-                sectionId, PageRequest.of(page, size), authentication.getName()));
+                sectionId, teamId, relatedType, PageRequest.of(page, size), authentication.getName()));
     }
 
     @Override
