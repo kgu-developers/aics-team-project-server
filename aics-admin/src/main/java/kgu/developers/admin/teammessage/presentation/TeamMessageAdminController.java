@@ -34,6 +34,8 @@ public interface TeamMessageAdminController {
     )
     ResponseEntity<TeamMessageAdminPageResponse> getMessages(
         @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
+        @Parameter(description = "팀 필터") @RequestParam(required = false) @Positive Long teamId,
+        @Parameter(description = "메시지 관련 유형 필터") @RequestParam(required = false) kgu.developers.domain.teammessage.domain.TeamMessageRelatedType relatedType,
         @Parameter(description = "페이지 번호(0부터 시작)", example = "0")
         @RequestParam(defaultValue = "0") @PositiveOrZero int page,
         @Parameter(description = "페이지 크기(최대 100)", example = "20")

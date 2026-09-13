@@ -146,6 +146,58 @@ class TeamMessageAdminFacadeTest {
     }
 
     @Test
+    @DisplayName("teamId와 relatedType을 지정하면 해당 팀 및 유형의 메시지만 조회한다")
+    void getMessages_WithTeamIdAndRelatedType() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Pageable latestFirstPageable = PageRequest.of(
+            0,
+            20,
+            Sort.by(Sort.Order.desc("id"))
+        );
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team firstTeam = team(10L, 1L, "A팀");
+        Team secondTeam = team(20L, 1L, "B팀");
+        TeamThread firstThread = TeamThread.builder().id(100L).teamId(10L).build();
+        TeamMessage message = message(1000L, 100L, "중간보고서 피드백입니다.");
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L)))
+            .willReturn(List.of(firstTeam, secondTeam));
+        given(teamThreadQueryService.getThreads(List.of(10L)))
+            .willReturn(List.of(firstThread));
+        given(teamMessageQueryService.getMessages(List.of(100L), TeamMessageRelatedType.MID_REPORT, latestFirstPageable))
+            .willReturn(new PageImpl<>(List.of(message), latestFirstPageable, 1));
+        given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
+
+        var response = teamMessageAdminFacade.getMessages(1L, 10L, TeamMessageRelatedType.MID_REPORT, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).singleElement().satisfies(content -> {
+            assertThat(content.teamName()).isEqualTo("A팀");
+            assertThat(content.message()).isEqualTo("중간보고서 피드백입니다.");
+        });
+        verify(teamMessageQueryService).getMessages(List.of(100L), TeamMessageRelatedType.MID_REPORT, latestFirstPageable);
+    }
+
+    @Test
+    @DisplayName("지정한 teamId가 교수의 담당 분반에 속하지 않으면 거부한다")
+    void getMessages_ForeignTeamId() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team firstTeam = team(10L, 1L, "A팀");
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L)))
+            .willReturn(List.of(firstTeam));
+
+        assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, 999L, TeamMessageRelatedType.MID_REPORT, pageable, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 팀 메시지만 조회할 수 있습니다.");
+    }
+
+    @Test
     @DisplayName("담당 교수는 본인 분반의 메시지를 읽음 처리한다")
     void markAsRead_OwnedSection() {
         TeamMessage message = message(1000L, 100L, "확인했습니다.");

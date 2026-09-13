@@ -55,7 +55,7 @@ class TeamMessageAdminControllerTest {
     @Test
     @DisplayName("GET /messages는 분반 필터와 인증된 교수 학번을 전달한다")
     void getMessages_WithSectionFilter() throws Exception {
-        given(teamMessageAdminFacade.getMessages(eq(1L), any(Pageable.class), eq(PROFESSOR_ID)))
+        given(teamMessageAdminFacade.getMessages(eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), any(Pageable.class), eq(PROFESSOR_ID)))
             .willReturn(response());
 
         mockMvc.perform(get(BASE_URL)
@@ -67,11 +67,27 @@ class TeamMessageAdminControllerTest {
             .andExpect(jsonPath("$.unreadCount").value(12));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(teamMessageAdminFacade).getMessages(eq(1L), pageableCaptor.capture(), eq(PROFESSOR_ID));
+        verify(teamMessageAdminFacade).getMessages(eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), pageableCaptor.capture(), eq(PROFESSOR_ID));
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(20);
         assertThat(pageable.getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("GET /messages는 teamId와 relatedType 필터를 전달한다")
+    void getMessages_WithTeamAndRelatedTypeFilter() throws Exception {
+        given(teamMessageAdminFacade.getMessages(eq(1L), eq(10L), eq(TeamMessageRelatedType.MID_REPORT), any(Pageable.class), eq(PROFESSOR_ID)))
+            .willReturn(response());
+
+        mockMvc.perform(get(BASE_URL)
+                .param("sectionId", "1")
+                .param("teamId", "10")
+                .param("relatedType", "MID_REPORT")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isOk());
+
+        verify(teamMessageAdminFacade).getMessages(eq(1L), eq(10L), eq(TeamMessageRelatedType.MID_REPORT), any(Pageable.class), eq(PROFESSOR_ID));
     }
 
     @Test
@@ -88,6 +104,8 @@ class TeamMessageAdminControllerTest {
 
         assertThatThrownBy(() -> controller.getMessages(
             -1L,
+            null,
+            null,
             0,
             20,
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
@@ -109,6 +127,8 @@ class TeamMessageAdminControllerTest {
 
         assertThatThrownBy(() -> controller.getMessages(
             1L,
+            null,
+            null,
             0,
             101,
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))

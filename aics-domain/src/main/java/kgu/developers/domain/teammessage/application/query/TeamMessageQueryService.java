@@ -36,6 +36,13 @@ public class TeamMessageQueryService {
     }
 
     public Page<TeamMessage> getMessages(List<Long> threadIds, Pageable pageable) {
+        return getMessages(threadIds, null, pageable);
+    }
+
+    public Page<TeamMessage> getMessages(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable) {
+        if (relatedType != null) {
+            return teamMessageRepository.findByThreadIdInAndRelatedType(threadIds, relatedType, pageable);
+        }
         return teamMessageRepository.findByThreadIdIn(threadIds, pageable);
     }
 

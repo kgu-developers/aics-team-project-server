@@ -48,6 +48,15 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
     }
 
     @Override
+    public Page<TeamMessage> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable) {
+        if (threadIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return jpaTeamMessageRepository.findByThreadIdInAndRelatedType(threadIds, relatedType, pageable)
+            .map(TeamMessageJpaEntity::toDomain);
+    }
+
+    @Override
     public long countUnreadByThreadIdIn(List<Long> threadIds, String userId) {
         if (threadIds.isEmpty()) {
             return 0;

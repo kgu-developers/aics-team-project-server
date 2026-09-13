@@ -39,6 +39,7 @@ import kgu.developers.domain.submission.application.query.SubmissionQueryService
 import kgu.developers.domain.submission.domain.ArtifactType;
 import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionArtifact;
+import kgu.developers.domain.submission.domain.SubmissionStatus;
 import kgu.developers.domain.submission.domain.SubmissionArtifactRepository;
 import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.domain.SubmissionVersionRepository;
@@ -66,6 +67,7 @@ public class SubmissionAdminFacade {
     private final FileStorage fileStorage;
     private final UserQueryService userQueryService;
     private final MeetingRecordQueryService meetingRecordQueryService;
+    private final kgu.developers.domain.midreport.domain.MidReportRepository midReportRepository;
 
     // 팀은 그 마일스톤을 아직 한 번도 조회 안 했으면 Submission 행 자체가 없다(lazy get-or-create).
     // 그대로 findAllByMilestoneId만 쓰면 그런 팀이 목록에서 통째로 빠지므로, 분반의 팀 전체를
@@ -89,9 +91,30 @@ public class SubmissionAdminFacade {
                 : Map.of();
         Map<Long, Long> meetingRecordCounts = meetingRecordQueryService.countMeetingRecords(
                 teams.stream().map(Team::getId).toList(), milestoneId);
+        Map<Long, kgu.developers.domain.midreport.domain.MidReport> midReports = milestone.getType() == MilestoneType.MID_REPORT
+                ? midReportRepository.findAllByTeamIdInAndMilestoneId(teams.stream().map(Team::getId).toList(), milestoneId).stream()
+                        .collect(Collectors.toMap(kgu.developers.domain.midreport.domain.MidReport::getTeamId, Function.identity()))
+                : Map.of();
         List<SubmissionAdminResponse> contents = teams.stream()
                 .map(team -> {
                     Submission submission = submissionQueryService.getOrCreateSubmission(team.getId(), milestoneId);
+                    kgu.developers.domain.midreport.domain.MidReport midReport = midReports.get(team.getId());
+                    if (midReport != null) {
+                        SubmissionStatus status = switch (midReport.getStatus()) {
+                            case SUBMITTED -> SubmissionStatus.SUBMITTED;
+                            case REVISION_REQUESTED -> SubmissionStatus.REVISION_REQUESTED;
+                            case DRAFT -> SubmissionStatus.NOT_SUBMITTED;
+                        };
+                        return SubmissionAdminResponse.of(
+                                submission, team,
+                                submissionQueryService.canSubmitNow(submission),
+                                midReport.getStatus() == kgu.developers.domain.midreport.domain.MidReportStatus.REVISION_REQUESTED,
+                                projectTitles.get(team.getId()),
+                                meetingRecordCounts.getOrDefault(team.getId(), 0L),
+                                midReport.getId(),
+                                status,
+                                midReport.getVersion() != null ? midReport.getVersion().intValue() : 0);
+                    }
                     return SubmissionAdminResponse.of(
                             submission, team,
                             submissionQueryService.canSubmitNow(submission),
@@ -118,6 +141,28 @@ public class SubmissionAdminFacade {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         Team team = validateProfessorOwnsSubmission(submission, professorId);
         String projectTitle = resolveProjectTitle(submission, team);
+        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
+        if (milestone.getType() == MilestoneType.MID_REPORT) {
+            kgu.developers.domain.midreport.domain.MidReport midReport = midReportRepository
+                    .findByTeamIdAndMilestoneId(team.getId(), milestone.getId()).orElse(null);
+            if (midReport != null) {
+                SubmissionStatus status = switch (midReport.getStatus()) {
+                    case SUBMITTED -> SubmissionStatus.SUBMITTED;
+                    case REVISION_REQUESTED -> SubmissionStatus.REVISION_REQUESTED;
+                    case DRAFT -> SubmissionStatus.NOT_SUBMITTED;
+                };
+                return SubmissionAdminResponse.of(
+                        submission, team,
+                        submissionQueryService.canSubmitNow(submission),
+                        midReport.getStatus() == kgu.developers.domain.midreport.domain.MidReportStatus.REVISION_REQUESTED,
+                        projectTitle,
+                        meetingRecordQueryService.countMeetingRecords(team.getId(), submission.getMilestoneId()),
+                        midReport.getId(),
+                        status,
+                        midReport.getVersion() != null ? midReport.getVersion().intValue() : 0);
+            }
+        }
         return SubmissionAdminResponse.of(
                 submission, team,
                 submissionQueryService.canSubmitNow(submission),

@@ -16,4 +16,6 @@ public interface TeamMessageRepository {
     Page<TeamMessage> findByThreadIdAndRelatedType(Long threadId, TeamMessageRelatedType relatedType, Pageable pageable);
 
     Page<TeamMessage> findByThreadIdIn(List<Long> threadIds, Pageable pageable);
+
+    Page<TeamMessage> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable);
 }

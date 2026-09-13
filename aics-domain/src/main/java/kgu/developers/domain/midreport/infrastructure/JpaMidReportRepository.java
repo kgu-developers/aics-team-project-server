@@ -14,4 +14,10 @@ public interface JpaMidReportRepository extends JpaRepository<MidReportJpaEntity
         @Param("teamId") Long teamId,
         @Param("milestoneId") Long milestoneId
     );
+
+    @Query("select distinct report from MidReportJpaEntity report left join fetch report.blocks where report.teamId in :teamIds and report.milestoneId = :milestoneId and report.deletedAt is null")
+    java.util.List<MidReportJpaEntity> findAllActiveByTeamIdInAndMilestoneId(
+        @Param("teamIds") java.util.List<Long> teamIds,
+        @Param("milestoneId") Long milestoneId
+    );
 }

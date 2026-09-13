@@ -52,4 +52,14 @@ public class MidReportRepositoryImpl implements MidReportRepository {
         return jpaMidReportRepository.findActiveByTeamIdAndMilestoneId(teamId, milestoneId)
             .map(MidReportJpaEntity::toDomain);
     }
+
+    @Override
+    public java.util.List<MidReport> findAllByTeamIdInAndMilestoneId(java.util.List<Long> teamIds, Long milestoneId) {
+        if (teamIds == null || teamIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        return jpaMidReportRepository.findAllActiveByTeamIdInAndMilestoneId(teamIds, milestoneId).stream()
+            .map(MidReportJpaEntity::toDomain)
+            .toList();
+    }
 }

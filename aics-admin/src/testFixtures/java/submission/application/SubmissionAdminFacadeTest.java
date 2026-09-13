@@ -50,6 +50,9 @@ import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 
+import kgu.developers.domain.midreport.domain.MidReport;
+import kgu.developers.domain.midreport.domain.MidReportRepository;
+import kgu.developers.domain.midreport.domain.MidReportStatus;
 import mock.repository.FakeEnrollmentRepository;
 import mock.repository.FakeFileObjectRepository;
 import mock.repository.FakeFileStorage;
@@ -77,6 +80,7 @@ class SubmissionAdminFacadeTest {
     private FakeFileObjectRepository fileObjectRepository;
     private FakeUserRepository userRepository;
     private MeetingRecordQueryService meetingRecordQueryService;
+    private MidReportRepository midReportRepository;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -109,6 +113,7 @@ class SubmissionAdminFacadeTest {
                 mock(org.springframework.transaction.PlatformTransactionManager.class));
 
         meetingRecordQueryService = mock(MeetingRecordQueryService.class);
+        midReportRepository = mock(MidReportRepository.class);
         submissionAdminFacade = new SubmissionAdminFacade(
                 milestoneRepository,
                 sectionQueryService,
@@ -120,7 +125,8 @@ class SubmissionAdminFacadeTest {
                 fileObjectRepository,
                 fileStorage,
                 userQueryService,
-                meetingRecordQueryService
+                meetingRecordQueryService,
+                midReportRepository
         );
     }
 
@@ -422,6 +428,59 @@ class SubmissionAdminFacadeTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    @DisplayName("중간보고서 마일스톤은 MidReport 상태와 midReportId, 버전을 응답한다")
+    void getSubmissionsByMilestone_IncludesMidReportDetails() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        MidReport report = MidReport.builder()
+                .id(77L)
+                .teamId(teamId)
+                .milestoneId(MILESTONE_ID)
+                .title("A팀 중간보고서")
+                .version(2L)
+                .status(MidReportStatus.SUBMITTED)
+                .dueDate(LocalDateTime.now().plusDays(1))
+                .build();
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MILESTONE_ID))
+                .willReturn(List.of(report));
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).singleElement().satisfies(item -> {
+            assertThat(item.teamId()).isEqualTo(teamId);
+            assertThat(item.status()).isEqualTo(SubmissionStatus.SUBMITTED);
+            assertThat(item.midReportId()).isEqualTo(77L);
+            assertThat(item.currentVersion()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    @DisplayName("중간보고서 마일스톤의 제출 상세는 MidReport 상태와 midReportId를 응답한다")
+    void getSubmission_IncludesMidReportDetails() {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        MidReport report = MidReport.builder()
+                .id(77L)
+                .teamId(teamId)
+                .milestoneId(MILESTONE_ID)
+                .title("A팀 중간보고서")
+                .version(1L)
+                .status(MidReportStatus.REVISION_REQUESTED)
+                .dueDate(LocalDateTime.now().plusDays(1))
+                .build();
+        given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID))
+                .willReturn(Optional.of(report));
+
+        SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(response.id()).isEqualTo(submission.getId());
+        assertThat(response.midReportId()).isEqualTo(77L);
+        assertThat(response.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+    }
+
     private Milestone milestone() {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "마일스톤", null, 2, MilestoneStatus.PUBLISHED,
@@ -433,5 +492,12 @@ class SubmissionAdminFacadeTest {
                 MILESTONE_ID, SECTION_ID, "제안서", null, 2, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
                 MilestoneType.PROPOSAL);
+    }
+
+    private Milestone midReportMilestone() {
+        return Milestone.restore(
+                MILESTONE_ID, SECTION_ID, "중간보고서", null, 8, MilestoneStatus.PUBLISHED,
+                new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
+                MilestoneType.MID_REPORT);
     }
 }

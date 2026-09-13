@@ -66,6 +66,14 @@ public class FakeTeamMessageRepository implements TeamMessageRepository {
         return toPage(applySort(filtered, pageable.getSort()), pageable);
     }
 
+    @Override
+    public Page<TeamMessage> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable) {
+        List<TeamMessage> filtered = store.values().stream()
+            .filter(message -> threadIds.contains(message.getThreadId()) && message.getRelatedType() == relatedType)
+            .toList();
+        return toPage(applySort(filtered, pageable.getSort()), pageable);
+    }
+
     // JPA 쪽은 Spring Data가 Pageable.getSort()를 자동 반영하므로, Fake도 동일하게 정렬을 적용해서 동작을 맞춘다.
     // 정렬을 안 주면(unsorted) 컨트롤러의 @PageableDefault(id desc) 기본값이 항상 채워져서 들어온다.
     private List<TeamMessage> applySort(List<TeamMessage> messages, Sort sort) {
