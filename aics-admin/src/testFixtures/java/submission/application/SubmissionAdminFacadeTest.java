@@ -449,8 +449,10 @@ class SubmissionAdminFacadeTest {
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
 
         assertThat(response.contents()).singleElement().satisfies(item -> {
+            assertThat(item.id()).isEqualTo(77L);
             assertThat(item.teamId()).isEqualTo(teamId);
             assertThat(item.status()).isEqualTo(SubmissionStatus.SUBMITTED);
+            assertThat(item.canSubmitNow()).isFalse();
             assertThat(item.midReportId()).isEqualTo(77L);
             assertThat(item.currentVersion()).isEqualTo(2);
         });
@@ -476,9 +478,36 @@ class SubmissionAdminFacadeTest {
 
         SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
-        assertThat(response.id()).isEqualTo(submission.getId());
+        assertThat(response.id()).isEqualTo(77L);
         assertThat(response.midReportId()).isEqualTo(77L);
         assertThat(response.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+        assertThat(response.canSubmitNow()).isTrue();
+    }
+
+    @Test
+    @DisplayName("중간보고서 ID로 제출 상세를 조회하더라도 정상적으로 응답한다 (폴백 지원)")
+    void getSubmission_WithMidReportIdFallback_Success() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        MidReport report = MidReport.builder()
+                .id(77L)
+                .teamId(teamId)
+                .milestoneId(MILESTONE_ID)
+                .title("A팀 중간보고서")
+                .version(1L)
+                .status(MidReportStatus.SUBMITTED)
+                .dueDate(LocalDateTime.now().plusDays(1))
+                .build();
+        given(midReportRepository.findById(77L)).willReturn(Optional.of(report));
+        given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID))
+                .willReturn(Optional.of(report));
+
+        SubmissionAdminResponse response = submissionAdminFacade.getSubmission(77L, PROFESSOR);
+
+        assertThat(response.id()).isEqualTo(77L);
+        assertThat(response.midReportId()).isEqualTo(77L);
+        assertThat(response.status()).isEqualTo(SubmissionStatus.SUBMITTED);
+        assertThat(response.canSubmitNow()).isFalse();
     }
 
     private Milestone milestone() {

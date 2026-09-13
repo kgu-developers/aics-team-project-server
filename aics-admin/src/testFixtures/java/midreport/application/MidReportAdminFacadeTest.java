@@ -8,11 +8,15 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Sort;
+import kgu.developers.domain.midreport.exception.MidReportNotSubmittedException;
+import kgu.developers.domain.teamthread.exception.TeamThreadNotFoundException;
 import kgu.developers.admin.midreport.application.MidReportAdminFacade;
 import kgu.developers.admin.midreport.presentation.request.MidReportFeedbackAdminRequest;
 import kgu.developers.admin.midreport.presentation.response.MidReportAdminResponse;
@@ -188,6 +192,18 @@ class MidReportAdminFacadeTest {
         Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
         Milestone milestone = midReportMilestone();
         MidReport report = createSampleReport();
+        MidReport updatedReport = MidReport.builder()
+            .id(REPORT_ID)
+            .teamId(TEAM_ID)
+            .milestoneId(MILESTONE_ID)
+            .title("A팀 중간보고서")
+            .version(1L)
+            .status(MidReportStatus.REVISION_REQUESTED)
+            .dueDate(LocalDateTime.of(2026, 9, 30, 23, 59))
+            .submittedAt(LocalDateTime.of(2026, 9, 10, 12, 0))
+            .submittedBy(STUDENT_ID)
+            .blocks(List.of())
+            .build();
         TeamThread thread = TeamThread.builder().id(50L).teamId(TEAM_ID).build();
         TeamMessage message = TeamMessage.builder()
             .id(500L)
@@ -204,6 +220,7 @@ class MidReportAdminFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
+        given(midReportCommandService.requestRevision(eq(REPORT_ID), anyList(), any())).willReturn(updatedReport);
         given(teamThreadCommandService.getOrCreateThread(TEAM_ID)).willReturn(thread);
         given(teamMessageCommandService.postMessage(
             eq(50L), eq(PROFESSOR_ID), eq(TeamMessageRelatedType.MID_REPORT), eq(REPORT_ID), eq("GUI 화면 흐름을 보완해주세요.")))
@@ -250,7 +267,74 @@ class MidReportAdminFacadeTest {
     }
 
     @Test
-    @DisplayName("중간보고서 피드백 이력을 최신순 페이징으로 조회한다")
+    @DisplayName("중간보고서가 제출 상태(SUBMITTED)가 아니면 피드백을 등록할 수 없다")
+    void postFeedback_ReportNotSubmitted_ThrowsException() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        Milestone milestone = midReportMilestone();
+        MidReport draftReport = MidReport.builder()
+            .id(REPORT_ID)
+            .teamId(TEAM_ID)
+            .milestoneId(MILESTONE_ID)
+            .title("A팀 중간보고서")
+            .version(1L)
+            .status(MidReportStatus.DRAFT)
+            .dueDate(LocalDateTime.of(2026, 9, 30, 23, 59))
+            .blocks(List.of())
+            .build();
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(draftReport));
+
+        MidReportFeedbackAdminRequest request = new MidReportFeedbackAdminRequest(
+            "초안에는 피드백을 남길 수 없습니다.",
+            List.of()
+        );
+
+        assertThatThrownBy(() -> midReportAdminFacade.postFeedback(SECTION_ID, TEAM_ID, request, PROFESSOR_ID))
+            .isInstanceOf(MidReportNotSubmittedException.class);
+
+        verifyNoInteractions(midReportCommandService);
+        verifyNoInteractions(teamMessageCommandService);
+    }
+
+    @Test
+    @DisplayName("상태 전이 후 보고서 상태가 REVISION_REQUESTED가 아니면 피드백 메시지를 등록하지 않는다")
+    void postFeedback_RevisionStatusMismatch_ThrowsException() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        Milestone milestone = midReportMilestone();
+        MidReport report = createSampleReport();
+        MidReport unexpectedStatusReport = MidReport.builder()
+            .id(REPORT_ID)
+            .teamId(TEAM_ID)
+            .milestoneId(MILESTONE_ID)
+            .title("A팀 중간보고서")
+            .version(1L)
+            .status(MidReportStatus.SUBMITTED)
+            .dueDate(LocalDateTime.of(2026, 9, 30, 23, 59))
+            .blocks(List.of())
+            .build();
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
+        given(midReportCommandService.requestRevision(eq(REPORT_ID), anyList(), any())).willReturn(unexpectedStatusReport);
+
+        MidReportFeedbackAdminRequest request = new MidReportFeedbackAdminRequest(
+            "피드백 메시지",
+            List.of("gui-design")
+        );
+
+        assertThatThrownBy(() -> midReportAdminFacade.postFeedback(SECTION_ID, TEAM_ID, request, PROFESSOR_ID))
+            .isInstanceOf(MidReportNotSubmittedException.class);
+
+        verifyNoInteractions(teamMessageCommandService);
+    }
+
+    @Test
+    @DisplayName("중간보고서 피드백 이력을 최신순 페이징으로 조회한다 (relatedId 필터링 적용)")
     void getFeedbacks_Success() {
         Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
         Milestone milestone = midReportMilestone();
@@ -266,6 +350,7 @@ class MidReportAdminFacadeTest {
             .createdAt(LocalDateTime.of(2026, 9, 13, 14, 0))
             .build();
         Pageable pageable = PageRequest.of(0, 20);
+        Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.desc("id")));
         User professor = User.create(PROFESSOR_ID, "prof@kyonggi.ac.kr", "김교수", "pw", UserGlobalRole.ADMIN, "010-1111-2222");
 
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
@@ -273,8 +358,8 @@ class MidReportAdminFacadeTest {
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
         given(teamThreadQueryService.getThread(TEAM_ID)).willReturn(thread);
-        given(teamMessageQueryService.getMessages(50L, TeamMessageRelatedType.MID_REPORT, pageable))
-            .willReturn(new PageImpl<>(List.of(message), pageable, 1));
+        given(teamMessageQueryService.getMessages(50L, TeamMessageRelatedType.MID_REPORT, REPORT_ID, expectedPageable))
+            .willReturn(new PageImpl<>(List.of(message), expectedPageable, 1));
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of(PROFESSOR_ID)))
             .willReturn(List.of(professor));
 
@@ -288,8 +373,8 @@ class MidReportAdminFacadeTest {
     }
 
     @Test
-    @DisplayName("팀 스레드가 아직 없으면 빈 피드백 목록을 반환한다")
-    void getFeedbacks_NoThread_ReturnsEmptyPage() {
+    @DisplayName("중간보고서가 아직 없으면 빈 피드백 목록을 반환한다")
+    void getFeedbacks_NoReport_ReturnsEmptyPage() {
         Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
         Milestone milestone = midReportMilestone();
 
@@ -297,7 +382,6 @@ class MidReportAdminFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.empty());
-        given(teamThreadQueryService.getThread(TEAM_ID)).willReturn(null);
 
         Pageable pageable = PageRequest.of(0, 20);
         MidReportFeedbackAdminPageResponse response = midReportAdminFacade.getFeedbacks(
@@ -305,6 +389,53 @@ class MidReportAdminFacadeTest {
 
         assertThat(response.contents()).isEmpty();
         assertThat(response.pageable().totalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("팀 스레드가 아직 없으면 TeamThreadNotFoundException을 잡아 빈 피드백 목록을 반환한다")
+    void getFeedbacks_NoThread_ReturnsEmptyPage() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        Milestone milestone = midReportMilestone();
+        MidReport report = createSampleReport();
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
+        given(teamThreadQueryService.getThread(TEAM_ID)).willThrow(new TeamThreadNotFoundException());
+
+        Pageable pageable = PageRequest.of(0, 20);
+        MidReportFeedbackAdminPageResponse response = midReportAdminFacade.getFeedbacks(
+            SECTION_ID, TEAM_ID, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).isEmpty();
+        assertThat(response.pageable().totalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("회귀 검증: 피드백 조회 시 relatedId를 전달하여 같은 스레드의 다른 보고서 메시지가 섞이지 않는다")
+    void getFeedbacks_FiltersByRelatedId_IsolatesDifferentReports() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        Milestone milestone = midReportMilestone();
+        MidReport currentReport = createSampleReport(); // id = REPORT_ID (200L)
+        TeamThread thread = TeamThread.builder().id(50L).teamId(TEAM_ID).build();
+        Pageable pageable = PageRequest.of(0, 10);
+        Pageable expectedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("id")));
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(currentReport));
+        given(teamThreadQueryService.getThread(TEAM_ID)).willReturn(thread);
+        given(teamMessageQueryService.getMessages(50L, TeamMessageRelatedType.MID_REPORT, REPORT_ID, expectedPageable))
+            .willReturn(new PageImpl<>(List.of(), expectedPageable, 0));
+
+        MidReportFeedbackAdminPageResponse response = midReportAdminFacade.getFeedbacks(
+            SECTION_ID, TEAM_ID, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).isEmpty();
+        // verify that getMessages was invoked strictly with REPORT_ID (200L), not any other relatedId
+        verify(teamMessageQueryService).getMessages(50L, TeamMessageRelatedType.MID_REPORT, REPORT_ID, expectedPageable);
     }
 
     private Milestone midReportMilestone() {

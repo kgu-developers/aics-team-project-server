@@ -59,6 +59,16 @@ public class FakeTeamMessageRepository implements TeamMessageRepository {
     }
 
     @Override
+    public Page<TeamMessage> findByThreadIdAndRelatedTypeAndRelatedId(Long threadId, TeamMessageRelatedType relatedType, Long relatedId, Pageable pageable) {
+        List<TeamMessage> filtered = store.values().stream()
+            .filter(message -> message.getThreadId().equals(threadId)
+                && message.getRelatedType() == relatedType
+                && java.util.Objects.equals(message.getRelatedId(), relatedId))
+            .toList();
+        return toPage(applySort(filtered, pageable.getSort()), pageable);
+    }
+
+    @Override
     public Page<TeamMessage> findByThreadIdIn(List<Long> threadIds, Pageable pageable) {
         List<TeamMessage> filtered = store.values().stream()
             .filter(message -> threadIds.contains(message.getThreadId()))

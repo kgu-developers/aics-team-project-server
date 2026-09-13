@@ -27,8 +27,10 @@ import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportBlock;
 import kgu.developers.domain.midreport.domain.MidReportBlockDefinition;
 import kgu.developers.domain.midreport.domain.MidReportRepository;
+import kgu.developers.domain.midreport.domain.MidReportStatus;
 import kgu.developers.domain.midreport.exception.InvalidMidReportFieldsException;
 import kgu.developers.domain.midreport.exception.MidReportNotFoundException;
+import kgu.developers.domain.midreport.exception.MidReportNotSubmittedException;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneType;
@@ -47,12 +49,15 @@ import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teamthread.application.command.TeamThreadCommandService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
+import kgu.developers.domain.teamthread.exception.TeamThreadNotFoundException;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,6 +101,8 @@ public class MidReportAdminFacade {
         return toAdminResponse(team, milestone, report);
     }
 
+    private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("id"));
+
     @Transactional
     public MidReportFeedbackAdminResponse postFeedback(
         Long sectionId,
@@ -109,12 +116,19 @@ public class MidReportAdminFacade {
         MidReport report = midReportRepository.findByTeamIdAndMilestoneId(teamId, milestone.getId())
             .orElseThrow(MidReportNotFoundException::new);
 
+        if (report.getStatus() != MidReportStatus.SUBMITTED) {
+            throw new MidReportNotSubmittedException();
+        }
+
         List<String> affectedBlockKeys = request.affectedBlockKeys() != null ? request.affectedBlockKeys() : List.of();
         for (String blockKey : affectedBlockKeys) {
             MidReportBlockDefinition.fromKey(blockKey);
         }
 
-        midReportCommandService.requestRevision(report.getId(), affectedBlockKeys, LocalDateTime.now());
+        MidReport updatedReport = midReportCommandService.requestRevision(report.getId(), affectedBlockKeys, LocalDateTime.now());
+        if (updatedReport.getStatus() != MidReportStatus.REVISION_REQUESTED) {
+            throw new MidReportNotSubmittedException();
+        }
 
         TeamThread thread = teamThreadCommandService.getOrCreateThread(teamId);
         TeamMessage message = teamMessageCommandService.postMessage(
@@ -139,26 +153,28 @@ public class MidReportAdminFacade {
         Milestone milestone = getMidReportMilestone(sectionId);
         MidReport report = midReportRepository.findByTeamIdAndMilestoneId(teamId, milestone.getId())
             .orElse(null);
-        Long reportId = report != null ? report.getId() : null;
-
-        TeamThread thread = teamThreadQueryService.getThread(teamId);
-        if (thread == null) {
-            return MidReportFeedbackAdminPageResponse.builder()
-                .contents(List.of())
-                .pageable(PageableResponse.<MidReportFeedbackAdminResponse>builder()
-                    .page(pageable.getPageNumber())
-                    .size(pageable.getPageSize())
-                    .totalPages(0)
-                    .totalElements(0L)
-                    .isEnd(true)
-                    .build())
-                .build();
+        if (report == null) {
+            return emptyFeedbackPage(pageable);
         }
+
+        TeamThread thread;
+        try {
+            thread = teamThreadQueryService.getThread(teamId);
+        } catch (TeamThreadNotFoundException exception) {
+            return emptyFeedbackPage(pageable);
+        }
+
+        Pageable latestFirstPageable = PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            LATEST_FIRST
+        );
 
         Page<TeamMessage> messages = teamMessageQueryService.getMessages(
             thread.getId(),
             TeamMessageRelatedType.MID_REPORT,
-            pageable
+            report.getId(),
+            latestFirstPageable
         );
 
         List<String> senderIds = messages.getContent().stream()
@@ -170,10 +186,23 @@ public class MidReportAdminFacade {
             .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
 
         Page<MidReportFeedbackAdminResponse> mappedPage = messages.map(msg ->
-            MidReportFeedbackAdminResponse.of(msg, teamId, reportId, senderNames.get(msg.getSenderId()))
+            MidReportFeedbackAdminResponse.of(msg, teamId, report.getId(), senderNames.get(msg.getSenderId()))
         );
 
         return MidReportFeedbackAdminPageResponse.from(mappedPage);
+    }
+
+    private MidReportFeedbackAdminPageResponse emptyFeedbackPage(Pageable pageable) {
+        return MidReportFeedbackAdminPageResponse.builder()
+            .contents(List.of())
+            .pageable(PageableResponse.<MidReportFeedbackAdminResponse>builder()
+                .page(pageable.getPageNumber())
+                .size(pageable.getPageSize())
+                .totalPages(0)
+                .totalElements(0L)
+                .isEnd(true)
+                .build())
+            .build();
     }
 
     private MidReportAdminResponse toAdminResponse(Team team, Milestone milestone, MidReport report) {
