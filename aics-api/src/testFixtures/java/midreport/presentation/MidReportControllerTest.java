@@ -46,11 +46,11 @@ class MidReportControllerTest {
     }
 
     @Test
-    @DisplayName("GET /mid-reports/current는 현재 중간보고서 전체 계약을 반환한다")
+    @DisplayName("GET /api/v1/mid-reports/current는 현재 중간보고서 전체 계약을 반환한다")
     void getCurrent() throws Exception {
         given(midReportFacade.getCurrent(USER_ID)).willReturn(response());
 
-        mockMvc.perform(get("/mid-reports/current").principal(authentication()))
+        mockMvc.perform(get("/api/v1/mid-reports/current").principal(authentication()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(100L))
             .andExpect(jsonPath("$.status").value("DRAFT"))
@@ -59,14 +59,14 @@ class MidReportControllerTest {
     }
 
     @Test
-    @DisplayName("PATCH /mid-reports/{id}/blocks/{blockKey}는 버전과 필드를 전달한다")
+    @DisplayName("PATCH /api/v1/mid-reports/{id}/blocks/{blockKey}는 버전과 필드를 전달한다")
     void updateBlock() throws Exception {
         given(midReportFacade.updateBlock(eq(100L), eq("topic"), eq(USER_ID), any())).willReturn(response());
         String body = """
             {"version":0,"fields":[{"key":"title","value":"CineFlow"},{"key":"description","value":"설명"}]}
             """;
 
-        mockMvc.perform(patch("/mid-reports/100/blocks/topic")
+        mockMvc.perform(patch("/api/v1/mid-reports/100/blocks/topic")
                 .principal(authentication()).contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.version").value(0L));
@@ -77,7 +77,7 @@ class MidReportControllerTest {
     @Test
     @DisplayName("POST 영역 완료 API는 version 누락 시 400을 반환한다")
     void completeBlockRequiresVersion() throws Exception {
-        mockMvc.perform(post("/mid-reports/100/blocks/topic/completion")
+        mockMvc.perform(post("/api/v1/mid-reports/100/blocks/topic/completion")
                 .principal(authentication()).contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isBadRequest());
 
@@ -89,7 +89,7 @@ class MidReportControllerTest {
     void completeBlock() throws Exception {
         given(midReportFacade.completeBlock(eq(100L), eq("topic"), eq(USER_ID), any())).willReturn(response());
 
-        mockMvc.perform(post("/mid-reports/100/blocks/topic/completion")
+        mockMvc.perform(post("/api/v1/mid-reports/100/blocks/topic/completion")
                 .principal(authentication()).contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
             .andExpect(status().isOk());
 
@@ -101,7 +101,7 @@ class MidReportControllerTest {
     void submit() throws Exception {
         given(midReportFacade.submit(eq(100L), eq(USER_ID), any())).willReturn(response());
 
-        mockMvc.perform(post("/mid-reports/100/submit")
+        mockMvc.perform(post("/api/v1/mid-reports/100/submit")
                 .principal(authentication()).contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
             .andExpect(status().isOk());
 
@@ -111,7 +111,7 @@ class MidReportControllerTest {
     @Test
     @DisplayName("POST 최종 제출 API는 version 누락 시 400을 반환한다")
     void submitRequiresVersion() throws Exception {
-        mockMvc.perform(post("/mid-reports/100/submit")
+        mockMvc.perform(post("/api/v1/mid-reports/100/submit")
                 .principal(authentication()).contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isBadRequest());
 

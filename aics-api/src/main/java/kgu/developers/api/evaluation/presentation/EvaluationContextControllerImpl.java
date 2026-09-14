@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/sections/{sectionId}/evaluation-context")
+@RequestMapping("/api/v1/sections/{sectionId}/evaluation-context")
 @RequiredArgsConstructor
 public class EvaluationContextControllerImpl implements EvaluationContextController {
     private final PeerEvaluationFacade peerEvaluationFacade;
