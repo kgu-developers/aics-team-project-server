@@ -65,8 +65,12 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 	}
 
 	private boolean isPasswordChangeRequest(HttpServletRequest request, String studentNumber) {
-		return "PUT".equals(request.getMethod())
-			&& ("/api/v1/oop/users/" + studentNumber + "/password").equals(request.getRequestURI());
+		if (!"PUT".equals(request.getMethod())) {
+			return false;
+		}
+		String uri = request.getRequestURI();
+		return ("/api/v1/oop/users/" + studentNumber + "/password").equals(uri)
+			|| ("/api/v1/users/" + studentNumber + "/password").equals(uri);
 	}
 
 	private Authentication authentication(Claims claims) {
