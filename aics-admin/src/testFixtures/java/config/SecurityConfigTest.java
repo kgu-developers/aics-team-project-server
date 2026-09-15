@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.Base64;
@@ -77,7 +79,11 @@ class SecurityConfigTest {
   @DisplayName("미인증 요청은 401을 응답한다")
   void unauthenticated() throws Exception {
     mockMvc.perform(get(ADMIN_URL))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_JSON))
+        .andExpect(content().encoding(UTF_8))
+        .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+        .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
   }
 
   @Test
@@ -85,7 +91,10 @@ class SecurityConfigTest {
   @WithMockUser(roles = "USER")
   void notAdmin() throws Exception {
     mockMvc.perform(get(ADMIN_URL))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
   }
 
   @Test
@@ -167,7 +176,10 @@ class SecurityConfigTest {
   @WithMockUser(roles = "ADMIN")
   void adminWriteWithoutCsrfToken() throws Exception {
     mockMvc.perform(delete(ADMIN_URL + "/" + STUDENT_NUMBER))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
   }
 
   @Test

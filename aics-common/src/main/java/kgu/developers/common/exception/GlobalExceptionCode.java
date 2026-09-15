@@ -13,6 +13,10 @@ import org.springframework.http.HttpStatus;
 @AllArgsConstructor
 public enum GlobalExceptionCode implements ExceptionCode {
     INVALID_INPUT(BAD_REQUEST, "유효한 입력 형식이 아닙니다."),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 HTTP 메서드입니다."),
+    PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "업로드 가능한 파일 크기를 초과했습니다."),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "지원하지 않는 미디어 타입입니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     ACCESS_DENIED(FORBIDDEN, "접근 권한이 없습니다."),
     DATA_CONFLICT(CONFLICT, "요청이 기존 데이터와 충돌합니다."),
     SERVER_ERROR(INTERNAL_SERVER_ERROR, "예상치 못한 문제가 발생했습니다."),
