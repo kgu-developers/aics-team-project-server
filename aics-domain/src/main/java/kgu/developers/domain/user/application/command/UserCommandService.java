@@ -73,6 +73,12 @@ public class UserCommandService {
         revokeTokens(user);
     }
 
+    public void resetPassword(User user, String password) {
+        user.updatePassword(passwordEncoder.encode(password));
+        userRepository.save(user);
+        revokeTokens(user);
+    }
+
     public void deleteUser(User user) {
         user.delete();
         userRepository.save(user);

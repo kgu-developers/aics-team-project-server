@@ -132,6 +132,16 @@ class UserAdminControllerTest {
   }
 
   @Test
+  @DisplayName("PATCH /users/{studentNumber}/password/reset은 204를 응답하고 파사드에 위임한다")
+  void resetPassword() throws Exception {
+    mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+            BASE_URL + "/" + STUDENT_NUMBER + "/password/reset"))
+        .andExpect(status().isNoContent());
+
+    verify(userAdminFacade).resetPassword(STUDENT_NUMBER);
+  }
+
+  @Test
   @DisplayName("DELETE /users/{studentNumber}는 204를 응답하고 파사드에 위임한다")
   void deleteUser() throws Exception {
     mockMvc.perform(delete(BASE_URL + "/" + STUDENT_NUMBER))

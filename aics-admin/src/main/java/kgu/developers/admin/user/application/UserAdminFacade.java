@@ -33,6 +33,11 @@ public class UserAdminFacade {
         userCommandService.deleteUser(user);
     }
 
+    public void resetPassword(String studentNumber) {
+        User user = userQueryService.getUserByStudentNumber(studentNumber);
+        userCommandService.resetPassword(user, user.getPhone());
+    }
+
     public UserAdminResponse getUserByStudentNumber(String studentNumber) {
         return UserAdminResponse.from(userQueryService.getUserByStudentNumber(studentNumber));
     }

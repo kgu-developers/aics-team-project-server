@@ -83,6 +83,17 @@ class UserAdminFacadeTest {
   }
 
   @Test
+  @DisplayName("resetPassword는 조회한 사용자의 전화번호로 비밀번호를 재설정한다")
+  void resetPassword() {
+    User user = user();
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
+
+    userAdminFacade.resetPassword(STUDENT_NUMBER);
+
+    verify(userCommandService).resetPassword(user, "010-1234-6789");
+  }
+
+  @Test
   @DisplayName("getUserByStudentNumber는 비밀번호를 뺀 응답 DTO로 감싸 반환한다")
   void getUserByStudentNumber() {
     User user = user();

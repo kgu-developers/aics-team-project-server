@@ -184,6 +184,20 @@ class UserServiceTest {
   }
 
   @Test
+  @DisplayName("resetPassword는 전화번호를 해시로 저장하고 기존 토큰을 폐기한다")
+  void resetPassword() {
+    User user = user();
+    given(passwordEncoder.encode("010-1234-6789")).willReturn("hashed");
+
+    commandService.resetPassword(user, "010-1234-6789");
+
+    assertThat(user.getPassword()).isEqualTo("hashed");
+    verify(userRepository).save(user);
+    verify(refreshTokenRepository).deleteById("202699999");
+    verify(tokenRevocationStore).revokeTokensIssuedBefore("202699999");
+  }
+
+  @Test
   @DisplayName("updatePassword는 현재 비밀번호가 틀리면 아무것도 바꾸지 않는다")
   void updatePasswordWithWrongCurrentPassword() {
     User user = user();

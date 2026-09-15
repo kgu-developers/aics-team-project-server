@@ -55,6 +55,13 @@ public class UserAdminControllerImpl implements UserAdminController {
   }
 
   @Override
+  @PatchMapping("/{studentNumber}/password/reset")
+  public ResponseEntity<Void> resetPassword(@NotBlank @PathVariable String studentNumber) {
+    userAdminFacade.resetPassword(studentNumber);
+    return ResponseEntity.noContent().build();
+  }
+
+  @Override
   @DeleteMapping("/{studentNumber}")
   public ResponseEntity<Void> deleteUser(
       @NotBlank @PathVariable String studentNumber) {
