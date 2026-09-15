@@ -51,13 +51,15 @@ public class AuthFacade {
 
         User user = findForRefresh(studentNumber);
         LoginRole role = userQueryService.getUserRole(user);
+        // 회전 전에 발급한다. 기한이 지난 계정이면 여기서 끝나고 저장소의 refreshToken은 그대로 남는다.
+        String accessToken = accessToken(user, role);
         String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
 
         if (!rotate(studentNumber, refreshToken, newRefreshToken)) {
             throw new InvalidTokenException();
         }
 
-        return tokens(user, newRefreshToken, role);
+        return LoginResponse.of(accessToken, newRefreshToken, role);
     }
 
     // 쿠키가 없거나 깨졌으면 지울 것도 없다. 로그아웃 자체는 성공시킨다.
@@ -84,12 +86,14 @@ public class AuthFacade {
     }
 
     private LoginResponse issue(User user, LoginRole role) {
+        // 저장 전에 발급한다. 기한이 지난 계정이면 여기서 끝나고 저장소에 새 refreshToken이 남지 않는다.
+        String accessToken = accessToken(user, role);
         String refreshToken = jwtUtil.createRefreshToken(user.getStudentNumber());
         refreshTokenStore.save(user.getStudentNumber(), refreshToken);
-        return tokens(user, refreshToken, role);
+        return LoginResponse.of(accessToken, refreshToken, role);
     }
 
-    private LoginResponse tokens(User user, String refreshToken, LoginRole role) {
+    private String accessToken(User user, LoginRole role) {
         var passwordChangeExpiresAt = tokenRevocationStore.passwordChangeExpiresAt(user.getStudentNumber());
         LocalDateTime now = LocalDateTime.now();
         if (passwordChangeExpiresAt.isPresent() && !now.isBefore(passwordChangeExpiresAt.get())) {
@@ -98,12 +102,9 @@ public class AuthFacade {
         Duration validity = passwordChangeExpiresAt
             .map(expiresAt -> Duration.between(now, expiresAt))
             .orElse(jwtUtil.getAccessTokenValidity());
-        return LoginResponse.of(
-                passwordChangeExpiresAt.isPresent()
-                    ? jwtUtil.createAccessToken(user.getStudentNumber(), role.name(), true, validity)
-                    : jwtUtil.createAccessToken(user.getStudentNumber(), role.name()),
-                refreshToken,
-                role);
+        return passwordChangeExpiresAt.isPresent()
+            ? jwtUtil.createAccessToken(user.getStudentNumber(), role.name(), true, validity)
+            : jwtUtil.createAccessToken(user.getStudentNumber(), role.name());
     }
 
     private User findForRefresh(String studentNumber) {

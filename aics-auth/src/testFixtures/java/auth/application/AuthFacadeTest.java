@@ -8,6 +8,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -175,8 +178,10 @@ class AuthFacadeTest {
   @Test
   @DisplayName("refresh는 이미 사용한 refreshToken이면 재발급하지 않는다")
   void refreshWithUsedToken() {
+    User testUser = user();
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
-    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
     given(refreshTokenStore.replace(any(), any(), any())).willReturn(false);
 
     assertThatThrownBy(() -> userFacade.refresh("refresh-token"))
@@ -188,8 +193,10 @@ class AuthFacadeTest {
   @Test
   @DisplayName("refresh는 서버에 저장된 토큰과 다르면 재발급하지 않고, 저장된 토큰도 건드리지 않는다")
   void refreshWithRotatedToken() {
+    User testUser = user();
     given(jwtUtil.parseRefreshTokenSubject("old-refresh-token")).willReturn(STUDENT_NUMBER);
-    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "old-refresh-token", "new-refresh-token"))
         .willReturn(false);
@@ -205,8 +212,10 @@ class AuthFacadeTest {
   @Test
   @DisplayName("refresh는 회전 경쟁에서 밀려 낙관적 락이 깨지면 재발급하지 않는다")
   void refreshLosingOptimisticLock() {
+    User testUser = user();
     given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
-    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("new-refresh-token");
     given(refreshTokenStore.replace(STUDENT_NUMBER, "refresh-token", "new-refresh-token"))
         .willThrow(new OptimisticLockingFailureException("conflict"));
@@ -329,5 +338,39 @@ class AuthFacadeTest {
 
     // 역할 조회를 토큰 발급보다 먼저 해야 실패했을 때 저장된 토큰이 남지 않는다
     verify(refreshTokenStore, never()).save(any(), any());
+  }
+
+  @Test
+  @DisplayName("login은 비밀번호 변경 기한이 지났으면 refreshToken을 저장하지 않는다")
+  void loginAfterPasswordChangeDeadline() {
+    User testUser = user();
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
+    given(tokenRevocationStore.passwordChangeExpiresAt(STUDENT_NUMBER))
+        .willReturn(Optional.of(LocalDateTime.now().minusMinutes(1)));
+
+    assertThatThrownBy(() -> userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD)))
+        .isInstanceOf(InvalidCredentialsException.class);
+
+    // 클라이언트가 받지 못한 refreshToken이 저장소에 남으면 안 된다
+    verify(refreshTokenStore, never()).save(any(), any());
+  }
+
+  @Test
+  @DisplayName("refresh는 비밀번호 변경 기한이 지났으면 refreshToken을 회전하지 않는다")
+  void refreshAfterPasswordChangeDeadline() {
+    User testUser = user();
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
+    given(tokenRevocationStore.passwordChangeExpiresAt(STUDENT_NUMBER))
+        .willReturn(Optional.of(LocalDateTime.now().minusMinutes(1)));
+
+    assertThatThrownBy(() -> userFacade.refresh("refresh-token"))
+        .isInstanceOf(InvalidCredentialsException.class);
+
+    // 회전이 일어나면 저장소에만 새 토큰이 남고 클라이언트의 토큰은 죽는다
+    verify(refreshTokenStore, never()).replace(any(), any(), any());
   }
 }
