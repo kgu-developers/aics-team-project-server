@@ -91,11 +91,12 @@ public class AuthFacade {
 
     private LoginResponse tokens(User user, String refreshToken, LoginRole role) {
         var passwordChangeExpiresAt = tokenRevocationStore.passwordChangeExpiresAt(user.getStudentNumber());
-        if (passwordChangeExpiresAt.isPresent() && !LocalDateTime.now().isBefore(passwordChangeExpiresAt.get())) {
+        LocalDateTime now = LocalDateTime.now();
+        if (passwordChangeExpiresAt.isPresent() && !now.isBefore(passwordChangeExpiresAt.get())) {
             throw new InvalidCredentialsException();
         }
         Duration validity = passwordChangeExpiresAt
-            .map(expiresAt -> Duration.between(LocalDateTime.now(), expiresAt))
+            .map(expiresAt -> Duration.between(now, expiresAt))
             .orElse(jwtUtil.getAccessTokenValidity());
         return LoginResponse.of(
                 passwordChangeExpiresAt.isPresent()
