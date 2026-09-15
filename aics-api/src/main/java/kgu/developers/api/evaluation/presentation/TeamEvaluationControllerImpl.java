@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/milestones/{milestoneId}/team-evaluations")
+@RequestMapping("/api/v1/milestones/{milestoneId}/team-evaluations")
 @RequiredArgsConstructor
 public class TeamEvaluationControllerImpl implements TeamEvaluationController {
     private final TeamEvaluationFacade facade;

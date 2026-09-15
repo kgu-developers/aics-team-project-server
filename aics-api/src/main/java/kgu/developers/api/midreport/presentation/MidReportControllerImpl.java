@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/mid-reports")
+@RequestMapping("/api/v1/mid-reports")
 @RequiredArgsConstructor
 public class MidReportControllerImpl implements MidReportController {
     private final MidReportFacade midReportFacade;

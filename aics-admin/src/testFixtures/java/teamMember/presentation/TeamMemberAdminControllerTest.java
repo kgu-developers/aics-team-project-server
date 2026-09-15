@@ -28,7 +28,7 @@ import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResp
 @ExtendWith(MockitoExtension.class)
 class TeamMemberAdminControllerTest {
 
-	private static final String BASE_URL = "/api/v1/admin/oop/teams/{teamId}/members/{studentNumber}";
+	private static final String BASE_URL = "/api/v1/admin/teams/{teamId}/members/{studentNumber}";
 	private static final String STUDENT_NUMBER = "202699999";
 	private static final String ADMIN_ID = "admin001";
 

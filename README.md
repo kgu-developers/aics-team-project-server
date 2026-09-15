@@ -57,10 +57,10 @@ createdb -U root aics
 # 1. auth 서버(8082)에 로그인해 쿠키를 받아둔다
 curl -c cookies.txt -H 'Content-Type: application/json' \
   -d '{"studentNumber":"202699999","password":"12345678"}' \
-  http://localhost:8082/api/v1/oop/auth/login
+  http://localhost:8082/api/v1/auth/login
 
 # 2. 그 쿠키로 admin 서버(8081)를 부른다
-curl -b cookies.txt http://localhost:8081/api/v1/admin/oop/users
+curl -b cookies.txt http://localhost:8081/api/v1/admin/users
 ```
 
 `{"contents":[...]}` 가 오면 정상입니다. 쿠키 없이 부르면 401, 권한이 `ADMIN`이 아니면 403입니다.

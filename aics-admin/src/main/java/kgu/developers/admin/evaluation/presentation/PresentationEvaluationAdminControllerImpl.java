@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Validated
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/admin/oop/sections/{sectionId}/presentation-evaluations")
+@RequestMapping("/api/v1/admin/sections/{sectionId}/presentation-evaluations")
 public class PresentationEvaluationAdminControllerImpl implements PresentationEvaluationAdminController {
 
     private final PresentationEvaluationAdminFacade facade;

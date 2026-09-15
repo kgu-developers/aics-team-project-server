@@ -43,9 +43,9 @@ class MeetingActionControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /meeting-actions/{id}는 액션플랜을 삭제하고 204를 반환한다")
+    @DisplayName("DELETE /api/v1/meeting-actions/{id}는 액션플랜을 삭제하고 204를 반환한다")
     void deleteMeetingAction_ReturnsNoContent() throws Exception {
-        mockMvc.perform(delete("/meeting-actions/{id}", ACTION_ID)
+        mockMvc.perform(delete("/api/v1/meeting-actions/{id}", ACTION_ID)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isNoContent());
 

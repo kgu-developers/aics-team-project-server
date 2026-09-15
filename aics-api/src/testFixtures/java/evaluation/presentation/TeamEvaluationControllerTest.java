@@ -49,7 +49,7 @@ class TeamEvaluationControllerTest {
     }
 
     @Test
-    @DisplayName("GET /milestones/{milestoneId}/team-evaluations/me는 내 발표 평가 현황을 반환한다")
+    @DisplayName("GET /api/v1/milestones/{milestoneId}/team-evaluations/me는 내 발표 평가 현황을 반환한다")
     void getMyEvaluations() throws Exception {
         given(facade.getMyEvaluations(MILESTONE_ID, USER_ID)).willReturn(new MyTeamEvaluationsResponse(
                 MILESTONE_ID,
@@ -60,7 +60,7 @@ class TeamEvaluationControllerTest {
                 List.of()
         ));
 
-        mockMvc.perform(get("/milestones/{milestoneId}/team-evaluations/me", MILESTONE_ID)
+        mockMvc.perform(get("/api/v1/milestones/{milestoneId}/team-evaluations/me", MILESTONE_ID)
                         .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.milestoneId").value(MILESTONE_ID))
@@ -69,7 +69,7 @@ class TeamEvaluationControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /milestones/{milestoneId}/team-evaluations/{teamId}는 팀 발표 평가를 저장한다")
+    @DisplayName("PUT /api/v1/milestones/{milestoneId}/team-evaluations/{teamId}는 팀 발표 평가를 저장한다")
     void submit() throws Exception {
         TeamEvaluationSubmitRequest request = new TeamEvaluationSubmitRequest(
                 List.of(new TeamEvaluationScoreRequest(10L, 8))
@@ -81,7 +81,7 @@ class TeamEvaluationControllerTest {
                 )
         );
 
-        mockMvc.perform(put("/milestones/{milestoneId}/team-evaluations/{teamId}",
+        mockMvc.perform(put("/api/v1/milestones/{milestoneId}/team-evaluations/{teamId}",
                         MILESTONE_ID, TEAM_ID)
                         .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -101,7 +101,7 @@ class TeamEvaluationControllerTest {
     @Test
     @DisplayName("발표 평가 점수 목록이 비어 있으면 400을 반환한다")
     void rejectsEmptyScores() throws Exception {
-        mockMvc.perform(put("/milestones/{milestoneId}/team-evaluations/{teamId}",
+        mockMvc.perform(put("/api/v1/milestones/{milestoneId}/team-evaluations/{teamId}",
                         MILESTONE_ID, TEAM_ID)
                         .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
                         .contentType(MediaType.APPLICATION_JSON)

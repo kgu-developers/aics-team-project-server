@@ -36,11 +36,11 @@ class EvaluationContextControllerTest {
     }
 
     @Test
-    @DisplayName("GET /sections/{sectionId}/evaluation-context는 평가 진입 ID를 반환한다")
+    @DisplayName("GET /api/v1/sections/{sectionId}/evaluation-context는 평가 진입 ID를 반환한다")
     void getContext() throws Exception {
         given(facade.getContext(SECTION_ID, USER_ID)).willReturn(new EvaluationContextResponse("15", "3"));
 
-        mockMvc.perform(get("/sections/{sectionId}/evaluation-context", SECTION_ID)
+        mockMvc.perform(get("/api/v1/sections/{sectionId}/evaluation-context", SECTION_ID)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.presentationMilestoneId").value("15"))

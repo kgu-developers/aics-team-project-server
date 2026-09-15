@@ -58,7 +58,7 @@ import org.springframework.test.web.servlet.MockMvc;
 })
 class PeerEvaluationAdminControllerTest {
 
-    private static final String BASE_URL = "/api/v1/admin/oop/sections/{sectionId}/peer-evaluations";
+    private static final String BASE_URL = "/api/v1/admin/sections/{sectionId}/peer-evaluations";
 
     @SpringBootConfiguration
     static class TestApp {

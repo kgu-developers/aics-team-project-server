@@ -57,7 +57,7 @@ import org.springframework.test.web.servlet.MockMvc;
 })
 class PresentationEvaluationAdminControllerTest {
 
-    private static final String BASE_URL = "/api/v1/admin/oop/sections/{sectionId}/presentation-evaluations";
+    private static final String BASE_URL = "/api/v1/admin/sections/{sectionId}/presentation-evaluations";
 
     @SpringBootConfiguration
     static class TestApp {
