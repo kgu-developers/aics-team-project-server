@@ -46,7 +46,7 @@ public class TokenRevocationStore {
 		if (revokedMillis <= 0) {
 			return true;
 		}
-		return issuedAtMillis < revokedMillis;
+		return issuedAtMillis <= revokedMillis;
 	}
 
 	public void requirePasswordChangeUntil(String studentNumber, LocalDateTime expiresAt) {

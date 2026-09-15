@@ -87,11 +87,11 @@ class TokenRevocationStoreTest {
   }
 
   @Test
-  @DisplayName("같은 초라도 무효화 뒤에 발급된 토큰은 살아 있다 (비밀번호 변경 직후 재로그인)")
+  @DisplayName("무효화와 같은 밀리초에 발급된 토큰은 무효다")
   void keepsTokenIssuedAfterMarkerInSameSecond() {
     markerAt(REVOKED_AT);
 
-    assertThat(store.isRevoked(STUDENT_NUMBER, REVOKED_AT)).isFalse();
+    assertThat(store.isRevoked(STUDENT_NUMBER, REVOKED_AT)).isTrue();
     assertThat(store.isRevoked(STUDENT_NUMBER, 1_786_201_858_799L)).isFalse();
   }
 
