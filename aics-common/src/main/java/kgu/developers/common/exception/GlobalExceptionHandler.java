@@ -3,6 +3,7 @@ package kgu.developers.common.exception;
 import static kgu.developers.common.exception.GlobalExceptionCode.ACCESS_DENIED;
 import static kgu.developers.common.exception.GlobalExceptionCode.DATA_CONFLICT;
 import static kgu.developers.common.exception.GlobalExceptionCode.INVALID_INPUT;
+import static kgu.developers.common.exception.GlobalExceptionCode.PAYLOAD_TOO_LARGE;
 import static kgu.developers.common.exception.GlobalExceptionCode.SERVER_ERROR;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 
@@ -20,6 +21,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -27,6 +29,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @Slf4j
@@ -39,7 +43,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException exception) {
         log.warn("[{}] {}", ACCESS_DENIED.getCode(), exception.getMessage());
-        ErrorResponse response = new ErrorResponse(ACCESS_DENIED.getCode(), exception.getMessage());
+        ErrorResponse response = ErrorResponse.from(ACCESS_DENIED);
         return ResponseEntity.status(FORBIDDEN).body(response);
     }
 
@@ -131,6 +135,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ExceptionResponse response = ExceptionResponse.of(INVALID_INPUT.getStatus(), INVALID_INPUT.getCode(), message);
 
         return ResponseEntity.status(response.status()).body(response);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException exception,
+                                                                    HttpHeaders headers,
+                                                                    HttpStatusCode status,
+                                                                    WebRequest request) {
+        return invalidInput();
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestPart(MissingServletRequestPartException exception,
+                                                                      HttpHeaders headers,
+                                                                      HttpStatusCode status,
+                                                                      WebRequest request) {
+        return invalidInput();
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException exception,
+                                                                           HttpHeaders headers,
+                                                                           HttpStatusCode status,
+                                                                           WebRequest request) {
+        return ResponseEntity.status(PAYLOAD_TOO_LARGE.getStatus())
+            .body(ErrorResponse.from(PAYLOAD_TOO_LARGE));
+    }
+
+    private static ResponseEntity<Object> invalidInput() {
+        return ResponseEntity.status(INVALID_INPUT.getStatus()).body(ErrorResponse.from(INVALID_INPUT));
     }
 
     private static String leafNode(Path propertyPath) {

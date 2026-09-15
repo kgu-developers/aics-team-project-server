@@ -6,6 +6,8 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Duration;
@@ -84,10 +86,24 @@ class SecurityConfigTest {
   }
 
   @Test
+  @DisplayName("보호 경로의 미인증 요청은 UTF-8 JSON 401을 응답한다")
+  void unauthenticated() throws Exception {
+    mockMvc.perform(get("/api/v1/oop/auth/protected"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(content().encoding(java.nio.charset.StandardCharsets.UTF_8))
+        .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+        .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+  }
+
+  @Test
   @DisplayName("CSRF 토큰이 없는 refresh는 403을 응답한다 (강제 토큰 회전 차단)")
   void refreshWithoutCsrfToken() throws Exception {
     mockMvc.perform(post(REFRESH_URL))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
   }
 
   @Test

@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.DisplayName;
@@ -83,7 +85,11 @@ class SecurityConfigTest {
   @DisplayName("쿠키가 없으면 401을 응답한다")
   void unauthenticated() throws Exception {
     mockMvc.perform(get(PROTECTED_URL))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_JSON))
+        .andExpect(content().encoding(java.nio.charset.StandardCharsets.UTF_8))
+        .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+        .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
   }
 
   @Test
@@ -153,7 +159,10 @@ class SecurityConfigTest {
   @DisplayName("CSRF 토큰이 없는 쓰기 요청은 403을 응답한다")
   void writeWithoutCsrfToken() throws Exception {
     mockMvc.perform(post(PROTECTED_URL).cookie(accessTokenCookie()))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
   }
 
   @Test
