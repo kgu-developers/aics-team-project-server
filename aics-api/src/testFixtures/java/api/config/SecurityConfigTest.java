@@ -25,6 +25,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.time.Duration;
 
@@ -58,8 +59,11 @@ class SecurityConfigTest {
   static final String ORIGIN = "http://localhost:5173";
 
   private static final String PROTECTED_URL = "/api/v1/anything";
-  private static final String ME_URL = "/api/v1/users/me";
   private static final String STUDENT_NUMBER = "202699999";
+  // 실제 경로는 컨트롤러 매핑에서 뽑는다
+  private static final String USERS_URL = UserControllerImpl.class.getAnnotation(RequestMapping.class).value()[0];
+  private static final String ME_URL = USERS_URL + "/me";
+  private static final String ACTIVE_PASSWORD_URL = USERS_URL + "/" + STUDENT_NUMBER + "/password";
 
   @SpringBootConfiguration
   static class TestApp {
@@ -286,7 +290,7 @@ class SecurityConfigTest {
     Cookie cookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER", true,
         Duration.ofMinutes(30)));
 
-    mockMvc.perform(put("/api/v1/oop/users/" + STUDENT_NUMBER + "/password").cookie(cookie).with(csrf())
+    mockMvc.perform(put(ACTIVE_PASSWORD_URL).cookie(cookie).with(csrf())
             .contentType("application/json")
             .content("{\"currentPassword\":\"old-password\",\"password\":\"new-password\"}"))
         .andExpect(status().isOk());
