@@ -1,5 +1,9 @@
 package kgu.developers.globalutils.jwt;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Optional;
+
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TokenRevocationStore {
 
 	private static final String KEY_PREFIX = "revoked:";
+	private static final String PASSWORD_CHANGE_KEY_PREFIX = "password-change-required:";
 
 	private final RedisTemplate<String, String> redisTemplate;
 	private final JwtUtil jwtUtil;
@@ -42,5 +47,26 @@ public class TokenRevocationStore {
 			return true;
 		}
 		return issuedAtMillis < revokedMillis;
+	}
+
+	public void requirePasswordChangeUntil(String studentNumber, LocalDateTime expiresAt) {
+		redisTemplate.opsForValue().set(PASSWORD_CHANGE_KEY_PREFIX + studentNumber,
+			String.valueOf(expiresAt.toInstant(ZoneOffset.UTC).toEpochMilli()));
+	}
+
+	public Optional<LocalDateTime> passwordChangeExpiresAt(String studentNumber) {
+		String expiresAt = redisTemplate.opsForValue().get(PASSWORD_CHANGE_KEY_PREFIX + studentNumber);
+		if (expiresAt == null) {
+			return Optional.empty();
+		}
+		try {
+			return Optional.of(LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(Long.parseLong(expiresAt)), ZoneOffset.UTC));
+		} catch (NumberFormatException e) {
+			return Optional.of(LocalDateTime.MIN);
+		}
+	}
+
+	public void clearPasswordChangeRequirement(String studentNumber) {
+		redisTemplate.delete(PASSWORD_CHANGE_KEY_PREFIX + studentNumber);
 	}
 }

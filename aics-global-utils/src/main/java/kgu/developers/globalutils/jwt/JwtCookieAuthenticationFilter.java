@@ -2,6 +2,7 @@ package kgu.developers.globalutils.jwt;
 
 import static kgu.developers.globalutils.jwt.JwtUtil.ISSUED_AT_MILLIS;
 import static kgu.developers.globalutils.jwt.JwtUtil.ROLE;
+import static kgu.developers.globalutils.jwt.JwtUtil.PASSWORD_CHANGE_REQUIRED;
 
 import java.io.IOException;
 import java.util.List;
@@ -45,6 +46,11 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 				if (revocationStore.isRevoked(claims.getSubject(), claims.get(ISSUED_AT_MILLIS, Long.class))) {
 					SecurityContextHolder.clearContext();
 				} else {
+					if (Boolean.TRUE.equals(claims.get(PASSWORD_CHANGE_REQUIRED, Boolean.class))
+						&& !isPasswordChangeRequest(request, claims.getSubject())) {
+						response.sendError(HttpServletResponse.SC_FORBIDDEN);
+						return;
+					}
 					SecurityContextHolder.getContext().setAuthentication(authentication(claims));
 				}
 			} catch (JwtException e) {
@@ -56,6 +62,11 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 		}
 
 		filterChain.doFilter(request, response);
+	}
+
+	private boolean isPasswordChangeRequest(HttpServletRequest request, String studentNumber) {
+		return "PUT".equals(request.getMethod())
+			&& ("/api/v1/oop/users/" + studentNumber + "/password").equals(request.getRequestURI());
 	}
 
 	private Authentication authentication(Claims claims) {

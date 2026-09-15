@@ -1,5 +1,8 @@
 package kgu.developers.auth.api.application;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -87,8 +90,17 @@ public class AuthFacade {
     }
 
     private LoginResponse tokens(User user, String refreshToken, LoginRole role) {
+        var passwordChangeExpiresAt = tokenRevocationStore.passwordChangeExpiresAt(user.getStudentNumber());
+        if (passwordChangeExpiresAt.isPresent() && !LocalDateTime.now().isBefore(passwordChangeExpiresAt.get())) {
+            throw new InvalidCredentialsException();
+        }
+        Duration validity = passwordChangeExpiresAt
+            .map(expiresAt -> Duration.between(LocalDateTime.now(), expiresAt))
+            .orElse(jwtUtil.getAccessTokenValidity());
         return LoginResponse.of(
-                jwtUtil.createAccessToken(user.getStudentNumber(), role.name()),
+                passwordChangeExpiresAt.isPresent()
+                    ? jwtUtil.createAccessToken(user.getStudentNumber(), role.name(), true, validity)
+                    : jwtUtil.createAccessToken(user.getStudentNumber(), role.name()),
                 refreshToken,
                 role);
     }

@@ -242,6 +242,16 @@ class SecurityConfigTest {
   }
 
   @Test
+  @DisplayName("비밀번호 변경이 필요한 JWT는 일반 API를 403으로 막는다")
+  void passwordChangeRequiredTokenCannotAccessOtherApi() throws Exception {
+    Cookie cookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER", true,
+        Duration.ofMinutes(30)));
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(cookie))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   @DisplayName("swagger-ui 경로는 인증 없이 접근 가능하다")
   void swaggerUiAccessible() throws Exception {
     mockMvc.perform(get("/swagger-ui/index.html"))
