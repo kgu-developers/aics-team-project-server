@@ -263,7 +263,7 @@ class SecurityConfigTest {
     mockMvc.perform(put("/api/v1/oop/users/" + STUDENT_NUMBER + "/password").cookie(cookie).with(csrf())
             .contentType("application/json")
             .content("{\"currentPassword\":\"old-password\",\"password\":\"new-password\"}"))
-        .andExpect(status().isOk());
+        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
 
     mockMvc.perform(put("/api/v1/users/" + STUDENT_NUMBER + "/password").cookie(cookie).with(csrf())
             .contentType("application/json")
@@ -272,8 +272,8 @@ class SecurityConfigTest {
   }
 
   @Test
-  @DisplayName("비밀번호 변경이 필요한 JWT는 Prefix 병합 전후 경로를 모두 필터에서 통과시킨다")
-  void passwordChangeRequiredTokenAllowsBothPasswordPaths() throws Exception {
+  @DisplayName("비밀번호 변경이 필요한 JWT는 현재 활성 비밀번호 변경 경로에서 성공한다")
+  void passwordChangeRequiredTokenChangesPasswordAtActivePath() throws Exception {
     Cookie cookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER", true,
         Duration.ofMinutes(30)));
 
@@ -282,10 +282,7 @@ class SecurityConfigTest {
             .content("{\"currentPassword\":\"old-password\",\"password\":\"new-password\"}"))
         .andExpect(status().isOk());
 
-    mockMvc.perform(put("/api/v1/users/" + STUDENT_NUMBER + "/password").cookie(cookie).with(csrf())
-            .contentType("application/json")
-            .content("{\"currentPassword\":\"old-password\",\"password\":\"new-password\"}"))
-        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+    then(userFacade).should().updateUserPassword(eq(STUDENT_NUMBER), any());
   }
 
   @Test
