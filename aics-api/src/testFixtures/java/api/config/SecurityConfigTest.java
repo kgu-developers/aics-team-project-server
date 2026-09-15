@@ -249,7 +249,9 @@ class SecurityConfigTest {
         Duration.ofMinutes(30)));
 
     mockMvc.perform(get(PROTECTED_URL).cookie(cookie))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
   }
 
   @Test

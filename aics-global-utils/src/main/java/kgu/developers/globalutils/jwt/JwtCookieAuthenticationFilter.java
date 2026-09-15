@@ -7,6 +7,7 @@ import static kgu.developers.globalutils.jwt.JwtUtil.PASSWORD_CHANGE_REQUIRED;
 import java.io.IOException;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,6 +26,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import kgu.developers.common.exception.ErrorResponse;
+import static kgu.developers.common.exception.GlobalExceptionCode.ACCESS_DENIED;
 
 @Component
 @RequiredArgsConstructor
@@ -34,6 +37,7 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtUtil jwtUtil;
 	private final TokenRevocationStore revocationStore;
+	private final ObjectMapper objectMapper;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -48,7 +52,9 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 				} else {
 					if (Boolean.TRUE.equals(claims.get(PASSWORD_CHANGE_REQUIRED, Boolean.class))
 						&& !isPasswordChangeRequest(request, claims.getSubject())) {
-						response.sendError(HttpServletResponse.SC_FORBIDDEN);
+						response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+						response.setContentType("application/json");
+						objectMapper.writeValue(response.getWriter(), ErrorResponse.from(ACCESS_DENIED));
 						return;
 					}
 					SecurityContextHolder.getContext().setAuthentication(authentication(claims));
