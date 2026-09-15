@@ -11,6 +11,7 @@ import kgu.developers.admin.user.presentation.response.UserAdminResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -57,7 +58,7 @@ public class UserAdminControllerImpl implements UserAdminController {
   @Override
   @PatchMapping("/{studentNumber}/password/reset")
   public ResponseEntity<Void> resetPassword(@NotBlank @PathVariable String studentNumber) {
-    userAdminFacade.resetPassword(studentNumber);
+    userAdminFacade.resetPassword(studentNumber, SecurityContextHolder.getContext().getAuthentication().getName());
     return ResponseEntity.noContent().build();
   }
 
