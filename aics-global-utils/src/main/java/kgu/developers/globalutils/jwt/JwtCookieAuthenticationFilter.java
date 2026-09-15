@@ -9,6 +9,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.dao.DataAccessException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -26,8 +27,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import kgu.developers.common.exception.ErrorResponse;
-import static kgu.developers.common.exception.GlobalExceptionCode.ACCESS_DENIED;
+import kgu.developers.common.exception.JsonSecurityExceptionHandler;
 
 @Component
 @RequiredArgsConstructor
@@ -52,9 +52,8 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 				} else {
 					if (Boolean.TRUE.equals(claims.get(PASSWORD_CHANGE_REQUIRED, Boolean.class))
 						&& !isPasswordChangeRequest(request, claims.getSubject())) {
-						response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-						response.setContentType("application/json");
-						objectMapper.writeValue(response.getWriter(), ErrorResponse.from(ACCESS_DENIED));
+						new JsonSecurityExceptionHandler(objectMapper).handle(request, response,
+							new AccessDeniedException("비밀번호 변경이 필요합니다."));
 						return;
 					}
 					SecurityContextHolder.getContext().setAuthentication(authentication(claims));

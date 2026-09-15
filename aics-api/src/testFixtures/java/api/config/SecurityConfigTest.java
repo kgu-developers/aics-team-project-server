@@ -250,6 +250,8 @@ class SecurityConfigTest {
 
     mockMvc.perform(get(PROTECTED_URL).cookie(cookie))
         .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_JSON))
+        .andExpect(content().encoding(java.nio.charset.StandardCharsets.UTF_8))
         .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
         .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
   }
