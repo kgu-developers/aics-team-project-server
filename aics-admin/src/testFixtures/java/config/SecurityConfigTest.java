@@ -3,10 +3,13 @@ package config;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -52,6 +55,7 @@ class SecurityConfigTest {
   private static final String ROSTER_IMPORT_STATUS_URL =
       "/api/v1/admin/sections/1/roster-import-status";
   private static final String STUDENT_NUMBER = "202699999";
+  private static final String RESET_URL = ADMIN_URL + "/" + STUDENT_NUMBER + "/password/reset";
   private static final String ORIGIN = "http://localhost:5173";
 
   @SpringBootConfiguration
@@ -136,6 +140,49 @@ class SecurityConfigTest {
   void assistantAccessTokenCookie() throws Exception {
     mockMvc.perform(get(ADMIN_URL).cookie(accessTokenCookie("ASSISTANT")))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("비밀번호 초기화는 CSRF를 포함한 미인증 요청을 401로 거부한다")
+  void resetPasswordUnauthenticated() throws Exception {
+    mockMvc.perform(patch(RESET_URL).with(csrf()))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("비밀번호 초기화는 일반 사용자 JWT를 403으로 거부한다")
+  void resetPasswordRejectsUser() throws Exception {
+    mockMvc.perform(patch(RESET_URL).cookie(accessTokenCookie("USER")).with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(userAdminFacade);
+  }
+
+  @Test
+  @DisplayName("비밀번호 초기화는 조교 JWT를 403으로 거부한다")
+  void resetPasswordRejectsAssistant() throws Exception {
+    mockMvc.perform(patch(RESET_URL).cookie(accessTokenCookie("ASSISTANT")).with(csrf()))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(userAdminFacade);
+  }
+
+  @Test
+  @DisplayName("비밀번호 초기화는 관리자 JWT라도 CSRF 없이는 403으로 거부한다")
+  void resetPasswordRejectsMissingCsrf() throws Exception {
+    mockMvc.perform(patch(RESET_URL).cookie(accessTokenCookie("ADMIN")))
+        .andExpect(status().isForbidden());
+
+    verifyNoInteractions(userAdminFacade);
+  }
+
+  @Test
+  @DisplayName("비밀번호 초기화는 관리자 JWT와 CSRF가 있으면 파사드에 호출자를 전달한다")
+  void resetPasswordAdminSuccess() throws Exception {
+    mockMvc.perform(patch(RESET_URL).cookie(accessTokenCookie("ADMIN")).with(csrf()))
+        .andExpect(status().isNoContent());
+
+    verify(userAdminFacade).resetPassword(STUDENT_NUMBER, STUDENT_NUMBER);
   }
 
   @Test
