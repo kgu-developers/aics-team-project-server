@@ -3,8 +3,10 @@ package kgu.developers.common.exception;
 import static kgu.developers.common.exception.GlobalExceptionCode.ACCESS_DENIED;
 import static kgu.developers.common.exception.GlobalExceptionCode.DATA_CONFLICT;
 import static kgu.developers.common.exception.GlobalExceptionCode.INVALID_INPUT;
+import static kgu.developers.common.exception.GlobalExceptionCode.METHOD_NOT_ALLOWED;
 import static kgu.developers.common.exception.GlobalExceptionCode.PAYLOAD_TOO_LARGE;
 import static kgu.developers.common.exception.GlobalExceptionCode.SERVER_ERROR;
+import static kgu.developers.common.exception.GlobalExceptionCode.UNSUPPORTED_MEDIA_TYPE;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 
 import jakarta.validation.ConstraintViolationException;
@@ -19,9 +21,13 @@ import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -143,6 +149,30 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                                                     HttpStatusCode status,
                                                                     WebRequest request) {
         return invalidInput();
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestParameter(
+        MissingServletRequestParameterException exception, HttpHeaders headers,
+        HttpStatusCode status, WebRequest request) {
+        return invalidInput();
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpRequestMethodNotSupported(
+        HttpRequestMethodNotSupportedException exception, HttpHeaders headers,
+        HttpStatusCode status, WebRequest request) {
+        return ResponseEntity.status(METHOD_NOT_ALLOWED.getStatus())
+            .allow(exception.getSupportedHttpMethods().toArray(HttpMethod[]::new))
+            .body(ErrorResponse.from(METHOD_NOT_ALLOWED));
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMediaTypeNotSupported(
+        HttpMediaTypeNotSupportedException exception, HttpHeaders headers,
+        HttpStatusCode status, WebRequest request) {
+        return ResponseEntity.status(UNSUPPORTED_MEDIA_TYPE.getStatus())
+            .body(ErrorResponse.from(UNSUPPORTED_MEDIA_TYPE));
     }
 
     @Override
