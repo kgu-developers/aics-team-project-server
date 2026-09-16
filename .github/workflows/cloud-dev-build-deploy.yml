@@ -271,6 +271,17 @@ jobs:
               sleep 2
             done
 
+            for legacy_docs_path in admin-docs/index.html auth-docs/index.html; do
+              if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy sh -c \
+                "wget -T 5 -S -O /dev/null \
+                https://team-project-api.kgudevelopers.monster/$legacy_docs_path 2>&1 || true" \
+                | grep -Eq 'HTTP/[0-9.]+ 308'; then
+                echo "구 Swagger URL 리디렉션 스모크 테스트에 실패했습니다: $legacy_docs_path" >&2
+                rollback_deployment || true
+                exit 1
+              fi
+            done
+
             echo "API, Admin, Auth 애플리케이션 기동 확인을 완료했습니다."
             echo "$IMAGE_TAG" > "$LAST_GOOD_TAG_FILE"
 
