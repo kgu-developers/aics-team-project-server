@@ -15,8 +15,7 @@ public class User {
     private String name;
     private String password;
 
-    @Builder.Default
-    private Boolean passwordChangeRequired = false;
+    private LocalDateTime passwordChangeRequiredUntil;
 
     private UserGlobalRole globalRole;
     private String phone;
@@ -57,16 +56,16 @@ public class User {
         this.password = password;
     }
 
-    public void requirePasswordChange() {
-        passwordChangeRequired = true;
+    public void requirePasswordChangeUntil(LocalDateTime passwordChangeRequiredUntil) {
+        this.passwordChangeRequiredUntil = passwordChangeRequiredUntil;
     }
 
     public void clearPasswordChangeRequirement() {
-        passwordChangeRequired = false;
+        passwordChangeRequiredUntil = null;
     }
 
     public boolean isPasswordChangeRequired() {
-        return Boolean.TRUE.equals(passwordChangeRequired);
+        return passwordChangeRequiredUntil != null && LocalDateTime.now().isBefore(passwordChangeRequiredUntil);
     }
 
     public void updateGlobalRole(UserGlobalRole globalRole) {

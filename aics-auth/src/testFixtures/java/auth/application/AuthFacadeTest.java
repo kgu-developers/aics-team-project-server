@@ -4,17 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -92,19 +95,65 @@ class AuthFacadeTest {
         .password(PASSWORD)
         .globalRole(USER)
         .phone("010-1234-6789")
-        .passwordChangeRequired(true)
+        .passwordChangeRequiredUntil(LocalDateTime.now().plusMinutes(10))
         .build();
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
     given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
     given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
-    given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
-    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT", true, Duration.ofMinutes(30)))
+    given(jwtUtil.createAccessToken(eq(STUDENT_NUMBER), eq("STUDENT"), eq(true), any(Duration.class)))
         .willReturn("restricted-access-token");
     given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
 
     LoginResponse response = userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD));
 
     assertThat(response.accessToken()).isEqualTo("restricted-access-token");
+    ArgumentCaptor<Duration> validity = ArgumentCaptor.forClass(Duration.class);
+    verify(jwtUtil).createAccessToken(eq(STUDENT_NUMBER), eq("STUDENT"), eq(true), validity.capture());
+    assertThat(validity.getValue()).isBetween(Duration.ofMinutes(9), Duration.ofMinutes(10));
+  }
+
+  @Test
+  @DisplayName("login은 비밀번호 변경 기한이 지났으면 refreshToken을 저장하지 않는다")
+  void loginAfterPasswordChangeDeadline() {
+    User testUser = User.builder()
+        .studentNumber(STUDENT_NUMBER)
+        .email("kgu@kyonggi.ac.kr")
+        .name("김철수")
+        .password(PASSWORD)
+        .globalRole(USER)
+        .phone("010-1234-6789")
+        .passwordChangeRequiredUntil(LocalDateTime.now().minusMinutes(1))
+        .build();
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
+
+    assertThatThrownBy(() -> userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD)))
+        .isInstanceOf(InvalidCredentialsException.class);
+
+    verify(refreshTokenStore, never()).save(any(), any());
+  }
+
+  @Test
+  @DisplayName("refresh는 비밀번호 변경 기한이 지났으면 refreshToken을 회전하지 않는다")
+  void refreshAfterPasswordChangeDeadline() {
+    User testUser = User.builder()
+        .studentNumber(STUDENT_NUMBER)
+        .email("kgu@kyonggi.ac.kr")
+        .name("김철수")
+        .password(PASSWORD)
+        .globalRole(USER)
+        .phone("010-1234-6789")
+        .passwordChangeRequiredUntil(LocalDateTime.now().minusMinutes(1))
+        .build();
+    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
+
+    assertThatThrownBy(() -> userFacade.refresh("refresh-token"))
+        .isInstanceOf(InvalidCredentialsException.class);
+
+    verify(refreshTokenStore, never()).replace(any(), any(), any());
   }
 
   @Test

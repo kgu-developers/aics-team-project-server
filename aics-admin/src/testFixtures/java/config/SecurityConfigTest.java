@@ -40,6 +40,7 @@ import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 
 @WebMvcTest
 @Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class, CorsConfig.class,
@@ -74,6 +75,9 @@ class SecurityConfigTest {
   // Redis 없이 도는 슬라이스 테스트라 무효화 조회는 대역으로 둔다 (기본값 false = 무효화 안 됨).
   @MockitoBean
   private TokenRevocationStore tokenRevocationStore;
+
+  @MockitoBean
+  private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
   private Cookie accessTokenCookie(String role) {
     return new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, role));

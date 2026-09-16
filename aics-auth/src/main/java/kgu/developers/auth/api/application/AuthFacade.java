@@ -1,5 +1,7 @@
 package kgu.developers.auth.api.application;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -91,8 +93,14 @@ public class AuthFacade {
     }
 
     private String accessToken(User user, LoginRole role) {
-        return user.isPasswordChangeRequired()
-            ? jwtUtil.createAccessToken(user.getStudentNumber(), role.name(), true, jwtUtil.getAccessTokenValidity())
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime passwordChangeRequiredUntil = user.getPasswordChangeRequiredUntil();
+        if (passwordChangeRequiredUntil != null && !now.isBefore(passwordChangeRequiredUntil)) {
+            throw new InvalidCredentialsException();
+        }
+        return passwordChangeRequiredUntil != null
+            ? jwtUtil.createAccessToken(user.getStudentNumber(), role.name(), true,
+                Duration.between(now, passwordChangeRequiredUntil))
             : jwtUtil.createAccessToken(user.getStudentNumber(), role.name());
     }
 

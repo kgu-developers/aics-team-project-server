@@ -31,6 +31,7 @@ import kgu.developers.common.response.PageableResponse;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 
 @WebMvcTest
 @Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class,
@@ -58,6 +59,9 @@ class AuditLogControllerTest {
 
     @MockitoBean
     private TokenRevocationStore tokenRevocationStore;
+
+    @MockitoBean
+    private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
     @Test
     @DisplayName("인증된 사용자는 팀 변경 이력을 조회할 수 있다")

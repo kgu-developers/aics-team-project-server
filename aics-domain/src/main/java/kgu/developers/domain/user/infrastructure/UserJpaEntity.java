@@ -34,9 +34,7 @@ public class UserJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private String password;
 
-    @Builder.Default
-    @Column(nullable = true)
-    private Boolean passwordChangeRequired = false;
+    private LocalDateTime passwordChangeRequiredUntil;
 
     @Enumerated(STRING)
     @Column(nullable = false, length = 16)
@@ -56,7 +54,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .email(email)
                 .name(name)
                 .password(password)
-                .passwordChangeRequired(passwordChangeRequired)
+                .passwordChangeRequiredUntil(passwordChangeRequiredUntil)
                 .globalRole(globalRole)
                 .phone(phone)
                 .major(major)
@@ -73,7 +71,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .email(user.getEmail())
                 .name(user.getName())
                 .password(user.getPassword())
-                .passwordChangeRequired(user.isPasswordChangeRequired())
+                .passwordChangeRequiredUntil(user.getPasswordChangeRequiredUntil())
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
                 .major(user.getMajor())
