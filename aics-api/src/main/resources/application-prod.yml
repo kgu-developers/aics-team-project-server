@@ -14,3 +14,6 @@ springdoc:
     enabled: false
   api-docs:
     enabled: false
+
+csrf:
+  cookie-domain: ${CSRF_COOKIE_DOMAIN:kgudevelopers.monster}

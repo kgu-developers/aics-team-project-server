@@ -17,3 +17,6 @@ springdoc:
 
 jwt:
   cookie-secure: true
+
+csrf:
+  cookie-domain: ${CSRF_COOKIE_DOMAIN:kgudevelopers.monster}

@@ -43,7 +43,8 @@ import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 @TestPropertySource(properties = {
     "jwt.secret_key=local-dev-jwt-secret-key-0123456789",
     "jwt.issuer=kgudevelopers@gmail.com",
-    "cors.allowed-origins=http://localhost:5173"
+    "cors.allowed-origins=http://localhost:5173",
+    "csrf.cookie-domain=kgudevelopers.monster"
 })
 class SecurityConfigTest {
 
@@ -122,6 +123,7 @@ class SecurityConfigTest {
     // 브라우저를 껐다 켜도 남아야 refreshToken(P14D)만 남고 CSRF 토큰이 없어 /refresh가 403 나는 일이 없다
     assertThat(csrfCookie).isNotNull();
     assertThat(csrfCookie.getMaxAge()).isGreaterThan((int) Duration.ofDays(14).toSeconds());
+    assertThat(csrfCookie.getDomain()).isEqualTo("kgudevelopers.monster");
   }
 
   @Test

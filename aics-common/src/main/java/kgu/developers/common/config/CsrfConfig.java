@@ -5,6 +5,8 @@ import java.time.Duration;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -13,6 +15,7 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.DeferredCsrfToken;
+import org.springframework.util.StringUtils;
 
 /**
  * 인증을 쿠키로만 하므로 브라우저가 자동으로 붙이는 요청을 걸러낼 방어선이 필요하다.
@@ -21,13 +24,15 @@ import org.springframework.security.web.csrf.DeferredCsrfToken;
  */
 public final class CsrfConfig {
 	private static final Duration COOKIE_MAX_AGE = Duration.ofDays(30);
+	private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
+	private static final String CSRF_COOKIE_PATH = "/";
 
 	private CsrfConfig() {
 	}
 
-	public static Customizer<CsrfConfigurer<HttpSecurity>> spa(String... ignoredPaths) {
+	public static Customizer<CsrfConfigurer<HttpSecurity>> spa(String cookieDomain, String... ignoredPaths) {
 		return csrf -> {
-			csrf.csrfTokenRepository(cookieTokenRepository())
+			csrf.csrfTokenRepository(cookieTokenRepository(cookieDomain))
 				.csrfTokenRequestHandler(tokenRequestHandler());
 
 			if (ignoredPaths.length > 0) {
@@ -36,10 +41,15 @@ public final class CsrfConfig {
 		};
 	}
 
-	private static CsrfTokenRepository cookieTokenRepository() {
+	static CsrfTokenRepository cookieTokenRepository(String cookieDomain) {
 		CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-		repository.setCookieCustomizer(cookie -> cookie.maxAge(COOKIE_MAX_AGE));
-		return new SlidingCookieCsrfTokenRepository(repository);
+		repository.setCookieCustomizer(cookie -> {
+			cookie.maxAge(COOKIE_MAX_AGE);
+			if (StringUtils.hasText(cookieDomain)) {
+				cookie.domain(cookieDomain);
+			}
+		});
+		return new SlidingCookieCsrfTokenRepository(repository, StringUtils.hasText(cookieDomain));
 	}
 
 	private static CsrfTokenRequestAttributeHandler tokenRequestHandler() {
@@ -48,14 +58,16 @@ public final class CsrfConfig {
 		return handler;
 	}
 
-	private record SlidingCookieCsrfTokenRepository(CsrfTokenRepository delegate)
+	private record SlidingCookieCsrfTokenRepository(
+		CsrfTokenRepository delegate,
+		boolean clearLegacyHostOnlyCookie)
 		implements CsrfTokenRepository {
 
 		@Override
 		public DeferredCsrfToken loadDeferredToken(HttpServletRequest request, HttpServletResponse response) {
 			CsrfToken loaded = delegate.loadToken(request);
 			CsrfToken token = (loaded != null) ? loaded : delegate.generateToken(request);
-			delegate.saveToken(token, request, response);
+			saveToken(token, request, response);
 
 			return new DeferredCsrfToken() {
 				@Override
@@ -78,11 +90,26 @@ public final class CsrfConfig {
 		@Override
 		public void saveToken(CsrfToken token, HttpServletRequest request, HttpServletResponse response) {
 			delegate.saveToken(token, request, response);
+			clearLegacyHostOnlyCookie(request, response);
 		}
 
 		@Override
 		public CsrfToken loadToken(HttpServletRequest request) {
 			return delegate.loadToken(request);
+		}
+
+		private void clearLegacyHostOnlyCookie(HttpServletRequest request, HttpServletResponse response) {
+			if (!clearLegacyHostOnlyCookie) {
+				return;
+			}
+			// 공유 도메인 쿠키와 이름이 같은 기존 host-only 쿠키가 브라우저에 함께 남는 것을 방지한다.
+			ResponseCookie expired = ResponseCookie.from(CSRF_COOKIE_NAME, "")
+				.path(CSRF_COOKIE_PATH)
+				.secure(request.isSecure())
+				.sameSite("Lax")
+				.maxAge(Duration.ZERO)
+				.build();
+			response.addHeader(HttpHeaders.SET_COOKIE, expired.toString());
 		}
 	}
 }
