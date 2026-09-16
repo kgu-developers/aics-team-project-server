@@ -8,8 +8,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
+import java.time.Duration;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -80,6 +80,31 @@ class AuthFacadeTest {
     assertThat(response.refreshToken()).isEqualTo("refresh-token");
     assertThat(response.role()).isEqualTo(LoginRole.STUDENT);
     verify(refreshTokenStore).save(STUDENT_NUMBER, "refresh-token");
+  }
+
+  @Test
+  @DisplayName("DB에 강제 비밀번호 변경 상태가 있으면 Redis 상태와 무관하게 제한 accessToken을 발급한다")
+  void loginRequiresPasswordChangeFromPersistentState() {
+    User testUser = User.builder()
+        .studentNumber(STUDENT_NUMBER)
+        .email("kgu@kyonggi.ac.kr")
+        .name("김철수")
+        .password(PASSWORD)
+        .globalRole(USER)
+        .phone("010-1234-6789")
+        .passwordChangeRequired(true)
+        .build();
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
+    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
+    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
+    given(jwtUtil.getAccessTokenValidity()).willReturn(Duration.ofMinutes(30));
+    given(jwtUtil.createAccessToken(STUDENT_NUMBER, "STUDENT", true, Duration.ofMinutes(30)))
+        .willReturn("restricted-access-token");
+    given(jwtUtil.createRefreshToken(STUDENT_NUMBER)).willReturn("refresh-token");
+
+    LoginResponse response = userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD));
+
+    assertThat(response.accessToken()).isEqualTo("restricted-access-token");
   }
 
   @Test
@@ -340,37 +365,4 @@ class AuthFacadeTest {
     verify(refreshTokenStore, never()).save(any(), any());
   }
 
-  @Test
-  @DisplayName("login은 비밀번호 변경 기한이 지났으면 refreshToken을 저장하지 않는다")
-  void loginAfterPasswordChangeDeadline() {
-    User testUser = user();
-    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
-    given(passwordEncoder.matches(PASSWORD, PASSWORD)).willReturn(true);
-    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
-    given(tokenRevocationStore.passwordChangeExpiresAt(STUDENT_NUMBER))
-        .willReturn(Optional.of(LocalDateTime.now().minusMinutes(1)));
-
-    assertThatThrownBy(() -> userFacade.login(new LoginRequest(STUDENT_NUMBER, PASSWORD)))
-        .isInstanceOf(InvalidCredentialsException.class);
-
-    // 클라이언트가 받지 못한 refreshToken이 저장소에 남으면 안 된다
-    verify(refreshTokenStore, never()).save(any(), any());
-  }
-
-  @Test
-  @DisplayName("refresh는 비밀번호 변경 기한이 지났으면 refreshToken을 회전하지 않는다")
-  void refreshAfterPasswordChangeDeadline() {
-    User testUser = user();
-    given(jwtUtil.parseRefreshTokenSubject("refresh-token")).willReturn(STUDENT_NUMBER);
-    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(testUser);
-    given(userQueryService.getUserRole(testUser)).willReturn((LoginRole) LoginRole.STUDENT);
-    given(tokenRevocationStore.passwordChangeExpiresAt(STUDENT_NUMBER))
-        .willReturn(Optional.of(LocalDateTime.now().minusMinutes(1)));
-
-    assertThatThrownBy(() -> userFacade.refresh("refresh-token"))
-        .isInstanceOf(InvalidCredentialsException.class);
-
-    // 회전이 일어나면 저장소에만 새 토큰이 남고 클라이언트의 토큰은 죽는다
-    verify(refreshTokenStore, never()).replace(any(), any(), any());
-  }
 }

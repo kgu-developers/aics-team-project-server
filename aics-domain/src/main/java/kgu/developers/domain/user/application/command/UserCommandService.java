@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class UserCommandService {
-    private static final long PASSWORD_RESET_VALIDITY_MINUTES = 30;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JpaRefreshTokenRepository refreshTokenRepository;
@@ -70,20 +69,20 @@ public class UserCommandService {
         }
 
         user.updatePassword(passwordEncoder.encode(newPassword));
-        tokenRevocationStore.clearPasswordChangeRequirement(user.getStudentNumber());
+        user.clearPasswordChangeRequirement();
         userRepository.save(user);
         revokeTokens(user);
     }
 
     public void resetPassword(User user, String password) {
-        tokenRevocationStore.requirePasswordChangeUntil(user.getStudentNumber(),
-            LocalDateTime.now().plusMinutes(PASSWORD_RESET_VALIDITY_MINUTES));
         user.updatePassword(passwordEncoder.encode(password));
+        user.requirePasswordChange();
         userRepository.save(user);
         revokeTokens(user);
     }
 
     public void deleteUser(User user) {
+        user.clearPasswordChangeRequirement();
         user.delete();
         userRepository.save(user);
         revokeTokens(user);

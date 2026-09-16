@@ -38,6 +38,7 @@ import kgu.developers.api.user.presentation.response.UserResponse;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
 
 /**
@@ -78,6 +79,9 @@ class SecurityConfigTest {
   // Redis 없이 도는 슬라이스 테스트라 무효화 조회는 대역으로 둔다 (기본값 false = 무효화 안 됨).
   @MockitoBean
   private TokenRevocationStore tokenRevocationStore;
+
+  @MockitoBean
+  private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
   @MockitoBean
   private UserFacade userFacade;
@@ -258,6 +262,16 @@ class SecurityConfigTest {
         .andExpect(content().encoding(java.nio.charset.StandardCharsets.UTF_8))
         .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
         .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
+  }
+
+  @Test
+  @DisplayName("DB 강제 변경 상태는 reset 이전의 일반 JWT도 403으로 막는다")
+  void persistentPasswordChangeRequirementBlocksNormalToken() throws Exception {
+    given(passwordChangeRequirementChecker.isRequired(STUDENT_NUMBER)).willReturn(true);
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(accessTokenCookie()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
   }
 
   @Test

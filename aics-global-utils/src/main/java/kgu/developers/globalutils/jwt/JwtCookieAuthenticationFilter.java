@@ -9,6 +9,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.dao.DataAccessException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -37,6 +38,7 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtUtil jwtUtil;
 	private final TokenRevocationStore revocationStore;
+	private final ObjectProvider<PasswordChangeRequirementChecker> passwordChangeRequirementChecker;
 	private final ObjectMapper objectMapper;
 
 	@Override
@@ -50,7 +52,9 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 				if (revocationStore.isRevoked(claims.getSubject(), claims.get(ISSUED_AT_MILLIS, Long.class))) {
 					SecurityContextHolder.clearContext();
 				} else {
-					if (Boolean.TRUE.equals(claims.get(PASSWORD_CHANGE_REQUIRED, Boolean.class))
+					PasswordChangeRequirementChecker checker = passwordChangeRequirementChecker.getIfAvailable();
+					if ((Boolean.TRUE.equals(claims.get(PASSWORD_CHANGE_REQUIRED, Boolean.class))
+						|| (checker != null && checker.isRequired(claims.getSubject())))
 						&& !isPasswordChangeRequest(request, claims.getSubject())) {
 						new JsonSecurityExceptionHandler(objectMapper).handle(request, response,
 							new AccessDeniedException("비밀번호 변경이 필요합니다."));

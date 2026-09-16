@@ -55,6 +55,14 @@ class UserServiceTest {
   }
 
   @Test
+  @DisplayName("기존 DB의 NULL 강제 변경 상태는 false로 해석한다")
+  void nullPasswordChangeRequirementIsFalse() {
+    User user = User.builder().passwordChangeRequired(null).build();
+
+    assertThat(user.isPasswordChangeRequired()).isFalse();
+  }
+
+  @Test
   @DisplayName("createUser는 평문이 아닌 해시를 저장한다")
   void createUser() {
     given(passwordEncoder.encode("12345678")).willReturn("hashed");
@@ -85,6 +93,7 @@ class UserServiceTest {
   @DisplayName("createUser는 reactivate면 탈퇴 회원을 이력으로 남긴 뒤 새 계정을 만든다")
   void createUserReactivatesWithdrawnStudentNumber() {
     User withdrawn = user();
+    withdrawn.requirePasswordChange();
     withdrawn.delete();
     given(userRepository.existsByStudentNumber("202699999")).willReturn(true);
     given(userRepository.findIncludingDeleted("202699999")).willReturn(Optional.of(withdrawn));
@@ -98,6 +107,10 @@ class UserServiceTest {
     InOrder inOrder = inOrder(userRepository);
     inOrder.verify(userRepository).archiveAndHardDelete(withdrawn);
     inOrder.verify(userRepository).save(any(User.class));
+
+    ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(captor.capture());
+    assertThat(captor.getValue().isPasswordChangeRequired()).isFalse();
   }
 
   @Test
@@ -173,12 +186,14 @@ class UserServiceTest {
   @DisplayName("updatePassword는 평문이 아닌 해시를 저장한다")
   void updatePassword() {
     User user = user();
+    user.requirePasswordChange();
     given(passwordEncoder.matches("12345678", "12345678")).willReturn(true);
     given(passwordEncoder.encode("87654321")).willReturn("hashed");
 
     commandService.updatePassword(user, "12345678", "87654321");
 
     assertThat(user.getPassword()).isEqualTo("hashed");
+    assertThat(user.isPasswordChangeRequired()).isFalse();
     verify(userRepository).save(user);
     verify(refreshTokenRepository).deleteById("202699999");
   }
@@ -192,6 +207,7 @@ class UserServiceTest {
     commandService.resetPassword(user, "010-1234-6789");
 
     assertThat(user.getPassword()).isEqualTo("hashed");
+    assertThat(user.isPasswordChangeRequired()).isTrue();
     verify(userRepository).save(user);
     verify(refreshTokenRepository).deleteById("202699999");
     verify(tokenRevocationStore).revokeTokensIssuedBefore("202699999");
@@ -228,10 +244,12 @@ class UserServiceTest {
   @DisplayName("deleteUser는 삭제 시각을 기록한 뒤 저장하고 refresh token도 지운다 (soft delete)")
   void deleteUser() {
     User user = user();
+    user.requirePasswordChange();
 
     commandService.deleteUser(user);
 
     assertThat(user.getDeletedAt()).isNotNull();
+    assertThat(user.isPasswordChangeRequired()).isFalse();
     verify(userRepository).save(user);
     verify(refreshTokenRepository).deleteById("202699999");
   }

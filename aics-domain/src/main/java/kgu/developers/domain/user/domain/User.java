@@ -15,6 +15,9 @@ public class User {
     private String name;
     private String password;
 
+    @Builder.Default
+    private Boolean passwordChangeRequired = false;
+
     private UserGlobalRole globalRole;
     private String phone;
     private String major;
@@ -52,6 +55,18 @@ public class User {
 
     public void updatePassword(String password) {
         this.password = password;
+    }
+
+    public void requirePasswordChange() {
+        passwordChangeRequired = true;
+    }
+
+    public void clearPasswordChangeRequirement() {
+        passwordChangeRequired = false;
+    }
+
+    public boolean isPasswordChangeRequired() {
+        return Boolean.TRUE.equals(passwordChangeRequired);
     }
 
     public void updateGlobalRole(UserGlobalRole globalRole) {
