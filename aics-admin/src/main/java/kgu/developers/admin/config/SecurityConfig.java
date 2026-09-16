@@ -5,6 +5,7 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.DispatcherType;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -15,19 +16,26 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import kgu.developers.common.config.CsrfConfig;
 import kgu.developers.common.exception.JsonSecurityExceptionHandler;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 
 @Configuration
-@RequiredArgsConstructor
 public class SecurityConfig {
 
   private final JwtCookieAuthenticationFilter jwtCookieAuthenticationFilter;
   private final ObjectMapper objectMapper;
+  private final String csrfCookieDomain;
+
+  public SecurityConfig(JwtCookieAuthenticationFilter jwtCookieAuthenticationFilter,
+      ObjectMapper objectMapper,
+      @Value("${csrf.cookie-domain:}") String csrfCookieDomain) {
+    this.jwtCookieAuthenticationFilter = jwtCookieAuthenticationFilter;
+    this.objectMapper = objectMapper;
+    this.csrfCookieDomain = csrfCookieDomain;
+  }
 
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     return http
-        .csrf(CsrfConfig.spa())
+        .csrf(CsrfConfig.spa(csrfCookieDomain))
         .cors(Customizer.withDefaults())
         .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
         .authorizeHttpRequests(auth -> auth
