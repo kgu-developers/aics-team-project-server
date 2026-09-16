@@ -37,7 +37,7 @@ team-project-api.kgudevelopers.monster {
 	# Swagger UI는 aics-api의 통합 화면 하나만 사용한다. 예전 개별 UI 주소는
 	# 기존 북마크가 404가 되지 않도록 통합 화면으로 보낸다.
 	handle /admin-docs* {
-		redir /swagger-ui/index.html 308
+		redir * /swagger-ui/index.html 308
 	}
 
 	handle /admin-api-docs* {
@@ -47,7 +47,7 @@ team-project-api.kgudevelopers.monster {
 	}
 
 	handle /auth-docs* {
-		redir /swagger-ui/index.html 308
+		redir * /swagger-ui/index.html 308
 	}
 
 	handle /auth-api-docs* {
