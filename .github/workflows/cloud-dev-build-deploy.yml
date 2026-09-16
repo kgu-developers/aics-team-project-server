@@ -87,6 +87,20 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@v3
 
+      - name: backup current Caddyfile on server
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            set -euo pipefail
+            cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
+            if [ -f Caddyfile ]; then
+              cp Caddyfile .Caddyfile.before-deploy
+            fi
+
       - name: scp docker-compose and Caddyfile to server
         uses: appleboy/scp-action@master
         with:
@@ -116,21 +130,40 @@ jobs:
             # 이미지 태그를 마커 파일로 남겨두고, 이번 배포가 끝까지 실패하면 그
             # 태그로 되돌린다.
             LAST_GOOD_TAG_FILE=.last-successful-image-tag
+            PREVIOUS_CADDYFILE=.Caddyfile.before-deploy
             PREVIOUS_IMAGE_TAG=""
             if [ -f "$LAST_GOOD_TAG_FILE" ]; then
               PREVIOUS_IMAGE_TAG=$(cat "$LAST_GOOD_TAG_FILE")
             fi
 
-            rollback_to_previous_image() {
-              if [ -z "$PREVIOUS_IMAGE_TAG" ]; then
-                echo "롤백할 이전 이미지 태그가 없습니다(첫 배포이거나 기록이 없음)." >&2
+            restore_previous_caddy_config() {
+              if [ ! -f "$PREVIOUS_CADDYFILE" ]; then
+                echo "복구할 이전 Caddyfile이 없습니다." >&2
                 return 1
               fi
-              echo "이전 이미지($PREVIOUS_IMAGE_TAG)로 되돌립니다." >&2
-              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
-              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
-              IMAGE_TAG="$PREVIOUS_IMAGE_TAG" \
-                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d
+
+              echo "이전 Caddyfile로 되돌립니다." >&2
+              cp "$PREVIOUS_CADDYFILE" Caddyfile
+              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} run --rm --no-deps \
+                --entrypoint caddy caddy \
+                validate --config /etc/caddy/Caddyfile --adapter caddyfile
+              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
+                up -d --force-recreate --no-deps caddy
+            }
+
+            rollback_deployment() {
+              if [ -z "$PREVIOUS_IMAGE_TAG" ]; then
+                echo "롤백할 이전 이미지 태그가 없습니다(첫 배포이거나 기록이 없음)." >&2
+              else
+                echo "이전 이미지($PREVIOUS_IMAGE_TAG)로 되돌립니다." >&2
+                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
+                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
+                IMAGE_TAG="$PREVIOUS_IMAGE_TAG" \
+                  docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
+                  up -d aics-api aics-admin aics-auth
+              fi
+
+              restore_previous_caddy_config || true
             }
 
             docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull
@@ -153,7 +186,7 @@ jobs:
               if [ "$up_attempt" -ge 5 ]; then
                 echo "docker compose up 실패 (재시도 $up_attempt회 초과)." >&2
                 docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
-                rollback_to_previous_image || true
+                rollback_deployment || true
                 exit 1
               fi
 
@@ -162,14 +195,31 @@ jobs:
               sleep 5
             done
 
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
-              caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+            # scp-action은 Caddyfile을 새 inode로 교체할 수 있다. 단일 파일 bind mount를
+            # 유지한 채 reload만 하면 실행 중인 Caddy가 이전 inode의 설정을 다시 읽어
+            # 최신 라우트가 반영되지 않는다. 새 파일을 일회성 컨테이너에서 먼저 검증한 뒤
+            # Caddy만 재생성해 새 bind mount를 잡는다.
+            if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} run --rm --no-deps \
+              --entrypoint caddy caddy \
+              validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
+              echo "새 Caddyfile 검증에 실패했습니다." >&2
+              rollback_deployment || true
+              exit 1
+            fi
+
+            if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
+              up -d --force-recreate --no-deps caddy; then
+              echo "Caddy 컨테이너 재생성에 실패했습니다." >&2
+              rollback_deployment || true
+              exit 1
+            fi
 
             reload_attempt=1
             until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
               caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; do
               if [ "$reload_attempt" -ge 10 ]; then
                 echo "Caddy reload failed after $reload_attempt attempts." >&2
+                rollback_deployment || true
                 exit 1
               fi
 
@@ -193,12 +243,31 @@ jobs:
                 # 밖에 파일로 남고 있으니(docker/logs/) 필요하면 서버에 직접 들어가서 본다.
                 echo "애플리케이션 기동 확인에 실패했습니다." >&2
                 docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
-                rollback_to_previous_image || true
+                rollback_deployment || true
                 exit 1
               fi
 
               echo "애플리케이션 기동을 기다립니다. ($health_attempt/90)"
               health_attempt=$((health_attempt + 1))
+              sleep 2
+            done
+
+            # 문서 URL만 확인하면 Caddy가 구 prefix를 계속 사용해도 배포가 성공한다.
+            # 공개 도메인의 로그인 경로에 빈 JSON을 보내 Auth의 validation(400)까지
+            # 도달하는지 확인한다. catch-all API로 잘못 라우팅되면 CSRF 403이므로 실패한다.
+            login_smoke_attempt=1
+            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy sh -c \
+              "wget -T 5 -S -O /dev/null --header='Content-Type: application/json' --post-data='{}' \
+              https://team-project-api.kgudevelopers.monster/api/v1/auth/login 2>&1 || true" \
+              | grep -Eq 'HTTP/[0-9.]+ 400'; do
+              if [ "$login_smoke_attempt" -ge 10 ]; then
+                echo "공개 로그인 경로 스모크 테스트에 실패했습니다." >&2
+                rollback_deployment || true
+                exit 1
+              fi
+
+              echo "공개 로그인 경로 반영을 기다립니다. ($login_smoke_attempt/10)"
+              login_smoke_attempt=$((login_smoke_attempt + 1))
               sleep 2
             done
 
