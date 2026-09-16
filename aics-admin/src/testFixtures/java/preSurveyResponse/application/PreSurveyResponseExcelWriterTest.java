@@ -29,11 +29,28 @@ class PreSurveyResponseExcelWriterTest {
     private static final String TRUNCATED_MARK = "…(이하 생략)";
     private static final Long SECTION_ID = 1L;
     private static final int NAME = 1;
-    private static final int ROLES = 2;
-    private static final int TOPIC_OPINION = 3;
-    private static final int ETC_OPINION = 4;
+    private static final int PREFERRED_PEER = 2;
+    private static final int ROLES = 3;
+    private static final int TOPIC_OPINION = 4;
+    private static final int ETC_OPINION = 5;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    @DisplayName("희망 조원 학번을 별도 열로 내보낸다")
+    void write_WritesPreferredPeerUserId() throws Exception {
+        PreSurveyResponseRow source = new PreSurveyResponseRow("202412345", "이석민",
+            PreSurveyResponse.create("202412345", SECTION_ID, objectMapper.readTree("[\"BACKEND\"]"),
+                "주제", "기타", "202400001"), "김영희");
+
+        try (Workbook workbook = workbook(source)) {
+            Row header = workbook.getSheetAt(0).getRow(0);
+            Row row = workbook.getSheetAt(0).getRow(1);
+
+            assertThat(header.getCell(PREFERRED_PEER).getStringCellValue()).isEqualTo("희망 조원");
+            assertThat(row.getCell(PREFERRED_PEER).getStringCellValue()).isEqualTo("202400001 (김영희)");
+        }
+    }
 
     @Test
     @DisplayName("셀 한도와 길이가 같은 의견은 그대로 들어간다")
@@ -119,6 +136,7 @@ class PreSurveyResponseExcelWriterTest {
             return List.of(
                 row.getCell(0).getStringCellValue(),
                 row.getCell(1).getStringCellValue(),
+                row.getCell(PREFERRED_PEER).getStringCellValue(),
                 row.getCell(ROLES).getStringCellValue(),
                 row.getCell(TOPIC_OPINION).getStringCellValue(),
                 row.getCell(ETC_OPINION).getStringCellValue());

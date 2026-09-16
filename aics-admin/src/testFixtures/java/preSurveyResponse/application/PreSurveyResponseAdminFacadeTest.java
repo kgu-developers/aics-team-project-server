@@ -184,6 +184,7 @@ class PreSurveyResponseAdminFacadeTest {
     @Test
     @DisplayName("담당 교수는 분반 사전조사 응답을 엑셀로 다운로드할 수 있다")
     void downloadResponsesExcel_WritesHeaderAndRows() throws Exception {
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
         given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
 
         PreSurveyResponseExcelDownload download = preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR);
@@ -196,16 +197,17 @@ class PreSurveyResponseAdminFacadeTest {
             Row submitted = sheet.getRow(1);
             assertThat(submitted.getCell(0).getStringCellValue()).isEqualTo("202412345");
             assertThat(submitted.getCell(1).getStringCellValue()).isEqualTo("이석민");
-            assertThat(submitted.getCell(2).getStringCellValue()).isEqualTo("BACKEND, PM");
-            assertThat(submitted.getCell(3).getStringCellValue()).isEqualTo("학사 알림 서비스");
-            assertThat(submitted.getCell(4).getStringCellValue()).isEqualTo("금요일 회의 어려움");
+            assertThat(submitted.getCell(2).getStringCellValue()).isEmpty();
+            assertThat(submitted.getCell(3).getStringCellValue()).isEqualTo("BACKEND, PM");
+            assertThat(submitted.getCell(4).getStringCellValue()).isEqualTo("학사 알림 서비스");
+            assertThat(submitted.getCell(5).getStringCellValue()).isEqualTo("금요일 회의 어려움");
 
             // 미응답 수강생은 학번·이름만 있는 행 + "미제출"로 들어가고, 조교·탈퇴 수강생은 빠진다
             Row notSubmitted = sheet.getRow(2);
             assertThat(notSubmitted.getCell(0).getStringCellValue()).isEqualTo("202498765");
             assertThat(notSubmitted.getCell(1).getStringCellValue()).isEqualTo("김철수");
             assertThat(notSubmitted.getCell(2)).isNull();
-            assertThat(notSubmitted.getCell(5).getStringCellValue()).isEqualTo("미제출");
+            assertThat(notSubmitted.getCell(6).getStringCellValue()).isEqualTo("미제출");
             assertThat(sheet.getLastRowNum()).isEqualTo(2);
         }
     }
@@ -213,19 +215,31 @@ class PreSurveyResponseAdminFacadeTest {
     @Test
     @DisplayName("담당 교수가 아니면 엑셀을 다운로드할 수 없다")
     void downloadResponsesExcel_RejectsNonOwningProfessor() {
-        given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, OTHER_PROFESSOR)).willReturn(false);
 
         assertThatThrownBy(() -> preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, OTHER_PROFESSOR))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
+    @DisplayName("비활성 분반은 담당 교수도 엑셀을 다운로드할 수 없다")
+    void downloadResponsesExcel_RejectsInactiveSection() {
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(false);
+        given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
+
+        assertThatThrownBy(() -> preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("엑셀 다운로드는 분반을 한 번만 조회한다")
     void downloadResponsesExcel_ReadsSectionOnce() {
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
         given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
 
         preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR);
 
+        verify(sectionQueryService).isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR);
         verify(sectionQueryService, times(1)).getSectionById(SECTION_ID);
         verifyNoMoreInteractions(sectionQueryService);
     }

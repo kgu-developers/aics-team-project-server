@@ -27,7 +27,7 @@ import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
 // 커넥션을 붙잡지 않는다.
 public final class PreSurveyResponseExcelWriter {
 
-    private static final String[] HEADERS = {"학번", "이름", "희망 역할", "주제 의견", "기타 의견", "제출일"};
+    private static final String[] HEADERS = {"학번", "이름", "희망 조원", "희망 역할", "주제 의견", "기타 의견", "제출일"};
     private static final DateTimeFormatter SUBMITTED_AT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final String NOT_SUBMITTED = "미제출";
     // 의견에는 길이 제한이 없어서 이미 쌓인 응답 중에도 셀 한도를 넘는 값이 있을 수 있다. 그대로
@@ -60,13 +60,14 @@ public final class PreSurveyResponseExcelWriter {
 
                 PreSurveyResponse response = source.response();
                 if (response == null) {
-                    row.createCell(5).setCellValue(NOT_SUBMITTED);
+                    row.createCell(6).setCellValue(NOT_SUBMITTED);
                     continue;
                 }
-                writeText(row, 2, preferredRoles(response.getPreferredRoles()), textStyle);
-                writeText(row, 3, response.getTopicOpinion(), textStyle);
-                writeText(row, 4, response.getEtcOpinion(), textStyle);
-                row.createCell(5).setCellValue(response.getSubmittedAt().format(SUBMITTED_AT_FORMATTER));
+                writeText(row, 2, preferredPeer(response, source.preferredPeerName()), textStyle);
+                writeText(row, 3, preferredRoles(response.getPreferredRoles()), textStyle);
+                writeText(row, 4, response.getTopicOpinion(), textStyle);
+                writeText(row, 5, response.getEtcOpinion(), textStyle);
+                row.createCell(6).setCellValue(response.getSubmittedAt().format(SUBMITTED_AT_FORMATTER));
             }
 
             workbook.write(out);
@@ -108,5 +109,13 @@ public final class PreSurveyResponseExcelWriter {
         return StreamSupport.stream(preferredRoles.spliterator(), false)
                 .map(JsonNode::asText)
                 .collect(joining(", "));
+    }
+
+    private static String preferredPeer(PreSurveyResponse response, String preferredPeerName) {
+        String preferredPeerUserId = response.getPreferredPeerUserId();
+        if (preferredPeerUserId == null) {
+            return null;
+        }
+        return preferredPeerUserId + " (" + (preferredPeerName == null ? WITHDRAWN_USER_NAME : preferredPeerName) + ")";
     }
 }
