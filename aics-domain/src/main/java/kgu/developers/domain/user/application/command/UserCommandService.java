@@ -76,7 +76,7 @@ public class UserCommandService {
 
     public void resetPassword(User user, String password) {
         user.updatePassword(passwordEncoder.encode(password));
-        user.requirePasswordChangeUntil(LocalDateTime.now().plusMinutes(30));
+        user.requirePasswordChange();
         userRepository.save(user);
         revokeTokens(user);
     }

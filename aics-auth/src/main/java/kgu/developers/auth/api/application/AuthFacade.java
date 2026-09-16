@@ -1,7 +1,5 @@
 package kgu.developers.auth.api.application;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -50,7 +48,7 @@ public class AuthFacade {
 
         User user = findForRefresh(studentNumber);
         LoginRole role = userQueryService.getUserRole(user);
-        // 회전 전에 발급한다. 기한이 지난 계정이면 여기서 끝나고 저장소의 refreshToken은 그대로 남는다.
+        // 회전 전에 발급한다. 강제 변경 계정도 제한 accessToken으로 갱신할 수 있다.
         String accessToken = accessToken(user, role);
         String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
 
@@ -85,7 +83,7 @@ public class AuthFacade {
     }
 
     private LoginResponse issue(User user, LoginRole role) {
-        // 저장 전에 발급한다. 기한이 지난 계정이면 여기서 끝나고 저장소에 새 refreshToken이 남지 않는다.
+        // 저장 전에 발급한다. 강제 변경 계정도 제한 accessToken으로 로그인할 수 있다.
         String accessToken = accessToken(user, role);
         String refreshToken = jwtUtil.createRefreshToken(user.getStudentNumber());
         refreshTokenStore.save(user.getStudentNumber(), refreshToken);
@@ -93,14 +91,9 @@ public class AuthFacade {
     }
 
     private String accessToken(User user, LoginRole role) {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime passwordChangeRequiredUntil = user.getPasswordChangeRequiredUntil();
-        if (passwordChangeRequiredUntil != null && !now.isBefore(passwordChangeRequiredUntil)) {
-            throw new InvalidCredentialsException();
-        }
-        return passwordChangeRequiredUntil != null
+        return user.isPasswordChangeRequired()
             ? jwtUtil.createAccessToken(user.getStudentNumber(), role.name(), true,
-                Duration.between(now, passwordChangeRequiredUntil))
+                jwtUtil.getAccessTokenValidity())
             : jwtUtil.createAccessToken(user.getStudentNumber(), role.name());
     }
 
