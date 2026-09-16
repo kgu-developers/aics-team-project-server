@@ -90,7 +90,7 @@ public final class CsrfConfig {
 		@Override
 		public void saveToken(CsrfToken token, HttpServletRequest request, HttpServletResponse response) {
 			delegate.saveToken(token, request, response);
-			clearLegacyHostOnlyCookie(response);
+			clearLegacyHostOnlyCookie(request, response);
 		}
 
 		@Override
@@ -98,13 +98,15 @@ public final class CsrfConfig {
 			return delegate.loadToken(request);
 		}
 
-		private void clearLegacyHostOnlyCookie(HttpServletResponse response) {
+		private void clearLegacyHostOnlyCookie(HttpServletRequest request, HttpServletResponse response) {
 			if (!clearLegacyHostOnlyCookie) {
 				return;
 			}
 			// 공유 도메인 쿠키와 이름이 같은 기존 host-only 쿠키가 브라우저에 함께 남는 것을 방지한다.
 			ResponseCookie expired = ResponseCookie.from(CSRF_COOKIE_NAME, "")
 				.path(CSRF_COOKIE_PATH)
+				.secure(request.isSecure())
+				.sameSite("Lax")
 				.maxAge(Duration.ZERO)
 				.build();
 			response.addHeader(HttpHeaders.SET_COOKIE, expired.toString());

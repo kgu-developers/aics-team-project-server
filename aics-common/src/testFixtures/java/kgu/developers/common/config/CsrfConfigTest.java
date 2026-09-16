@@ -28,7 +28,7 @@ class CsrfConfigTest {
 	@Test
 	@DisplayName("공유 도메인이 있으면 XSRF-TOKEN에 Domain을 설정한다")
 	void sharedCookieWithConfiguredDomain() {
-		MockHttpServletResponse response = issueCookie("kgudevelopers.monster");
+		MockHttpServletResponse response = issueCookie("kgudevelopers.monster", true);
 		Cookie cookie = response.getCookie("XSRF-TOKEN");
 
 		assertThat(cookie).isNotNull();
@@ -40,12 +40,19 @@ class CsrfConfigTest {
 			.anySatisfy(header -> assertThat(header)
 				.contains("XSRF-TOKEN=")
 				.contains("Max-Age=0")
+				.contains("Secure")
+				.contains("SameSite=Lax")
 				.doesNotContain("Domain="));
 	}
 
 	private MockHttpServletResponse issueCookie(String domain) {
+		return issueCookie(domain, false);
+	}
+
+	private MockHttpServletResponse issueCookie(String domain, boolean secure) {
 		CsrfTokenRepository repository = CsrfConfig.cookieTokenRepository(domain);
 		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setSecure(secure);
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		CsrfToken token = repository.generateToken(request);
 
