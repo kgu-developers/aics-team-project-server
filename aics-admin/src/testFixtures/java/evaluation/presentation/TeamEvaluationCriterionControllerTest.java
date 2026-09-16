@@ -22,6 +22,7 @@ import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -74,6 +75,9 @@ class TeamEvaluationCriterionControllerTest {
 
   @MockitoBean
   private TokenRevocationStore tokenRevocationStore;
+
+  @MockitoBean
+  private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
   @Test
   @DisplayName("미인증 사용자는 발표 평가 항목 API에 접근할 수 없다")

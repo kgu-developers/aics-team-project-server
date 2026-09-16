@@ -35,6 +35,7 @@ import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 
 @WebMvcTest
 @Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class, CorsConfig.class,
@@ -65,6 +66,9 @@ class SecurityConfigTest {
 
   @MockitoBean
   private TokenRevocationStore tokenRevocationStore;
+
+  @MockitoBean
+  private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
   @Test
   @DisplayName("login은 CSRF 토큰 없이 통과한다")

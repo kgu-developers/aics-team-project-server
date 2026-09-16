@@ -47,6 +47,7 @@ import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 
 @WebMvcTest
 @Import({
@@ -79,6 +80,9 @@ class MilestoneControllerTest {
 
     @MockitoBean
     private TokenRevocationStore tokenRevocationStore;
+
+    @MockitoBean
+    private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
     @Test
     @DisplayName("미인증 사용자는 마일스톤 목록을 조회할 수 없다")

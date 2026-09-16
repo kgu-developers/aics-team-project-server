@@ -18,6 +18,7 @@ import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -75,6 +76,9 @@ class PeerEvaluationFormControllerTest {
 
     @MockitoBean
     private TokenRevocationStore tokenRevocationStore;
+
+    @MockitoBean
+    private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
     @Test
     @DisplayName("미인증 사용자는 상호평가 양식 API에 접근할 수 없다")

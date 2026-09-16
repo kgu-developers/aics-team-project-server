@@ -2,11 +2,14 @@ package kgu.developers.globalutils.jwt;
 
 import static kgu.developers.globalutils.jwt.JwtUtil.ISSUED_AT_MILLIS;
 import static kgu.developers.globalutils.jwt.JwtUtil.ROLE;
+import static kgu.developers.globalutils.jwt.JwtUtil.PASSWORD_CHANGE_REQUIRED;
 
 import java.io.IOException;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.dao.DataAccessException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -24,6 +27,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import kgu.developers.common.exception.JsonSecurityExceptionHandler;
 
 @Component
 @RequiredArgsConstructor
@@ -33,6 +37,8 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtUtil jwtUtil;
 	private final TokenRevocationStore revocationStore;
+	private final PasswordChangeRequirementChecker passwordChangeRequirementChecker;
+	private final ObjectMapper objectMapper;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -45,6 +51,13 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 				if (revocationStore.isRevoked(claims.getSubject(), claims.get(ISSUED_AT_MILLIS, Long.class))) {
 					SecurityContextHolder.clearContext();
 				} else {
+					if ((Boolean.TRUE.equals(claims.get(PASSWORD_CHANGE_REQUIRED, Boolean.class))
+						|| passwordChangeRequirementChecker.isRequired(claims.getSubject()))
+						&& !isPasswordChangeRequest(request, claims.getSubject())) {
+						new JsonSecurityExceptionHandler(objectMapper).handle(request, response,
+							new AccessDeniedException("비밀번호 변경이 필요합니다."));
+						return;
+					}
 					SecurityContextHolder.getContext().setAuthentication(authentication(claims));
 				}
 			} catch (JwtException e) {
@@ -56,6 +69,15 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
 		}
 
 		filterChain.doFilter(request, response);
+	}
+
+	private boolean isPasswordChangeRequest(HttpServletRequest request, String studentNumber) {
+		if (!"PUT".equals(request.getMethod())) {
+			return false;
+		}
+		String uri = request.getRequestURI();
+		return ("/api/v1/oop/users/" + studentNumber + "/password").equals(uri)
+			|| ("/api/v1/users/" + studentNumber + "/password").equals(uri);
 	}
 
 	private Authentication authentication(Claims claims) {

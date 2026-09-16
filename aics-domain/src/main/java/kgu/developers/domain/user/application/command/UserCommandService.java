@@ -69,11 +69,20 @@ public class UserCommandService {
         }
 
         user.updatePassword(passwordEncoder.encode(newPassword));
+        user.clearPasswordChangeRequirement();
+        userRepository.save(user);
+        revokeTokens(user);
+    }
+
+    public void resetPassword(User user, String password) {
+        user.updatePassword(passwordEncoder.encode(password));
+        user.requirePasswordChangeUntil(LocalDateTime.now().plusMinutes(30));
         userRepository.save(user);
         revokeTokens(user);
     }
 
     public void deleteUser(User user) {
+        user.clearPasswordChangeRequirement();
         user.delete();
         userRepository.save(user);
         revokeTokens(user);

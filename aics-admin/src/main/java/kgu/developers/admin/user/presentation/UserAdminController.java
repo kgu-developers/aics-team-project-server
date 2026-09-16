@@ -71,6 +71,18 @@ public interface UserAdminController {
 		) @Valid @RequestBody UserAdminUpdateRequest request
 	);
 
+	@Operation(summary = "유저 비밀번호 초기화 API", description = """
+			- Description : 이 API는 유저의 전화번호로 비밀번호를 초기화합니다.
+		""")
+	@ApiResponse(responseCode = "204")
+	ResponseEntity<Void> resetPassword(
+		@Parameter(
+			description = "학번은 URL 경로 변수 입니다.",
+			example = "202699999",
+			required = true
+		) @NotBlank @PathVariable String studentNumber
+	);
+
 	@Operation(summary = "유저 삭제 API", description = """
 			- Description : 이 API는 지정된 유저를 삭제합니다.
 		""")

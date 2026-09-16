@@ -17,6 +17,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 public class JwtUtil {
 
 	public static final String ROLE = "role";
+	public static final String PASSWORD_CHANGE_REQUIRED = "password_change_required";
 
 	public static final String ISSUED_AT_MILLIS = "iat_ms";
 
@@ -56,6 +57,11 @@ public class JwtUtil {
 		return createToken(student_number, ACCESS, accessTokenValidity, role);
 	}
 
+    public String createAccessToken(String studentNumber, String role, boolean passwordChangeRequired,
+        Duration validity) {
+        return createToken(studentNumber, ACCESS, validity, role, passwordChangeRequired);
+    }
+
 	public String createRefreshToken(String student_number) {
 		return createToken(student_number, REFRESH, refreshTokenValidity, null);
 	}
@@ -86,12 +92,18 @@ public class JwtUtil {
 	}
 
 	private String createToken(String studentNumber, String type, Duration validity, String role) {
+		return createToken(studentNumber, type, validity, role, false);
+	}
+
+	private String createToken(String studentNumber, String type, Duration validity, String role,
+		boolean passwordChangeRequired) {
 		Date now = new Date();
 		return Jwts.builder()
 			.setSubject(studentNumber)
 			.setIssuer(issuer)
 			.claim(TOKEN_TYPE, type)
 			.claim(ROLE, role)
+			.claim(PASSWORD_CHANGE_REQUIRED, passwordChangeRequired)
 			.setIssuedAt(now)
 			.claim(ISSUED_AT_MILLIS, now.getTime())
 			.setExpiration(new Date(now.getTime() + validity.toMillis()))

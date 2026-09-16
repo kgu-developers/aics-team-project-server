@@ -1,5 +1,7 @@
 package kgu.developers.auth.api.application;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import kgu.developers.auth.api.presentation.response.LoginResponse;
 import kgu.developers.domain.auth.domain.LoginRole;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -48,13 +50,15 @@ public class AuthFacade {
 
         User user = findForRefresh(studentNumber);
         LoginRole role = userQueryService.getUserRole(user);
+        // 회전 전에 발급한다. 기한이 지난 계정이면 여기서 끝나고 저장소의 refreshToken은 그대로 남는다.
+        String accessToken = accessToken(user, role);
         String newRefreshToken = jwtUtil.createRefreshToken(studentNumber);
 
         if (!rotate(studentNumber, refreshToken, newRefreshToken)) {
             throw new InvalidTokenException();
         }
 
-        return tokens(user, newRefreshToken, role);
+        return LoginResponse.of(accessToken, newRefreshToken, role);
     }
 
     // 쿠키가 없거나 깨졌으면 지울 것도 없다. 로그아웃 자체는 성공시킨다.
@@ -81,16 +85,23 @@ public class AuthFacade {
     }
 
     private LoginResponse issue(User user, LoginRole role) {
+        // 저장 전에 발급한다. 기한이 지난 계정이면 여기서 끝나고 저장소에 새 refreshToken이 남지 않는다.
+        String accessToken = accessToken(user, role);
         String refreshToken = jwtUtil.createRefreshToken(user.getStudentNumber());
         refreshTokenStore.save(user.getStudentNumber(), refreshToken);
-        return tokens(user, refreshToken, role);
+        return LoginResponse.of(accessToken, refreshToken, role);
     }
 
-    private LoginResponse tokens(User user, String refreshToken, LoginRole role) {
-        return LoginResponse.of(
-                jwtUtil.createAccessToken(user.getStudentNumber(), role.name()),
-                refreshToken,
-                role);
+    private String accessToken(User user, LoginRole role) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime passwordChangeRequiredUntil = user.getPasswordChangeRequiredUntil();
+        if (passwordChangeRequiredUntil != null && !now.isBefore(passwordChangeRequiredUntil)) {
+            throw new InvalidCredentialsException();
+        }
+        return passwordChangeRequiredUntil != null
+            ? jwtUtil.createAccessToken(user.getStudentNumber(), role.name(), true,
+                Duration.between(now, passwordChangeRequiredUntil))
+            : jwtUtil.createAccessToken(user.getStudentNumber(), role.name());
     }
 
     private User findForRefresh(String studentNumber) {

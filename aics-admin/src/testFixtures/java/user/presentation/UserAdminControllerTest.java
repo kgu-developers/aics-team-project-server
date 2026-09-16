@@ -12,12 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -39,6 +42,7 @@ class UserAdminControllerTest {
 
   private static final String BASE_URL = "/api/v1/admin/users";
   private static final String STUDENT_NUMBER = "202699999";
+  private static final String PROFESSOR_NUMBER = "202600001";
 
   @Mock
   private UserAdminFacade userAdminFacade;
@@ -55,6 +59,12 @@ class UserAdminControllerTest {
   @BeforeEach
   void setUp() {
     mockMvc = MockMvcBuilders.standaloneSetup(new UserAdminControllerImpl(userAdminFacade)).build();
+    SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(PROFESSOR_NUMBER, null));
+  }
+
+  @AfterEach
+  void tearDown() {
+    SecurityContextHolder.clearContext();
   }
 
   private User user() {
@@ -129,6 +139,16 @@ class UserAdminControllerTest {
         .andExpect(status().isNoContent());
 
     verify(userAdminFacade).updateUser(STUDENT_NUMBER, updateRequest);
+  }
+
+  @Test
+  @DisplayName("PATCH /users/{studentNumber}/password/reset은 204를 응답하고 파사드에 위임한다")
+  void resetPassword() throws Exception {
+    mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+            BASE_URL + "/" + STUDENT_NUMBER + "/password/reset"))
+        .andExpect(status().isNoContent());
+
+    verify(userAdminFacade).resetPassword(STUDENT_NUMBER, PROFESSOR_NUMBER);
   }
 
   @Test

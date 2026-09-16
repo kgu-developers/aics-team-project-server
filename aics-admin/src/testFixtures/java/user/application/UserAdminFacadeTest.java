@@ -1,7 +1,9 @@
 package user.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
@@ -19,6 +21,12 @@ import kgu.developers.admin.user.presentation.request.UserAdminUpdateRequest;
 import kgu.developers.admin.user.presentation.response.UserAdminResponse;
 import kgu.developers.domain.user.application.command.UserCommandService;
 import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
+import kgu.developers.domain.section.domain.SectionRepository;
+import static kgu.developers.domain.user.domain.UserGlobalRole.ADMIN;
 import static kgu.developers.domain.user.domain.UserGlobalRole.USER;
 
 import kgu.developers.domain.user.domain.User;
@@ -32,10 +40,18 @@ class UserAdminFacadeTest {
   @Mock
   private UserQueryService userQueryService;
 
+  @Mock
+  private EnrollmentRepository enrollmentRepository;
+
+  @Mock
+  private SectionRepository sectionRepository;
+
   @InjectMocks
   private UserAdminFacade userAdminFacade;
 
   private static final String STUDENT_NUMBER = "202699999";
+  private static final String PROFESSOR_NUMBER = "202600001";
+  private static final Long SECTION_ID = 1L;
 
   private final UserAdminRequest request =
       new UserAdminRequest(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789", false);
@@ -80,6 +96,61 @@ class UserAdminFacadeTest {
     userAdminFacade.deleteUser(STUDENT_NUMBER);
 
     verify(userCommandService).deleteUser(user);
+  }
+
+  @Test
+  @DisplayName("resetPassword는 조회한 사용자의 전화번호로 비밀번호를 재설정한다")
+  void resetPassword() {
+    User user = user();
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
+    given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(
+        Enrollment.create(SECTION_ID, STUDENT_NUMBER, Role.STUDENT, Status.ACTIVE)));
+    given(sectionRepository.existsActiveByIdAndProfessorId(SECTION_ID, PROFESSOR_NUMBER)).willReturn(true);
+
+    userAdminFacade.resetPassword(STUDENT_NUMBER, PROFESSOR_NUMBER);
+
+    verify(userCommandService).resetPassword(user, "010-1234-6789");
+  }
+
+  @Test
+  @DisplayName("resetPassword는 관리자 계정을 초기화하지 않는다")
+  void resetPasswordRejectsAdminTarget() {
+    User admin = User.create(STUDENT_NUMBER, "admin@kyonggi.ac.kr", "관리자", "12345678", ADMIN, "010-1234-6789");
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(admin);
+
+    assertThatThrownBy(() -> userAdminFacade.resetPassword(STUDENT_NUMBER, PROFESSOR_NUMBER))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+    verify(userCommandService, never()).resetPassword(admin, "010-1234-6789");
+  }
+
+  @Test
+  @DisplayName("resetPassword는 활성 조교 계정을 초기화하지 않는다")
+  void resetPasswordRejectsAssistantTarget() {
+    User assistant = user();
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(assistant);
+    given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(
+        Enrollment.create(SECTION_ID, STUDENT_NUMBER, Role.ASSISTANT, Status.ACTIVE)));
+
+    assertThatThrownBy(() -> userAdminFacade.resetPassword(STUDENT_NUMBER, PROFESSOR_NUMBER))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+    verify(userCommandService, never()).resetPassword(assistant, "010-1234-6789");
+  }
+
+  @Test
+  @DisplayName("resetPassword는 다른 교수의 담당 분반 학생을 초기화하지 않는다")
+  void resetPasswordRejectsStudentInForeignSection() {
+    User user = user();
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
+    given(enrollmentRepository.findAllByUserId(STUDENT_NUMBER)).willReturn(List.of(
+        Enrollment.create(SECTION_ID, STUDENT_NUMBER, Role.STUDENT, Status.ACTIVE)));
+    given(sectionRepository.existsActiveByIdAndProfessorId(SECTION_ID, PROFESSOR_NUMBER)).willReturn(false);
+
+    assertThatThrownBy(() -> userAdminFacade.resetPassword(STUDENT_NUMBER, PROFESSOR_NUMBER))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+    verify(userCommandService, never()).resetPassword(user, "010-1234-6789");
   }
 
   @Test

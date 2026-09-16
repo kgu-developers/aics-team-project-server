@@ -9,6 +9,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.time.Duration;
 
@@ -36,6 +38,7 @@ import kgu.developers.api.user.presentation.response.UserResponse;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
 import kgu.developers.globalutils.jwt.JwtUtil;
+import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 import kgu.developers.globalutils.jwt.TokenRevocationStore;
 
 /**
@@ -57,8 +60,11 @@ class SecurityConfigTest {
   static final String ORIGIN = "http://localhost:5173";
 
   private static final String PROTECTED_URL = "/api/v1/anything";
-  private static final String ME_URL = "/api/v1/users/me";
   private static final String STUDENT_NUMBER = "202699999";
+  // 실제 경로는 컨트롤러 매핑에서 뽑는다
+  private static final String USERS_URL = UserControllerImpl.class.getAnnotation(RequestMapping.class).value()[0];
+  private static final String ME_URL = USERS_URL + "/me";
+  private static final String ACTIVE_PASSWORD_URL = USERS_URL + "/" + STUDENT_NUMBER + "/password";
 
   @SpringBootConfiguration
   static class TestApp {
@@ -73,6 +79,9 @@ class SecurityConfigTest {
   // Redis 없이 도는 슬라이스 테스트라 무효화 조회는 대역으로 둔다 (기본값 false = 무효화 안 됨).
   @MockitoBean
   private TokenRevocationStore tokenRevocationStore;
+
+  @MockitoBean
+  private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
 
   @MockitoBean
   private UserFacade userFacade;
@@ -239,6 +248,68 @@ class SecurityConfigTest {
 
     mockMvc.perform(get(PROTECTED_URL).cookie(adminTokenCookie))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName("비밀번호 변경이 필요한 JWT는 일반 API를 403으로 막는다")
+  void passwordChangeRequiredTokenCannotAccessOtherApi() throws Exception {
+    Cookie cookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER", true,
+        Duration.ofMinutes(30)));
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(cookie))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(org.springframework.http.MediaType.APPLICATION_JSON))
+        .andExpect(content().encoding(java.nio.charset.StandardCharsets.UTF_8))
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"))
+        .andExpect(jsonPath("$.message").value("접근 권한이 없습니다."));
+  }
+
+  @Test
+  @DisplayName("DB 강제 변경 상태는 reset 이전의 일반 JWT도 403으로 막는다")
+  void persistentPasswordChangeRequirementBlocksNormalToken() throws Exception {
+    given(passwordChangeRequirementChecker.isRequired(STUDENT_NUMBER)).willReturn(true);
+
+    mockMvc.perform(get(PROTECTED_URL).cookie(accessTokenCookie()))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+  }
+
+  @Test
+  @DisplayName("비밀번호 변경이 필요한 JWT는 구 비밀번호 변경 경로를 필터에서 통과시킨다")
+  void passwordChangeRequiredTokenAllowsLegacyPasswordPath() throws Exception {
+    Cookie cookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER", true,
+        Duration.ofMinutes(30)));
+
+    mockMvc.perform(put("/api/v1/oop/users/" + STUDENT_NUMBER + "/password").cookie(cookie).with(csrf())
+            .contentType("application/json")
+            .content("{\"currentPassword\":\"old-password\",\"password\":\"new-password\"}"))
+        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+  }
+
+  @Test
+  @DisplayName("비밀번호 변경이 필요한 JWT는 신 비밀번호 변경 경로를 필터에서 통과시킨다")
+  void passwordChangeRequiredTokenAllowsNewPasswordPath() throws Exception {
+    Cookie cookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER", true,
+        Duration.ofMinutes(30)));
+
+    mockMvc.perform(put("/api/v1/users/" + STUDENT_NUMBER + "/password").cookie(cookie).with(csrf())
+            .contentType("application/json")
+            .content("{\"currentPassword\":\"old-password\",\"password\":\"new-password\"}"))
+        .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+  }
+
+  @Test
+  @DisplayName("비밀번호 변경이 필요한 JWT는 현재 활성 비밀번호 변경 경로에서 성공한다")
+  void passwordChangeRequiredTokenChangesPasswordAtActivePath() throws Exception {
+    Cookie cookie = new Cookie("accessToken", jwtUtil.createAccessToken(STUDENT_NUMBER, "USER", true,
+        Duration.ofMinutes(30)));
+
+    mockMvc.perform(put(ACTIVE_PASSWORD_URL).cookie(cookie).with(csrf())
+            .contentType("application/json")
+            .content("{\"currentPassword\":\"old-password\",\"password\":\"new-password\"}"))
+        .andExpect(status().isOk());
+
+    then(userFacade).should().updateUserPassword(eq(STUDENT_NUMBER), any());
   }
 
   @Test

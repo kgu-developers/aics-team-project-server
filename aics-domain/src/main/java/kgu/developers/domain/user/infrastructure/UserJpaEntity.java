@@ -34,6 +34,8 @@ public class UserJpaEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private String password;
 
+    private LocalDateTime passwordChangeRequiredUntil;
+
     @Enumerated(STRING)
     @Column(nullable = false, length = 16)
     private UserGlobalRole globalRole;
@@ -52,6 +54,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .email(email)
                 .name(name)
                 .password(password)
+                .passwordChangeRequiredUntil(passwordChangeRequiredUntil)
                 .globalRole(globalRole)
                 .phone(phone)
                 .major(major)
@@ -68,6 +71,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .email(user.getEmail())
                 .name(user.getName())
                 .password(user.getPassword())
+                .passwordChangeRequiredUntil(user.getPasswordChangeRequiredUntil())
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
                 .major(user.getMajor())
