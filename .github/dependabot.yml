@@ -12,8 +12,8 @@ updates:
       - "LeeShinHaeng"
       - "minjo-on"
     ignore:
-      # Spring Boot 3.x는 springdoc 2.x와 호환된다. Boot 4 전환 전에는
-      # 3.x가 Boot 4 런타임 모듈을 유입해 애플리케이션 컨텍스트를 깨뜨린다.
+      # 현재 Spring Boot 3.4.x는 springdoc 2.7~2.8과 호환된다.
+      # Boot 4 전환 전에는 3.x가 Boot 4 런타임 모듈을 유입해 컨텍스트를 깨뜨린다.
       - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-ui"
         update-types:
           - "version-update:semver-major"
