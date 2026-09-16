@@ -51,6 +51,7 @@ services:
       AWS_S3_REGION: ${AWS_S3_REGION:-ap-northeast-2}
       AWS_S3_ACCESS_KEY: ${AWS_S3_ACCESS_KEY}
       AWS_S3_SECRET_KEY: ${AWS_S3_SECRET_KEY}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,https://team-project.kgudevelopers.monster}
     volumes:
       - ./logs/api:/app/logs
     depends_on:
@@ -78,6 +79,7 @@ services:
       AWS_S3_ACCESS_KEY: ${AWS_S3_ACCESS_KEY}
       AWS_S3_SECRET_KEY: ${AWS_S3_SECRET_KEY}
       SPRINGDOC_APIDOCS_PATH: /admin-api-docs
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,https://team-project.kgudevelopers.monster}
     volumes:
       - ./logs/admin:/app/logs
     depends_on:
@@ -101,6 +103,7 @@ services:
       JWT_ISSUER: ${JWT_ISSUER}
       FILE_SECRET_KEY: ${FILE_SECRET_KEY}
       SPRINGDOC_APIDOCS_PATH: /auth-api-docs
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,https://team-project.kgudevelopers.monster}
     volumes:
       - ./logs/auth:/app/logs
     depends_on:
