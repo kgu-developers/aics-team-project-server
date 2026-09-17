@@ -9,4 +9,6 @@ public interface JpaPeerEvaluationFormRepository extends JpaRepository<PeerEvalu
     Optional<PeerEvaluationFormJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
     List<PeerEvaluationFormJpaEntity> findAllBySectionIdAndDeletedAtIsNullOrderByIdDesc(Long sectionId);
+
+    Optional<PeerEvaluationFormJpaEntity> findFirstByMilestoneIdAndDeletedAtIsNullOrderByIdDesc(Long milestoneId);
 }

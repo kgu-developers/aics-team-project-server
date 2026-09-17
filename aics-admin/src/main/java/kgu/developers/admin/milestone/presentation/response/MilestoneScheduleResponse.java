@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 
 public record MilestoneScheduleResponse(
         @Schema(description = "작성 시작 시각") LocalDateTime opensAt,
@@ -14,6 +15,9 @@ public record MilestoneScheduleResponse(
         @Schema(description = "평가 종료 시각") LocalDateTime evaluationClosesAt
 ) {
     public static MilestoneScheduleResponse from(MilestoneSchedule schedule) {
+        if (schedule == null) {
+            return null;
+        }
         return new MilestoneScheduleResponse(
                 schedule.opensAt(),
                 schedule.dueAt(),
@@ -22,5 +26,22 @@ public record MilestoneScheduleResponse(
                 schedule.evaluationOpensAt(),
                 schedule.evaluationClosesAt()
         );
+    }
+
+    public static MilestoneScheduleResponse from(MilestoneSchedule schedule, MilestoneType type) {
+        if (schedule == null) {
+            return null;
+        }
+        if (type == MilestoneType.PEER_EVALUATION) {
+            return new MilestoneScheduleResponse(
+                    schedule.opensAt(),
+                    schedule.dueAt(),
+                    schedule.lateSubmissionUntil(),
+                    schedule.revisionUntil(),
+                    schedule.evaluationOpensAt() != null ? schedule.evaluationOpensAt() : schedule.opensAt(),
+                    schedule.evaluationClosesAt() != null ? schedule.evaluationClosesAt() : schedule.dueAt()
+            );
+        }
+        return from(schedule);
     }
 }

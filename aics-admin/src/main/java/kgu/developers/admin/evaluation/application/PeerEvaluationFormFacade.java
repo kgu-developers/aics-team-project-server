@@ -1,8 +1,13 @@
 package kgu.developers.admin.evaluation.application;
 
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormUpdateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
+import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormResponse;
 import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCommandService;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
+import kgu.developers.domain.evaluation.exception.PeerEvaluationFormNotFoundException;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +23,7 @@ public class PeerEvaluationFormFacade {
     private final PeerEvaluationFormCommandService commandService;
     private final SectionQueryService sectionQueryService;
     private final MilestoneQueryService milestoneQueryService;
+    private final PeerEvaluationFormRepository formRepository;
 
     public PeerEvaluationFormPersistResponse createForm(
             Long sectionId, String professorId, PeerEvaluationFormCreateRequest request) {
@@ -30,6 +36,52 @@ public class PeerEvaluationFormFacade {
                 request.opensAt(),
                 request.closesAt());
         return PeerEvaluationFormPersistResponse.of(id);
+    }
+
+    @Transactional(readOnly = true)
+    public PeerEvaluationFormResponse getForm(Long sectionId, String professorId, Long formId) {
+        validateSectionAccess(sectionId, professorId);
+        PeerEvaluationForm form = formRepository.findById(formId)
+                .orElseThrow(PeerEvaluationFormNotFoundException::new);
+        if (!form.getSectionId().equals(sectionId)) {
+            throw new PeerEvaluationFormNotFoundException();
+        }
+        return PeerEvaluationFormResponse.from(form);
+    }
+
+    @Transactional(readOnly = true)
+    public PeerEvaluationFormResponse getFormByMilestoneId(Long sectionId, String professorId, Long milestoneId) {
+        validateSectionAccess(sectionId, professorId);
+        milestoneQueryService.getMilestone(sectionId, milestoneId);
+        PeerEvaluationForm form = formRepository.findByMilestoneId(milestoneId)
+                .orElseThrow(PeerEvaluationFormNotFoundException::new);
+        if (!form.getSectionId().equals(sectionId)) {
+            throw new PeerEvaluationFormNotFoundException();
+        }
+        return PeerEvaluationFormResponse.from(form);
+    }
+
+    public void updateForm(
+            Long sectionId, String professorId, Long formId, PeerEvaluationFormUpdateRequest request) {
+        validateSectionAccess(sectionId, professorId);
+        commandService.updateForm(
+                sectionId,
+                formId,
+                request.anonymous(),
+                request.opensAt(),
+                request.closesAt());
+    }
+
+    public void updateFormByMilestoneId(
+            Long sectionId, String professorId, Long milestoneId, PeerEvaluationFormUpdateRequest request) {
+        validateSectionAccess(sectionId, professorId);
+        milestoneQueryService.getMilestone(sectionId, milestoneId);
+        commandService.updateFormByMilestoneId(
+                sectionId,
+                milestoneId,
+                request.anonymous(),
+                request.opensAt(),
+                request.closesAt());
     }
 
     private void validateSectionAccess(Long sectionId, String professorId) {
