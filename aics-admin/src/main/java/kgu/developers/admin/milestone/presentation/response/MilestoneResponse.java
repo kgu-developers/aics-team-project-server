@@ -3,6 +3,7 @@ package kgu.developers.admin.milestone.presentation.response;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormResponse;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
@@ -33,8 +34,25 @@ public record MilestoneResponse(
         MilestoneType type,
 
         @Schema(description = "마감 전 재제출 허용 여부", example = "false", requiredMode = REQUIRED)
-        boolean allowResubmissionBeforeDueAt
+        boolean allowResubmissionBeforeDueAt,
+
+        @Schema(description = "상호평가 양식 정보 (PEER_EVALUATION 마일스톤일 경우 존재, 그 외 null)")
+        PeerEvaluationFormResponse peerEvaluationForm
 ) {
+    public MilestoneResponse(
+            Long id,
+            Long sectionId,
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneStatus status,
+            MilestoneScheduleResponse schedule,
+            MilestoneType type,
+            boolean allowResubmissionBeforeDueAt
+    ) {
+        this(id, sectionId, title, description, weekNumber, status, schedule, type, allowResubmissionBeforeDueAt, null);
+    }
+
     public static MilestoneResponse from(Milestone milestone) {
         return new MilestoneResponse(
                 milestone.getId(),
@@ -45,7 +63,8 @@ public record MilestoneResponse(
                 milestone.getStatus(),
                 MilestoneScheduleResponse.from(milestone.getSchedule(), milestone.getType()),
                 milestone.getType(),
-                milestone.isAllowResubmissionBeforeDueAt()
+                milestone.isAllowResubmissionBeforeDueAt(),
+                null
         );
     }
 }

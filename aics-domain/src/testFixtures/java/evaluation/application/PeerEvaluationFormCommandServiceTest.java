@@ -137,6 +137,24 @@ class PeerEvaluationFormCommandServiceTest {
     }
 
     @Test
+    @DisplayName("마일스톤 식별자로 수정 시 양식이 없고 분반 정보가 주어지면 주어진 익명 설정으로 양식을 생성한다")
+    void updateFormByMilestoneIdCreateWhenMissingWithAnonymous() {
+        given(formRepository.findByMilestoneId(3L)).willReturn(Optional.empty());
+
+        LocalDateTime newOpensAt = LocalDateTime.of(2026, 10, 2, 9, 0);
+        LocalDateTime newClosesAt = LocalDateTime.of(2026, 10, 9, 23, 59);
+        commandService.updateFormByMilestoneId(2L, 3L, false, newOpensAt, newClosesAt);
+
+        ArgumentCaptor<PeerEvaluationForm> captor = ArgumentCaptor.forClass(PeerEvaluationForm.class);
+        verify(formRepository).save(captor.capture());
+        assertThat(captor.getValue().getSectionId()).isEqualTo(2L);
+        assertThat(captor.getValue().getMilestoneId()).isEqualTo(3L);
+        assertThat(captor.getValue().isAnonymous()).isFalse();
+        assertThat(captor.getValue().getOpensAt()).isEqualTo(newOpensAt);
+        assertThat(captor.getValue().getClosesAt()).isEqualTo(newClosesAt);
+    }
+
+    @Test
     @DisplayName("마일스톤 식별자로 기간 수정 시 양식이 없고 분반 정보가 없으면 아무 작업도 하지 않는다")
     void updateFormPeriodByMilestoneIdNoOpWhenMissingAndNoSection() {
         given(formRepository.findByMilestoneId(3L)).willReturn(Optional.empty());
@@ -146,5 +164,65 @@ class PeerEvaluationFormCommandServiceTest {
         commandService.updateFormPeriodByMilestoneId(null, 3L, newOpensAt, newClosesAt);
 
         verify(formRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("마일스톤 식별자로 수정 시 양식이 존재하면 익명 여부와 기간이 함께 갱신된다")
+    void updateFormByMilestoneIdExisting() {
+        LocalDateTime opensAt = LocalDateTime.of(2026, 10, 1, 9, 0);
+        LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
+        PeerEvaluationForm existingForm = PeerEvaluationForm.restore(
+                1L, 2L, 3L, true, opensAt, closesAt, null, null, null);
+        given(formRepository.findByMilestoneId(3L)).willReturn(Optional.of(existingForm));
+
+        LocalDateTime newOpensAt = LocalDateTime.of(2026, 10, 2, 9, 0);
+        LocalDateTime newClosesAt = LocalDateTime.of(2026, 10, 9, 23, 59);
+        commandService.updateFormByMilestoneId(2L, 3L, false, newOpensAt, newClosesAt);
+
+        ArgumentCaptor<PeerEvaluationForm> captor = ArgumentCaptor.forClass(PeerEvaluationForm.class);
+        verify(formRepository).save(captor.capture());
+        assertThat(captor.getValue().isAnonymous()).isFalse();
+        assertThat(captor.getValue().getOpensAt()).isEqualTo(newOpensAt);
+        assertThat(captor.getValue().getClosesAt()).isEqualTo(newClosesAt);
+    }
+
+    @Test
+    @DisplayName("마일스톤 식별자로 수정 시 기간이 null이면 기존 기간을 유지하고 익명 여부만 갱신된다")
+    void updateFormByMilestoneIdKeepPeriodWhenNull() {
+        LocalDateTime opensAt = LocalDateTime.of(2026, 10, 1, 9, 0);
+        LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
+        PeerEvaluationForm existingForm = PeerEvaluationForm.restore(
+                1L, 2L, 3L, true, opensAt, closesAt, null, null, null);
+        given(formRepository.findByMilestoneId(3L)).willReturn(Optional.of(existingForm));
+
+        commandService.updateFormByMilestoneId(2L, 3L, false, null, null);
+
+        ArgumentCaptor<PeerEvaluationForm> captor = ArgumentCaptor.forClass(PeerEvaluationForm.class);
+        verify(formRepository).save(captor.capture());
+        assertThat(captor.getValue().isAnonymous()).isFalse();
+        assertThat(captor.getValue().getOpensAt()).isEqualTo(opensAt);
+        assertThat(captor.getValue().getClosesAt()).isEqualTo(closesAt);
+    }
+
+    @Test
+    @DisplayName("마일스톤 식별자로 수정 시 분반이 다르면 예외가 발생한다")
+    void updateFormByMilestoneIdSectionMismatch() {
+        LocalDateTime opensAt = LocalDateTime.of(2026, 10, 1, 9, 0);
+        LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
+        PeerEvaluationForm existingForm = PeerEvaluationForm.restore(
+                1L, 2L, 3L, true, opensAt, closesAt, null, null, null);
+        given(formRepository.findByMilestoneId(3L)).willReturn(Optional.of(existingForm));
+
+        assertThatThrownBy(() -> commandService.updateFormByMilestoneId(999L, 3L, false, null, null))
+                .isInstanceOf(PeerEvaluationFormNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("마일스톤 식별자로 수정 시 양식이 없고 날짜가 없으면 예외가 발생한다")
+    void updateFormByMilestoneIdMissingAndDatesNullThrows() {
+        given(formRepository.findByMilestoneId(3L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commandService.updateFormByMilestoneId(2L, 3L, false, null, null))
+                .isInstanceOf(PeerEvaluationFormNotFoundException.class);
     }
 }

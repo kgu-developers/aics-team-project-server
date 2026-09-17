@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormResponse;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneScheduleRequest;
@@ -127,9 +128,13 @@ public class MilestoneFacade {
                     request.type(),
                     request.allowResubmissionBeforeDueAt()
             );
-            if (isPeerEval && schedule != null && schedule.opensAt() != null && schedule.dueAt() != null) {
-                peerEvaluationFormCommandService.updateFormPeriodByMilestoneId(
-                        sectionId, milestoneId, schedule.opensAt(), schedule.dueAt());
+            if (isPeerEval) {
+                LocalDateTime opensAt = schedule != null ? schedule.opensAt() : null;
+                LocalDateTime closesAt = schedule != null ? schedule.dueAt() : null;
+                if ((opensAt != null && closesAt != null) || request.anonymous() != null) {
+                    peerEvaluationFormCommandService.updateFormByMilestoneId(
+                            sectionId, milestoneId, request.anonymous(), opensAt, closesAt);
+                }
             }
         });
     }
@@ -292,7 +297,8 @@ public class MilestoneFacade {
                     milestone.getStatus(),
                     scheduleResponse,
                     milestone.getType(),
-                    milestone.isAllowResubmissionBeforeDueAt()
+                    milestone.isAllowResubmissionBeforeDueAt(),
+                    PeerEvaluationFormResponse.from(form)
             );
         }
         return MilestoneResponse.from(milestone);
@@ -307,8 +313,8 @@ public class MilestoneFacade {
             return null;
         }
         if (isPeerEval) {
-            LocalDateTime opensAt = request.opensAt() != null ? request.opensAt() : request.evaluationOpensAt();
-            LocalDateTime dueAt = request.dueAt() != null ? request.dueAt() : request.evaluationClosesAt();
+            LocalDateTime opensAt = request.evaluationOpensAt() != null ? request.evaluationOpensAt() : request.opensAt();
+            LocalDateTime dueAt = request.evaluationClosesAt() != null ? request.evaluationClosesAt() : request.dueAt();
             return new MilestoneSchedule(
                     opensAt,
                     dueAt,

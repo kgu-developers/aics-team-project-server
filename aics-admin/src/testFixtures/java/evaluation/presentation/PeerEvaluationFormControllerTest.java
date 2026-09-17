@@ -4,6 +4,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,6 +16,7 @@ import kgu.developers.admin.evaluation.presentation.PeerEvaluationFormController
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormUpdateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
+import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormResponse;
 import kgu.developers.common.exception.GlobalExceptionHandler;
 import kgu.developers.common.config.CorsConfig;
 import kgu.developers.globalutils.jwt.JwtCookieAuthenticationFilter;
@@ -67,6 +69,8 @@ class PeerEvaluationFormControllerTest {
             """;
     private static final String UPDATE_URL =
             "/api/v1/admin/sections/{sectionId}/peer-evaluation-forms/{formId}";
+    private static final String MILESTONE_FORM_URL =
+            "/api/v1/admin/sections/{sectionId}/peer-evaluation-forms/milestones/{milestoneId}";
     private static final String VALID_UPDATE_BODY =
             """
             {
@@ -255,5 +259,123 @@ class PeerEvaluationFormControllerTest {
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
         then(facade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    @DisplayName("양식 ID로 상호평가 양식을 조회하면 200을 응답한다")
+    void getForm() throws Exception {
+        given(facade.getForm(2L, "202012345", 1L))
+                .willReturn(new PeerEvaluationFormResponse(
+                        1L,
+                        2L,
+                        3L,
+                        true,
+                        java.time.LocalDateTime.of(2026, 10, 1, 9, 0),
+                        java.time.LocalDateTime.of(2026, 10, 8, 23, 59, 59)));
+
+        mockMvc.perform(get(UPDATE_URL, 2L, 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.sectionId").value(2L))
+                .andExpect(jsonPath("$.milestoneId").value(3L))
+                .andExpect(jsonPath("$.anonymous").value(true));
+    }
+
+    @ParameterizedTest(name = "sectionId={0}, formId={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"0, 1", "-1, 1", "1, 0", "1, -1"})
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("0 이하의 분반 id 또는 양식 id로 조회 시 400을 응답한다")
+    void rejectNonPositiveSectionIdOrFormIdOnGet(long sectionId, long formId) throws Exception {
+        mockMvc.perform(get(UPDATE_URL, sectionId, formId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+
+        then(facade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    @DisplayName("마일스톤 ID로 상호평가 양식을 조회하면 200을 응답한다")
+    void getFormByMilestoneId() throws Exception {
+        given(facade.getFormByMilestoneId(2L, "202012345", 3L))
+                .willReturn(new PeerEvaluationFormResponse(
+                        1L,
+                        2L,
+                        3L,
+                        true,
+                        java.time.LocalDateTime.of(2026, 10, 1, 9, 0),
+                        java.time.LocalDateTime.of(2026, 10, 8, 23, 59, 59)));
+
+        mockMvc.perform(get(MILESTONE_FORM_URL, 2L, 3L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.sectionId").value(2L))
+                .andExpect(jsonPath("$.milestoneId").value(3L))
+                .andExpect(jsonPath("$.anonymous").value(true));
+    }
+
+    @ParameterizedTest(name = "sectionId={0}, milestoneId={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"0, 3", "-1, 3", "2, 0", "2, -1"})
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("0 이하의 분반 id 또는 마일스톤 id로 조회 시 400을 응답한다")
+    void rejectNonPositiveSectionIdOrMilestoneIdOnGet(long sectionId, long milestoneId) throws Exception {
+        mockMvc.perform(get(MILESTONE_FORM_URL, sectionId, milestoneId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+
+        then(facade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    @DisplayName("마일스톤 ID로 상호평가 양식 수정 요청은 204를 응답한다")
+    void updateFormByMilestoneId() throws Exception {
+        mockMvc.perform(put(MILESTONE_FORM_URL, 2L, 3L).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_BODY))
+                .andExpect(status().isNoContent());
+
+        then(facade).should().updateFormByMilestoneId(
+                2L,
+                "202012345",
+                3L,
+                new PeerEvaluationFormUpdateRequest(
+                        false,
+                        java.time.LocalDateTime.of(2026, 10, 2, 9, 0),
+                        java.time.LocalDateTime.of(2026, 10, 9, 23, 59, 59)));
+    }
+
+    @ParameterizedTest(name = "sectionId={0}, milestoneId={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"0, 3", "-1, 3", "2, 0", "2, -1"})
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("0 이하의 분반 id 또는 마일스톤 id로 수정 시 400을 응답한다")
+    void rejectNonPositiveSectionIdOrMilestoneIdOnUpdate(long sectionId, long milestoneId) throws Exception {
+        mockMvc.perform(put(MILESTONE_FORM_URL, sectionId, milestoneId).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_BODY))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+
+        then(facade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    @DisplayName("담당 교수가 아닌 관리자는 마일스톤 ID로 상호평가 양식을 수정할 수 없다")
+    void updateFormByMilestoneIdAnotherProfessorForbidden() throws Exception {
+        willThrow(new AccessDeniedException("담당 분반만 접근할 수 있습니다."))
+                .given(facade)
+                .updateFormByMilestoneId(
+                        org.mockito.ArgumentMatchers.eq(2L),
+                        org.mockito.ArgumentMatchers.eq("202012345"),
+                        org.mockito.ArgumentMatchers.eq(3L),
+                        org.mockito.ArgumentMatchers.any());
+
+        mockMvc.perform(put(MILESTONE_FORM_URL, 2L, 3L).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 }

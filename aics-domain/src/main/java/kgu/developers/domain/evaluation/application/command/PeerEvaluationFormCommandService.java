@@ -51,15 +51,34 @@ public class PeerEvaluationFormCommandService {
             LocalDateTime opensAt,
             LocalDateTime closesAt
     ) {
+        updateFormByMilestoneId(sectionId, milestoneId, null, opensAt, closesAt);
+    }
+
+    public void updateFormByMilestoneId(
+            Long sectionId,
+            Long milestoneId,
+            Boolean anonymous,
+            LocalDateTime opensAt,
+            LocalDateTime closesAt
+    ) {
         Optional<PeerEvaluationForm> formOpt = formRepository.findByMilestoneId(milestoneId);
         if (formOpt.isPresent()) {
             PeerEvaluationForm form = formOpt.get();
-            form.updatePeriod(opensAt, closesAt);
+            if (sectionId != null && !form.getSectionId().equals(sectionId)) {
+                throw new PeerEvaluationFormNotFoundException();
+            }
+            boolean newAnonymous = anonymous != null ? anonymous : form.isAnonymous();
+            LocalDateTime newOpensAt = opensAt != null ? opensAt : form.getOpensAt();
+            LocalDateTime newClosesAt = closesAt != null ? closesAt : form.getClosesAt();
+            form.update(newAnonymous, newOpensAt, newClosesAt);
             formRepository.save(form);
         } else if (sectionId != null && opensAt != null && closesAt != null) {
+            boolean isAnonymous = anonymous != null ? anonymous : true;
             PeerEvaluationForm form = PeerEvaluationForm.create(
-                    sectionId, milestoneId, true, opensAt, closesAt);
+                    sectionId, milestoneId, isAnonymous, opensAt, closesAt);
             formRepository.save(form);
+        } else if (sectionId != null) {
+            throw new PeerEvaluationFormNotFoundException();
         }
     }
 }
