@@ -2,6 +2,7 @@ package proposal.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -33,11 +34,14 @@ import kgu.developers.domain.user.domain.UserGlobalRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
@@ -139,21 +143,25 @@ class ProposalAdminFacadeTest {
         given(teamThreadQueryService.getThread(TEAM_ID))
             .willReturn(TeamThread.builder().id(THREAD_ID).teamId(TEAM_ID).build());
         PageRequest pageable = PageRequest.of(0, 20);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         given(teamMessageQueryService.getMessages(
-            org.mockito.ArgumentMatchers.eq(THREAD_ID),
-            org.mockito.ArgumentMatchers.eq(TeamMessageRelatedType.PROPOSAL),
-            org.mockito.ArgumentMatchers.eq(PROJECT_ID),
-            org.mockito.ArgumentMatchers.any()))
-            .willReturn(new PageImpl<>(List.of(message()), pageable, 1));
+            eq(THREAD_ID),
+            eq(TeamMessageRelatedType.PROPOSAL),
+            eq(PROJECT_ID),
+            pageableCaptor.capture()))
+            .willReturn(new PageImpl<>(List.of(message(502L, "두 번째 피드백"), message(500L, FEEDBACK)), pageable, 2));
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of(PROFESSOR_ID))).willReturn(List.of(
             User.create(PROFESSOR_ID, "prof@kyonggi.ac.kr", "김교수", "pw", UserGlobalRole.ADMIN, "010-1111-2222")));
 
         ProposalFeedbackAdminPageResponse response = proposalAdminFacade.getFeedbacks(
             SECTION_ID, TEAM_ID, pageable, PROFESSOR_ID);
 
-        assertThat(response.contents()).hasSize(1);
+        // 정렬은 조회 시점에 결정되므로, 전달한 Pageable에 id 내림차순이 실려 있어야 한다.
+        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(Sort.Order.desc("id")));
+        assertThat(response.contents()).extracting(ProposalFeedbackAdminResponse::messageId)
+            .containsExactly(502L, 500L);
         assertThat(response.contents().get(0).senderName()).isEqualTo("김교수");
-        assertThat(response.pageable().totalElements()).isEqualTo(1L);
+        assertThat(response.pageable().totalElements()).isEqualTo(2L);
     }
 
     @Test
@@ -180,13 +188,17 @@ class ProposalAdminFacadeTest {
     }
 
     private TeamMessage message() {
+        return message(500L, FEEDBACK);
+    }
+
+    private TeamMessage message(Long id, String message) {
         return TeamMessage.builder()
-            .id(500L)
+            .id(id)
             .threadId(THREAD_ID)
             .senderId(PROFESSOR_ID)
             .relatedType(TeamMessageRelatedType.PROPOSAL)
             .relatedId(PROJECT_ID)
-            .message(FEEDBACK)
+            .message(message)
             .createdAt(LocalDateTime.of(2026, 9, 13, 14, 0))
             .build();
     }
