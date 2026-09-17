@@ -1,5 +1,8 @@
 package kgu.developers.admin.proposal.presentation;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.proposal.application.ProposalAdminFacade;
 import kgu.developers.admin.proposal.presentation.request.ProposalFeedbackAdminRequest;
 import kgu.developers.admin.proposal.presentation.response.ProposalFeedbackAdminPageResponse;
@@ -28,9 +31,9 @@ public class ProposalAdminControllerImpl implements ProposalAdminController {
     @Override
     @PostMapping("/feedback")
     public ResponseEntity<ProposalFeedbackAdminResponse> postFeedback(
-        @PathVariable Long sectionId,
-        @PathVariable Long teamId,
-        @RequestBody ProposalFeedbackAdminRequest request,
+        @PathVariable @Positive Long sectionId,
+        @PathVariable @Positive Long teamId,
+        @Valid @RequestBody ProposalFeedbackAdminRequest request,
         Authentication authentication
     ) {
         return ResponseEntity.ok(
@@ -41,10 +44,10 @@ public class ProposalAdminControllerImpl implements ProposalAdminController {
     @Override
     @GetMapping("/feedbacks")
     public ResponseEntity<ProposalFeedbackAdminPageResponse> getFeedbacks(
-        @PathVariable Long sectionId,
-        @PathVariable Long teamId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
+        @PathVariable @Positive Long sectionId,
+        @PathVariable @Positive Long teamId,
+        @RequestParam(defaultValue = "0") @PositiveOrZero int page,
+        @RequestParam(defaultValue = "20") @Positive int size,
         Authentication authentication
     ) {
         return ResponseEntity.ok(
