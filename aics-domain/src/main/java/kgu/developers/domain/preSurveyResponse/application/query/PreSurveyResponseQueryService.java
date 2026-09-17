@@ -62,11 +62,26 @@ public class PreSurveyResponseQueryService {
 				.map(Enrollment::getUserId)
 				.collect(toCollection(TreeSet::new));
 
-		Map<String, String> nameByUserId = userRepository.findAllByStudentNumberIn(List.copyOf(userIds)).stream()
+		List<String> nameLookupIds = java.util.stream.Stream.concat(
+				userIds.stream(),
+				userIds.stream().map(responseByUserId::get).filter(java.util.Objects::nonNull)
+						.map(PreSurveyResponse::getPreferredPeerUserId)
+						.filter(java.util.Objects::nonNull))
+				.distinct()
+				.toList();
+		Map<String, String> nameByUserId = userRepository.findAllByStudentNumberIn(nameLookupIds).stream()
 				.collect(toMap(User::getStudentNumber, User::getName));
 
 		return userIds.stream()
-				.map(userId -> new PreSurveyResponseRow(userId, nameByUserId.get(userId), responseByUserId.get(userId)))
+				.map(userId -> {
+					PreSurveyResponse response = responseByUserId.get(userId);
+					if (response == null) {
+						return new PreSurveyResponseRow(userId, nameByUserId.get(userId), null);
+					}
+					return new PreSurveyResponseRow(userId, nameByUserId.get(userId), response,
+							nameByUserId.get(response.getPreferredPeerUserId()),
+							response.isMutualWith(responseByUserId.get(response.getPreferredPeerUserId())));
+				})
 				.toList();
 	}
 }

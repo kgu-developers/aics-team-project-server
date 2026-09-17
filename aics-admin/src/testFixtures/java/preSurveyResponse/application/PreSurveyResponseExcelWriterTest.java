@@ -29,11 +29,59 @@ class PreSurveyResponseExcelWriterTest {
     private static final String TRUNCATED_MARK = "…(이하 생략)";
     private static final Long SECTION_ID = 1L;
     private static final int NAME = 1;
-    private static final int ROLES = 2;
-    private static final int TOPIC_OPINION = 3;
-    private static final int ETC_OPINION = 4;
+    private static final int PREFERRED_PEER = 2;
+    private static final int ROLES = 3;
+    private static final int TOPIC_OPINION = 4;
+    private static final int ETC_OPINION = 5;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    @DisplayName("희망 조원 학번을 별도 열로 내보낸다")
+    void write_WritesPreferredPeerUserId() throws Exception {
+        PreSurveyResponseRow source = new PreSurveyResponseRow("202412345", "이석민",
+            PreSurveyResponse.create("202412345", SECTION_ID, objectMapper.readTree("[\"BACKEND\"]"),
+                "주제", "기타", "202400001"), "김영희", false);
+
+        try (Workbook workbook = workbook(source)) {
+            Row header = workbook.getSheetAt(0).getRow(0);
+            Row row = workbook.getSheetAt(0).getRow(1);
+
+            assertThat(header.getCell(PREFERRED_PEER).getStringCellValue()).isEqualTo("희망 조원");
+            assertThat(row.getCell(PREFERRED_PEER).getStringCellValue())
+                .isEqualTo("202400001 (김영희) - 지목함 (상대 응답 대기)");
+        }
+    }
+
+    @Test
+    @DisplayName("희망 조원 칸에 수락·거절·상호 지목 상태를 함께 적는다")
+    void write_WritesPreferredPeerStatus() throws Exception {
+        PreSurveyResponse mutualPending = peerResponse();
+        PreSurveyResponse accepted = peerResponse();
+        accepted.decidePreferredPeer(true);
+        PreSurveyResponse rejected = peerResponse();
+        rejected.decidePreferredPeer(false);
+
+        assertThat(write(new PreSurveyResponseRow("202412345", "이석민", mutualPending, "김영희", true))
+            .get(PREFERRED_PEER)).isEqualTo("202400001 (김영희) - 서로 지목 (상대 응답 대기)");
+        assertThat(write(new PreSurveyResponseRow("202412345", "이석민", accepted, "김영희", true))
+            .get(PREFERRED_PEER)).isEqualTo("202400001 (김영희) - 상대가 수락");
+        assertThat(write(new PreSurveyResponseRow("202412345", "이석민", rejected, "김영희", false))
+            .get(PREFERRED_PEER)).isEqualTo("202400001 (김영희) - 상대가 거절");
+    }
+
+    @Test
+    @DisplayName("탈퇴한 희망 조원은 괄호를 겹치지 않고 대체 문구만 적는다")
+    void write_WritesWithdrawnPreferredPeerWithoutDoubleParentheses() throws Exception {
+        assertThat(write(new PreSurveyResponseRow("202412345", "이석민", peerResponse(), null, false))
+            .get(PREFERRED_PEER)).isEqualTo("202400001 (탈퇴한 사용자) - 지목함 (상대 응답 대기)");
+    }
+
+    @Test
+    @DisplayName("지목하지 않았으면 희망 조원 칸은 비운다")
+    void write_LeavesPreferredPeerEmptyWithoutPeer() throws Exception {
+        assertThat(write(row("주제", "기타")).get(PREFERRED_PEER)).isEmpty();
+    }
 
     @Test
     @DisplayName("셀 한도와 길이가 같은 의견은 그대로 들어간다")
@@ -102,6 +150,11 @@ class PreSurveyResponseExcelWriterTest {
         }
     }
 
+    private PreSurveyResponse peerResponse() throws IOException {
+        return PreSurveyResponse.create("202412345", SECTION_ID, objectMapper.readTree("[\"BACKEND\"]"),
+            "주제", "기타", "202400001");
+    }
+
     private PreSurveyResponseRow row(String topicOpinion, String etcOpinion) throws IOException {
         return new PreSurveyResponseRow("202412345", "이석민",
             PreSurveyResponse.create("202412345", SECTION_ID, objectMapper.readTree("[\"BACKEND\"]"),
@@ -119,6 +172,7 @@ class PreSurveyResponseExcelWriterTest {
             return List.of(
                 row.getCell(0).getStringCellValue(),
                 row.getCell(1).getStringCellValue(),
+                row.getCell(PREFERRED_PEER).getStringCellValue(),
                 row.getCell(ROLES).getStringCellValue(),
                 row.getCell(TOPIC_OPINION).getStringCellValue(),
                 row.getCell(ETC_OPINION).getStringCellValue());

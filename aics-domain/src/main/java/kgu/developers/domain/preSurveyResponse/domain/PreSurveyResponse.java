@@ -69,6 +69,22 @@ public class PreSurveyResponse {
         this.preferredPeerStatus = accepted ? PreferredPeerStatus.ACCEPTED : PreferredPeerStatus.REJECTED;
     }
 
+    /**
+     * 희망 조원 매칭 여부. 지목 대상이 수락했거나, 아직 대기 중이면서 상대도 나를 지목하고 거절하지 않았으면 매칭이다.
+     * peerResponse는 지목 대상의 응답이며, 상대가 아직 제출하지 않았으면 null이다.
+     */
+    public boolean isMutualWith(PreSurveyResponse peerResponse) {
+        if (preferredPeerUserId == null || preferredPeerStatus == PreferredPeerStatus.REJECTED) {
+            return false;
+        }
+        if (preferredPeerStatus == PreferredPeerStatus.ACCEPTED) {
+            return true;
+        }
+        return peerResponse != null
+                && Objects.equals(peerResponse.getPreferredPeerUserId(), userId)
+                && peerResponse.getPreferredPeerStatus() != PreferredPeerStatus.REJECTED;
+    }
+
     public boolean isPreferredPeerPendingFor(String peerUserId) {
         return this.preferredPeerStatus == PreferredPeerStatus.PENDING
                 && Objects.equals(this.preferredPeerUserId, peerUserId);
