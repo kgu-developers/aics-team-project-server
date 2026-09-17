@@ -116,6 +116,40 @@ class RequiredArtifactFacadeTest {
     }
 
     @Test
+    @DisplayName("담당 분반과 마일스톤을 확인한 뒤 필수 산출물을 수정한다")
+    void updateRequiredArtifact() {
+        RequiredArtifactRequest request = new RequiredArtifactRequest(
+                RequiredArtifactType.FILE,
+                "수정된 보고서",
+                false,
+                List.of("pdf"),
+                10
+        );
+
+        milestoneFacade.updateRequiredArtifact(
+                SECTION_ID, PROFESSOR_ID, MILESTONE_ID, 3L, request
+        );
+
+        verify(milestoneAccessValidator).validateSectionAccess(SECTION_ID, PROFESSOR_ID);
+        verify(milestoneQueryService).getMilestone(SECTION_ID, MILESTONE_ID);
+        verify(requiredArtifactCommandService).update(
+                MILESTONE_ID, 3L, RequiredArtifactType.FILE, "수정된 보고서", false, "pdf", 10
+        );
+    }
+
+    @Test
+    @DisplayName("담당 분반과 마일스톤을 확인한 뒤 필수 산출물을 삭제한다")
+    void deleteRequiredArtifact() {
+        milestoneFacade.deleteRequiredArtifact(
+                SECTION_ID, PROFESSOR_ID, MILESTONE_ID, 3L
+        );
+
+        verify(milestoneAccessValidator).validateSectionAccess(SECTION_ID, PROFESSOR_ID);
+        verify(milestoneQueryService).getMilestone(SECTION_ID, MILESTONE_ID);
+        verify(requiredArtifactCommandService).delete(MILESTONE_ID, 3L);
+    }
+
+    @Test
     @DisplayName("분반 접근이 거부되면 산출물 저장소를 조회하지 않는다")
     void rejectAnotherProfessor() {
         org.mockito.BDDMockito.willThrow(new org.springframework.security.access.AccessDeniedException("거부"))

@@ -9,6 +9,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWindowRequest;
@@ -105,6 +106,7 @@ public class MilestoneFacade {
         });
     }
 
+    @Transactional
     public void updateMilestone(
             Long sectionId,
             String professorId,

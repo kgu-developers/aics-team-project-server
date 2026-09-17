@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.admin.milestone.application.MilestoneAccessValidator;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
@@ -27,10 +29,14 @@ import kgu.developers.admin.milestone.presentation.request.MilestoneStatusReques
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest.MilestoneWeekNumberItem;
+import kgu.developers.admin.milestone.presentation.request.RequiredArtifactRequest;
+import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestoneResponse;
 import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCommandService;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
+import kgu.developers.domain.feedback.application.command.RequiredArtifactCommandService;
+import kgu.developers.domain.feedback.application.query.RequiredArtifactQueryService;
 import kgu.developers.domain.milestone.application.command.MilestoneCommandService;
 import kgu.developers.domain.milestone.application.command.MilestoneWeekNumberChange;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
@@ -63,6 +69,12 @@ class MilestoneFacadeTest {
 
     @Mock
     private PeerEvaluationFormRepository peerEvaluationFormRepository;
+
+    @Mock
+    private RequiredArtifactCommandService requiredArtifactCommandService;
+
+    @Mock
+    private RequiredArtifactQueryService requiredArtifactQueryService;
 
     @InjectMocks
     private MilestoneFacade milestoneFacade;
@@ -170,6 +182,57 @@ class MilestoneFacadeTest {
                 .isInstanceOf(AccessDeniedException.class);
 
         then(milestoneQueryService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상호평가가 포함되지 않은 마일스톤 목록 조회는 양식 조회 없이 반환한다")
+    void getMilestonesWithoutPeerEvaluation() {
+        Milestone milestone = milestone();
+        given(milestoneQueryService.getMilestones(SECTION_ID, MilestoneStatus.DRAFT))
+                .willReturn(List.of(milestone));
+
+        MilestoneListResponse response =
+                milestoneFacade.getMilestones(SECTION_ID, PROFESSOR_ID, MilestoneStatus.DRAFT);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).title()).isEqualTo("제안서");
+        verify(milestoneAccessValidator).validateSectionAccess(SECTION_ID, PROFESSOR_ID);
+        then(peerEvaluationFormRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상호평가가 포함된 마일스톤 목록 조회 시 양식 일정을 매핑한다")
+    void getMilestonesWithPeerEvaluation() {
+        Milestone normalMilestone = milestone();
+        Milestone peerEvalMilestone = Milestone.restore(
+                3L,
+                SECTION_ID,
+                "동료평가",
+                null,
+                3,
+                MilestoneStatus.DRAFT,
+                schedule(),
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+        given(milestoneQueryService.getMilestones(SECTION_ID, null))
+                .willReturn(List.of(normalMilestone, peerEvalMilestone));
+
+        LocalDateTime opensAt = DUE_AT.minusDays(5);
+        PeerEvaluationForm form = PeerEvaluationForm.restore(
+                10L, SECTION_ID, 3L, true, opensAt, DUE_AT, null, null, null);
+        given(peerEvaluationFormRepository.findAllBySectionIdOrderByIdDesc(SECTION_ID))
+                .willReturn(List.of(form));
+
+        MilestoneListResponse response = milestoneFacade.getMilestones(SECTION_ID, PROFESSOR_ID, null);
+
+        assertThat(response.content()).hasSize(2);
+        MilestoneResponse peerResponse = response.content().stream()
+                .filter(m -> m.id().equals(3L))
+                .findFirst().orElseThrow();
+        assertThat(peerResponse.schedule().opensAt()).isEqualTo(opensAt);
+        assertThat(peerResponse.schedule().evaluationOpensAt()).isEqualTo(opensAt);
+        assertThat(peerResponse.schedule().evaluationClosesAt()).isEqualTo(DUE_AT);
     }
 
     @Test
@@ -321,6 +384,45 @@ class MilestoneFacadeTest {
                 opensAt,
                 DUE_AT
         );
+    }
+
+    @Test
+    @DisplayName("updateMilestone 메서드에는 원자적 갱신을 보장하기 위해 @Transactional 어노테이션이 존재해야 한다")
+    void updateMilestoneHasTransactionalAnnotation() throws NoSuchMethodException {
+        var method = MilestoneFacade.class.getMethod(
+                "updateMilestone",
+                Long.class,
+                String.class,
+                Long.class,
+                MilestoneUpdateRequest.class
+        );
+        assertThat(method.isAnnotationPresent(Transactional.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("상호평가 마일스톤 수정 시 일정이 null이면 양식 기간을 갱신하지 않는다")
+    void updateMilestonePeerEvaluationWithNullSchedule() {
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "상호 평가",
+                "팀원 상호 평가",
+                null,
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+
+        milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
+
+        verify(milestoneCommandService).updateMilestone(
+                SECTION_ID,
+                PROFESSOR_ID,
+                MILESTONE_ID,
+                "상호 평가",
+                "팀원 상호 평가",
+                null,
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+        then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
     }
 
     @Test
