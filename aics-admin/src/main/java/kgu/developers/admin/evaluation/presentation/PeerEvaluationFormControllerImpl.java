@@ -2,6 +2,7 @@ package kgu.developers.admin.evaluation.presentation;
 
 import kgu.developers.admin.evaluation.application.PeerEvaluationFormFacade;
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormUpdateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,5 +32,16 @@ public class PeerEvaluationFormControllerImpl implements PeerEvaluationFormContr
             Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(facade.createForm(sectionId, authentication.getName(), request));
+    }
+
+    @Override
+    @PutMapping("/{formId}")
+    public ResponseEntity<Void> updateForm(
+            @PathVariable Long sectionId,
+            @PathVariable Long formId,
+            @RequestBody PeerEvaluationFormUpdateRequest request,
+            Authentication authentication) {
+        facade.updateForm(sectionId, authentication.getName(), formId, request);
+        return ResponseEntity.noContent().build();
     }
 }

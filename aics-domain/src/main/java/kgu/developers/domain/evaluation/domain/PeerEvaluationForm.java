@@ -76,6 +76,21 @@ public class PeerEvaluationForm {
         return new PeerEvaluationForm(id, sectionId, milestoneId, anonymous, opensAt, closesAt, createdAt, updatedAt, deletedAt);
     }
 
+    public void update(boolean anonymous, LocalDateTime opensAt, LocalDateTime closesAt) {
+        validateRequired(opensAt, "상호평가 시작 시각은 필수입니다.");
+        validateRequired(closesAt, "상호평가 종료 시각은 필수입니다.");
+        if (!opensAt.isBefore(closesAt)) {
+            throw new IllegalArgumentException("상호평가 시작 시각은 종료 시각보다 앞서야 합니다.");
+        }
+        this.anonymous = anonymous;
+        this.opensAt = opensAt;
+        this.closesAt = closesAt;
+    }
+
+    public void updatePeriod(LocalDateTime opensAt, LocalDateTime closesAt) {
+        update(this.anonymous, opensAt, closesAt);
+    }
+
     private static void validateRequired(Object value, String message) {
         if (value == null) {
             throw new IllegalArgumentException(message);

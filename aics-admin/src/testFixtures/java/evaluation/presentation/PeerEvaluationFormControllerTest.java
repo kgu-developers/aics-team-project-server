@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,6 +13,7 @@ import kgu.developers.admin.evaluation.application.PeerEvaluationFormFacade;
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.evaluation.presentation.PeerEvaluationFormControllerImpl;
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormUpdateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
 import kgu.developers.common.exception.GlobalExceptionHandler;
 import kgu.developers.common.config.CorsConfig;
@@ -61,6 +63,16 @@ class PeerEvaluationFormControllerTest {
               "anonymous":true,
               "opensAt":"2026-10-01T09:00:00",
               "closesAt":"2026-10-08T23:59:59"
+            }
+            """;
+    private static final String UPDATE_URL =
+            "/api/v1/admin/sections/{sectionId}/peer-evaluation-forms/{formId}";
+    private static final String VALID_UPDATE_BODY =
+            """
+            {
+              "anonymous":false,
+              "opensAt":"2026-10-02T09:00:00",
+              "closesAt":"2026-10-09T23:59:59"
             }
             """;
 
@@ -166,6 +178,77 @@ class PeerEvaluationFormControllerTest {
     @DisplayName("유효하지 않은 상호평가 양식 생성 요청은 400을 응답한다")
     void rejectInvalidRequest(String body) throws Exception {
         mockMvc.perform(post(URL, 2L).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+
+        then(facade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    @DisplayName("유효한 상호평가 양식 수정 요청은 204를 응답한다")
+    void updateForm() throws Exception {
+        mockMvc.perform(put(UPDATE_URL, 2L, 1L).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_BODY))
+                .andExpect(status().isNoContent());
+
+        then(facade).should().updateForm(
+                2L,
+                "202012345",
+                1L,
+                new PeerEvaluationFormUpdateRequest(
+                        false,
+                        java.time.LocalDateTime.of(2026, 10, 2, 9, 0),
+                        java.time.LocalDateTime.of(2026, 10, 9, 23, 59, 59)));
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    @DisplayName("담당 교수가 아닌 관리자는 상호평가 양식을 수정할 수 없다")
+    void updateAnotherProfessorForbidden() throws Exception {
+        willThrow(new AccessDeniedException("담당 분반만 접근할 수 있습니다."))
+                .given(facade)
+                .updateForm(
+                        org.mockito.ArgumentMatchers.eq(2L),
+                        org.mockito.ArgumentMatchers.eq("202012345"),
+                        org.mockito.ArgumentMatchers.eq(1L),
+                        org.mockito.ArgumentMatchers.any());
+
+        mockMvc.perform(put(UPDATE_URL, 2L, 1L).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
+    @ParameterizedTest(name = "sectionId={0}, formId={1}")
+    @org.junit.jupiter.params.provider.CsvSource({"0, 1", "-1, 1", "1, 0", "1, -1"})
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("0 이하의 분반 id 또는 양식 id는 400을 응답한다")
+    void rejectNonPositiveSectionIdOrFormIdOnUpdate(long sectionId, long formId) throws Exception {
+        mockMvc.perform(put(UPDATE_URL, sectionId, formId).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_BODY))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+
+        then(facade).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest(name = "body={0}")
+    @ValueSource(strings = {
+            "{\"opensAt\":\"2026-10-01T09:00:00\",\"closesAt\":\"2026-10-08T23:59:59\"}",
+            "{\"anonymous\":true,\"closesAt\":\"2026-10-08T23:59:59\"}",
+            "{\"anonymous\":true,\"opensAt\":\"2026-10-01T09:00:00\"}",
+            "{\"anonymous\":true,\"opensAt\":\"2026-10-08T23:59:59\",\"closesAt\":\"2026-10-01T09:00:00\"}"
+    })
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("유효하지 않은 상호평가 양식 수정 요청은 400을 응답한다")
+    void rejectInvalidUpdateRequest(String body) throws Exception {
+        mockMvc.perform(put(UPDATE_URL, 2L, 1L).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())

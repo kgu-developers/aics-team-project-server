@@ -43,7 +43,7 @@ public record MilestoneResponse(
                 milestone.getDescription(),
                 milestone.getWeekNumber(),
                 milestone.getStatus(),
-                MilestoneScheduleResponse.from(milestone.getSchedule()),
+                MilestoneScheduleResponse.from(milestone.getSchedule(), milestone.getType()),
                 milestone.getType(),
                 milestone.isAllowResubmissionBeforeDueAt()
         );

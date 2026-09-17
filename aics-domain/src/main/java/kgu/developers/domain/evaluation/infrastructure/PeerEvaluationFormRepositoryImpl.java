@@ -31,4 +31,10 @@ public class PeerEvaluationFormRepositoryImpl implements PeerEvaluationFormRepos
             .toList();
     }
 
+    @Override
+    public Optional<PeerEvaluationForm> findByMilestoneId(Long milestoneId) {
+        return jpaRepository.findFirstByMilestoneIdAndDeletedAtIsNullOrderByIdDesc(milestoneId)
+                .map(PeerEvaluationFormJpaEntity::toDomain);
+    }
+
 }

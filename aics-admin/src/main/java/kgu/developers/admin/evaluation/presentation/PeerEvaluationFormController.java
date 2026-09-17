@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormUpdateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -33,5 +34,15 @@ public interface PeerEvaluationFormController {
             @Parameter(description = "분반 ID", example = "1", required = true)
             @Positive @PathVariable Long sectionId,
             @Valid @RequestBody PeerEvaluationFormCreateRequest request,
+            @Parameter(hidden = true) Authentication authentication);
+
+    @Operation(summary = "상호평가 양식 수정", description = "상호평가 양식의 익명 여부 및 평가 기간을 수정합니다.")
+    @ApiResponse(responseCode = "204", description = "상호평가 양식 수정 성공")
+    ResponseEntity<Void> updateForm(
+            @Parameter(description = "분반 ID", example = "1", required = true)
+            @Positive @PathVariable Long sectionId,
+            @Parameter(description = "양식 ID", example = "1", required = true)
+            @Positive @PathVariable Long formId,
+            @Valid @RequestBody PeerEvaluationFormUpdateRequest request,
             @Parameter(hidden = true) Authentication authentication);
 }

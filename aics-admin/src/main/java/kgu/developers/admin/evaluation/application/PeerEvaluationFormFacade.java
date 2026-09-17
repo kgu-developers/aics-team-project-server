@@ -1,6 +1,7 @@
 package kgu.developers.admin.evaluation.application;
 
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormUpdateRequest;
 import kgu.developers.admin.evaluation.presentation.response.PeerEvaluationFormPersistResponse;
 import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCommandService;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
@@ -30,6 +31,17 @@ public class PeerEvaluationFormFacade {
                 request.opensAt(),
                 request.closesAt());
         return PeerEvaluationFormPersistResponse.of(id);
+    }
+
+    public void updateForm(
+            Long sectionId, String professorId, Long formId, PeerEvaluationFormUpdateRequest request) {
+        validateSectionAccess(sectionId, professorId);
+        commandService.updateForm(
+                sectionId,
+                formId,
+                request.anonymous(),
+                request.opensAt(),
+                request.closesAt());
     }
 
     private void validateSectionAccess(Long sectionId, String professorId) {

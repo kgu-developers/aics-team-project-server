@@ -1,7 +1,12 @@
 package kgu.developers.admin.milestone.application;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -15,8 +20,12 @@ import kgu.developers.admin.milestone.presentation.request.RequiredArtifactReque
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestoneResponse;
+import kgu.developers.admin.milestone.presentation.response.MilestoneScheduleResponse;
 import kgu.developers.admin.milestone.presentation.response.RequiredArtifactListResponse;
 import kgu.developers.admin.milestone.presentation.response.RequiredArtifactPersistResponse;
+import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCommandService;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
 import kgu.developers.domain.feedback.application.command.RequiredArtifactCommandService;
 import kgu.developers.domain.feedback.application.query.RequiredArtifactQueryService;
 import kgu.developers.domain.feedback.exception.InvalidRequiredArtifactRequestException;
@@ -25,6 +34,7 @@ import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.InvalidMilestoneRequestException;
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +46,8 @@ public class MilestoneFacade {
     private final MilestoneAccessValidator milestoneAccessValidator;
     private final RequiredArtifactCommandService requiredArtifactCommandService;
     private final RequiredArtifactQueryService requiredArtifactQueryService;
+    private final PeerEvaluationFormCommandService peerEvaluationFormCommandService;
+    private final PeerEvaluationFormRepository peerEvaluationFormRepository;
 
     public MilestonePersistResponse createMilestone(
             Long sectionId,
@@ -43,13 +55,15 @@ public class MilestoneFacade {
             MilestoneCreateRequest request
     ) {
         return asInvalidRequest(() -> {
+            boolean isPeerEval = request.type() == MilestoneType.PEER_EVALUATION;
+            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval);
             Long milestoneId = milestoneCommandService.createMilestone(
                     sectionId,
                     professorId,
                     request.title(),
                     request.description(),
                     request.weekNumber(),
-                    toSchedule(request.schedule()),
+                    schedule,
                     request.type(),
                     Boolean.TRUE.equals(request.allowResubmissionBeforeDueAt())
             );
@@ -65,15 +79,30 @@ public class MilestoneFacade {
         milestoneAccessValidator.validateSectionAccess(sectionId, professorId);
         return asInvalidRequest(() -> {
             List<Milestone> milestones = milestoneQueryService.getMilestones(sectionId, status);
-            return MilestoneListResponse.from(milestones);
+            boolean hasPeerEval = milestones.stream().anyMatch(m -> m.getType() == MilestoneType.PEER_EVALUATION);
+            if (!hasPeerEval) {
+                return MilestoneListResponse.from(milestones);
+            }
+            Map<Long, PeerEvaluationForm> formsByMilestoneId = peerEvaluationFormRepository
+                    .findAllBySectionIdOrderByIdDesc(sectionId).stream()
+                    .collect(Collectors.toMap(
+                            PeerEvaluationForm::getMilestoneId,
+                            Function.identity(),
+                            (existing, replacement) -> existing
+                    ));
+            List<MilestoneResponse> responses = milestones.stream()
+                    .map(milestone -> toMilestoneResponse(milestone, formsByMilestoneId.get(milestone.getId())))
+                    .toList();
+            return new MilestoneListResponse(responses);
         });
     }
 
     public MilestoneResponse getMilestone(Long sectionId, String professorId, Long milestoneId) {
         milestoneAccessValidator.validateSectionAccess(sectionId, professorId);
-        return asInvalidRequest(() -> MilestoneResponse.from(
-                milestoneQueryService.getMilestone(sectionId, milestoneId)
-        ));
+        return asInvalidRequest(() -> {
+            Milestone milestone = milestoneQueryService.getMilestone(sectionId, milestoneId);
+            return toMilestoneResponse(milestone);
+        });
     }
 
     public void updateMilestone(
@@ -82,16 +111,25 @@ public class MilestoneFacade {
             Long milestoneId,
             MilestoneUpdateRequest request
     ) {
-        asInvalidRequest(() -> milestoneCommandService.updateMilestone(
-                sectionId,
-                professorId,
-                milestoneId,
-                request.title(),
-                request.description(),
-                toSchedule(request.schedule()),
-                request.type(),
-                request.allowResubmissionBeforeDueAt()
-        ));
+        asInvalidRequest(() -> {
+            boolean isPeerEval = request.type() == MilestoneType.PEER_EVALUATION
+                    || (request.type() == null && peerEvaluationFormRepository.findByMilestoneId(milestoneId).isPresent());
+            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval);
+            milestoneCommandService.updateMilestone(
+                    sectionId,
+                    professorId,
+                    milestoneId,
+                    request.title(),
+                    request.description(),
+                    schedule,
+                    request.type(),
+                    request.allowResubmissionBeforeDueAt()
+            );
+            if (isPeerEval && schedule != null && schedule.opensAt() != null && schedule.dueAt() != null) {
+                peerEvaluationFormCommandService.updateFormPeriodByMilestoneId(
+                        sectionId, milestoneId, schedule.opensAt(), schedule.dueAt());
+            }
+        });
     }
 
     public void changeStatus(
@@ -216,7 +254,68 @@ public class MilestoneFacade {
         }
     }
 
+    private MilestoneResponse toMilestoneResponse(Milestone milestone) {
+        if (milestone.getType() == MilestoneType.PEER_EVALUATION) {
+            Optional<PeerEvaluationForm> formOpt = peerEvaluationFormRepository.findByMilestoneId(milestone.getId());
+            return toMilestoneResponse(milestone, formOpt.orElse(null));
+        }
+        return MilestoneResponse.from(milestone);
+    }
+
+    private MilestoneResponse toMilestoneResponse(Milestone milestone, PeerEvaluationForm form) {
+        if (milestone.getType() == MilestoneType.PEER_EVALUATION) {
+            MilestoneSchedule s = milestone.getSchedule();
+            LocalDateTime opensAt = s != null && s.opensAt() != null
+                    ? s.opensAt()
+                    : (form != null ? form.getOpensAt() : null);
+            LocalDateTime dueAt = s != null && s.dueAt() != null
+                    ? s.dueAt()
+                    : (form != null ? form.getClosesAt() : null);
+            LocalDateTime evalOpensAt = form != null ? form.getOpensAt() : opensAt;
+            LocalDateTime evalClosesAt = form != null ? form.getClosesAt() : dueAt;
+            MilestoneScheduleResponse scheduleResponse = new MilestoneScheduleResponse(
+                    opensAt,
+                    dueAt,
+                    s != null ? s.lateSubmissionUntil() : null,
+                    s != null ? s.revisionUntil() : null,
+                    evalOpensAt,
+                    evalClosesAt
+            );
+            return new MilestoneResponse(
+                    milestone.getId(),
+                    milestone.getSectionId(),
+                    milestone.getTitle(),
+                    milestone.getDescription(),
+                    milestone.getWeekNumber(),
+                    milestone.getStatus(),
+                    scheduleResponse,
+                    milestone.getType(),
+                    milestone.isAllowResubmissionBeforeDueAt()
+            );
+        }
+        return MilestoneResponse.from(milestone);
+    }
+
     private MilestoneSchedule toSchedule(MilestoneScheduleRequest request) {
+        return toSchedule(request, false);
+    }
+
+    private MilestoneSchedule toSchedule(MilestoneScheduleRequest request, boolean isPeerEval) {
+        if (request == null) {
+            return null;
+        }
+        if (isPeerEval) {
+            LocalDateTime opensAt = request.opensAt() != null ? request.opensAt() : request.evaluationOpensAt();
+            LocalDateTime dueAt = request.dueAt() != null ? request.dueAt() : request.evaluationClosesAt();
+            return new MilestoneSchedule(
+                    opensAt,
+                    dueAt,
+                    request.lateSubmissionUntil(),
+                    request.revisionUntil(),
+                    null,
+                    null
+            );
+        }
         return request.toDomain();
     }
 

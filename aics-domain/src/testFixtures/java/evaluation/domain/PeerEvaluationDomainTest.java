@@ -41,6 +41,60 @@ class PeerEvaluationDomainTest {
     }
 
     @Test
+    @DisplayName("상호평가 양식의 익명 여부 및 기간을 수정할 수 있다")
+    void updateForm() {
+        PeerEvaluationForm form = PeerEvaluationForm.create(1L, 2L, true, opensAt, closesAt);
+        LocalDateTime newOpensAt = LocalDateTime.of(2026, 9, 1, 9, 0);
+        LocalDateTime newClosesAt = LocalDateTime.of(2026, 9, 8, 18, 0);
+
+        form.update(false, newOpensAt, newClosesAt);
+
+        assertThat(form.isAnonymous()).isFalse();
+        assertThat(form.getOpensAt()).isEqualTo(newOpensAt);
+        assertThat(form.getClosesAt()).isEqualTo(newClosesAt);
+    }
+
+    @Test
+    @DisplayName("상호평가 양식의 기간만 수정할 때 익명 여부는 보존된다")
+    void updatePeriodPreservesAnonymous() {
+        PeerEvaluationForm form = PeerEvaluationForm.create(1L, 2L, true, opensAt, closesAt);
+        LocalDateTime newOpensAt = LocalDateTime.of(2026, 9, 1, 9, 0);
+        LocalDateTime newClosesAt = LocalDateTime.of(2026, 9, 8, 18, 0);
+
+        form.updatePeriod(newOpensAt, newClosesAt);
+
+        assertThat(form.isAnonymous()).isTrue();
+        assertThat(form.getOpensAt()).isEqualTo(newOpensAt);
+        assertThat(form.getClosesAt()).isEqualTo(newClosesAt);
+    }
+
+    @Test
+    @DisplayName("상호평가 양식 수정 시 시작 시각이 종료 시각보다 앞서지 않으면 예외가 발생한다")
+    void rejectInvalidUpdatePeriod() {
+        PeerEvaluationForm form = PeerEvaluationForm.create(1L, 2L, true, opensAt, closesAt);
+
+        assertThatThrownBy(() -> form.update(false, closesAt, opensAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("상호평가 시작 시각은 종료 시각보다 앞서야 합니다.");
+        assertThatThrownBy(() -> form.updatePeriod(closesAt, opensAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("상호평가 시작 시각은 종료 시각보다 앞서야 합니다.");
+    }
+
+    @Test
+    @DisplayName("상호평가 양식 수정 시 시작 시각이나 종료 시각이 null이면 예외가 발생한다")
+    void rejectNullPeriodInUpdate() {
+        PeerEvaluationForm form = PeerEvaluationForm.create(1L, 2L, true, opensAt, closesAt);
+
+        assertThatThrownBy(() -> form.update(false, null, closesAt))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("상호평가 시작 시각은 필수입니다.");
+        assertThatThrownBy(() -> form.update(false, opensAt, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("상호평가 종료 시각은 필수입니다.");
+    }
+
+    @Test
     @DisplayName("점수형 질문은 양수 최대 점수를 가져야 한다")
     void scaleQuestionRequiresPositiveMaxScore() {
         PeerEvaluationQuestion question = PeerEvaluationQuestion.createScale(1L, "협업 태도를 평가하세요.", new BigDecimal("5.00"), 0);

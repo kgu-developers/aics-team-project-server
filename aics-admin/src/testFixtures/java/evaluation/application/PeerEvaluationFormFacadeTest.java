@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 
 import kgu.developers.admin.evaluation.application.PeerEvaluationFormFacade;
 import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.PeerEvaluationFormUpdateRequest;
 import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCommandService;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
@@ -118,6 +119,37 @@ class PeerEvaluationFormFacadeTest {
 
         assertThatThrownBy(() -> facade.createForm(2L, "202012345", request))
                 .isInstanceOf(MilestoneNotFoundException.class);
+
+        then(commandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상호평가 양식 수정 요청을 커맨드 서비스에 전달한다")
+    void updateForm() {
+        LocalDateTime opensAt = LocalDateTime.of(2026, 10, 2, 9, 0);
+        LocalDateTime closesAt = LocalDateTime.of(2026, 10, 9, 23, 59);
+        PeerEvaluationFormUpdateRequest request =
+                new PeerEvaluationFormUpdateRequest(false, opensAt, closesAt);
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+                .willReturn(true);
+
+        facade.updateForm(2L, "202012345", 1L, request);
+
+        then(commandService).should().updateForm(2L, 1L, false, opensAt, closesAt);
+    }
+
+    @Test
+    @DisplayName("담당 교수가 아닌 관리자는 상호평가 양식을 수정할 수 없다")
+    void rejectAnotherProfessorOnUpdate() {
+        LocalDateTime opensAt = LocalDateTime.of(2026, 10, 2, 9, 0);
+        LocalDateTime closesAt = LocalDateTime.of(2026, 10, 9, 23, 59);
+        PeerEvaluationFormUpdateRequest request =
+                new PeerEvaluationFormUpdateRequest(false, opensAt, closesAt);
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(2L, "202012345"))
+                .willReturn(false);
+
+        assertThatThrownBy(() -> facade.updateForm(2L, "202012345", 1L, request))
+                .isInstanceOf(AccessDeniedException.class);
 
         then(commandService).shouldHaveNoInteractions();
     }
