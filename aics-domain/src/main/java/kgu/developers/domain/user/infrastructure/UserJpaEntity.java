@@ -71,7 +71,7 @@ public class UserJpaEntity extends BaseTimeEntity {
                 .email(user.getEmail())
                 .name(user.getName())
                 .password(user.getPassword())
-                .passwordChangeRequired(user.getPasswordChangeRequired())
+                .passwordChangeRequired(user.isPasswordChangeRequired())
                 .globalRole(user.getGlobalRole())
                 .phone(user.getPhone())
                 .major(user.getMajor())
