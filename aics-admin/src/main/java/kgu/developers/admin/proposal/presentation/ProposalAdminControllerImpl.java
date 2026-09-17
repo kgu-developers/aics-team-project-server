@@ -1,6 +1,7 @@
 package kgu.developers.admin.proposal.presentation;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.proposal.application.ProposalAdminFacade;
@@ -47,7 +48,7 @@ public class ProposalAdminControllerImpl implements ProposalAdminController {
         @PathVariable @Positive Long sectionId,
         @PathVariable @Positive Long teamId,
         @RequestParam(defaultValue = "0") @PositiveOrZero int page,
-        @RequestParam(defaultValue = "20") @Positive int size,
+        @RequestParam(defaultValue = "20") @Positive @Max(100) int size,
         Authentication authentication
     ) {
         return ResponseEntity.ok(
