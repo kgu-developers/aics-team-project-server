@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.domain.preSurveyResponse.application.query.PreSurveyResponseRow;
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
+import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 
 // 조회한 행을 xlsx 바이트로 만든다. DB 조회와 분리해 두어야 통합문서를 만드는 동안 트랜잭션과
 // 커넥션을 붙잡지 않는다.
@@ -63,7 +64,7 @@ public final class PreSurveyResponseExcelWriter {
                     row.createCell(6).setCellValue(NOT_SUBMITTED);
                     continue;
                 }
-                writeText(row, 2, preferredPeer(response, source.preferredPeerName()), textStyle);
+                writeText(row, 2, preferredPeer(response, source.preferredPeerName(), source.mutual()), textStyle);
                 writeText(row, 3, preferredRoles(response.getPreferredRoles()), textStyle);
                 writeText(row, 4, response.getTopicOpinion(), textStyle);
                 writeText(row, 5, response.getEtcOpinion(), textStyle);
@@ -111,11 +112,22 @@ public final class PreSurveyResponseExcelWriter {
                 .collect(joining(", "));
     }
 
-    private static String preferredPeer(PreSurveyResponse response, String preferredPeerName) {
+    // 교수가 엑셀만 보고 조를 짜므로 "누구를 지목했는지"에 더해 그게 받아들여졌는지까지 한 칸에 적는다.
+    // 상호 지목은 목록 API의 mutual과 같은 규칙(PreSurveyResponse.isMutualWith)으로 판정한 값을 쓴다.
+    private static String preferredPeer(PreSurveyResponse response, String preferredPeerName, boolean mutual) {
         String preferredPeerUserId = response.getPreferredPeerUserId();
         if (preferredPeerUserId == null) {
             return null;
         }
-        return preferredPeerUserId + " (" + (preferredPeerName == null ? WITHDRAWN_USER_NAME : preferredPeerName) + ")";
+        // WITHDRAWN_USER_NAME은 이미 괄호를 포함한 문구라 여기서 다시 감싸지 않는다.
+        String name = preferredPeerName == null ? WITHDRAWN_USER_NAME : "(" + preferredPeerName + ")";
+        return preferredPeerUserId + " " + name + " - " + peerStatus(response.getPreferredPeerStatus(), mutual);
+    }
+
+    private static String peerStatus(PreferredPeerStatus status, boolean mutual) {
+        if (status == PreferredPeerStatus.PENDING && mutual) {
+            return "서로 지목 (상대 응답 대기)";
+        }
+        return status.getDescription();
     }
 }

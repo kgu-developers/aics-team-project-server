@@ -5,13 +5,11 @@ import static java.util.stream.Collectors.toMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 
 import kgu.developers.domain.preSurveyResponse.domain.PreSurveyResponse;
-import kgu.developers.domain.preSurveyResponse.domain.PreferredPeerStatus;
 import kgu.developers.domain.user.domain.User;
 
 @Builder
@@ -40,7 +38,7 @@ public record PreSurveyResponseAdminListResponse(
                                 response,
                                 names.getOrDefault(response.getUserId(), WITHDRAWN_USER_NAME),
                                 peerName(response, names),
-                                isMutual(response, responseByUser)))
+                                response.isMutualWith(responseByUser.get(response.getPreferredPeerUserId()))))
                         .toList())
                 .build();
     }
@@ -52,21 +50,4 @@ public record PreSurveyResponseAdminListResponse(
         return names.getOrDefault(response.getPreferredPeerUserId(), WITHDRAWN_USER_NAME);
     }
 
-    private static boolean isMutual(PreSurveyResponse response, Map<String, PreSurveyResponse> responseByUser) {
-        String peer = response.getPreferredPeerUserId();
-        if (peer == null) {
-            return false;
-        }
-        if (response.getPreferredPeerStatus() == PreferredPeerStatus.ACCEPTED) {
-            return true;   // 내가 지목한 학생이 수락했다
-        }
-        if (response.getPreferredPeerStatus() == PreferredPeerStatus.REJECTED) {
-            return false;  // 거절당했으면 상대가 나를 지목했더라도 매칭이 아니다
-        }
-        // 아직 대기 중이면 서로 지목이 매칭 근거인데, 상대 쪽 지목이 거절됐으면 매칭이 아니다.
-        PreSurveyResponse peerResponse = responseByUser.get(peer);
-        return peerResponse != null
-                && Objects.equals(peerResponse.getPreferredPeerUserId(), response.getUserId())
-                && peerResponse.getPreferredPeerStatus() != PreferredPeerStatus.REJECTED;
-    }
 }

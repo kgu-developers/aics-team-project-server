@@ -83,6 +83,27 @@ class PreSurveyResponseQueryServiceTest {
 	}
 
 	@Test
+	@DisplayName("서로 지목한 학생만 엑셀 행에 매칭으로 표시한다")
+	void getSectionResponseRows_MarksMutualPeers() throws Exception {
+		saveStudent("202000001", Role.STUDENT, Status.ACTIVE);
+		saveStudent("202000002", Role.STUDENT, Status.ACTIVE);
+		saveStudent("202000003", Role.STUDENT, Status.ACTIVE);
+		responseRepository.save(PreSurveyResponse.create("202000001", SECTION_ID,
+				objectMapper.readTree("[\"BACKEND\"]"), "주제", "기타", "202000002"));
+		responseRepository.save(PreSurveyResponse.create("202000002", SECTION_ID,
+				objectMapper.readTree("[\"BACKEND\"]"), "주제", "기타", "202000001"));
+		responseRepository.save(PreSurveyResponse.create("202000003", SECTION_ID,
+				objectMapper.readTree("[\"BACKEND\"]"), "주제", "기타", "202000001"));
+
+		List<PreSurveyResponseRow> rows = queryService.getSectionResponseRows(SECTION_ID);
+
+		assertThat(rows.get(0).mutual()).isTrue();
+		assertThat(rows.get(1).mutual()).isTrue();
+		// 한쪽만 지목한 응답은 상대가 수락하기 전까지 매칭이 아니다
+		assertThat(rows.get(2).mutual()).isFalse();
+	}
+
+	@Test
 	@DisplayName("출력하지 않는 조교와 철회 학생의 희망 조원은 이름 조회 대상에서 뺀다")
 	void getSectionResponseRows_LooksUpPreferredPeersOfActiveStudentsOnly() throws Exception {
 		FakePreSurveyResponseRepository responses = new FakePreSurveyResponseRepository();

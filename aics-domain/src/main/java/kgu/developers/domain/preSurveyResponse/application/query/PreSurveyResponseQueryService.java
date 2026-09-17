@@ -75,8 +75,12 @@ public class PreSurveyResponseQueryService {
 		return userIds.stream()
 				.map(userId -> {
 					PreSurveyResponse response = responseByUserId.get(userId);
+					if (response == null) {
+						return new PreSurveyResponseRow(userId, nameByUserId.get(userId), null);
+					}
 					return new PreSurveyResponseRow(userId, nameByUserId.get(userId), response,
-							response == null ? null : nameByUserId.get(response.getPreferredPeerUserId()));
+							nameByUserId.get(response.getPreferredPeerUserId()),
+							response.isMutualWith(responseByUserId.get(response.getPreferredPeerUserId())));
 				})
 				.toList();
 	}
