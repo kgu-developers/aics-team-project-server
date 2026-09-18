@@ -176,6 +176,18 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("preview는 소속 열을 전공으로 읽는다")
+    public void preview_ReadsAffiliationAsMajor() throws IOException {
+        MockMultipartFile file = excel(
+            new String[] {"학번", "성명", "이메일", "연락처", "소속", "역할"},
+            new String[][] {{NEWCOMER, "이영희", "", "010-0000-0003", "컴퓨터공학부", "학생"}});
+
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT, file);
+
+        assertThat(response.rows().get(0).major()).isEqualTo("컴퓨터공학부");
+    }
+
+    @Test
     @DisplayName("preview는 형식이 잘못된 이메일을 오류로 표시한다")
     public void preview_RejectsMalformedEmail() throws IOException {
         // when
