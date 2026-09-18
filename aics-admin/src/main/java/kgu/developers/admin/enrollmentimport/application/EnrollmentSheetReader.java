@@ -31,7 +31,7 @@ public final class EnrollmentSheetReader {
                 column(header, "성명", "이름"),
                 column(header, "이메일", "메일", "E-mail"),
                 column(header, "연락처", "전화번호", "휴대전화"),
-                column(header, "전공", "학과"),
+                column(header, "전공", "학과", "소속"),
                 column(header, "역할"));
             return (row, rowNumber) -> toRow(row, rowNumber, columns);
         });
