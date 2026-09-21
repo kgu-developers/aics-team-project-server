@@ -20,7 +20,8 @@ public interface EnrollmentImportController {
     @Operation(summary = "수강생 명단 업로드 미리보기 API", description = """
             - Description : 이 API는 수강생 명단 엑셀을 검증만 하고 저장해 두며, 아직 수강 정보를 반영하지 않습니다.
             - 첫 시트에서 "학번" 헤더가 있는 행을 찾아 그 아래를 명단으로 읽고, 컬럼 위치는 헤더 이름으로 찾습니다.
-              (학번 필수 / 성명·이름, 이메일, 연락처, 역할은 선택. 역할이 없으면 학생, 이메일이 없으면 학번@kyonggi.ac.kr)
+              (학번 필수 / 성명·이름, 이메일, 연락처, 전공·학과·소속, 역할은 선택. 같은 항목의 별칭 헤더는 하나만 허용.
+              역할이 없으면 학생, 이메일이 없으면 학번@kyonggi.ac.kr)
             - 행 상태는 VALID(가입된 학생, 등록 예정), NEW_USER(미가입 학생, 계정 생성 후 등록 예정),
               DUPLICATE(이미 등록되어 건너뜀), INVALID(오류) 입니다.
             - INVALID 행이 하나라도 있으면 반영 API가 거부되므로 파일을 고쳐 다시 업로드해야 합니다.
