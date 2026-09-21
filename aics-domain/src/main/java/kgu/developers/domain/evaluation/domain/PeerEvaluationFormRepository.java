@@ -9,4 +9,6 @@ public interface PeerEvaluationFormRepository {
     Optional<PeerEvaluationForm> findById(Long id);
 
     List<PeerEvaluationForm> findAllBySectionIdOrderByIdDesc(Long sectionId);
+
+    Optional<PeerEvaluationForm> findByMilestoneId(Long milestoneId);
 }

@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import kgu.developers.common.domain.BaseTimeEntity;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "peer_evaluation_form",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_peer_evaluation_form_milestone", columnNames = {"milestone_id"})
+        },
         indexes = {
                 @Index(name = "idx_peer_evaluation_form_section_milestone", columnList = "section_id, milestone_id"),
                 @Index(name = "idx_peer_evaluation_form_period", columnList = "opens_at, closes_at")
