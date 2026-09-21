@@ -115,9 +115,17 @@ public class MilestoneFacade {
             MilestoneUpdateRequest request
     ) {
         asInvalidRequest(() -> {
-            boolean isPeerEval = request.type() == MilestoneType.PEER_EVALUATION
-                    || (request.type() == null && peerEvaluationFormRepository.findByMilestoneId(milestoneId).isPresent());
-            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval);
+            boolean isExplicitPeerEval = request.type() == MilestoneType.PEER_EVALUATION;
+            boolean needsExisting = request.type() == null || isExplicitPeerEval;
+            Milestone existing = needsExisting
+                    ? milestoneQueryService.getMilestone(sectionId, milestoneId)
+                    : null;
+            MilestoneType effectiveType = request.type() != null
+                    ? request.type()
+                    : (existing != null ? existing.getType() : null);
+            boolean isPeerEval = effectiveType == MilestoneType.PEER_EVALUATION;
+            MilestoneSchedule existingSchedule = existing != null ? existing.getSchedule() : null;
+            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval, existingSchedule);
             milestoneCommandService.updateMilestone(
                     sectionId,
                     professorId,
@@ -305,16 +313,42 @@ public class MilestoneFacade {
     }
 
     private MilestoneSchedule toSchedule(MilestoneScheduleRequest request) {
-        return toSchedule(request, false);
+        return toSchedule(request, false, null);
     }
 
     private MilestoneSchedule toSchedule(MilestoneScheduleRequest request, boolean isPeerEval) {
+        return toSchedule(request, isPeerEval, null);
+    }
+
+    private MilestoneSchedule toSchedule(
+            MilestoneScheduleRequest request,
+            boolean isPeerEval,
+            MilestoneSchedule existingSchedule
+    ) {
         if (request == null) {
             return null;
         }
         if (isPeerEval) {
-            LocalDateTime opensAt = request.evaluationOpensAt() != null ? request.evaluationOpensAt() : request.opensAt();
-            LocalDateTime dueAt = request.evaluationClosesAt() != null ? request.evaluationClosesAt() : request.dueAt();
+            LocalDateTime existingOpensAt = existingSchedule != null ? existingSchedule.opensAt() : null;
+            LocalDateTime existingDueAt = existingSchedule != null ? existingSchedule.dueAt() : null;
+
+            LocalDateTime opensAt = request.evaluationOpensAt() != null
+                    ? request.evaluationOpensAt()
+                    : (request.opensAt() != null ? request.opensAt() : existingOpensAt);
+            LocalDateTime dueAt = request.evaluationClosesAt() != null
+                    ? request.evaluationClosesAt()
+                    : (request.dueAt() != null ? request.dueAt() : existingDueAt);
+
+            if (opensAt == null) {
+                throw new IllegalArgumentException("상호평가 시작 시각은 필수입니다.");
+            }
+            if (dueAt == null) {
+                throw new IllegalArgumentException("마감 시각은 필수입니다.");
+            }
+            if (!opensAt.isBefore(dueAt)) {
+                throw new IllegalArgumentException("상호평가 시작 시각은 종료 시각보다 앞서야 합니다.");
+            }
+
             return new MilestoneSchedule(
                     opensAt,
                     dueAt,

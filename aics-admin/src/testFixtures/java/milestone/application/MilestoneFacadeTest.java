@@ -379,8 +379,8 @@ class MilestoneFacadeTest {
     }
 
     @Test
-    @DisplayName("마일스톤 유형이 생략되어도 기존 상호평가 양식이 존재하면 기간을 갱신한다")
-    void updateMilestoneForPeerEvaluationWhenTypeNullAndFormExists() {
+    @DisplayName("마일스톤 유형이 생략되어도 기존 마일스톤 유형이 상호평가이면 양식 기간을 갱신한다")
+    void updateMilestoneForPeerEvaluationWhenTypeNullAndMilestoneIsPeerEval() {
         LocalDateTime opensAt = DUE_AT.minusDays(7);
         MilestoneScheduleRequest scheduleRequest = new MilestoneScheduleRequest(
                 opensAt,
@@ -398,10 +398,18 @@ class MilestoneFacadeTest {
                 null
         );
 
-        PeerEvaluationForm existingForm = PeerEvaluationForm.restore(
-                10L, SECTION_ID, MILESTONE_ID, true, opensAt, DUE_AT, null, null, null);
-        given(peerEvaluationFormRepository.findByMilestoneId(MILESTONE_ID))
-                .willReturn(java.util.Optional.of(existingForm));
+        Milestone peerEvalMilestone = Milestone.restore(
+                MILESTONE_ID,
+                SECTION_ID,
+                "상호 평가",
+                "팀원 상호 평가",
+                2,
+                MilestoneStatus.DRAFT,
+                new MilestoneSchedule(opensAt, DUE_AT, null, null, null, null),
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(peerEvalMilestone);
 
         milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
@@ -423,6 +431,169 @@ class MilestoneFacadeTest {
                 opensAt,
                 DUE_AT
         );
+    }
+
+    @Test
+    @DisplayName("마일스톤 유형이 생략되고 기존 마일스톤이 일반 유형이면 양식이 존재해도 상호평가로 추론하지 않는다")
+    void updateMilestoneWhenTypeNullAndMilestoneIsGeneralDoesNotInferPeerEvaluation() {
+        LocalDateTime opensAt = DUE_AT.minusDays(7);
+        MilestoneScheduleRequest scheduleRequest = new MilestoneScheduleRequest(
+                opensAt,
+                DUE_AT,
+                null,
+                null,
+                null,
+                null
+        );
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "일반 마일스톤",
+                "설명",
+                scheduleRequest,
+                null,
+                null
+        );
+
+        Milestone generalMilestone = Milestone.restore(
+                MILESTONE_ID,
+                SECTION_ID,
+                "일반 마일스톤",
+                "설명",
+                2,
+                MilestoneStatus.DRAFT,
+                new MilestoneSchedule(opensAt, DUE_AT, null, null, null, null),
+                MilestoneType.GENERAL,
+                false
+        );
+        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(generalMilestone);
+
+        milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
+
+        then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상호평가 수정 시 시작 시각이 생략되면 기존 마일스톤의 시작 시각을 계승하여 양식과 동일하게 반영한다")
+    void updateMilestoneForPeerEvaluationWithPartialScheduleOnlyDueAt() {
+        LocalDateTime existingOpensAt = DUE_AT.minusDays(7);
+        LocalDateTime newDueAt = DUE_AT.plusDays(3);
+        MilestoneScheduleRequest scheduleRequest = new MilestoneScheduleRequest(
+                null,
+                newDueAt,
+                null,
+                null,
+                null,
+                null
+        );
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "상호 평가",
+                "수정된 상호 평가",
+                scheduleRequest,
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+
+        Milestone existingMilestone = Milestone.restore(
+                MILESTONE_ID,
+                SECTION_ID,
+                "상호 평가",
+                "기존 설명",
+                2,
+                MilestoneStatus.DRAFT,
+                new MilestoneSchedule(existingOpensAt, DUE_AT, null, null, null, null),
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(existingMilestone);
+
+        milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
+
+        MilestoneSchedule expectedSchedule = new MilestoneSchedule(existingOpensAt, newDueAt, null, null, null, null);
+        verify(milestoneCommandService).updateMilestone(
+                SECTION_ID,
+                PROFESSOR_ID,
+                MILESTONE_ID,
+                "상호 평가",
+                "수정된 상호 평가",
+                expectedSchedule,
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+        verify(peerEvaluationFormCommandService).updateFormByMilestoneId(
+                SECTION_ID,
+                MILESTONE_ID,
+                null,
+                existingOpensAt,
+                newDueAt
+        );
+    }
+
+    @Test
+    @DisplayName("상호평가 수정 시 시작 시각이 요청과 기존 일정 모두에 없으면 예외가 발생한다")
+    void updateMilestoneForPeerEvaluationWithMissingOpensAtThrowsException() {
+        MilestoneScheduleRequest scheduleRequest = new MilestoneScheduleRequest(
+                null,
+                DUE_AT,
+                null,
+                null,
+                null,
+                null
+        );
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "상호 평가",
+                "설명",
+                scheduleRequest,
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+
+        Milestone existingMilestone = Milestone.restore(
+                MILESTONE_ID,
+                SECTION_ID,
+                "상호 평가",
+                "설명",
+                2,
+                MilestoneStatus.DRAFT,
+                new MilestoneSchedule(null, DUE_AT, null, null, null, null),
+                MilestoneType.GENERAL,
+                false
+        );
+        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(existingMilestone);
+
+        assertThatThrownBy(() -> milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request))
+                .isInstanceOf(InvalidMilestoneRequestException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("상호평가 시작 시각은 필수입니다.");
+
+        then(milestoneCommandService).shouldHaveNoInteractions();
+        then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상호평가 수정 시 시작 시각이 종료 시각 이후이면 예외가 발생한다")
+    void updateMilestoneForPeerEvaluationWithInvalidPeriodOrderThrowsException() {
+        MilestoneScheduleRequest scheduleRequest = new MilestoneScheduleRequest(
+                DUE_AT.plusDays(1),
+                DUE_AT,
+                null,
+                null,
+                null,
+                null
+        );
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "상호 평가",
+                "설명",
+                scheduleRequest,
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+
+        assertThatThrownBy(() -> milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request))
+                .isInstanceOf(InvalidMilestoneRequestException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("상호평가 시작 시각은 종료 시각보다 앞서야 합니다.");
+
+        then(milestoneCommandService).shouldHaveNoInteractions();
+        then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
     }
 
     @Test

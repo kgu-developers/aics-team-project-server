@@ -5,7 +5,10 @@ import java.util.Optional;
 
 import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
+import kgu.developers.domain.evaluation.exception.PeerEvaluationFormAlreadyExistsException;
 import kgu.developers.domain.evaluation.exception.PeerEvaluationFormNotFoundException;
+import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PeerEvaluationFormCommandService {
 
     private final PeerEvaluationFormRepository formRepository;
+    private final MilestoneRepository milestoneRepository;
 
     public Long createForm(
             Long sectionId,
@@ -24,6 +28,17 @@ public class PeerEvaluationFormCommandService {
             LocalDateTime opensAt,
             LocalDateTime closesAt
     ) {
+        if (sectionId == null || sectionId <= 0) {
+            throw new IllegalArgumentException("분반 식별자는 양수여야 합니다.");
+        }
+        if (milestoneId == null || milestoneId <= 0) {
+            throw new IllegalArgumentException("마일스톤 식별자는 양수여야 합니다.");
+        }
+        milestoneRepository.findByIdAndSectionIdForUpdate(milestoneId, sectionId)
+                .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
+        if (formRepository.findByMilestoneId(milestoneId).isPresent()) {
+            throw new PeerEvaluationFormAlreadyExistsException();
+        }
         PeerEvaluationForm form = PeerEvaluationForm.create(
                 sectionId, milestoneId, anonymous, opensAt, closesAt);
         return formRepository.save(form).getId();

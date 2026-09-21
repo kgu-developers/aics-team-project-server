@@ -13,7 +13,11 @@ import java.util.Optional;
 import kgu.developers.domain.evaluation.application.command.PeerEvaluationFormCommandService;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
 import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
+import kgu.developers.domain.evaluation.exception.PeerEvaluationFormAlreadyExistsException;
 import kgu.developers.domain.evaluation.exception.PeerEvaluationFormNotFoundException;
+import kgu.developers.domain.milestone.domain.Milestone;
+import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,12 +25,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class PeerEvaluationFormCommandServiceTest {
 
     @Mock
     private PeerEvaluationFormRepository formRepository;
+
+    @Mock
+    private MilestoneRepository milestoneRepository;
 
     @InjectMocks
     private PeerEvaluationFormCommandService commandService;
@@ -36,6 +44,11 @@ class PeerEvaluationFormCommandServiceTest {
     void createForm() {
         LocalDateTime opensAt = LocalDateTime.of(2026, 10, 1, 9, 0);
         LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
+        Milestone milestone = mock(Milestone.class);
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(3L, 2L))
+                .willReturn(Optional.of(milestone));
+        given(formRepository.findByMilestoneId(3L))
+                .willReturn(Optional.empty());
         given(formRepository.save(any(PeerEvaluationForm.class)))
                 .willReturn(PeerEvaluationForm.restore(
                         1L, 2L, 3L, true, opensAt, closesAt, null, null, null));
@@ -50,6 +63,39 @@ class PeerEvaluationFormCommandServiceTest {
         assertThat(captor.getValue().isAnonymous()).isTrue();
         assertThat(captor.getValue().getOpensAt()).isEqualTo(opensAt);
         assertThat(captor.getValue().getClosesAt()).isEqualTo(closesAt);
+    }
+
+    @Test
+    @DisplayName("이미 상호평가 양식이 존재하면 생성 시 예외가 발생한다")
+    void createFormDuplicateThrowsException() {
+        LocalDateTime opensAt = LocalDateTime.of(2026, 10, 1, 9, 0);
+        LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
+        Milestone milestone = mock(Milestone.class);
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(3L, 2L))
+                .willReturn(Optional.of(milestone));
+        PeerEvaluationForm existingForm = PeerEvaluationForm.restore(
+                1L, 2L, 3L, true, opensAt, closesAt, null, null, null);
+        given(formRepository.findByMilestoneId(3L))
+                .willReturn(Optional.of(existingForm));
+
+        assertThatThrownBy(() -> commandService.createForm(2L, 3L, true, opensAt, closesAt))
+                .isInstanceOf(PeerEvaluationFormAlreadyExistsException.class);
+
+        verify(formRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 마일스톤에 양식을 생성하려 하면 예외가 발생한다")
+    void createFormMissingMilestoneThrowsException() {
+        LocalDateTime opensAt = LocalDateTime.of(2026, 10, 1, 9, 0);
+        LocalDateTime closesAt = LocalDateTime.of(2026, 10, 8, 23, 59);
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(3L, 2L))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commandService.createForm(2L, 3L, true, opensAt, closesAt))
+                .isInstanceOf(MilestoneNotFoundException.class);
+
+        verify(formRepository, never()).save(any());
     }
 
     @Test
