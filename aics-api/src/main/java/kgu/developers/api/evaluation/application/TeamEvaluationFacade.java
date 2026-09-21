@@ -1,5 +1,6 @@
 package kgu.developers.api.evaluation.application;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +55,7 @@ public class TeamEvaluationFacade {
     private final TeamEvaluationRepository evaluationRepository;
     private final TeamEvaluationScoreRepository scoreRepository;
     private final SubmissionRepository submissionRepository;
+    private final Clock serviceClock;
 
     public MyTeamEvaluationsResponse getMyEvaluations(Long milestoneId, String userId) {
         AccessContext context = accessContext(milestoneId, userId, false);
@@ -76,7 +78,7 @@ public class TeamEvaluationFacade {
 
         return new MyTeamEvaluationsResponse(
                 milestoneId,
-                windowState(context.milestone(), LocalDateTime.now()),
+                windowState(context.milestone(), now()),
                 context.milestone().getSchedule().evaluationOpensAt(),
                 context.milestone().getSchedule().evaluationClosesAt(),
                 criteria.stream().map(TeamEvaluationCriterionResponse::from).toList(),
@@ -112,7 +114,7 @@ public class TeamEvaluationFacade {
         TeamEvaluation evaluation = evaluationRepository
                 .findByMilestoneIdAndRaterIdAndRateeTeamId(milestoneId, userId, teamId)
                 .orElseGet(() -> TeamEvaluation.create(milestoneId, userId, teamId));
-        evaluation.submit(LocalDateTime.now());
+        evaluation.submit(now());
         TeamEvaluation savedEvaluation = evaluationRepository.save(evaluation);
         Long evaluationId = savedEvaluation.getId();
 
@@ -146,10 +148,14 @@ public class TeamEvaluationFacade {
         TeamMember membership = teamMemberRepository
                 .findActiveBySectionIdAndUserId(enrollment.getSectionId(), userId)
                 .orElseThrow(() -> new AccessDeniedException("팀에 소속된 학생만 발표 평가에 접근할 수 있습니다."));
-        if (forUpdate && windowState(milestone, LocalDateTime.now()) != TeamEvaluationWindowState.OPEN) {
+        if (forUpdate && windowState(milestone, now()) != TeamEvaluationWindowState.OPEN) {
             throw new TeamEvaluationClosedException();
         }
         return new AccessContext(milestone, membership);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(serviceClock);
     }
 
     private static void validateScores(
