@@ -172,15 +172,19 @@ public final class Sheets {
         if (header == null) {
             return -1;
         }
+        int column = -1;
         for (int c = 0; c < header.getLastCellNum(); c++) {
             String value = cell(header, c);
             for (String name : names) {
                 if (value.equals(name)) {
-                    return c;
+                    if (column >= 0) {
+                        throw new ImportBatchFileInvalidException(String.join(", ", names) + " 컬럼이 중복되었습니다.");
+                    }
+                    column = c;
                 }
             }
         }
-        return -1;
+        return column;
     }
 
     public static String cell(Row row, int index) {

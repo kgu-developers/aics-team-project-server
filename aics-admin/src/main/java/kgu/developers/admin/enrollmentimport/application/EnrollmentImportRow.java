@@ -20,7 +20,7 @@ public record EnrollmentImportRow(
     @Schema(description = "연락처", example = "010-1234-5678")
     String phone,
 
-    @Schema(description = "전공 (엑셀에 전공 또는 학과 열이 없거나 값이 비어 있으면 null)", example = "컴퓨터공학부")
+    @Schema(description = "전공 (엑셀에 전공, 학과 또는 소속 열이 없거나 값이 비어 있으면 null)", example = "컴퓨터공학부")
     String major,
 
     @Schema(description = "역할", example = "STUDENT")

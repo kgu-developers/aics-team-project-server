@@ -67,6 +67,20 @@ public class SheetsTest {
             .hasRootCauseMessage("파일 크기가 10MB를 초과했습니다.");
     }
 
+    @Test
+    @DisplayName("column은 같은 필드의 별칭 헤더가 둘 이상이면 거부한다")
+    public void column_RejectsDuplicateAliases() throws IOException {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Row header = workbook.createSheet().createRow(0);
+            header.createCell(0).setCellValue("전공");
+            header.createCell(1).setCellValue("소속");
+
+            assertThatThrownBy(() -> Sheets.column(header, "전공", "학과", "소속"))
+                .isInstanceOf(ImportBatchFileInvalidException.class)
+                .hasRootCauseMessage("전공, 학과, 소속 컬럼이 중복되었습니다.");
+        }
+    }
+
     private byte[] excel() throws IOException {
         String[][] all = {
             {"학번", "성명"},
