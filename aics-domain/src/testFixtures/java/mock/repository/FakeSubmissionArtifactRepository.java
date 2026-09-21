@@ -29,6 +29,7 @@ public class FakeSubmissionArtifactRepository implements SubmissionArtifactRepos
             .fileId(artifact.getFileId())
             .url(artifact.getUrl())
             .content(artifact.getContent())
+            .deletedAt(artifact.getDeletedAt())
             .build();
 
         store.put(id, saved);
@@ -39,6 +40,7 @@ public class FakeSubmissionArtifactRepository implements SubmissionArtifactRepos
     public List<SubmissionArtifact> findAllByVersionId(Long versionId) {
         return store.values().stream()
             .filter(artifact -> artifact.getVersionId().equals(versionId))
+            .filter(artifact -> artifact.getDeletedAt() == null)
             .toList();
     }
 
@@ -46,6 +48,7 @@ public class FakeSubmissionArtifactRepository implements SubmissionArtifactRepos
     public List<SubmissionArtifact> findAllByVersionIdIn(List<Long> versionIds) {
         return store.values().stream()
             .filter(artifact -> versionIds.contains(artifact.getVersionId()))
+            .filter(artifact -> artifact.getDeletedAt() == null)
             .toList();
     }
 }

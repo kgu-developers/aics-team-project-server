@@ -483,6 +483,34 @@ class SubmissionFacadeTest {
     }
 
     @Test
+    @DisplayName("발표자료 조회 시 삭제된 산출물은 반환하지 않는다")
+    void getMilestonePresentations_ExcludesDeletedArtifacts() {
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("캡스톤1조").build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+
+        Submission submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
+        SubmissionVersion version = submissionVersionRepository.save(
+                SubmissionVersion.create(submission.getId(), 1, "발표자료", null, LEADER, false));
+        submission.recordNewVersion(1);
+        submissionRepository.save(submission);
+        submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.link(version.getId(), null, "https://active.example.com"),
+                SubmissionArtifact.builder()
+                        .versionId(version.getId())
+                        .type(kgu.developers.domain.submission.domain.ArtifactType.LINK)
+                        .url("https://deleted.example.com")
+                        .deletedAt(LocalDateTime.now())
+                        .build()
+        ));
+
+        MilestonePresentationsResponse response = submissionFacade.getMilestonePresentations(MILESTONE_ID, MEMBER);
+
+        assertThat(response.contents().get(0).artifacts())
+                .extracting("url")
+                .containsExactly("https://active.example.com");
+    }
+
+    @Test
     @DisplayName("제안서가 없거나 제출 이력이 없어도 오류 없이 안전하게 조회된다")
     void getMilestonePresentations_WhenProjectOrVersionAbsent() {
         teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("캡스톤1조").build());

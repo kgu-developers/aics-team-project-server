@@ -25,7 +25,7 @@ public class SubmissionArtifactRepositoryImpl implements SubmissionArtifactRepos
 
     @Override
     public List<SubmissionArtifact> findAllByVersionId(Long versionId) {
-        return jpaSubmissionArtifactRepository.findAllByVersionId(versionId).stream()
+        return jpaSubmissionArtifactRepository.findAllByVersionIdAndDeletedAtIsNull(versionId).stream()
                 .map(SubmissionArtifactJpaEntity::toDomain)
                 .toList();
     }
@@ -35,7 +35,7 @@ public class SubmissionArtifactRepositoryImpl implements SubmissionArtifactRepos
         if (versionIds.isEmpty()) {
             return List.of();
         }
-        return jpaSubmissionArtifactRepository.findAllByVersionIdIn(versionIds).stream()
+        return jpaSubmissionArtifactRepository.findAllByVersionIdInAndDeletedAtIsNull(versionIds).stream()
                 .map(SubmissionArtifactJpaEntity::toDomain)
                 .toList();
     }
