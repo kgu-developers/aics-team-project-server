@@ -6,7 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import kgu.developers.api.evaluation.application.TeamEvaluationFacade;
@@ -55,6 +58,9 @@ class TeamEvaluationFacadeTest {
     private static final Long MY_TEAM_ID = 3L;
     private static final Long TARGET_TEAM_ID = 4L;
     private static final String USER_ID = "20260001";
+    private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 22, 10, 0);
+    private static final Instant NOW_INSTANT = NOW.atZone(SERVICE_ZONE).toInstant();
 
     @Mock private MilestoneRepository milestoneRepository;
     @Mock private EnrollmentRepository enrollmentRepository;
@@ -65,10 +71,13 @@ class TeamEvaluationFacadeTest {
     @Mock private TeamEvaluationRepository evaluationRepository;
     @Mock private TeamEvaluationScoreRepository scoreRepository;
     @Mock private SubmissionRepository submissionRepository;
+    @Mock private Clock serviceClock;
     @InjectMocks private TeamEvaluationFacade facade;
 
     @BeforeEach
     void setUp() {
+        given(serviceClock.instant()).willReturn(NOW_INSTANT);
+        given(serviceClock.getZone()).willReturn(SERVICE_ZONE);
         given(userQueryService.getUserByStudentNumber(USER_ID)).willReturn(user());
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
     }
@@ -157,7 +166,7 @@ class TeamEvaluationFacadeTest {
                 )));
 
         assertThat(response.id()).isEqualTo(20L);
-        assertThat(response.submittedAt()).isNotNull();
+        assertThat(response.submittedAt()).isEqualTo(NOW);
         assertThat(response.scores()).extracting("score").containsExactly(9, 4);
         then(scoreRepository).should().deleteAllByTeamEvaluationId(20L);
         then(scoreRepository).should().saveAll(any());
@@ -229,6 +238,40 @@ class TeamEvaluationFacadeTest {
                 .isInstanceOf(TeamEvaluationClosedException.class);
     }
 
+    @Test
+    @DisplayName("KST 기준 평가 시작 시각부터 발표 평가가 열린다")
+    void opensEvaluationAtKstBoundary() {
+        given(milestoneRepository.findById(MILESTONE_ID))
+                .willReturn(Optional.of(milestone(NOW, NOW.plusHours(1))));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(enrollment()));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(membership()));
+        given(criterionRepository.findAllBySectionIdOrderByDisplayOrder(SECTION_ID)).willReturn(List.of());
+        given(evaluationRepository.findAllByMilestoneIdAndRaterId(MILESTONE_ID, USER_ID)).willReturn(List.of());
+
+        var response = facade.getMyEvaluations(MILESTONE_ID, USER_ID);
+
+        assertThat(response.windowState()).isEqualTo(TeamEvaluationWindowState.OPEN);
+    }
+
+    @Test
+    @DisplayName("KST 기준 평가 종료 시각부터 발표 평가가 닫힌다")
+    void closesEvaluationAtKstBoundary() {
+        given(milestoneRepository.findById(MILESTONE_ID))
+                .willReturn(Optional.of(milestone(NOW.minusHours(1), NOW)));
+        given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(enrollment()));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(membership()));
+        given(criterionRepository.findAllBySectionIdOrderByDisplayOrder(SECTION_ID)).willReturn(List.of());
+        given(evaluationRepository.findAllByMilestoneIdAndRaterId(MILESTONE_ID, USER_ID)).willReturn(List.of());
+
+        var response = facade.getMyEvaluations(MILESTONE_ID, USER_ID);
+
+        assertThat(response.windowState()).isEqualTo(TeamEvaluationWindowState.CLOSED);
+    }
+
     private static User user() {
         return User.builder().studentNumber(USER_ID).name("학생 A")
                 .globalRole(UserGlobalRole.USER).build();
@@ -252,18 +295,18 @@ class TeamEvaluationFacadeTest {
     }
 
     private static Milestone openMilestone() {
-        return milestone(LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1));
+        return milestone(NOW.minusDays(1), NOW.plusDays(1));
     }
 
     private static Milestone closedMilestone() {
-        return milestone(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
+        return milestone(NOW.minusDays(2), NOW.minusDays(1));
     }
 
     private static Milestone milestone(LocalDateTime evaluationOpensAt, LocalDateTime evaluationClosesAt) {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "발표", null, 10, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(
-                        LocalDateTime.now().minusDays(10), LocalDateTime.now().minusDays(3),
+                        NOW.minusDays(10), NOW.minusDays(3),
                         null, null, evaluationOpensAt, evaluationClosesAt
                 ),
                 MilestoneType.PRESENTATION
