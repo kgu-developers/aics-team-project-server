@@ -168,11 +168,13 @@ public interface SubmissionController {
     @Operation(
         summary = "발표순서 정렬 팀별 공개자료 목록 API",
         description = """
-            Description : 발표순서로 정렬된 팀별 공개자료 목록을 조회한다. 이전/다음 네비게이션은 이 배열로 프론트에서 처리.
+            Description : 해당 분반의 활성 학생 또는 담당 교수만 발표순서로 정렬된 팀별 공개자료 목록을 조회할 수 있다.
+            이전/다음 네비게이션은 이 배열로 프론트에서 처리한다.
             Assignee : 담당자명
             """
     )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = MilestonePresentationsResponse.class)))
+    @ApiResponse(responseCode = "403", description = "해당 분반의 활성 학생 또는 담당 교수가 아님")
     ResponseEntity<MilestonePresentationsResponse> getMilestonePresentations(@PathVariable Long milestoneId, Authentication authentication);
 
     @Operation(
