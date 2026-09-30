@@ -77,6 +77,7 @@ class SubmissionFacadeTest {
 
     private MilestoneRepository milestoneRepository;
     private SectionQueryService sectionQueryService;
+    private FakeEnrollmentRepository enrollmentRepository;
     private FakeTeamMemberRepository teamMemberRepository;
     private FakeSubmissionRepository submissionRepository;
     private FakeTeamRepository teamRepository;
@@ -105,7 +106,7 @@ class SubmissionFacadeTest {
                 new FakeSubmissionMemberConfirmationRepository();
         fileObjectRepository = new FakeFileObjectRepository();
         fileStorage = new FakeFileStorage();
-        FakeEnrollmentRepository enrollmentRepository = new FakeEnrollmentRepository();
+        enrollmentRepository = new FakeEnrollmentRepository();
         enrollmentRepository.save(Enrollment.create(SECTION_ID, LEADER, Role.STUDENT, Status.ACTIVE));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, MEMBER, Role.STUDENT, Status.ACTIVE));
         userRepository = new FakeUserRepository();
@@ -410,6 +411,56 @@ class SubmissionFacadeTest {
         assertThat(response.contents().get(0).teamName()).isEqualTo("다른팀");
         assertThat(response.contents().get(1).teamId()).isEqualTo(TEAM_ID);
         assertThat(response.contents().get(1).teamName()).isEqualTo("우리팀");
+    }
+
+    @Test
+    @DisplayName("해당 분반의 활성 학생은 발표자료를 조회할 수 있다")
+    void getMilestonePresentations_AllowsActiveStudent() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+
+        assertThat(submissionFacade.getMilestonePresentations(MILESTONE_ID, MEMBER).contents()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("해당 분반의 담당 교수는 발표자료를 조회할 수 있다")
+    void getMilestonePresentations_AllowsSectionProfessor() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        assertThat(submissionFacade.getMilestonePresentations(MILESTONE_ID, PROFESSOR).contents()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("다른 분반의 활성 학생은 발표자료를 조회할 수 없다")
+    void getMilestonePresentations_RejectsOtherSectionStudent() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        enrollmentRepository.save(Enrollment.create(SECTION_ID + 1, NON_MEMBER, Role.STUDENT, Status.ACTIVE));
+
+        assertThatThrownBy(() -> submissionFacade.getMilestonePresentations(MILESTONE_ID, NON_MEMBER))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("다른 분반의 담당 교수는 발표자료를 조회할 수 없다")
+    void getMilestonePresentations_RejectsOtherSectionProfessor() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID + 1, PROFESSOR)).willReturn(true);
+
+        assertThatThrownBy(() -> submissionFacade.getMilestonePresentations(MILESTONE_ID, PROFESSOR))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("비활성 학생과 조교는 발표자료를 조회할 수 없다")
+    void getMilestonePresentations_RejectsInactiveStudentAndAssistant() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        enrollmentRepository.save(Enrollment.create(SECTION_ID, "withdrawn", Role.STUDENT, Status.WITHDRAWN));
+        enrollmentRepository.save(Enrollment.create(SECTION_ID, "assistant", Role.ASSISTANT, Status.ACTIVE));
+
+        assertThatThrownBy(() -> submissionFacade.getMilestonePresentations(MILESTONE_ID, "withdrawn"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> submissionFacade.getMilestonePresentations(MILESTONE_ID, "assistant"))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

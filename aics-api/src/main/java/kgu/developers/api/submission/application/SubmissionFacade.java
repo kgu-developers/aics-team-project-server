@@ -294,7 +294,11 @@ public class SubmissionFacade {
     }
 
     public MilestonePresentationsResponse getMilestonePresentations(Long milestoneId, String userId) {
-        validatePresentationMilestone(milestoneId);
+        Milestone milestone = validatePresentationMilestone(milestoneId);
+        if (!isActiveStudent(milestone.getSectionId(), userId)
+                && !sectionQueryService.isActiveSectionOwnedByProfessor(milestone.getSectionId(), userId)) {
+            throw new AccessDeniedException("해당 분반의 활성 학생 또는 담당 교수만 발표자료를 조회할 수 있습니다.");
+        }
         List<Submission> submissions = submissionQueryService.getSubmissionsOrderedForPresentation(milestoneId);
         List<Long> teamIds = submissions.stream().map(Submission::getTeamId).distinct().toList();
 
@@ -491,11 +495,12 @@ public class SubmissionFacade {
                 .orElse(false);
     }
 
-    private void validatePresentationMilestone(Long milestoneId) {
+    private Milestone validatePresentationMilestone(Long milestoneId) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
         if (milestone.getType() != MilestoneType.PRESENTATION) {
             throw new SubmissionMilestoneTypeMismatchException();
         }
+        return milestone;
     }
 }
