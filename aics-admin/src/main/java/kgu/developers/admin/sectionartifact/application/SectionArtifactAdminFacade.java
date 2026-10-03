@@ -8,26 +8,24 @@ import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.admin.sectionartifact.presentation.response.SectionArtifactSummaryAdminListResponse;
 import kgu.developers.common.response.FileDownload;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
-import kgu.developers.domain.submission.application.command.SectionArtifactExcelCommandService;
 import kgu.developers.domain.submission.application.query.SectionArtifactQueryService;
 import kgu.developers.domain.submission.application.query.SectionArtifactTeamRow;
 import lombok.RequiredArgsConstructor;
 
+// 조회는 각 질의 서비스가 자기 트랜잭션에서 끝내므로 파사드에는 트랜잭션을 두지 않는다. 엑셀 생성은
+// CPU·메모리 작업이라, 통합문서를 만드는 동안 DB 커넥션을 붙잡지 않아야 한다(PreSurveyResponseAdminFacade와 같은 이유).
 @Component
 @RequiredArgsConstructor
 public class SectionArtifactAdminFacade {
     private final Clock serviceClock;
     private final SectionQueryService sectionQueryService;
     private final SectionArtifactQueryService sectionArtifactQueryService;
-    private final SectionArtifactExcelCommandService sectionArtifactExcelCommandService;
 
-    @Transactional(readOnly = true)
     public SectionArtifactSummaryAdminListResponse getArtifactSummary(
             Long sectionId,
             LocalDate asOf,
@@ -44,8 +42,6 @@ public class SectionArtifactAdminFacade {
                 sectionArtifactQueryService.getSectionArtifactRows(sectionId, until(baseDate)));
     }
 
-    // 엑셀 생성은 CPU·메모리 작업이라 트랜잭션 밖에서 한다 — 집계 조회는 질의 서비스가 자기 트랜잭션에서
-    // 끝내고, 여기서는 확정된 행만 받아 통합문서로 만든다(PreSurveyResponseAdminFacade와 같은 이유).
     public FileDownload downloadArtifactsExcel(Long sectionId, LocalDate asOf, String professorId) {
         validateSectionOwnedByProfessor(sectionId, professorId);
         Section section = sectionQueryService.getSectionById(sectionId).section();
@@ -56,7 +52,7 @@ public class SectionArtifactAdminFacade {
 
         return new FileDownload(
                 section.getName().replace('/', '_') + "-산출물-" + baseDate + ".xlsx",
-                sectionArtifactExcelCommandService.writeWorkbook(sectionLabel(section), rows));
+                SectionArtifactExcelWriter.write(sectionLabel(section), rows));
     }
 
     private void validateSectionOwnedByProfessor(Long sectionId, String professorId) {

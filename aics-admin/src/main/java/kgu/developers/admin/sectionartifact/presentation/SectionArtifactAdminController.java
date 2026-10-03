@@ -29,7 +29,7 @@ public interface SectionArtifactAdminController {
                 이력만 센다. 회의록 수정 로그 수는 회의록의 낙관적 락 version 합으로 구한 근사값이라
                 기준일 이후의 수정도 포함된다. 팀·팀원·마일스톤 정보와 삭제 여부는 현재 데이터
                 기준이며 완전한 과거 스냅샷은 아니다. 담당하지 않는 분반은 403이다.
-            Assignee : 담당자명
+            Assignee : 이석민
             """
     )
     @ApiResponse(responseCode = "200",
@@ -54,7 +54,7 @@ public interface SectionArtifactAdminController {
                 그래서 반려 후 재제출한 중간점검은 최초 제출 시각을 알 수 없어 "최초 제출 지각 여부"를
                 빈 칸으로 둔다(반려 이력이 없는 중간점검은 그 값이 곧 최초 제출이라 지각 여부를 채운다).
                 팀·팀원·마일스톤 정보와 삭제 여부는 현재 데이터 기준이다. 담당하지 않는 분반은 403이다.
-            Assignee : 담당자명
+            Assignee : 이석민
             """
     )
     @ApiResponse(responseCode = "200",

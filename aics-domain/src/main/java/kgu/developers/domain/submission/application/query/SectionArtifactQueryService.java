@@ -14,8 +14,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,7 +58,14 @@ public class SectionArtifactQueryService {
             MilestoneType.PRESENTATION,
             MilestoneType.FINAL_REPORT);
     private static final FileStats NO_FILES = new FileStats(0, 0, 0L);
+    // 팀명을 문자열로만 세우면 "1팀, 10팀, 2팀"이 된다. 앞자리 숫자를 먼저 보고, 없으면 뒤로 민다.
+    private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d{1,9})");
+    private static final Comparator<Team> BY_TEAM_NAME =
+            Comparator.comparingInt((Team team) -> leadingNumber(team.getName()))
+                    .thenComparing(Team::getName, Comparator.nullsLast(Comparator.naturalOrder()));
     // 분반 하나의 회의록을 한 페이지로 받기 위한 상한. 분반당 회의록이 이 수를 넘으면 집계가 잘린다.
+    // ponytail: 잘리더라도 호출마다 같은 집합이 나오도록 id로 정렬만 해 둔다. 집계 전용 프로젝션
+    // 쿼리(group by team_id로 count·sum(version))를 추가하면 상한 자체가 사라진다.
     private static final int MAX_MEETING_RECORDS = 10_000;
 
     private final MilestoneRepository milestoneRepository;
@@ -71,7 +81,7 @@ public class SectionArtifactQueryService {
 
     public List<SectionArtifactTeamRow> getSectionArtifactRows(Long sectionId, LocalDateTime until) {
         List<Team> teams = teamRepository.findAllBySectionId(sectionId).stream()
-                .sorted(Comparator.comparing(Team::getName, Comparator.nullsLast(Comparator.naturalOrder())))
+                .sorted(BY_TEAM_NAME)
                 .toList();
         List<Milestone> milestones = submittableMilestones(sectionId);
         List<Long> teamIds = teams.stream().map(Team::getId).toList();
@@ -107,7 +117,8 @@ public class SectionArtifactQueryService {
         if (teamIds.isEmpty()) {
             return Map.of();
         }
-        return meetingRecordRepository.findAllByTeamIdIn(teamIds, PageRequest.of(0, MAX_MEETING_RECORDS))
+        return meetingRecordRepository
+                .findAllByTeamIdIn(teamIds, PageRequest.of(0, MAX_MEETING_RECORDS, Sort.by("id")))
                 .getContent().stream()
                 .filter(record -> record.getCreatedAt() == null || !record.getCreatedAt().isAfter(until))
                 .collect(groupingBy(MeetingRecord::getTeamId));
@@ -295,6 +306,14 @@ public class SectionArtifactQueryService {
                             .collect(toMap(MidReport::getTeamId, identity(), (first, ignored) -> first)));
         }
         return midReports;
+    }
+
+    private static int leadingNumber(String teamName) {
+        if (teamName == null) {
+            return Integer.MAX_VALUE;
+        }
+        Matcher matcher = LEADING_NUMBER.matcher(teamName);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : Integer.MAX_VALUE;
     }
 
     private Boolean late(LocalDateTime dueAt, LocalDateTime firstSubmittedAt) {

@@ -1,4 +1,4 @@
-package kgu.developers.domain.submission.application.command;
+package kgu.developers.admin.sectionartifact.application;
 
 import static java.util.stream.Collectors.joining;
 
@@ -15,15 +15,15 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.stereotype.Service;
 
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.submission.application.query.SectionArtifactMember;
 import kgu.developers.domain.submission.application.query.SectionArtifactStageRow;
 import kgu.developers.domain.submission.application.query.SectionArtifactTeamRow;
 
-@Service
-public class SectionArtifactExcelCommandService {
+// 조회한 행을 xlsx 바이트로 만든다. DB 조회와 분리해 두어야 통합문서를 만드는 동안 트랜잭션과
+// 커넥션을 붙잡지 않는다(PreSurveyResponseExcelWriter와 같은 이유).
+public final class SectionArtifactExcelWriter {
     private static final String[] SUMMARY_HEADERS = {
             "분반", "팀", "팀원", "회의록 수", "회의록 수정 로그 수", "제출 이력 단계 수", "마감된 미제출 단계 수"};
     private static final String[] STAGE_HEADERS = {
@@ -35,7 +35,10 @@ public class SectionArtifactExcelCommandService {
     // 용량은 byte 단위 숫자라 자릿수가 커서, 천 단위 구분 없이는 눈으로 읽기 어렵다.
     private static final String SIZE_FORMAT = "#,##0";
 
-    public byte[] writeWorkbook(String sectionLabel, List<SectionArtifactTeamRow> teamRows) {
+    private SectionArtifactExcelWriter() {
+    }
+
+    public static byte[] write(String sectionLabel, List<SectionArtifactTeamRow> teamRows) {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             CellStyle textStyle = workbook.createCellStyle();
             textStyle.setQuotePrefixed(true);
@@ -52,7 +55,7 @@ public class SectionArtifactExcelCommandService {
         }
     }
 
-    private void writeSummarySheet(
+    private static void writeSummarySheet(
             Sheet sheet,
             String sectionLabel,
             List<SectionArtifactTeamRow> teamRows,
@@ -72,7 +75,7 @@ public class SectionArtifactExcelCommandService {
         }
     }
 
-    private void writeStageSheet(
+    private static void writeStageSheet(
             Sheet sheet,
             String sectionLabel,
             List<SectionArtifactTeamRow> teamRows,
@@ -109,20 +112,20 @@ public class SectionArtifactExcelCommandService {
         }
     }
 
-    private void writeHeader(Sheet sheet, String[] headers) {
+    private static void writeHeader(Sheet sheet, String[] headers) {
         Row header = sheet.createRow(0);
         for (int i = 0; i < headers.length; i++) {
             header.createCell(i).setCellValue(headers[i]);
         }
     }
 
-    private String members(List<SectionArtifactMember> members) {
+    private static String members(List<SectionArtifactMember> members) {
         return members.stream()
                 .map(member -> member.studentNumber() + " " + member.displayName())
                 .collect(joining(", "));
     }
 
-    private String stageLabel(MilestoneType type) {
+    private static String stageLabel(MilestoneType type) {
         return switch (type) {
             case PROPOSAL -> "제안서";
             case MID_REPORT -> "중간점검";
@@ -133,18 +136,18 @@ public class SectionArtifactExcelCommandService {
     }
 
     // 마감 시각이 없거나 제출 이력이 없어 지각 여부를 판단할 수 없는 단계는 빈 값으로 둔다.
-    private String lateMark(Boolean late) {
+    private static String lateMark(Boolean late) {
         if (late == null) {
             return "";
         }
         return late ? "예" : "아니오";
     }
 
-    private String format(LocalDateTime time) {
+    private static String format(LocalDateTime time) {
         return time == null ? "" : time.format(TIME_FORMATTER);
     }
 
-    private void writeText(Row row, int column, String value, CellStyle textStyle) {
+    private static void writeText(Row row, int column, String value, CellStyle textStyle) {
         Cell cell = row.createCell(column);
         String text = value == null ? "" : value;
         cell.setCellValue(text);

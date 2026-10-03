@@ -3,7 +3,6 @@ package kgu.developers.admin.sectionartifact.presentation.response;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,13 +19,11 @@ public record SectionArtifactSummaryAdminListResponse(
         String sectionName,
 
         @Schema(description = "집계 기준일", example = "2026-11-20", requiredMode = REQUIRED)
-        String asOf,
+        LocalDate asOf,
 
         @Schema(description = "팀별 산출물 요약 목록", requiredMode = REQUIRED)
         List<SectionArtifactSummaryAdminResponse> contents
 ) {
-
-    private static final DateTimeFormatter AS_OF_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public static SectionArtifactSummaryAdminListResponse of(
             Long sectionId,
@@ -37,7 +34,7 @@ public record SectionArtifactSummaryAdminListResponse(
         return SectionArtifactSummaryAdminListResponse.builder()
                 .sectionId(sectionId)
                 .sectionName(sectionName)
-                .asOf(asOf.format(AS_OF_FORMATTER))
+                .asOf(asOf)
                 .contents(rows.stream()
                         .map(SectionArtifactSummaryAdminResponse::from)
                         .toList())

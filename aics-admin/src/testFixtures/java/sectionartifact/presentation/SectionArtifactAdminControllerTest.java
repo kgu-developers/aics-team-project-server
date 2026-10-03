@@ -20,8 +20,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.http.converter.ByteArrayHttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import kgu.developers.admin.sectionartifact.application.SectionArtifactAdminFacade;
 import kgu.developers.admin.sectionartifact.presentation.SectionArtifactAdminControllerImpl;
@@ -47,9 +53,17 @@ class SectionArtifactAdminControllerTest {
 
     @BeforeEach
     void setUp() {
+        // 운영에서는 부트 자동설정이 LocalDate를 "yyyy-MM-dd"로 쓴다. standalone MockMvc는 기본
+        // ObjectMapper라 숫자 배열이 되므로, 같은 설정을 붙여야 실제 응답과 같은 것을 검증한다.
+        ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         mockMvc = MockMvcBuilders
             .standaloneSetup(new SectionArtifactAdminControllerImpl(sectionArtifactAdminFacade))
             .setControllerAdvice(new GlobalExceptionHandler(event -> { }))
+            // setMessageConverters는 기본 목록을 통째로 갈아끼우므로 xlsx(byte[]) 변환기도 같이 넣는다
+            .setMessageConverters(new ByteArrayHttpMessageConverter(),
+                new MappingJackson2HttpMessageConverter(objectMapper))
             .build();
     }
 
@@ -87,7 +101,7 @@ class SectionArtifactAdminControllerTest {
             SectionArtifactSummaryAdminListResponse.builder()
                 .sectionId(1L)
                 .sectionName("OOP-01")
-                .asOf("2026-11-20")
+                .asOf(AS_OF)
                 .contents(List.of(SectionArtifactSummaryAdminResponse.builder()
                     .teamId(20L)
                     .teamName("1팀")

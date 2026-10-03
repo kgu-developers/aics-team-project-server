@@ -49,7 +49,6 @@ import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.submission.application.command.SectionArtifactExcelCommandService;
 import kgu.developers.domain.submission.application.query.SectionArtifactQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
@@ -122,7 +121,7 @@ class SectionArtifactAdminFacadeTest {
                 midReportRepository,
                 userRepository);
         facade = new SectionArtifactAdminFacade(SERVICE_CLOCK,
-                sectionQueryService, sectionArtifactQueryService, new SectionArtifactExcelCommandService());
+                sectionQueryService, sectionArtifactQueryService);
 
         teamId = teamRepository.save(Team.builder()
                 .sectionId(SECTION_ID)

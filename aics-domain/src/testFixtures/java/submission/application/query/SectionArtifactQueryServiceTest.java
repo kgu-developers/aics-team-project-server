@@ -262,6 +262,18 @@ class SectionArtifactQueryServiceTest {
     }
 
     @Test
+    @DisplayName("팀은 팀명 앞자리 숫자 순으로 세운다")
+    void getSectionArtifactRows_OrdersTeamsByLeadingNumber() {
+        // 문자열 사전순이면 "1팀, 10팀, 2팀"이 된다
+        teamRepository.save(Team.builder().sectionId(SECTION_ID).name("10팀").status(Status.CONFIRMED).build());
+        teamRepository.save(Team.builder().sectionId(SECTION_ID).name("2팀").status(Status.CONFIRMED).build());
+        teamRepository.save(Team.builder().sectionId(SECTION_ID).name("가나다팀").status(Status.CONFIRMED).build());
+
+        assertThat(rows()).extracting(SectionArtifactTeamRow::teamName)
+                .containsExactly("1팀", "2팀", "10팀", "가나다팀");
+    }
+
+    @Test
     @DisplayName("팀이 없는 분반은 빈 목록을 돌려준다")
     void getSectionArtifactRows_ReturnsEmptyWhenNoTeam() {
         assertThat(queryService.getSectionArtifactRows(SECTION_ID + 1, UNTIL)).isEmpty();
