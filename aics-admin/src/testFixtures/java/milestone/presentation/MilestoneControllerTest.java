@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.milestone.application.MilestoneFacade;
 import kgu.developers.admin.milestone.presentation.MilestoneControllerImpl;
 import kgu.developers.admin.milestone.presentation.request.MilestoneCreateRequest;
+import kgu.developers.admin.milestone.presentation.request.PresentationEvaluationReopenRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
 import kgu.developers.admin.milestone.presentation.response.RequiredArtifactListResponse;
@@ -83,6 +85,25 @@ class MilestoneControllerTest {
 
     @MockitoBean
     private PasswordChangeRequirementChecker passwordChangeRequirementChecker;
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    void closePresentationEvaluation() throws Exception {
+        mockMvc.perform(patch(MILESTONES_URL + "/3/evaluation-window/close").with(csrf()))
+                .andExpect(status().isNoContent());
+        verify(milestoneFacade).closePresentationEvaluation(1L, "202012345", 3L);
+    }
+
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    void reopenPresentationEvaluation() throws Exception {
+        mockMvc.perform(patch(MILESTONES_URL + "/3/evaluation-window/reopen").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"evaluationClosesAt\":\"2026-10-03T12:00:00\"}"))
+                .andExpect(status().isNoContent());
+        verify(milestoneFacade).reopenPresentationEvaluation(1L, "202012345", 3L,
+                new PresentationEvaluationReopenRequest(LocalDateTime.of(2026, 10, 3, 12, 0)));
+    }
 
     @Test
     @DisplayName("미인증 사용자는 마일스톤 목록을 조회할 수 없다")

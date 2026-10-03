@@ -18,6 +18,7 @@ import kgu.developers.admin.milestone.presentation.request.MilestoneScheduleRequ
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
+import kgu.developers.admin.milestone.presentation.request.PresentationEvaluationReopenRequest;
 import kgu.developers.admin.milestone.presentation.request.RequiredArtifactRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
@@ -58,7 +59,8 @@ public class MilestoneFacade {
     ) {
         return asInvalidRequest(() -> {
             boolean isPeerEval = request.type() == MilestoneType.PEER_EVALUATION;
-            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval);
+            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval,
+                    request.type() == MilestoneType.PRESENTATION);
             Long milestoneId = milestoneCommandService.createMilestone(
                     sectionId,
                     professorId,
@@ -125,7 +127,8 @@ public class MilestoneFacade {
                     : (existing != null ? existing.getType() : null);
             boolean isPeerEval = effectiveType == MilestoneType.PEER_EVALUATION;
             MilestoneSchedule existingSchedule = existing != null ? existing.getSchedule() : null;
-            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval, existingSchedule);
+            MilestoneSchedule schedule = toSchedule(request.schedule(), isPeerEval,
+                    effectiveType == MilestoneType.PRESENTATION, existingSchedule);
             milestoneCommandService.updateMilestone(
                     sectionId,
                     professorId,
@@ -176,6 +179,17 @@ public class MilestoneFacade {
                     request.evaluationClosesAt()
             );
         });
+    }
+
+    public void closePresentationEvaluation(Long sectionId, String professorId, Long milestoneId) {
+        asInvalidRequest(() -> milestoneCommandService.closePresentationEvaluation(
+                sectionId, professorId, milestoneId));
+    }
+
+    public void reopenPresentationEvaluation(Long sectionId, String professorId, Long milestoneId,
+            PresentationEvaluationReopenRequest request) {
+        asInvalidRequest(() -> milestoneCommandService.reopenPresentationEvaluation(
+                sectionId, professorId, milestoneId, request.evaluationClosesAt()));
     }
 
     public void updateWeekNumbers(
@@ -313,16 +327,25 @@ public class MilestoneFacade {
     }
 
     private MilestoneSchedule toSchedule(MilestoneScheduleRequest request) {
-        return toSchedule(request, false, null);
+        return toSchedule(request, false, false, null);
     }
 
     private MilestoneSchedule toSchedule(MilestoneScheduleRequest request, boolean isPeerEval) {
-        return toSchedule(request, isPeerEval, null);
+        return toSchedule(request, isPeerEval, false, null);
     }
 
     private MilestoneSchedule toSchedule(
             MilestoneScheduleRequest request,
             boolean isPeerEval,
+            boolean isPresentation
+    ) {
+        return toSchedule(request, isPeerEval, isPresentation, null);
+    }
+
+    private MilestoneSchedule toSchedule(
+            MilestoneScheduleRequest request,
+            boolean isPeerEval,
+            boolean isPresentation,
             MilestoneSchedule existingSchedule
     ) {
         if (request == null) {
@@ -358,7 +381,7 @@ public class MilestoneFacade {
                     null
             );
         }
-        return request.toDomain();
+        return request.toDomain(isPresentation);
     }
 
     private void asInvalidRequest(Runnable operation) {

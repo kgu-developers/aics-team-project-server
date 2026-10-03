@@ -10,12 +10,12 @@ public class TeamEvaluationCriterion {
 
     private final Long id;
     private final Long sectionId;
-    private final String title;
-    private final int maxScore;
-    private final int displayOrder;
+    private String title;
+    private int maxScore;
+    private int displayOrder;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
-    private final LocalDateTime deletedAt;
+    private LocalDateTime deletedAt;
 
     private TeamEvaluationCriterion(
             Long id,
@@ -59,6 +59,21 @@ public class TeamEvaluationCriterion {
     ) {
         validateRequiredPositive(id, "평가 항목 id");
         return new TeamEvaluationCriterion(id, sectionId, title, maxScore, displayOrder, createdAt, updatedAt, deletedAt);
+    }
+
+    public void update(String title, int maxScore, int displayOrder) {
+        this.title = normalizeTitle(title);
+        validatePositive(maxScore, "최대 점수");
+        validateZeroOrPositive(displayOrder, "표시 순서");
+        this.maxScore = maxScore;
+        this.displayOrder = displayOrder;
+    }
+
+    public void delete(LocalDateTime deletedAt) {
+        if (deletedAt == null) {
+            throw new IllegalArgumentException("삭제 시각은 필수입니다.");
+        }
+        this.deletedAt = deletedAt;
     }
 
     private static String normalizeTitle(String title) {

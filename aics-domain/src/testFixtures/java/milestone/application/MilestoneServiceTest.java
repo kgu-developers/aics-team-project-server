@@ -27,6 +27,8 @@ import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
+import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.milestone.exception.MilestoneEvaluationWindowConflictException;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
@@ -45,7 +47,9 @@ class MilestoneServiceTest {
         repository = new FakeMilestoneRepository();
         sectionRepository = mock(SectionRepository.class);
         when(sectionRepository.lockActiveByIdAndProfessorId(anyLong(), anyString())).thenReturn(true);
-        commandService = new MilestoneCommandService(repository, sectionRepository);
+        commandService = new MilestoneCommandService(repository, sectionRepository,
+                java.time.Clock.fixed(java.time.Instant.parse("2026-10-02T01:00:00Z"),
+                        java.time.ZoneId.of("Asia/Seoul")));
         queryService = new MilestoneQueryService(repository);
     }
 
@@ -112,6 +116,20 @@ class MilestoneServiceTest {
     }
 
     @Test
+    @DisplayName("발표 유형으로 변경할 때 제출 마감 전 평가 기간을 적용할 수 있다")
+    void changeToPresentationWithIndependentEvaluationWindow() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        MilestoneSchedule schedule = new MilestoneSchedule(null,
+                LocalDateTime.of(2026, 10, 10, 23, 59), null, null,
+                LocalDateTime.of(2026, 10, 3, 9, 0), LocalDateTime.of(2026, 10, 3, 12, 0), true);
+        commandService.updateMilestone(1L, PROFESSOR_ID, milestoneId, "발표", null,
+                schedule, MilestoneType.PRESENTATION);
+        Milestone updated = queryService.getMilestone(1L, milestoneId);
+        assertThat(updated.getType()).isEqualTo(MilestoneType.PRESENTATION);
+        assertThat(updated.getSchedule()).isEqualTo(schedule);
+    }
+
+    @Test
     @DisplayName("평가 기간만 수정하면 기존 제출 일정은 유지된다")
     void updateEvaluationWindow() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
@@ -146,6 +164,48 @@ class MilestoneServiceTest {
                 LocalDateTime.of(2026, 9, 12, 0, 0)
         ))
                 .isInstanceOf(MilestoneNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("발표 평가는 자료 제출 마감 전에 시작하고 종료·재개할 수 있다")
+    void presentationEvaluationIndependentFromSubmission() {
+        LocalDateTime dueAt = LocalDateTime.parse("2026-10-10T23:59:00");
+        Long id = commandService.createMilestone(1L, PROFESSOR_ID, "발표", null, 3,
+                new MilestoneSchedule(null, dueAt, dueAt.plusDays(1), dueAt.plusDays(2), null, null),
+                MilestoneType.PRESENTATION);
+        LocalDateTime opensAt = LocalDateTime.parse("2026-10-01T09:00:00");
+        LocalDateTime closesAt = LocalDateTime.parse("2026-10-03T09:00:00");
+
+        commandService.updateEvaluationWindow(1L, PROFESSOR_ID, id, opensAt, closesAt);
+        commandService.closePresentationEvaluation(1L, PROFESSOR_ID, id);
+        assertThat(queryService.getMilestone(1L, id).getSchedule().evaluationOpensAt()).isEqualTo(opensAt);
+        assertThat(queryService.getMilestone(1L, id).getSchedule().evaluationClosesAt())
+                .isEqualTo(LocalDateTime.parse("2026-10-02T10:00:00"));
+        assertThat(queryService.getMilestone(1L, id).getSchedule().dueAt()).isEqualTo(dueAt);
+
+        commandService.reopenPresentationEvaluation(1L, PROFESSOR_ID, id,
+                LocalDateTime.parse("2026-10-04T09:00:00"));
+        assertThat(queryService.getMilestone(1L, id).getSchedule().evaluationOpensAt()).isEqualTo(opensAt);
+        assertThat(queryService.getMilestone(1L, id).getSchedule().evaluationClosesAt())
+                .isEqualTo(LocalDateTime.parse("2026-10-04T09:00:00"));
+    }
+
+    @Test
+    @DisplayName("이미 시작한 발표 평가의 시작 시각은 변경하거나 지울 수 없다")
+    void rejectChangingStartedPresentationWindow() {
+        Long id = commandService.createMilestone(1L, PROFESSOR_ID, "발표", null, 3,
+                new MilestoneSchedule(null, LocalDateTime.parse("2026-10-10T23:59:00"),
+                        null, null, LocalDateTime.parse("2026-10-01T09:00:00"),
+                        LocalDateTime.parse("2026-10-03T09:00:00"), true),
+                MilestoneType.PRESENTATION);
+
+        assertThatThrownBy(() -> commandService.updateEvaluationWindow(
+                1L, PROFESSOR_ID, id, null, null))
+                .isInstanceOf(MilestoneEvaluationWindowConflictException.class);
+        assertThatThrownBy(() -> commandService.updateEvaluationWindow(
+                1L, PROFESSOR_ID, id, LocalDateTime.parse("2026-10-02T09:00:00"),
+                LocalDateTime.parse("2026-10-03T09:00:00")))
+                .isInstanceOf(MilestoneEvaluationWindowConflictException.class);
     }
 
     @Test
@@ -349,6 +409,10 @@ class MilestoneServiceTest {
     }
 
     private static final class FakeMilestoneRepository implements MilestoneRepository {
+        @Override
+        public Optional<Long> findSectionIdById(Long id) {
+            return findById(id).map(Milestone::getSectionId);
+        }
         private final AtomicLong sequence = new AtomicLong(1);
         private final Map<Long, Milestone> milestones = new LinkedHashMap<>();
         private List<Long> lastSavedBatchIds = List.of();
@@ -364,7 +428,9 @@ class MilestoneServiceTest {
                         milestone.getDescription(),
                         milestone.getWeekNumber(),
                         milestone.getStatus(),
-                        milestone.getSchedule()
+                        milestone.getSchedule(),
+                        milestone.getType(),
+                        milestone.isAllowResubmissionBeforeDueAt()
                 );
             }
             milestones.put(saved.getId(), saved);

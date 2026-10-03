@@ -21,6 +21,7 @@ import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWi
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
+import kgu.developers.admin.milestone.presentation.request.PresentationEvaluationReopenRequest;
 import kgu.developers.admin.milestone.presentation.request.RequiredArtifactRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
@@ -108,6 +109,26 @@ public class MilestoneControllerImpl implements MilestoneController {
                 milestoneId,
                 request
         );
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PatchMapping("/{milestoneId}/evaluation-window/close")
+    public ResponseEntity<Void> closePresentationEvaluation(
+            @PathVariable Long sectionId, @PathVariable Long milestoneId,
+            Authentication authentication) {
+        milestoneFacade.closePresentationEvaluation(sectionId, authentication.getName(), milestoneId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PatchMapping("/{milestoneId}/evaluation-window/reopen")
+    public ResponseEntity<Void> reopenPresentationEvaluation(
+            @PathVariable Long sectionId, @PathVariable Long milestoneId,
+            @RequestBody PresentationEvaluationReopenRequest request,
+            Authentication authentication) {
+        milestoneFacade.reopenPresentationEvaluation(
+                sectionId, authentication.getName(), milestoneId, request);
         return ResponseEntity.noContent().build();
     }
 

@@ -14,5 +14,7 @@ public interface TeamEvaluationScoreRepository {
 
     List<TeamEvaluationScore> findAllByTeamEvaluationIds(List<Long> teamEvaluationIds);
 
+    boolean existsByCriterionId(Long criterionId);
+
     void deleteAllByTeamEvaluationId(Long teamEvaluationId);
 }

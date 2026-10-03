@@ -33,6 +33,8 @@ import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionRepository;
 import kgu.developers.domain.team.domain.Team;
@@ -63,6 +65,7 @@ class TeamEvaluationFacadeTest {
     private static final Instant NOW_INSTANT = NOW.atZone(SERVICE_ZONE).toInstant();
 
     @Mock private MilestoneRepository milestoneRepository;
+    @Mock private SectionRepository sectionRepository;
     @Mock private EnrollmentRepository enrollmentRepository;
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private TeamRepository teamRepository;
@@ -80,6 +83,10 @@ class TeamEvaluationFacadeTest {
         given(serviceClock.getZone()).willReturn(SERVICE_ZONE);
         given(userQueryService.getUserByStudentNumber(USER_ID)).willReturn(user());
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+        org.mockito.Mockito.lenient().when(sectionRepository.findActiveByIdForUpdate(SECTION_ID))
+                .thenReturn(Optional.of(Section.builder().id(SECTION_ID).build()));
+        org.mockito.Mockito.lenient().when(milestoneRepository.findSectionIdById(MILESTONE_ID))
+                .thenReturn(Optional.of(SECTION_ID));
     }
 
     @Test
@@ -236,6 +243,28 @@ class TeamEvaluationFacadeTest {
         assertThatThrownBy(() -> facade.submit(MILESTONE_ID, TARGET_TEAM_ID, USER_ID,
                 new TeamEvaluationSubmitRequest(List.of(new TeamEvaluationScoreRequest(10L, 5)))))
                 .isInstanceOf(TeamEvaluationClosedException.class);
+    }
+
+    @Test
+    @DisplayName("분반 잠금을 기다리는 동안 평가가 종료되면 최신 기간으로 제출을 거부한다")
+    void rechecksWindowAfterSectionLock() {
+        given(milestoneRepository.findById(MILESTONE_ID))
+                .willReturn(Optional.of(closedMilestone()));
+        given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(enrollment()));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, USER_ID))
+                .willReturn(Optional.of(membership()));
+
+        assertThatThrownBy(() -> facade.submit(MILESTONE_ID, TARGET_TEAM_ID, USER_ID,
+                new TeamEvaluationSubmitRequest(List.of(new TeamEvaluationScoreRequest(10L, 5)))))
+                .isInstanceOf(TeamEvaluationClosedException.class);
+        then(sectionRepository).should().findActiveByIdForUpdate(SECTION_ID);
+        var order = org.mockito.Mockito.inOrder(milestoneRepository, sectionRepository);
+        order.verify(milestoneRepository).findSectionIdById(MILESTONE_ID);
+        order.verify(sectionRepository).findActiveByIdForUpdate(SECTION_ID);
+        order.verify(milestoneRepository).findById(MILESTONE_ID);
+        then(evaluationRepository).shouldHaveNoInteractions();
+        then(criterionRepository).shouldHaveNoInteractions();
     }
 
     @Test

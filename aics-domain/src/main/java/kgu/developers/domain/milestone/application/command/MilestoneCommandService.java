@@ -1,5 +1,6 @@
 package kgu.developers.domain.milestone.application.command;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,6 +19,7 @@ import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
+import kgu.developers.domain.milestone.exception.MilestoneEvaluationWindowConflictException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
 import kgu.developers.domain.section.domain.SectionRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class MilestoneCommandService {
     private final MilestoneRepository milestoneRepository;
     private final SectionRepository sectionRepository;
+    private final Clock serviceClock;
 
     public Long createMilestone(
             Long sectionId,
@@ -124,11 +127,17 @@ public class MilestoneCommandService {
         lockOwnedSection(sectionId, professorId);
         Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
         validateSchedule(schedule);
-        milestone.updateDetails(title, description);
-        milestone.updateSchedule(schedule);
-        if (type != null) {
-            milestone.changeType(type);
+        if (evaluationHasStarted(milestone)) {
+            if (type != null && type != MilestoneType.PRESENTATION) {
+                throw new MilestoneEvaluationWindowConflictException();
+            }
+            if (schedule != null && (!milestone.getSchedule().evaluationOpensAt().equals(
+                    schedule.evaluationOpensAt()) || schedule.evaluationClosesAt() == null)) {
+                throw new MilestoneEvaluationWindowConflictException();
+            }
         }
+        milestone.updateDetails(title, description);
+        milestone.updateSchedule(schedule, type != null ? type : milestone.getType());
         if (allowResubmissionBeforeDueAt != null) {
             milestone.changeAllowResubmissionBeforeDueAt(allowResubmissionBeforeDueAt);
         }
@@ -157,8 +166,49 @@ public class MilestoneCommandService {
     ) {
         lockOwnedSection(sectionId, professorId);
         Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
+        if (evaluationHasStarted(milestone)
+                && (evaluationOpensAt == null || !evaluationOpensAt.equals(
+                        milestone.getSchedule().evaluationOpensAt()))) {
+            throw new MilestoneEvaluationWindowConflictException();
+        }
         milestone.updateEvaluationWindow(evaluationOpensAt, evaluationClosesAt);
         milestoneRepository.save(milestone);
+    }
+
+    public void closePresentationEvaluation(Long sectionId, String professorId, Long milestoneId) {
+        lockOwnedSection(sectionId, professorId);
+        Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
+        LocalDateTime now = LocalDateTime.now(serviceClock);
+        LocalDateTime opensAt = milestone.getSchedule().evaluationOpensAt();
+        LocalDateTime closesAt = milestone.getSchedule().evaluationClosesAt();
+        if (milestone.getType() != MilestoneType.PRESENTATION || opensAt == null
+                || now.isBefore(opensAt) || closesAt == null || !now.isBefore(closesAt)) {
+            throw new MilestoneEvaluationWindowConflictException();
+        }
+        milestone.updateEvaluationWindow(opensAt, now);
+        milestoneRepository.save(milestone);
+    }
+
+    public void reopenPresentationEvaluation(
+            Long sectionId, String professorId, Long milestoneId, LocalDateTime closesAt) {
+        lockOwnedSection(sectionId, professorId);
+        Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
+        LocalDateTime now = LocalDateTime.now(serviceClock);
+        LocalDateTime opensAt = milestone.getSchedule().evaluationOpensAt();
+        LocalDateTime previousClosesAt = milestone.getSchedule().evaluationClosesAt();
+        if (milestone.getType() != MilestoneType.PRESENTATION || opensAt == null
+                || now.isBefore(opensAt) || previousClosesAt == null || now.isBefore(previousClosesAt)
+                || closesAt == null || !closesAt.isAfter(now)) {
+            throw new MilestoneEvaluationWindowConflictException();
+        }
+        milestone.updateEvaluationWindow(opensAt, closesAt);
+        milestoneRepository.save(milestone);
+    }
+
+    private boolean evaluationHasStarted(Milestone milestone) {
+        LocalDateTime opensAt = milestone.getSchedule().evaluationOpensAt();
+        return milestone.getType() == MilestoneType.PRESENTATION
+                && opensAt != null && !opensAt.isAfter(LocalDateTime.now(serviceClock));
     }
 
     public void updateWeekNumbers(

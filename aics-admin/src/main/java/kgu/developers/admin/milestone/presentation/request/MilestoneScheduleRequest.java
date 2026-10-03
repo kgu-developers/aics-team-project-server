@@ -39,13 +39,18 @@ public record MilestoneScheduleRequest(
         LocalDateTime evaluationClosesAt
 ) {
     public MilestoneSchedule toDomain() {
+        return toDomain(false);
+    }
+
+    public MilestoneSchedule toDomain(boolean independentEvaluationWindow) {
         return new MilestoneSchedule(
                 opensAt,
                 dueAt,
                 lateSubmissionUntil,
                 revisionUntil,
                 evaluationOpensAt,
-                evaluationClosesAt
+                evaluationClosesAt,
+                independentEvaluationWindow
         );
     }
 }

@@ -15,6 +15,7 @@ import kgu.developers.admin.milestone.presentation.request.MilestoneEvaluationWi
 import kgu.developers.admin.milestone.presentation.request.MilestoneStatusRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneUpdateRequest;
 import kgu.developers.admin.milestone.presentation.request.MilestoneWeekNumbersRequest;
+import kgu.developers.admin.milestone.presentation.request.PresentationEvaluationReopenRequest;
 import kgu.developers.admin.milestone.presentation.request.RequiredArtifactRequest;
 import kgu.developers.admin.milestone.presentation.response.MilestoneListResponse;
 import kgu.developers.admin.milestone.presentation.response.MilestonePersistResponse;
@@ -70,13 +71,26 @@ public interface MilestoneController {
             @Parameter(hidden = true) Authentication authentication
     );
 
-    @Operation(summary = "마일스톤 평가 기간 수정")
+    @Operation(summary = "마일스톤 평가 기간 수정", description = "PRESENTATION은 자료 제출 마감과 독립적으로 평가 시작·종료 시각을 설정합니다. 평가 시작 후에는 시작 시각 변경이나 clearEvaluationWindow 해제가 불가합니다. 조기 종료·재개는 전용 API를 사용합니다.")
     ResponseEntity<Void> updateEvaluationWindow(
             @Parameter(description = "분반 ID", required = true) @Positive Long sectionId,
             @Parameter(description = "마일스톤 ID", required = true) @Positive Long milestoneId,
             @Valid MilestoneEvaluationWindowRequest request,
             @Parameter(hidden = true) Authentication authentication
     );
+
+    @Operation(summary = "발표 평가 조기 종료", description = "기존 시작 시각은 유지하고 종료 시각만 현재 시각으로 변경합니다. 기존 점수는 유지됩니다.")
+    @ApiResponse(responseCode = "409", description = "발표 평가가 진행 중이 아님")
+    ResponseEntity<Void> closePresentationEvaluation(
+            @Positive Long sectionId, @Positive Long milestoneId,
+            @Parameter(hidden = true) Authentication authentication);
+
+    @Operation(summary = "발표 평가 재개", description = "기존 시작 시각과 점수는 유지하고 종료 시각만 미래로 변경합니다.")
+    @ApiResponse(responseCode = "409", description = "발표 평가가 종료 상태가 아니거나 종료 시각이 유효하지 않음")
+    ResponseEntity<Void> reopenPresentationEvaluation(
+            @Positive Long sectionId, @Positive Long milestoneId,
+            @Valid PresentationEvaluationReopenRequest request,
+            @Parameter(hidden = true) Authentication authentication);
 
     @Operation(
             summary = "마일스톤 주차 일괄 변경",

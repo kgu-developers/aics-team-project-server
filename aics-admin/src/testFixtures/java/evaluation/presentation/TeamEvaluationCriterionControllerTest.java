@@ -5,6 +5,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,6 +16,8 @@ import kgu.developers.admin.evaluation.application.TeamEvaluationCriterionFacade
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.evaluation.presentation.TeamEvaluationCriterionControllerImpl;
 import kgu.developers.admin.evaluation.presentation.request.TeamEvaluationCriterionCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.TeamEvaluationCriterionUpdateRequest;
+import kgu.developers.domain.evaluation.exception.TeamEvaluationCriterionLockedException;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionListResponse;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionPersistResponse;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionResponse;
@@ -129,6 +133,41 @@ class TeamEvaluationCriterionControllerTest {
             .content(VALID_BODY))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(1L));
+  }
+
+  @Test
+  @WithMockUser(username = "202012345", roles = "ADMIN")
+  @DisplayName("담당 교수는 평가 항목을 수정할 수 있다")
+  void updateCriterion() throws Exception {
+    mockMvc.perform(patch(URL + "/{criterionId}", 2L, 1L).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(VALID_BODY))
+        .andExpect(status().isNoContent());
+
+    then(facade).should().updateCriterion(2L, 1L, "202012345",
+        new TeamEvaluationCriterionUpdateRequest("객체지향 설계", 30, 0));
+  }
+
+  @Test
+  @WithMockUser(username = "202012345", roles = "ADMIN")
+  @DisplayName("담당 교수는 평가 항목을 삭제할 수 있다")
+  void deleteCriterion() throws Exception {
+    mockMvc.perform(delete(URL + "/{criterionId}", 2L, 1L).with(csrf()))
+        .andExpect(status().isNoContent());
+
+    then(facade).should().deleteCriterion(2L, 1L, "202012345");
+  }
+
+  @Test
+  @WithMockUser(username = "202012345", roles = "ADMIN")
+  @DisplayName("평가 시작 후 항목 변경은 409를 응답한다")
+  void lockedCriterion() throws Exception {
+    willThrow(new TeamEvaluationCriterionLockedException()).given(facade)
+        .deleteCriterion(2L, 1L, "202012345");
+
+    mockMvc.perform(delete(URL + "/{criterionId}", 2L, 1L).with(csrf()))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("TEAM_EVALUATION_CRITERION_LOCKED"));
   }
 
   @Test

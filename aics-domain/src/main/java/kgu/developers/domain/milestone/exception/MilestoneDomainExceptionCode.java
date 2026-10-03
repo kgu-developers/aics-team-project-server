@@ -19,6 +19,7 @@ public enum MilestoneDomainExceptionCode implements ExceptionCode {
     MILESTONE_SECTION_ACCESS_FORBIDDEN(FORBIDDEN, "담당 분반의 마일스톤만 변경할 수 있습니다."),
     MILESTONE_WEEK_CONFLICT(CONFLICT, "같은 분반에서 마일스톤 주차를 중복할 수 없습니다."),
     MILESTONE_CONCURRENTLY_MODIFIED(CONFLICT, "다른 요청이 먼저 마일스톤을 변경했습니다. 다시 시도해주세요."),
+    MILESTONE_EVALUATION_WINDOW_CONFLICT(CONFLICT, "발표 평가 기간의 현재 상태에서는 요청한 변경을 할 수 없습니다."),
     INVALID_MILESTONE_REQUEST(BAD_REQUEST, "마일스톤 요청 값이 올바르지 않습니다."),
     ;
 

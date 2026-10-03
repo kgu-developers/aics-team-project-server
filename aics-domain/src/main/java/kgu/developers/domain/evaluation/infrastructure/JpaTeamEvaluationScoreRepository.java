@@ -15,6 +15,8 @@ public interface JpaTeamEvaluationScoreRepository extends JpaRepository<TeamEval
 
     List<TeamEvaluationScoreJpaEntity> findAllByTeamEvaluationIdInAndDeletedAtIsNull(List<Long> teamEvaluationIds);
 
+    boolean existsByCriterionIdAndDeletedAtIsNull(Long criterionId);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM TeamEvaluationScoreJpaEntity e WHERE e.teamEvaluationId = :teamEvaluationId")
     void deleteAllByTeamEvaluationId(@Param("teamEvaluationId") Long teamEvaluationId);
