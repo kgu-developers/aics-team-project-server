@@ -18,4 +18,9 @@ public record SectionArtifactStageRow(
         int imageCount,
         long totalFileSize
 ) {
+    public boolean hasSubmissionHistory() {
+        // 재제출로 제출 시각이 사라진 중간점검도 기준일 이전 반려로 제출 이력을 확인할 수 있다.
+        return firstSubmittedAt != null
+                || (type == MilestoneType.MID_REPORT && status == SubmissionStatus.REVISION_REQUESTED);
+    }
 }

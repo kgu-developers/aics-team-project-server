@@ -13,7 +13,7 @@ public record SectionArtifactTeamRow(
 
     public long submittedStageCount() {
         return stages.stream()
-                .filter(stage -> stage.firstSubmittedAt() != null)
+                .filter(SectionArtifactStageRow::hasSubmissionHistory)
                 .count();
     }
 

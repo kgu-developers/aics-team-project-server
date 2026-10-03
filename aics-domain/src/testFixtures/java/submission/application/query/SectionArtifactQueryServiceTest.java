@@ -239,6 +239,49 @@ class SectionArtifactQueryServiceTest {
     }
 
     @Test
+    @DisplayName("기준일 이후 재제출해도 기준일 이전 반려로 확인된 제출 이력은 미제출로 세지 않는다")
+    void getSectionArtifactRows_PreservesMidReportHistoryBeforeResubmission() {
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MID_REPORT_ID))
+                .willReturn(List.of(MidReport.builder()
+                        .id(1L).teamId(teamId).milestoneId(MID_REPORT_ID).version(4L)
+                        .status(MidReportStatus.SUBMITTED)
+                        .revision(new MidReportRevision(List.of("GOAL"), List.of("GOAL"),
+                                LocalDateTime.of(2026, 11, 18, 20, 0), LocalDateTime.of(2026, 11, 21, 10, 0)))
+                        .submittedAt(LocalDateTime.of(2026, 11, 21, 10, 0))
+                        .createdAt(LocalDateTime.of(2026, 11, 1, 10, 0))
+                        .build()));
+
+        SectionArtifactTeamRow row = rows().get(0);
+        SectionArtifactStageRow midReport = row.stages().stream()
+                .filter(stage -> stage.type() == MilestoneType.MID_REPORT).findFirst().orElseThrow();
+        assertThat(midReport.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+        assertThat(midReport.overdueMissing()).isFalse();
+        assertThat(row.submittedStageCount()).isEqualTo(1);
+        assertThat(row.overdueMissingStageCount()).isEqualTo(2);
+        assertThat(midReport.firstSubmittedAt()).isNull();
+        assertThat(midReport.lastSubmittedAt()).isNull();
+        assertThat(midReport.latestVersion()).isNull();
+        assertThat(midReport.firstSubmissionLate()).isNull();
+    }
+
+    @Test
+    @DisplayName("기준일 종료 시각의 반려도 이후 재제출 전 제출 이력으로 인정한다")
+    void getSectionArtifactRows_IncludesMidReportRevisionAtCutoff() {
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MID_REPORT_ID))
+                .willReturn(List.of(MidReport.builder()
+                        .id(1L).teamId(teamId).milestoneId(MID_REPORT_ID).version(4L)
+                        .status(MidReportStatus.SUBMITTED)
+                        .revision(new MidReportRevision(List.of("GOAL"), List.of("GOAL"),
+                                UNTIL, UNTIL.plusDays(1)))
+                        .submittedAt(UNTIL.plusDays(1))
+                        .createdAt(UNTIL.minusDays(10))
+                        .build()));
+
+        assertThat(rows().get(0).submittedStageCount()).isEqualTo(1);
+        assertThat(stage(MilestoneType.MID_REPORT).overdueMissing()).isFalse();
+    }
+
+    @Test
     @DisplayName("회의록은 기준일까지 작성된 것만 세고 수정 횟수는 version 합으로 근사한다")
     void getSectionArtifactRows_CountsMeetingRecordsUntilAsOf() {
         meetingRecordRepository.save(meetingRecord(LocalDateTime.of(2026, 11, 10, 10, 0), 2L));

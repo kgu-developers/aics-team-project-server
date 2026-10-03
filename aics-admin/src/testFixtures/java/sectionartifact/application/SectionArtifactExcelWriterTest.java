@@ -87,6 +87,25 @@ class SectionArtifactExcelWriterTest {
     }
 
     @Test
+    @DisplayName("반려로 확인된 과거 중간점검 제출은 요약에 포함하고 복원 불가한 제출 정보는 비운다")
+    void write_CountsMidReportHistoryWithoutSubmissionTime() throws Exception {
+        SectionArtifactStageRow revisionRequested = new SectionArtifactStageRow(
+                MilestoneType.MID_REPORT, LocalDateTime.of(2026, 11, 18, 23, 59),
+                SubmissionStatus.REVISION_REQUESTED, null, null, null, null, false, 0, 0, 0L);
+
+        try (Workbook workbook = open(SectionArtifactExcelWriter.write("OOP-01", List.of(teamRow(revisionRequested))))) {
+            Row summary = workbook.getSheet("팀별 요약").getRow(1);
+            assertThat(summary.getCell(5).getNumericCellValue()).isEqualTo(1);
+            assertThat(summary.getCell(6).getNumericCellValue()).isZero();
+            Row stage = workbook.getSheet("단계별 제출 현황").getRow(1);
+            assertThat(stage.getCell(5).getStringCellValue()).isEqualTo("REVISION_REQUESTED");
+            for (int column = 6; column <= 9; column++) {
+                assertThat(stage.getCell(column).getStringCellValue()).isEmpty();
+            }
+        }
+    }
+
+    @Test
     @DisplayName("단계 이름은 마일스톤 유형을 사람이 읽는 이름으로 적는다")
     void write_WritesStageLabels() throws Exception {
         List<SectionArtifactStageRow> stages = List.of(

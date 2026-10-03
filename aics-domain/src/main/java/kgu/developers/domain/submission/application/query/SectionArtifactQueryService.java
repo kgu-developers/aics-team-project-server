@@ -17,15 +17,13 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
-import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordStats;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportRepository;
 import kgu.developers.domain.milestone.domain.Milestone;
@@ -63,10 +61,6 @@ public class SectionArtifactQueryService {
     private static final Comparator<Team> BY_TEAM_NAME =
             Comparator.comparingInt((Team team) -> leadingNumber(team.getName()))
                     .thenComparing(Team::getName, Comparator.nullsLast(Comparator.naturalOrder()));
-    // 분반 하나의 회의록을 한 페이지로 받기 위한 상한. 분반당 회의록이 이 수를 넘으면 집계가 잘린다.
-    // ponytail: 잘리더라도 호출마다 같은 집합이 나오도록 id로 정렬만 해 둔다. 집계 전용 프로젝션
-    // 쿼리(group by team_id로 count·sum(version))를 추가하면 상한 자체가 사라진다.
-    private static final int MAX_MEETING_RECORDS = 10_000;
 
     private final MilestoneRepository milestoneRepository;
     private final TeamRepository teamRepository;
@@ -93,35 +87,24 @@ public class SectionArtifactQueryService {
         Map<Long, Map<Long, MidReport>> midReports = midReportsByMilestoneAndTeam(milestones, teamIds);
 
         List<SectionArtifactTeamRow> rows = new ArrayList<>();
-        Map<Long, List<MeetingRecord>> meetingRecords = meetingRecordsByTeam(teamIds, until);
+        Map<Long, MeetingRecordStats> meetingRecords =
+                meetingRecordRepository.statsByTeamIdInUntil(teamIds, until);
         for (Team team : teams) {
             List<SectionArtifactStageRow> stages = milestones.stream()
                     .map(milestone -> stageRow(team, milestone, submissions, versions, fileStats, midReports, until))
                     .toList();
-            List<MeetingRecord> teamRecords = meetingRecords.getOrDefault(team.getId(), List.of());
+            MeetingRecordStats records = meetingRecords.getOrDefault(team.getId(), MeetingRecordStats.NONE);
             rows.add(new SectionArtifactTeamRow(
                     team.getId(),
                     team.getName(),
                     members.getOrDefault(team.getId(), List.of()),
-                    teamRecords.size(),
+                    records.recordCount(),
                     // ponytail: 회의록 수정 이력 테이블이 없어서 낙관적 락 version(= 수정 횟수) 합으로
                     // 근사한다. 기준일 이후의 수정도 섞이므로, 수정 이력을 따로 적재하면 그걸로 바꿀 것.
-                    teamRecords.stream().mapToLong(MeetingRecord::getVersion).sum(),
+                    records.editCount(),
                     stages));
         }
         return rows;
-    }
-
-    // 팀마다 조회하면 팀 수만큼(구현체는 호출당 3쿼리) 늘어나므로 분반의 팀 전체를 한 번에 받는다.
-    private Map<Long, List<MeetingRecord>> meetingRecordsByTeam(List<Long> teamIds, LocalDateTime until) {
-        if (teamIds.isEmpty()) {
-            return Map.of();
-        }
-        return meetingRecordRepository
-                .findAllByTeamIdIn(teamIds, PageRequest.of(0, MAX_MEETING_RECORDS, Sort.by("id")))
-                .getContent().stream()
-                .filter(record -> record.getCreatedAt() == null || !record.getCreatedAt().isAfter(until))
-                .collect(groupingBy(MeetingRecord::getTeamId));
     }
 
     private SectionArtifactStageRow stageRow(
@@ -176,6 +159,26 @@ public class SectionArtifactQueryService {
                     midReport.getSubmittedAt(),
                     midReport.getVersion() == null ? null : midReport.getVersion().intValue(),
                     midReportLate(dueAt, midReport),
+                    false,
+                    0,
+                    0,
+                    0L);
+        }
+
+        // 반려는 제출된 보고서에만 가능하므로 기준일까지의 반려 시각은 이전 제출의 증거다.
+        // 이후 재제출로 submittedAt이 덮어써져도 미제출로 되돌리지 않는다. 복원할 수 없는
+        // 제출 시각·버전은 비워 두고, 재제출 전 반려 상태만 반환한다.
+        if (midReport != null && midReport.getRevision() != null
+                && midReport.getRevision().requestedAt() != null
+                && !midReport.getRevision().requestedAt().isAfter(until)) {
+            return new SectionArtifactStageRow(
+                    milestone.getType(),
+                    dueAt,
+                    SubmissionStatus.REVISION_REQUESTED,
+                    null,
+                    null,
+                    null,
+                    null,
                     false,
                     0,
                     0,

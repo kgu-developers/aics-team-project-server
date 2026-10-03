@@ -1,5 +1,6 @@
 package kgu.developers.domain.meetingrecord.infrastructure;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -9,6 +10,7 @@ import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordStats;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -129,6 +131,19 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
             .collect(Collectors.toMap(
                 JpaMeetingRecordRepository.MeetingRecordCountProjection::getTeamId,
                 JpaMeetingRecordRepository.MeetingRecordCountProjection::getMeetingRecordCount
+            ));
+    }
+
+    @Override
+    public Map<Long, MeetingRecordStats> statsByTeamIdInUntil(List<Long> teamIds, LocalDateTime until) {
+        if (teamIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaMeetingRecordRepository.statsByTeamIdInUntil(teamIds, until).stream()
+            .collect(Collectors.toMap(
+                JpaMeetingRecordRepository.MeetingRecordStatsProjection::getTeamId,
+                projection -> new MeetingRecordStats(
+                    projection.getMeetingRecordCount(), projection.getEditCount())
             ));
     }
 
