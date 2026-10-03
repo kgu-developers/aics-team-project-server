@@ -12,6 +12,7 @@ public enum MeetingRecordExceptionCode implements ExceptionCode {
     MEETING_RECORD_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 회의록을 찾을 수 없습니다."),
     MEETING_RECORD_INVALID_TITLE(HttpStatus.BAD_REQUEST, "회의록 제목은 공백일 수 없습니다."),
     MEETING_RECORD_INVALID_CONTENT(HttpStatus.BAD_REQUEST, "회의 내용은 공백일 수 없습니다."),
+    MEETING_RECORD_INVALID_EDIT_REASON(HttpStatus.BAD_REQUEST, "회의록 수정 사유는 30자 이상 500자 이하여야 합니다."),
     MEETING_ACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 액션플랜을 찾을 수 없습니다."),
     MEETING_ACTION_INVALID_CONTENT(HttpStatus.BAD_REQUEST, "작업 내용은 공백일 수 없습니다."),
     MEETING_ACTION_INVALID_ASSIGNEE(HttpStatus.BAD_REQUEST, "담당자는 같은 팀의 팀원이어야 합니다."),

@@ -24,6 +24,7 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
     private final JpaMeetingParticipantRepository jpaMeetingParticipantRepository;
     private final JpaMeetingActionRepository jpaMeetingActionRepository;
     private final JpaMeetingRecordMilestoneRepository jpaMeetingRecordMilestoneRepository;
+    private final JpaMeetingRecordEditLogRepository jpaMeetingRecordEditLogRepository;
 
     @Override
     public MeetingRecord save(MeetingRecord meetingRecord) {
@@ -163,6 +164,8 @@ public class MeetingRecordRepositoryImpl implements MeetingRecordRepository {
         jpaMeetingParticipantRepository.deleteAllByMeetingRecordId(id);
         jpaMeetingRecordMilestoneRepository.deleteAllByMeetingRecordId(id);
         jpaMeetingActionRepository.deleteAllByMeetingRecordId(id);
+        // 회의록이 사라지면 수정 이력도 남겨둘 대상이 없어지므로 함께 지운다(고아 행 방지).
+        jpaMeetingRecordEditLogRepository.deleteAllByMeetingRecordId(id);
         jpaMeetingRecordRepository.deleteById(id);
     }
 

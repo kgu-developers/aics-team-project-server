@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLog;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLogRepository;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordInvalidContentException;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordInvalidTitleException;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MeetingRecordCommandService {
 
     private final MeetingRecordRepository meetingRecordRepository;
+    private final MeetingRecordEditLogRepository meetingRecordEditLogRepository;
 
     public Long createMeetingRecord(
         Long teamId,
@@ -71,6 +74,23 @@ public class MeetingRecordCommandService {
         List<String> participantIds,
         List<Long> milestoneIds
     ) {
+        updateMeetingRecord(id, title, meetingAt, location, phase, content, participantIds, milestoneIds, null, null);
+    }
+
+    // 수정 사유(reason)가 주어지면 같은 트랜잭션에서 수정 이력을 한 건 적재한다.
+    // 사유 검증이 실패하면 회의록 변경도 함께 롤백돼, 사유 없는 수정이 남지 않는다.
+    public void updateMeetingRecord(
+        Long id,
+        String title,
+        LocalDateTime meetingAt,
+        String location,
+        MeetingPhase phase,
+        String content,
+        List<String> participantIds,
+        List<Long> milestoneIds,
+        String reason,
+        String editorId
+    ) {
         MeetingRecord meetingRecord = findOrThrow(id);
 
         if (title != null) {
@@ -102,6 +122,11 @@ public class MeetingRecordCommandService {
         }
 
         meetingRecordRepository.save(meetingRecord);
+
+        if (reason != null) {
+            meetingRecordEditLogRepository.save(MeetingRecordEditLog.create(
+                meetingRecord.getId(), meetingRecord.getTeamId(), editorId, reason));
+        }
     }
 
     // TODO: 정책이 소프트 삭제로 바뀌면 BaseTimeEntity.delete() 기반으로 전환한다.

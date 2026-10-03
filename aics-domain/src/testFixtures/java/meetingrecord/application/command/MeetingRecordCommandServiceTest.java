@@ -9,6 +9,7 @@ import kgu.developers.common.exception.CustomException;
 import kgu.developers.domain.meetingrecord.application.command.MeetingRecordCommandService;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import mock.repository.FakeMeetingRecordEditLogRepository;
 import mock.repository.FakeMeetingRecordRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,12 +18,15 @@ import org.junit.jupiter.api.Test;
 class MeetingRecordCommandServiceTest {
 
     private FakeMeetingRecordRepository fakeMeetingRecordRepository;
+    private FakeMeetingRecordEditLogRepository fakeMeetingRecordEditLogRepository;
     private MeetingRecordCommandService commandService;
 
     @BeforeEach
     void init() {
         fakeMeetingRecordRepository = new FakeMeetingRecordRepository();
-        commandService = new MeetingRecordCommandService(fakeMeetingRecordRepository);
+        fakeMeetingRecordEditLogRepository = new FakeMeetingRecordEditLogRepository();
+        commandService = new MeetingRecordCommandService(
+            fakeMeetingRecordRepository, fakeMeetingRecordEditLogRepository);
     }
 
     private Long createMeetingRecord() {
@@ -77,6 +81,57 @@ class MeetingRecordCommandServiceTest {
         // when & then
         assertThatThrownBy(() -> commandService.updateMeetingRecord(id, null, null, null, null, "   ", null))
             .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("수정 사유를 주면 같은 수정에서 수정 이력이 한 건 적재된다")
+    void updateMeetingRecord_RecordsEditLog() {
+        // given
+        Long id = createMeetingRecord();
+        String reason = "회의 내용 중 담당자 표기가 실제 논의와 달라 바로잡고 참석자 목록도 함께 수정했습니다.";
+
+        // when
+        commandService.updateMeetingRecord(
+            id, null, null, null, null, "새 내용", null, null, reason, "202412345");
+
+        // then
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).singleElement().satisfies(log -> {
+            assertThat(log.getMeetingRecordId()).isEqualTo(id);
+            assertThat(log.getTeamId()).isEqualTo(1L);
+            assertThat(log.getEditorId()).isEqualTo("202412345");
+            assertThat(log.getReason()).isEqualTo(reason);
+        });
+    }
+
+    @Test
+    @DisplayName("수정할 때마다 이력이 덮어쓰이지 않고 계속 쌓인다")
+    void updateMeetingRecord_AppendsEditLog() {
+        // given
+        Long id = createMeetingRecord();
+
+        // when
+        commandService.updateMeetingRecord(
+            id, null, null, null, null, "첫 번째 수정", null, null, "가".repeat(30), "202412345");
+        commandService.updateMeetingRecord(
+            id, null, null, null, null, "두 번째 수정", null, null, "나".repeat(30), "202412346");
+
+        // then
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).hasSize(2)
+            .extracting(log -> log.getEditorId())
+            .containsExactly("202412345", "202412346");
+    }
+
+    @Test
+    @DisplayName("사유가 30자 미만이면 예외를 던지고 이력도 남기지 않는다")
+    void updateMeetingRecord_TooShortReason_ThrowsException() {
+        // given
+        Long id = createMeetingRecord();
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updateMeetingRecord(
+            id, null, null, null, null, "새 내용", null, null, "짧은 사유", "202412345"))
+            .isInstanceOf(CustomException.class);
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).isEmpty();
     }
 
     @Test

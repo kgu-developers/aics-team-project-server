@@ -25,6 +25,7 @@ import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
+import mock.repository.FakeMeetingRecordEditLogRepository;
 import mock.repository.FakeMeetingRecordRepository;
 import mock.repository.FakeTeamMemberRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,19 +39,21 @@ public class MeetingRecordFacadeTest {
     private static final String NON_MEMBER = "202400000";
 
     private MeetingRecordFacade meetingRecordFacade;
+    private FakeMeetingRecordEditLogRepository fakeMeetingRecordEditLogRepository;
     private TeamRepository teamRepository;
     private MilestoneRepository milestoneRepository;
 
     @BeforeEach
     public void init() {
         FakeMeetingRecordRepository fakeMeetingRecordRepository = new FakeMeetingRecordRepository();
+        fakeMeetingRecordEditLogRepository = new FakeMeetingRecordEditLogRepository();
         FakeTeamMemberRepository fakeTeamMemberRepository = new FakeTeamMemberRepository();
         fakeTeamMemberRepository.save(TeamMember.create(1L, MEMBER, false, "기록자"));
 
         teamRepository = mock(TeamRepository.class);
         milestoneRepository = mock(MilestoneRepository.class);
         meetingRecordFacade = new MeetingRecordFacade(
-            new MeetingRecordCommandService(fakeMeetingRecordRepository),
+            new MeetingRecordCommandService(fakeMeetingRecordRepository, fakeMeetingRecordEditLogRepository),
             new MeetingRecordQueryService(fakeMeetingRecordRepository),
             fakeTeamMemberRepository,
             teamRepository,
