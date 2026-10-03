@@ -1,5 +1,6 @@
 package kgu.developers.domain.meetingrecord.domain;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,9 @@ public interface MeetingRecordRepository {
     Map<Long, Long> countByTeamIdInAndMilestoneId(List<Long> teamIds, Long milestoneId);
 
     Map<Long, Long> countByTeamIdIn(List<Long> teamIds);
+
+    // 기준일까지의 팀별 회의록 건수·수정 횟수 근사값. 본문을 적재하지 않는다.
+    Map<Long, MeetingRecordStats> statsByTeamIdInUntil(List<Long> teamIds, LocalDateTime until);
 
     void deleteById(Long id);
 }

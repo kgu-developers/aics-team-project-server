@@ -13,6 +13,7 @@ import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordStats;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -50,8 +51,9 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
             .content(meetingRecord.getContent())
             .participants(participants)
             .milestoneIds(MeetingRecord.normalizeMilestoneIds(meetingRecord.getMilestoneIds()))
+            .version(meetingRecord.getVersion())
             .createdAt(createdAt)
-            .updatedAt(LocalDateTime.now())
+            .updatedAt(meetingRecord.getUpdatedAt() != null ? meetingRecord.getUpdatedAt() : LocalDateTime.now())
             .build();
 
         store.put(id, saved);
@@ -119,6 +121,18 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
             .filter(meetingRecord -> teamIds.contains(meetingRecord.getTeamId()))
             .filter(meetingRecord -> meetingRecord.getMilestoneIds().contains(milestoneId))
             .collect(Collectors.groupingBy(MeetingRecord::getTeamId, Collectors.counting()));
+    }
+
+    @Override
+    public Map<Long, MeetingRecordStats> statsByTeamIdInUntil(List<Long> teamIds, LocalDateTime until) {
+        return store.values().stream()
+            .filter(meetingRecord -> teamIds.contains(meetingRecord.getTeamId()))
+            .filter(meetingRecord -> meetingRecord.getCreatedAt() == null
+                || !meetingRecord.getCreatedAt().isAfter(until))
+            .collect(Collectors.groupingBy(MeetingRecord::getTeamId,
+                Collectors.collectingAndThen(Collectors.toList(), records -> new MeetingRecordStats(
+                    records.size(),
+                    records.stream().mapToLong(MeetingRecord::getVersion).sum()))));
     }
 
     @Override
