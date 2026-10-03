@@ -16,6 +16,10 @@ import mock.repository.FakeMeetingRecordRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 class MeetingActionQueryServiceTest {
 
@@ -124,5 +128,111 @@ class MeetingActionQueryServiceTest {
 
         // then
         assertThat(results).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("getSectionActions는 지정한 팀 목록의 액션플랜만 반환한다")
+    void getSectionActions_FiltersByTeamIds() {
+        // given
+        MeetingRecord firstTeamRecord = createMeetingRecord(1L);
+        MeetingRecord secondTeamRecord = createMeetingRecord(2L);
+        MeetingRecord outsideRecord = createMeetingRecord(3L);
+        saveAt(firstTeamRecord.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 10, 1, 10, 0));
+        saveAt(secondTeamRecord.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 10, 1, 11, 0));
+        saveAt(outsideRecord.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 10, 1, 12, 0));
+
+        // when
+        Page<MeetingAction> results = queryService.getSectionActions(
+            List.of(1L, 2L), null, null, latestFirst(0, 20));
+
+        // then
+        assertThat(results.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("getSectionActions는 생성 최신순으로 정렬하고 같은 시각이면 식별자 역순으로 정렬한다")
+    void getSectionActions_SortsByCreatedAtThenId() {
+        // given
+        MeetingRecord record = createMeetingRecord(1L);
+        LocalDateTime sameMoment = LocalDateTime.of(2026, 10, 1, 10, 0);
+        MeetingAction older = saveAt(record.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 9, 30, 10, 0));
+        MeetingAction sameFirst = saveAt(record.getId(), MeetingActionStatus.TODO, sameMoment);
+        MeetingAction sameSecond = saveAt(record.getId(), MeetingActionStatus.TODO, sameMoment);
+
+        // when
+        Page<MeetingAction> results = queryService.getSectionActions(
+            List.of(1L), null, null, latestFirst(0, 20));
+
+        // then
+        assertThat(results.getContent())
+            .extracting(MeetingAction::getId)
+            .containsExactly(sameSecond.getId(), sameFirst.getId(), older.getId());
+    }
+
+    @Test
+    @DisplayName("getSectionActions는 회의록·상태 필터를 적용한다")
+    void getSectionActions_FiltersByMeetingRecordAndStatus() {
+        // given
+        MeetingRecord target = createMeetingRecord(1L);
+        MeetingRecord other = createMeetingRecord(1L);
+        saveAt(target.getId(), MeetingActionStatus.DONE, LocalDateTime.of(2026, 10, 1, 10, 0));
+        saveAt(target.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 10, 1, 11, 0));
+        saveAt(other.getId(), MeetingActionStatus.DONE, LocalDateTime.of(2026, 10, 1, 12, 0));
+
+        // when
+        Page<MeetingAction> results = queryService.getSectionActions(
+            List.of(1L), target.getId(), MeetingActionStatus.DONE, latestFirst(0, 20));
+
+        // then
+        assertThat(results.getContent()).singleElement().satisfies(action -> {
+            assertThat(action.getMeetingRecordId()).isEqualTo(target.getId());
+            assertThat(action.getStatus()).isEqualTo(MeetingActionStatus.DONE);
+        });
+    }
+
+    @Test
+    @DisplayName("getSectionActions는 페이지 크기를 넘는 결과를 나눠서 반환한다")
+    void getSectionActions_Paginates() {
+        // given
+        MeetingRecord record = createMeetingRecord(1L);
+        saveAt(record.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 10, 1, 10, 0));
+        MeetingAction newer = saveAt(record.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 10, 1, 11, 0));
+
+        // when
+        Page<MeetingAction> firstPage = queryService.getSectionActions(
+            List.of(1L), null, null, latestFirst(0, 1));
+
+        // then
+        assertThat(firstPage.getTotalElements()).isEqualTo(2);
+        assertThat(firstPage.isLast()).isFalse();
+        assertThat(firstPage.getContent()).extracting(MeetingAction::getId).containsExactly(newer.getId());
+    }
+
+    @Test
+    @DisplayName("getSectionActions는 팀 목록이 비어 있으면 빈 페이지를 반환한다")
+    void getSectionActions_EmptyTeamIds() {
+        // given
+        MeetingRecord record = createMeetingRecord(1L);
+        saveAt(record.getId(), MeetingActionStatus.TODO, LocalDateTime.of(2026, 10, 1, 10, 0));
+
+        // when
+        Page<MeetingAction> results = queryService.getSectionActions(List.of(), null, null, latestFirst(0, 20));
+
+        // then
+        assertThat(results.getTotalElements()).isZero();
+    }
+
+    private MeetingAction saveAt(Long meetingRecordId, MeetingActionStatus status, LocalDateTime createdAt) {
+        return fakeMeetingActionRepository.save(MeetingAction.builder()
+            .meetingRecordId(meetingRecordId)
+            .assigneeId("202412345")
+            .content("내용")
+            .status(status)
+            .createdAt(createdAt)
+            .build());
+    }
+
+    private Pageable latestFirst(int page, int size) {
+        return PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
     }
 }
