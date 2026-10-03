@@ -50,8 +50,9 @@ public class FakeMeetingRecordRepository implements MeetingRecordRepository {
             .content(meetingRecord.getContent())
             .participants(participants)
             .milestoneIds(MeetingRecord.normalizeMilestoneIds(meetingRecord.getMilestoneIds()))
+            .version(meetingRecord.getVersion())
             .createdAt(createdAt)
-            .updatedAt(LocalDateTime.now())
+            .updatedAt(meetingRecord.getUpdatedAt() != null ? meetingRecord.getUpdatedAt() : LocalDateTime.now())
             .build();
 
         store.put(id, saved);

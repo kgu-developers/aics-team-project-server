@@ -21,9 +21,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import kgu.developers.admin.preSurveyResponse.application.PreSurveyResponseAdminFacade;
-import kgu.developers.admin.preSurveyResponse.application.PreSurveyResponseExcelDownload;
 import kgu.developers.admin.preSurveyResponse.presentation.PreSurveyResponseAdminControllerImpl;
 import kgu.developers.common.exception.GlobalExceptionHandler;
+import kgu.developers.common.response.FileDownload;
 
 @ExtendWith(MockitoExtension.class)
 class PreSurveyResponseAdminControllerTest {
@@ -49,7 +49,7 @@ class PreSurveyResponseAdminControllerTest {
     @DisplayName("엑셀 다운로드는 xlsx 본문과 첨부 파일명·캐시 금지 헤더를 함께 내려준다")
     void downloadResponsesExcel_WritesDownloadHeaders() throws Exception {
         given(preSurveyResponseAdminFacade.downloadResponsesExcel(1L, PROFESSOR_ID)).willReturn(
-            new PreSurveyResponseExcelDownload("객체지향프로그래밍 01-사전조사.xlsx", new byte[] {1, 2, 3}));
+            new FileDownload("객체지향프로그래밍 01-사전조사.xlsx", new byte[] {1, 2, 3}));
 
         mockMvc.perform(get(DOWNLOAD_URL)
                 .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))

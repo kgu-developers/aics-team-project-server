@@ -25,8 +25,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import kgu.developers.admin.preSurveyResponse.application.PreSurveyResponseAdminFacade;
-import kgu.developers.admin.preSurveyResponse.application.PreSurveyResponseExcelDownload;
 import kgu.developers.admin.preSurveyResponse.presentation.response.PreSurveyResponseAdminListResponse;
+import kgu.developers.common.response.FileDownload;
 import kgu.developers.domain.enrollment.domain.Enrollment;
 import kgu.developers.domain.enrollment.domain.Role;
 import kgu.developers.domain.enrollment.domain.Status;
@@ -187,7 +187,7 @@ class PreSurveyResponseAdminFacadeTest {
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
         given(sectionQueryService.getSectionById(SECTION_ID)).willReturn(sectionOwnedBy(PROFESSOR));
 
-        PreSurveyResponseExcelDownload download = preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR);
+        FileDownload download = preSurveyResponseAdminFacade.downloadResponsesExcel(SECTION_ID, PROFESSOR);
 
         assertThat(download.fileName()).isEqualTo("월1,2_CS101-사전조사.xlsx");
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(download.content()))) {
