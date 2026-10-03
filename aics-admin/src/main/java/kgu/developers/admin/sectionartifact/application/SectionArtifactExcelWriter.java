@@ -28,10 +28,11 @@ public final class SectionArtifactExcelWriter {
             "분반", "팀", "팀원", "회의록 수", "회의록 수정 로그 수", "제출 이력 단계 수", "마감된 미제출 단계 수"};
     private static final String[] STAGE_HEADERS = {
             "분반", "팀", "팀원", "단계", "마감 시각", "상태", "첫 제출", "최신 제출", "최신 버전",
-            "최초 제출 지각 여부", "최신 파일 수", "이미지 수", "전체 파일 용량"};
+            "최초 제출 지각 여부", "최신 파일 수", "최신 이미지 수", "전체 파일 용량"};
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     // 팀명·이름은 사용자가 입력한 값이라 =HYPERLINK(...)처럼 수식으로 읽힐 수 있는 문자로 시작할 수 있다.
     private static final String FORMULA_STARTERS = "=+-@";
+    // 파일 수·이미지 수는 최신 제출 버전 기준, 용량은 기준일까지의 전 버전 누적이다.
     // 용량은 byte 단위 숫자라 자릿수가 커서, 천 단위 구분 없이는 눈으로 읽기 어렵다.
     private static final String SIZE_FORMAT = "#,##0";
 

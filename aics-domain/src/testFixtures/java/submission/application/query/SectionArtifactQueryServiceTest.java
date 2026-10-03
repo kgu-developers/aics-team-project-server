@@ -123,15 +123,16 @@ class SectionArtifactQueryServiceTest {
     }
 
     @Test
-    @DisplayName("기준일 이후 제출된 버전은 빼고 최신 버전의 파일만 센다")
-    void getSectionArtifactRows_CountsLatestVersionFilesUntilAsOf() {
+    @DisplayName("파일 수는 최신 버전만 세고 용량은 기준일까지의 전 버전을 누적한다")
+    void getSectionArtifactRows_CountsLatestVersionFilesAndCumulativeSize() {
         Submission submission = submission(PROPOSAL_ID, SubmissionStatus.SUBMITTED, 3);
-        version(submission.getId(), 1, LocalDateTime.of(2026, 11, 16, 9, 10));
+        SubmissionVersion first = version(submission.getId(), 1, LocalDateTime.of(2026, 11, 16, 9, 10));
         SubmissionVersion latest = version(submission.getId(), 2, LocalDateTime.of(2026, 11, 19, 20, 0));
         SubmissionVersion afterAsOf = version(submission.getId(), 3, LocalDateTime.of(2026, 11, 21, 10, 0));
 
         Long deletedFileId = file("deleted.pdf", "application/pdf", 7_000L, true);
         submissionArtifactRepository.saveAll(List.of(
+                SubmissionArtifact.file(first.getId(), null, file("draft.pdf", "application/pdf", 500L, false)),
                 SubmissionArtifact.file(latest.getId(), null, file("report.pdf", "application/pdf", 1_000L, false)),
                 SubmissionArtifact.file(latest.getId(), null, file("shot.PNG", "IMAGE/PNG", 2_000L, false)),
                 SubmissionArtifact.file(latest.getId(), null, deletedFileId),
@@ -147,7 +148,8 @@ class SectionArtifactQueryServiceTest {
         // 링크·텍스트는 파일이 아니고, 소프트 삭제된 파일은 개수·용량에서 뺀다. 대소문자 섞인 MIME도 이미지다.
         assertThat(proposal.fileCount()).isEqualTo(2);
         assertThat(proposal.imageCount()).isEqualTo(1);
-        assertThat(proposal.totalFileSize()).isEqualTo(3_000L);
+        // 1차(500) + 최신(1,000 + 2,000). 기준일 이후 버전(9,000)과 삭제된 파일(7,000)은 빠진다.
+        assertThat(proposal.totalFileSize()).isEqualTo(3_500L);
         assertThat(proposal.overdueMissing()).isFalse();
     }
 

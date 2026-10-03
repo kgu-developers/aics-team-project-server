@@ -89,7 +89,7 @@ public class SectionArtifactQueryService {
         Map<Long, List<SectionArtifactMember>> members = membersByTeam(teamIds);
         Map<Long, Map<Long, Submission>> submissions = submissionsByMilestoneAndTeam(milestones);
         Map<Long, List<SubmissionVersion>> versions = versionsBySubmission(submissions, until);
-        Map<Long, FileStats> fileStats = fileStatsByVersion(latestVersionIds(versions));
+        Map<Long, FileStats> fileStats = fileStatsByVersion(submittedVersionIds(versions));
         Map<Long, Map<Long, MidReport>> midReports = midReportsByMilestoneAndTeam(milestones, teamIds);
 
         List<SectionArtifactTeamRow> rows = new ArrayList<>();
@@ -143,6 +143,9 @@ public class SectionArtifactQueryService {
             SubmissionVersion latest = submitted.get(submitted.size() - 1);
             LocalDateTime firstSubmittedAt = submitted.get(0).getSubmittedAt();
             FileStats stats = fileStats.getOrDefault(latest.getId(), NO_FILES);
+            long totalFileSize = submitted.stream()
+                    .mapToLong(version -> fileStats.getOrDefault(version.getId(), NO_FILES).totalSize())
+                    .sum();
             return new SectionArtifactStageRow(
                     milestone.getType(),
                     dueAt,
@@ -154,7 +157,7 @@ public class SectionArtifactQueryService {
                     false,
                     stats.fileCount(),
                     stats.imageCount(),
-                    stats.totalSize());
+                    totalFileSize);
         }
 
         // 중간점검은 파일 제출이 아니라 블록 양식이라 제출 이력이 MidReport에만 남는다
@@ -257,9 +260,10 @@ public class SectionArtifactQueryService {
                 .collect(groupingBy(SubmissionVersion::getSubmissionId));
     }
 
-    private List<Long> latestVersionIds(Map<Long, List<SubmissionVersion>> versions) {
+    // 재제출본의 파일까지 누적 용량에 넣어야 하므로 기준일까지의 모든 버전을 집계 대상으로 삼는다.
+    private List<Long> submittedVersionIds(Map<Long, List<SubmissionVersion>> versions) {
         return versions.values().stream()
-                .map(list -> list.get(list.size() - 1))
+                .flatMap(List::stream)
                 .map(SubmissionVersion::getId)
                 .toList();
     }
