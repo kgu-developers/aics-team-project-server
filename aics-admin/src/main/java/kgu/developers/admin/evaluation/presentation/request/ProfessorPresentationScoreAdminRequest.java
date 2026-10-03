@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
-public record ProfessorPresentationScoreRequest(
+public record ProfessorPresentationScoreAdminRequest(
     @Schema(description = "평가 항목 식별자", example = "1")
     @NotNull @Positive Long criterionId,
     @Schema(description = "점수", example = "25")

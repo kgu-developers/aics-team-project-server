@@ -9,8 +9,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.Valid;
-import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationRequest;
-import kgu.developers.admin.evaluation.presentation.response.ProfessorPresentationEvaluationResponse;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationAdminRequest;
+import kgu.developers.admin.evaluation.presentation.response.ProfessorPresentationEvaluationAdminResponse;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminListResponse;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminTeamDetailResponse;
 import org.springframework.http.ResponseEntity;
@@ -53,17 +53,17 @@ public interface PresentationEvaluationAdminController {
         @Parameter(hidden = true) Authentication authentication);
 
     @Operation(summary = "교수자 발표 평가 조회", description = "담당 교수자만 점수와 비공개 메모를 조회합니다. 종료 후에도 조회할 수 있습니다.")
-    ResponseEntity<ProfessorPresentationEvaluationResponse> getProfessorEvaluation(
+    ResponseEntity<ProfessorPresentationEvaluationAdminResponse> getProfessorEvaluation(
         @Positive @PathVariable Long sectionId,
         @Positive @PathVariable Long milestoneId,
         @Positive @PathVariable Long teamId,
         @Parameter(hidden = true) Authentication authentication);
 
     @Operation(summary = "교수자 발표 평가 저장", description = "평가 기간 중 활성 항목 전체의 점수와 비공개 메모를 저장·수정합니다. 학생 평균에는 포함하지 않습니다.")
-    ResponseEntity<ProfessorPresentationEvaluationResponse> saveProfessorEvaluation(
+    ResponseEntity<ProfessorPresentationEvaluationAdminResponse> saveProfessorEvaluation(
         @Positive @PathVariable Long sectionId,
         @Positive @PathVariable Long milestoneId,
         @Positive @PathVariable Long teamId,
-        @Valid @RequestBody ProfessorPresentationEvaluationRequest request,
+        @Valid @RequestBody ProfessorPresentationEvaluationAdminRequest request,
         @Parameter(hidden = true) Authentication authentication);
 }

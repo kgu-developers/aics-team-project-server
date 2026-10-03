@@ -8,6 +8,7 @@ import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluation;
 import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluationScore;
 import kgu.developers.domain.evaluation.infrastructure.ProfessorPresentationEvaluationRepositoryImpl;
 import kgu.developers.domain.evaluation.infrastructure.ProfessorPresentationEvaluationScoreRepositoryImpl;
+import kgu.developers.domain.evaluation.infrastructure.JpaProfessorPresentationEvaluationScoreRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -32,6 +33,7 @@ class ProfessorPresentationEvaluationPersistenceTest {
 
     @Autowired private ProfessorPresentationEvaluationRepositoryImpl evaluations;
     @Autowired private ProfessorPresentationEvaluationScoreRepositoryImpl scores;
+    @Autowired private JpaProfessorPresentationEvaluationScoreRepository scoreEntities;
 
     @Test
     void resaveKeepsEvaluationAndReplacesScoresWithoutDuplicateRows() {
@@ -49,5 +51,10 @@ class ProfessorPresentationEvaluationPersistenceTest {
         assertThat(scores.findAllByEvaluationId(id)).singleElement()
                 .satisfies(score -> assertThat(score.score()).isEqualTo(9));
         assertThat(scores.existsByCriterionId(1L)).isTrue();
+        assertThat(scoreEntities.findAllByEvaluationId(id)).singleElement().satisfies(score -> {
+            assertThat(score.getCreatedAt()).isNotNull();
+            assertThat(score.getUpdatedAt()).isNotNull();
+            assertThat(score.getDeletedAt()).isNull();
+        });
     }
 }

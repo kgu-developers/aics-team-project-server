@@ -126,7 +126,9 @@ public class MilestoneCommandService {
     ) {
         lockOwnedSection(sectionId, professorId);
         Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
-        validateSchedule(schedule);
+        if (type != null && type != milestone.getType() && schedule == null) {
+            throw new IllegalArgumentException("마일스톤 유형을 변경하려면 일정이 필요합니다.");
+        }
         if (evaluationHasStarted(milestone)) {
             if (type != null && type != MilestoneType.PRESENTATION) {
                 throw new MilestoneEvaluationWindowConflictException();
@@ -137,11 +139,19 @@ public class MilestoneCommandService {
             }
         }
         milestone.updateDetails(title, description);
-        milestone.updateSchedule(schedule, type != null ? type : milestone.getType());
+        if (schedule != null || type != null) {
+            MilestoneSchedule nextSchedule = schedule != null ? schedule : milestone.getSchedule();
+            milestone.updateSchedule(nextSchedule, type != null ? type : milestone.getType());
+        }
         if (allowResubmissionBeforeDueAt != null) {
             milestone.changeAllowResubmissionBeforeDueAt(allowResubmissionBeforeDueAt);
         }
         milestoneRepository.save(milestone);
+    }
+
+    public Milestone getMilestoneForUpdate(Long sectionId, String professorId, Long milestoneId) {
+        lockOwnedSection(sectionId, professorId);
+        return getRequiredMilestoneForUpdate(sectionId, milestoneId);
     }
 
     public void changeStatus(
@@ -182,7 +192,7 @@ public class MilestoneCommandService {
         LocalDateTime opensAt = milestone.getSchedule().evaluationOpensAt();
         LocalDateTime closesAt = milestone.getSchedule().evaluationClosesAt();
         if (milestone.getType() != MilestoneType.PRESENTATION || opensAt == null
-                || now.isBefore(opensAt) || closesAt == null || !now.isBefore(closesAt)) {
+                || !now.isAfter(opensAt) || closesAt == null || !now.isBefore(closesAt)) {
             throw new MilestoneEvaluationWindowConflictException();
         }
         milestone.updateEvaluationWindow(opensAt, now);
@@ -308,12 +318,6 @@ public class MilestoneCommandService {
     private void validateStatus(MilestoneStatus status) {
         if (status == null) {
             throw new IllegalArgumentException("공개 상태는 필수입니다.");
-        }
-    }
-
-    private void validateSchedule(MilestoneSchedule schedule) {
-        if (schedule == null) {
-            throw new IllegalArgumentException("마일스톤 일정은 필수입니다.");
         }
     }
 

@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -12,9 +15,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
-import kgu.developers.admin.evaluation.application.ProfessorPresentationEvaluationFacade;
-import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationRequest;
-import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationScoreRequest;
+import kgu.developers.admin.evaluation.application.ProfessorPresentationEvaluationAdminFacade;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationAdminRequest;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationScoreAdminRequest;
 import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluation;
 import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluationRepository;
 import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluationScore;
@@ -33,6 +36,8 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -40,7 +45,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
-class ProfessorPresentationEvaluationFacadeTest {
+class ProfessorPresentationEvaluationAdminFacadeTest {
     @Mock private SectionRepository sectionRepository;
     @Mock private MilestoneRepository milestoneRepository;
     @Mock private TeamRepository teamRepository;
@@ -48,7 +53,7 @@ class ProfessorPresentationEvaluationFacadeTest {
     @Mock private ProfessorPresentationEvaluationRepository evaluationRepository;
     @Mock private ProfessorPresentationEvaluationScoreRepository scoreRepository;
     @Spy private Clock serviceClock = Clock.fixed(Instant.parse("2026-10-02T01:00:00Z"), ZoneId.of("Asia/Seoul"));
-    @InjectMocks private ProfessorPresentationEvaluationFacade facade;
+    @InjectMocks private ProfessorPresentationEvaluationAdminFacade facade;
 
     @Test
     void saveAllCriteriaAndPrivateMemo() {
@@ -114,6 +119,57 @@ class ProfessorPresentationEvaluationFacadeTest {
         then(evaluationRepository).shouldHaveNoInteractions();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void missingAndOtherSectionTeamsAreForbiddenForRead(boolean otherSection) {
+        Milestone evaluationMilestone = milestone(false);
+        given(sectionRepository.existsActiveByIdAndProfessorId(2L, "professor")).willReturn(true);
+        given(milestoneRepository.findByIdAndSectionId(3L, 2L)).willReturn(Optional.of(evaluationMilestone));
+        given(teamRepository.findById(20L)).willReturn(otherSection
+                ? Optional.of(Team.builder().id(20L).sectionId(99L).build()) : Optional.empty());
+
+        assertThatThrownBy(() -> facade.getEvaluation(2L, 3L, 20L, "professor"))
+                .isInstanceOf(AccessDeniedException.class);
+        then(evaluationRepository).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void missingAndOtherSectionTeamsAreForbiddenForSave(boolean otherSection) {
+        allowSave(false);
+        given(teamRepository.findById(20L)).willReturn(otherSection
+                ? Optional.of(Team.builder().id(20L).sectionId(99L).build()) : Optional.empty());
+
+        assertThatThrownBy(() -> facade.saveEvaluation(2L, 3L, 20L, "professor", request(1L, 8)))
+                .isInstanceOf(AccessDeniedException.class);
+        then(evaluationRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void saveUsesOneTimeSnapshotEvenWhenProcessingCrossesClosingTime() {
+        allowSave(false);
+        given(criterionRepository.findAllBySectionIdOrderByDisplayOrder(2L)).willReturn(criteria());
+        LocalDateTime acceptedAt = LocalDateTime.of(2026, 10, 2, 10, 59, 59);
+        ProfessorPresentationEvaluation saved = ProfessorPresentationEvaluation.restore(
+                9L, 3L, 20L, "professor", "비공개 메모", acceptedAt, null, null);
+        given(evaluationRepository.findByMilestoneIdAndTeamId(3L, 20L))
+                .willReturn(Optional.empty(), Optional.of(saved));
+        given(evaluationRepository.save(any())).willAnswer(invocation -> {
+            assertThat(((ProfessorPresentationEvaluation) invocation.getArgument(0)).getSubmittedAt())
+                    .isEqualTo(acceptedAt);
+            return saved;
+        });
+        doReturn(Instant.parse("2026-10-02T01:59:59Z"), Instant.parse("2026-10-02T02:00:01Z"))
+                .when(serviceClock).instant();
+        clearInvocations(serviceClock);
+
+        var response = facade.saveEvaluation(2L, 3L, 20L, "professor", request(1L, 8));
+
+        assertThat(response.editable()).isTrue();
+        assertThat(response.submittedAt()).isEqualTo(acceptedAt);
+        then(serviceClock).should(times(1)).instant();
+    }
+
     private void allowSave(boolean closed) {
         Milestone evaluationMilestone = milestone(closed);
         given(sectionRepository.lockActiveByIdAndProfessorId(2L, "professor")).willReturn(true);
@@ -132,8 +188,8 @@ class ProfessorPresentationEvaluationFacadeTest {
         return List.of(TeamEvaluationCriterion.restore(1L, 2L, "완성도", 10, 0, null, null, null));
     }
 
-    private ProfessorPresentationEvaluationRequest request(Long criterionId, int score) {
-        return new ProfessorPresentationEvaluationRequest(
-                List.of(new ProfessorPresentationScoreRequest(criterionId, score)), "비공개 메모");
+    private ProfessorPresentationEvaluationAdminRequest request(Long criterionId, int score) {
+        return new ProfessorPresentationEvaluationAdminRequest(
+                List.of(new ProfessorPresentationScoreAdminRequest(criterionId, score)), "비공개 메모");
     }
 }

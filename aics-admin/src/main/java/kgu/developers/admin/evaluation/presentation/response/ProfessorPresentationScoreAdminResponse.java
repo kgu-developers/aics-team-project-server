@@ -2,7 +2,7 @@ package kgu.developers.admin.evaluation.presentation.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-public record ProfessorPresentationScoreResponse(
+public record ProfessorPresentationScoreAdminResponse(
     @Schema(description = "평가 항목 식별자") Long criterionId,
     @Schema(description = "평가 항목명") String title,
     @Schema(description = "최대 점수") int maxScore,

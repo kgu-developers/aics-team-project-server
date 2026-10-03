@@ -191,6 +191,84 @@ class MilestoneServiceTest {
     }
 
     @Test
+    @DisplayName("평가 시작 시각과 현재 시각이 같으면 종료 요청을 충돌로 거부한다")
+    void rejectClosingPresentationEvaluationAtOpeningTime() {
+        LocalDateTime now = LocalDateTime.parse("2026-10-02T10:00:00");
+        Long id = commandService.createMilestone(1L, PROFESSOR_ID, "발표", null, 3,
+                new MilestoneSchedule(null, LocalDateTime.parse("2026-10-10T23:59:00"),
+                        null, null, now, now.plusDays(1), true),
+                MilestoneType.PRESENTATION);
+
+        assertThatThrownBy(() -> commandService.closePresentationEvaluation(
+                1L, PROFESSOR_ID, id))
+                .isInstanceOf(MilestoneEvaluationWindowConflictException.class);
+        assertThat(queryService.getMilestone(1L, id).getSchedule().evaluationClosesAt())
+                .isEqualTo(now.plusDays(1));
+    }
+
+    @Test
+    @DisplayName("발표 평가가 시작된 뒤에도 일정 없는 제목·설명 수정은 기존 일정을 유지한다")
+    void updatePresentationDetailsAfterEvaluationStartedPreservesSchedule() {
+        MilestoneSchedule schedule = new MilestoneSchedule(
+                null,
+                LocalDateTime.parse("2026-10-10T23:59:00"),
+                null,
+                null,
+                LocalDateTime.parse("2026-10-01T09:00:00"),
+                LocalDateTime.parse("2026-10-03T09:00:00"),
+                true
+        );
+        Long id = commandService.createMilestone(
+                1L, PROFESSOR_ID, "발표", "기존 설명", 3, schedule, MilestoneType.PRESENTATION);
+
+        commandService.updateMilestone(
+                1L, PROFESSOR_ID, id, "발표 수정", "수정된 설명", null, null, null);
+
+        Milestone updated = queryService.getMilestone(1L, id);
+        assertThat(updated.getTitle()).isEqualTo("발표 수정");
+        assertThat(updated.getDescription()).isEqualTo("수정된 설명");
+        assertThat(updated.getSchedule()).isEqualTo(schedule);
+    }
+
+    @Test
+    @DisplayName("동일한 유형을 명시한 부분 수정은 기존 일정을 유지한다")
+    void updateDetailsWithSameTypePreservesSchedule() {
+        Long id = createMilestone(1L, "제안서", 2);
+        MilestoneSchedule existingSchedule = queryService.getMilestone(1L, id).getSchedule();
+
+        commandService.updateMilestone(
+                1L, PROFESSOR_ID, id, "제안서 수정", "수정된 설명", null, MilestoneType.GENERAL);
+
+        Milestone updated = queryService.getMilestone(1L, id);
+        assertThat(updated.getType()).isEqualTo(MilestoneType.GENERAL);
+        assertThat(updated.getSchedule()).isEqualTo(existingSchedule);
+    }
+
+    @Test
+    @DisplayName("기존 일정이 유효해도 일정 없이 유형을 변경할 수 없다")
+    void rejectTypeChangeWithoutSchedule() {
+        MilestoneSchedule existingSchedule = new MilestoneSchedule(
+                LocalDateTime.parse("2026-09-01T09:00:00"),
+                LocalDateTime.parse("2026-09-10T23:59:00"),
+                null,
+                null,
+                null,
+                null
+        );
+        Long id = commandService.createMilestone(
+                1L, PROFESSOR_ID, "일반 과제", null, 3, existingSchedule, MilestoneType.GENERAL);
+
+        assertThatThrownBy(() -> commandService.updateMilestone(
+                1L, PROFESSOR_ID, id, "상호 평가", null, null, MilestoneType.PEER_EVALUATION))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("마일스톤 유형을 변경하려면 일정이 필요합니다.");
+
+        Milestone unchanged = queryService.getMilestone(1L, id);
+        assertThat(unchanged.getType()).isEqualTo(MilestoneType.GENERAL);
+        assertThat(unchanged.getSchedule()).isEqualTo(existingSchedule);
+    }
+
+    @Test
     @DisplayName("이미 시작한 발표 평가의 시작 시각은 변경하거나 지울 수 없다")
     void rejectChangingStartedPresentationWindow() {
         Long id = commandService.createMilestone(1L, PROFESSOR_ID, "발표", null, 3,
@@ -361,27 +439,29 @@ class MilestoneServiceTest {
     }
 
     @Test
-    @DisplayName("일정이 없으면 기존 상세 내용을 변경하지 않는다")
-    void rejectUpdateWithoutScheduleBeforeMutation() {
+    @DisplayName("일정이 없는 부분 수정은 기존 일정을 유지한다")
+    void updateDetailsWithoutSchedulePreservesExistingSchedule() {
         Long milestoneId = createMilestone(1L, "제안서", 2);
+        MilestoneSchedule existingSchedule = queryService.getMilestone(1L, milestoneId).getSchedule();
 
-        assertThatThrownBy(() -> commandService.updateMilestone(
+        commandService.updateMilestone(
                 1L,
                 PROFESSOR_ID,
                 milestoneId,
                 "변경된 제목",
-                null,
+                "변경된 설명",
                 null
-        ))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("일정");
+        );
 
-        assertThat(queryService.getMilestone(1L, milestoneId).getTitle()).isEqualTo("제안서");
+        Milestone updated = queryService.getMilestone(1L, milestoneId);
+        assertThat(updated.getTitle()).isEqualTo("변경된 제목");
+        assertThat(updated.getDescription()).isEqualTo("변경된 설명");
+        assertThat(updated.getSchedule()).isEqualTo(existingSchedule);
     }
 
     @Test
-    @DisplayName("존재하지 않는 마일스톤 수정은 일정 검증보다 먼저 찾을 수 없음으로 응답한다")
-    void rejectMissingUpdateBeforeScheduleValidation() {
+    @DisplayName("존재하지 않는 마일스톤 부분 수정은 찾을 수 없음으로 응답한다")
+    void rejectMissingPartialUpdate() {
         assertThatThrownBy(() -> commandService.updateMilestone(
                 1L,
                 PROFESSOR_ID,

@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS professor_presentation_evaluation_score (
     evaluation_id BIGINT NOT NULL,
     criterion_id BIGINT NOT NULL,
     score INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
     CONSTRAINT fk_professor_presentation_evaluation_score_evaluation
         FOREIGN KEY (evaluation_id) REFERENCES professor_presentation_evaluation (id),
     CONSTRAINT fk_professor_presentation_evaluation_score_criterion
@@ -34,3 +37,9 @@ CREATE TABLE IF NOT EXISTS professor_presentation_evaluation_score (
 
 CREATE INDEX IF NOT EXISTS idx_professor_presentation_evaluation_score_criterion
     ON professor_presentation_evaluation_score (criterion_id);
+
+-- Keep environments that applied the initial table definition compatible with BaseTimeEntity.
+ALTER TABLE professor_presentation_evaluation_score
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;

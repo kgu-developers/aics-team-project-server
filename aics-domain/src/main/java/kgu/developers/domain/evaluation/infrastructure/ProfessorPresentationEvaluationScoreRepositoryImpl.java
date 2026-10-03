@@ -26,7 +26,6 @@ public class ProfessorPresentationEvaluationScoreRepositoryImpl
     @Override
     public void replaceAll(Long evaluationId, List<ProfessorPresentationEvaluationScore> scores) {
         jpaRepository.deleteAllByEvaluationId(evaluationId);
-        jpaRepository.flush();
         jpaRepository.saveAll(scores.stream()
                 .map(ProfessorPresentationEvaluationScoreJpaEntity::fromDomain).toList());
     }

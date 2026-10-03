@@ -13,9 +13,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.evaluation.application.PresentationEvaluationAdminFacade;
-import kgu.developers.admin.evaluation.application.ProfessorPresentationEvaluationFacade;
-import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationRequest;
-import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationScoreRequest;
+import kgu.developers.admin.evaluation.application.ProfessorPresentationEvaluationAdminFacade;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationAdminRequest;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationScoreAdminRequest;
 import kgu.developers.admin.evaluation.presentation.PresentationEvaluationAdminControllerImpl;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminListResponse;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminRowResponse;
@@ -69,8 +69,8 @@ class PresentationEvaluationAdminControllerTest {
     @Test
     @WithMockUser(username = "202012345", roles = "ADMIN")
     void saveProfessorEvaluation() throws Exception {
-        var request = new ProfessorPresentationEvaluationRequest(
-            List.of(new ProfessorPresentationScoreRequest(1L, 8)), "비공개 메모");
+        var request = new ProfessorPresentationEvaluationAdminRequest(
+            List.of(new ProfessorPresentationScoreAdminRequest(1L, 8)), "비공개 메모");
         mockMvc.perform(put(BASE_URL + "/{milestoneId}/teams/{teamId}/professor", 1L, 3L, 10L)
                 .with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"scores\":[{\"criterionId\":1,\"score\":8}],\"memo\":\"비공개 메모\"}"))
@@ -107,7 +107,7 @@ class PresentationEvaluationAdminControllerTest {
     private PresentationEvaluationAdminFacade facade;
 
     @MockitoBean
-    private ProfessorPresentationEvaluationFacade professorFacade;
+    private ProfessorPresentationEvaluationAdminFacade professorFacade;
 
     @MockitoBean
     private TokenRevocationStore tokenRevocationStore;

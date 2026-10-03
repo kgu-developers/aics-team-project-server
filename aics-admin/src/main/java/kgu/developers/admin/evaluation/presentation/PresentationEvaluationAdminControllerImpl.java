@@ -1,9 +1,9 @@
 package kgu.developers.admin.evaluation.presentation;
 
 import kgu.developers.admin.evaluation.application.PresentationEvaluationAdminFacade;
-import kgu.developers.admin.evaluation.application.ProfessorPresentationEvaluationFacade;
-import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationRequest;
-import kgu.developers.admin.evaluation.presentation.response.ProfessorPresentationEvaluationResponse;
+import kgu.developers.admin.evaluation.application.ProfessorPresentationEvaluationAdminFacade;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationAdminRequest;
+import kgu.developers.admin.evaluation.presentation.response.ProfessorPresentationEvaluationAdminResponse;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminListResponse;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminTeamDetailResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PresentationEvaluationAdminControllerImpl implements PresentationEvaluationAdminController {
 
     private final PresentationEvaluationAdminFacade facade;
-    private final ProfessorPresentationEvaluationFacade professorFacade;
+    private final ProfessorPresentationEvaluationAdminFacade professorFacade;
 
     @Override
     @GetMapping
@@ -50,7 +50,7 @@ public class PresentationEvaluationAdminControllerImpl implements PresentationEv
 
     @Override
     @GetMapping("/{milestoneId}/teams/{teamId}/professor")
-    public ResponseEntity<ProfessorPresentationEvaluationResponse> getProfessorEvaluation(
+    public ResponseEntity<ProfessorPresentationEvaluationAdminResponse> getProfessorEvaluation(
             @PathVariable Long sectionId, @PathVariable Long milestoneId,
             @PathVariable Long teamId, Authentication authentication) {
         return ResponseEntity.ok(professorFacade.getEvaluation(
@@ -59,9 +59,9 @@ public class PresentationEvaluationAdminControllerImpl implements PresentationEv
 
     @Override
     @PutMapping("/{milestoneId}/teams/{teamId}/professor")
-    public ResponseEntity<ProfessorPresentationEvaluationResponse> saveProfessorEvaluation(
+    public ResponseEntity<ProfessorPresentationEvaluationAdminResponse> saveProfessorEvaluation(
             @PathVariable Long sectionId, @PathVariable Long milestoneId,
-            @PathVariable Long teamId, @RequestBody ProfessorPresentationEvaluationRequest request,
+            @PathVariable Long teamId, @RequestBody ProfessorPresentationEvaluationAdminRequest request,
             Authentication authentication) {
         return ResponseEntity.ok(professorFacade.saveEvaluation(
                 sectionId, milestoneId, teamId, authentication.getName(), request));

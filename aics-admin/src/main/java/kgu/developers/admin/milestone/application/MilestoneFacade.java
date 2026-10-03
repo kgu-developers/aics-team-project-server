@@ -120,7 +120,7 @@ public class MilestoneFacade {
             boolean isExplicitPeerEval = request.type() == MilestoneType.PEER_EVALUATION;
             boolean needsExisting = request.type() == null || isExplicitPeerEval;
             Milestone existing = needsExisting
-                    ? milestoneQueryService.getMilestone(sectionId, milestoneId)
+                    ? milestoneCommandService.getMilestoneForUpdate(sectionId, professorId, milestoneId)
                     : null;
             MilestoneType effectiveType = request.type() != null
                     ? request.type()

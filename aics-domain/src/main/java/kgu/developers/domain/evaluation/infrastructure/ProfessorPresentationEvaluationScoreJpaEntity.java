@@ -7,6 +7,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluationScore;
+import kgu.developers.common.domain.BaseTimeEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,7 +24,7 @@ import static lombok.AccessLevel.PROTECTED;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
-public class ProfessorPresentationEvaluationScoreJpaEntity {
+public class ProfessorPresentationEvaluationScoreJpaEntity extends BaseTimeEntity {
     @Id @GeneratedValue(strategy = IDENTITY)
     private Long id;
     @Column(name = "evaluation_id", nullable = false)
