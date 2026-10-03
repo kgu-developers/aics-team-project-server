@@ -161,7 +161,7 @@ public class SectionArtifactQueryService {
                     midReport.getSubmittedAt(),
                     midReport.getSubmittedAt(),
                     midReport.getVersion() == null ? null : midReport.getVersion().intValue(),
-                    late(dueAt, midReport.getSubmittedAt()),
+                    midReportLate(dueAt, midReport),
                     false,
                     0,
                     0,
@@ -180,6 +180,15 @@ public class SectionArtifactQueryService {
                 0,
                 0,
                 0L);
+    }
+
+    // 중간점검은 submit()이 submittedAt을 덮어써서 반려 후 재제출하면 최초 제출 시각이 남지 않는다.
+    // 반려 이력이 있으면 지각 여부를 알 수 없으므로 판정을 포기한다(반려가 없었다면 그 값이 곧 최초 제출이다).
+    private Boolean midReportLate(LocalDateTime dueAt, MidReport midReport) {
+        if (midReport.getRevision() != null) {
+            return null;
+        }
+        return late(dueAt, midReport.getSubmittedAt());
     }
 
     private SubmissionStatus midReportStatus(MidReport midReport) {

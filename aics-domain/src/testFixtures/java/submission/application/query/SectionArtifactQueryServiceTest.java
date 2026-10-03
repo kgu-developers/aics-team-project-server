@@ -16,6 +16,7 @@ import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportRepository;
+import kgu.developers.domain.midreport.domain.MidReportRevision;
 import kgu.developers.domain.midreport.domain.MidReportStatus;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
@@ -196,6 +197,26 @@ class SectionArtifactQueryServiceTest {
         // 블록 양식이라 파일 산출물이 없다
         assertThat(midReport.fileCount()).isZero();
         assertThat(midReport.overdueMissing()).isFalse();
+    }
+
+    @Test
+    @DisplayName("반려 후 재제출한 중간점검은 최초 제출 시각이 남지 않아 지각 여부를 비운다")
+    void getSectionArtifactRows_LeavesMidReportLateUnknownAfterRevision() {
+        // 마감 11/18 23:59 전에 냈더라도 submit()이 submittedAt을 덮어써서 재제출 시각만 남는다.
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MID_REPORT_ID))
+                .willReturn(List.of(MidReport.builder()
+                        .id(1L).teamId(teamId).milestoneId(MID_REPORT_ID).version(4L)
+                        .status(MidReportStatus.SUBMITTED)
+                        .revision(new MidReportRevision(List.of("GOAL"), List.of("GOAL"),
+                                LocalDateTime.of(2026, 11, 18, 20, 0), LocalDateTime.of(2026, 11, 19, 10, 0)))
+                        .submittedAt(LocalDateTime.of(2026, 11, 19, 10, 0))
+                        .createdAt(LocalDateTime.of(2026, 11, 1, 10, 0))
+                        .build()));
+
+        SectionArtifactStageRow midReport = stage(MilestoneType.MID_REPORT);
+        assertThat(midReport.firstSubmissionLate()).isNull();
+        assertThat(midReport.status()).isEqualTo(SubmissionStatus.SUBMITTED);
+        assertThat(midReport.firstSubmittedAt()).isEqualTo(LocalDateTime.of(2026, 11, 19, 10, 0));
     }
 
     @Test
