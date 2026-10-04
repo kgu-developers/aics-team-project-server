@@ -129,7 +129,9 @@ public class MeetingActionAdminFacade {
         if (assigneeIds.isEmpty()) {
             return Map.of();
         }
-        return userQueryService.getUsersByStudentNumbers(assigneeIds).stream()
+        // 담당자가 탈퇴해도 액션플랜과 assigneeId는 남는다. 활성 사용자만 조회하면 과거 담당자
+        // 이름이 사라지므로, 제출 이력·쪽지함과 같이 탈퇴 사용자까지 포함해 이름을 유지한다.
+        return userQueryService.getUsersByStudentNumbersIncludingDeleted(assigneeIds).stream()
             .collect(Collectors.toMap(User::getStudentNumber, Function.identity()));
     }
 }

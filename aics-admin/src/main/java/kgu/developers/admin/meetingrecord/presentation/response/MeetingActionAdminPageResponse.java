@@ -5,6 +5,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import kgu.developers.common.response.PageableResponse;
 import kgu.developers.domain.meetingrecord.domain.MeetingAction;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
@@ -28,14 +29,23 @@ public record MeetingActionAdminPageResponse(
         Map<Long, Team> teamsById,
         Map<String, User> usersByStudentNumber
     ) {
+        // 액션플랜 페이지를 읽은 뒤 회의록 조회 사이에 학생이 그 회의록을 지우면(하드 삭제라
+        // 액션플랜도 같이 사라진다) 조립할 회의록·팀이 비어버린다. 읽기 트랜잭션이라고 해서
+        // 두 조회가 같은 스냅샷을 보는 건 아니므로, 사라진 행은 응답에서 빼고 500으로 깨지지 않게 한다.
         List<MeetingActionAdminResponse> contents = page.getContent().stream()
-            .map(meetingAction -> {
+            .flatMap(meetingAction -> {
                 MeetingRecord meetingRecord = meetingRecordsById.get(meetingAction.getMeetingRecordId());
+                if (meetingRecord == null) {
+                    return Stream.<MeetingActionAdminResponse>empty();
+                }
                 Team team = teamsById.get(meetingRecord.getTeamId());
+                if (team == null) {
+                    return Stream.<MeetingActionAdminResponse>empty();
+                }
                 User assignee = meetingAction.getAssigneeId() == null
                     ? null
                     : usersByStudentNumber.get(meetingAction.getAssigneeId());
-                return MeetingActionAdminResponse.from(meetingAction, meetingRecord, team, assignee);
+                return Stream.of(MeetingActionAdminResponse.from(meetingAction, meetingRecord, team, assignee));
             })
             .toList();
 

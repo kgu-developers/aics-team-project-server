@@ -78,7 +78,7 @@ class MeetingActionAdminFacadeTest {
             List.of(10L, 20L), null, null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(meetingAction), latestFirst(), 1));
         given(meetingRecordQueryService.getMeetingRecords(List.of(100L))).willReturn(List.of(meetingRecord));
-        given(userQueryService.getUsersByStudentNumbers(List.of("202412345")))
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202412345")))
             .willReturn(List.of(user("202412345", "홍길동")));
 
         var response = meetingActionAdminFacade.getSectionMeetingActions(
@@ -247,7 +247,7 @@ class MeetingActionAdminFacadeTest {
             assertThat(content.assigneeId()).isNull();
             assertThat(content.assigneeName()).isNull();
         });
-        verify(userQueryService, never()).getUsersByStudentNumbers(anyList());
+        verify(userQueryService, never()).getUsersByStudentNumbersIncludingDeleted(anyList());
     }
 
     @Test
@@ -264,6 +264,76 @@ class MeetingActionAdminFacadeTest {
 
         assertThat(response.contents()).isEmpty();
         assertThat(response.pageable().totalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("담당자가 탈퇴해도 과거 담당자 이름을 그대로 보여준다")
+    void getSectionMeetingActions_KeepsWithdrawnAssigneeName() {
+        Section section = section(1L, PROFESSOR_ID);
+        Team team = team(10L, 1L, "1팀");
+        MeetingRecord meetingRecord = meetingRecord(100L, 10L);
+        MeetingAction meetingAction = meetingAction(5L, 100L, "202412345", MeetingActionStatus.TODO);
+
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
+        given(meetingActionQueryService.getSectionActions(List.of(10L), null, null, latestFirst()))
+            .willReturn(new PageImpl<>(List.of(meetingAction), latestFirst(), 1));
+        given(meetingRecordQueryService.getMeetingRecords(List.of(100L))).willReturn(List.of(meetingRecord));
+        // 탈퇴 사용자는 활성 조회에서 빠지지만, 포함 조회에서는 이름이 그대로 나온다
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202412345")))
+            .willReturn(List.of(user("202412345", "탈퇴한학생")));
+
+        var response = meetingActionAdminFacade.getSectionMeetingActions(
+            1L, null, null, null, PAGEABLE, PROFESSOR_ID);
+
+        assertThat(response.contents()).singleElement().satisfies(content ->
+            assertThat(content.assigneeName()).isEqualTo("탈퇴한학생"));
+        verify(userQueryService, never()).getUsersByStudentNumbers(anyList());
+    }
+
+    @Test
+    @DisplayName("조회 도중 회의록이 삭제돼도 500 대신 그 행만 빼고 응답한다")
+    void getSectionMeetingActions_SkipsRemovedMeetingRecord() {
+        Section section = section(1L, PROFESSOR_ID);
+        Team team = team(10L, 1L, "1팀");
+        MeetingRecord survivingRecord = meetingRecord(100L, 10L);
+        MeetingAction survivingAction = meetingAction(5L, 100L, null, MeetingActionStatus.TODO);
+        // 101번 회의록은 액션플랜 페이지를 읽은 뒤 삭제돼 회의록 조회 결과에 없다
+        MeetingAction orphanAction = meetingAction(6L, 101L, null, MeetingActionStatus.TODO);
+
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
+        given(meetingActionQueryService.getSectionActions(List.of(10L), null, null, latestFirst()))
+            .willReturn(new PageImpl<>(List.of(orphanAction, survivingAction), latestFirst(), 2));
+        given(meetingRecordQueryService.getMeetingRecords(List.of(101L, 100L)))
+            .willReturn(List.of(survivingRecord));
+
+        var response = meetingActionAdminFacade.getSectionMeetingActions(
+            1L, null, null, null, PAGEABLE, PROFESSOR_ID);
+
+        assertThat(response.contents()).extracting(content -> content.id()).containsExactly(5L);
+    }
+
+    @Test
+    @DisplayName("조회 도중 팀이 삭제돼도 500 대신 그 행만 빼고 응답한다")
+    void getSectionMeetingActions_SkipsRemovedTeam() {
+        Section section = section(1L, PROFESSOR_ID);
+        Team team = team(10L, 1L, "1팀");
+        // 회의록은 남아 있지만 그 팀이 조회 시점 목록에서 빠진 경우
+        MeetingRecord recordOfRemovedTeam = meetingRecord(100L, 99L);
+        MeetingAction meetingAction = meetingAction(5L, 100L, null, MeetingActionStatus.TODO);
+
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
+        given(meetingActionQueryService.getSectionActions(List.of(10L), null, null, latestFirst()))
+            .willReturn(new PageImpl<>(List.of(meetingAction), latestFirst(), 1));
+        given(meetingRecordQueryService.getMeetingRecords(List.of(100L)))
+            .willReturn(List.of(recordOfRemovedTeam));
+
+        var response = meetingActionAdminFacade.getSectionMeetingActions(
+            1L, null, null, null, PAGEABLE, PROFESSOR_ID);
+
+        assertThat(response.contents()).isEmpty();
     }
 
     private Pageable latestFirst() {
