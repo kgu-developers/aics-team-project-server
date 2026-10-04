@@ -71,7 +71,7 @@ class MeetingRecordEditLogAdminFacadeTest {
             List.of(10L, 20L), null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(editLog(3L, 7L, 20L, "202412345")), latestFirst(), 1));
         given(meetingRecordQueryService.getMeetingRecords(List.of(7L))).willReturn(List.of(meetingRecord(7L, 20L)));
-        given(userQueryService.getUsersByStudentNumbers(List.of("202412345")))
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202412345")))
             .willReturn(List.of(user("202412345", "홍길동")));
 
         var response = meetingRecordEditLogAdminFacade.getSectionMeetingRecordLogs(

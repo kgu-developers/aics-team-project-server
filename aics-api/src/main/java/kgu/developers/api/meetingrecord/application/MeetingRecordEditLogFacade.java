@@ -58,7 +58,9 @@ public class MeetingRecordEditLogFacade {
         if (editorIds.isEmpty()) {
             return Map.of();
         }
-        return userQueryService.getUsersByStudentNumbers(editorIds).stream()
+        // 수정자가 탈퇴해도 로그는 회의록에 계속 남는다. 활성 사용자만 조회하면 과거 감사 이력의
+        // 작성자 이름이 사라지므로, 제출 이력·쪽지함과 같이 탈퇴 사용자까지 포함해 조회한다.
+        return userQueryService.getUsersByStudentNumbersIncludingDeleted(editorIds).stream()
             .collect(Collectors.toMap(User::getStudentNumber, Function.identity()));
     }
 }

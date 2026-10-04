@@ -135,6 +135,50 @@ class MeetingRecordCommandServiceTest {
     }
 
     @Test
+    @DisplayName("수정할 필드 없이 사유만 보내면 거부하고 이력도 남기지 않는다")
+    void updateMeetingRecord_ReasonOnly_ThrowsException() {
+        // given
+        Long id = createMeetingRecord();
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updateMeetingRecord(
+            id, null, null, null, null, null, null, null, "가".repeat(30), "202412345"))
+            .isInstanceOf(CustomException.class);
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("같은 값을 다시 보내면 실제 변경이 없으므로 이력을 남기지 않는다")
+    void updateMeetingRecord_SameValue_DoesNotRecordLog() {
+        // given
+        Long id = createMeetingRecord();
+        MeetingRecord before = fakeMeetingRecordRepository.findById(id).orElseThrow();
+
+        // when
+        commandService.updateMeetingRecord(
+            id, before.getTitle(), before.getMeetingAt(), before.getLocation(), before.getPhase(),
+            before.getContent(), List.of("202412345"), null, "가".repeat(30), "202412345");
+
+        // then
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("한 필드라도 실제로 바뀌면 이력을 남긴다")
+    void updateMeetingRecord_ChangedValue_RecordsLog() {
+        // given
+        Long id = createMeetingRecord();
+        MeetingRecord before = fakeMeetingRecordRepository.findById(id).orElseThrow();
+
+        // when
+        commandService.updateMeetingRecord(
+            id, before.getTitle(), null, null, null, "바뀐 내용", null, null, "가".repeat(30), "202412345");
+
+        // then
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).hasSize(1);
+    }
+
+    @Test
     @DisplayName("deleteMeetingRecord는 회의록을 삭제한다")
     void deleteMeetingRecord_Success() {
         // given

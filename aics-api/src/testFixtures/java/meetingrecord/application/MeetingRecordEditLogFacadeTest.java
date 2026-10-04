@@ -118,7 +118,7 @@ class MeetingRecordEditLogFacadeTest {
         var response = meetingRecordEditLogFacade.getMeetingRecordLogs(7L, PAGEABLE, MEMBER);
 
         assertThat(response.contents()).isEmpty();
-        verify(userQueryService, never()).getUsersByStudentNumbers(anyList());
+        verify(userQueryService, never()).getUsersByStudentNumbersIncludingDeleted(anyList());
     }
 
     private MeetingRecord meetingRecord() {

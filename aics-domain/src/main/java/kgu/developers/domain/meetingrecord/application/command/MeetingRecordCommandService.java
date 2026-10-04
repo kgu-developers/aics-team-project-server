@@ -2,6 +2,7 @@ package kgu.developers.domain.meetingrecord.application.command;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLog;
@@ -9,6 +10,7 @@ import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLogRepository
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordInvalidContentException;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordInvalidTitleException;
+import kgu.developers.domain.meetingrecord.exception.MeetingRecordNoUpdateFieldException;
 import kgu.developers.domain.meetingrecord.exception.MeetingRecordNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -91,34 +93,62 @@ public class MeetingRecordCommandService {
         String reason,
         String editorId
     ) {
+        // 사유만 보내고 바꿀 값은 하나도 없는 요청은 거절한다. 그대로 두면 수정하지 않은 기록이
+        // 이력에 쌓이고, 분반 산출물 엑셀의 '회의록 수정 수'가 실제보다 부풀려진다.
+        if (title == null && meetingAt == null && location == null && phase == null
+            && content == null && participantIds == null && milestoneIds == null) {
+            throw new MeetingRecordNoUpdateFieldException();
+        }
+
         MeetingRecord meetingRecord = findOrThrow(id);
+        boolean changed = false;
 
         if (title != null) {
             if (title.isBlank()) {
                 throw new MeetingRecordInvalidTitleException();
             }
-            meetingRecord.updateTitle(title);
+            if (!title.equals(meetingRecord.getTitle())) {
+                meetingRecord.updateTitle(title);
+                changed = true;
+            }
         }
-        if (meetingAt != null) {
+        if (meetingAt != null && !meetingAt.equals(meetingRecord.getMeetingAt())) {
             meetingRecord.updateMeetingAt(meetingAt);
+            changed = true;
         }
-        if (location != null) {
+        if (location != null && !location.equals(meetingRecord.getLocation())) {
             meetingRecord.updateLocation(location);
+            changed = true;
         }
-        if (phase != null) {
+        if (phase != null && phase != meetingRecord.getPhase()) {
             meetingRecord.updatePhase(phase);
+            changed = true;
         }
         if (content != null) {
             if (content.isBlank()) {
                 throw new MeetingRecordInvalidContentException();
             }
-            meetingRecord.updateContent(content);
+            if (!content.equals(meetingRecord.getContent())) {
+                meetingRecord.updateContent(content);
+                changed = true;
+            }
         }
-        if (participantIds != null) {
+        if (participantIds != null && !participantUserIds(meetingRecord).equals(
+            MeetingRecord.toParticipants(meetingRecord.getId(), participantIds).stream()
+                .map(MeetingParticipant::getUserId)
+                .toList())) {
             meetingRecord.updateParticipants(participantIds);
+            changed = true;
         }
-        if (milestoneIds != null) {
+        if (milestoneIds != null && !meetingRecord.getMilestoneIds().equals(
+            MeetingRecord.normalizeMilestoneIds(milestoneIds))) {
             meetingRecord.updateMilestoneIds(milestoneIds);
+            changed = true;
+        }
+
+        // 같은 값을 다시 보낸 요청은 실제로 바뀐 게 없으므로 저장도, 이력 적재도 하지 않는다.
+        if (!changed) {
+            return;
         }
 
         meetingRecordRepository.save(meetingRecord);
@@ -133,6 +163,12 @@ public class MeetingRecordCommandService {
     public void deleteMeetingRecord(Long id) {
         findOrThrow(id);
         meetingRecordRepository.deleteById(id);
+    }
+
+    private List<String> participantUserIds(MeetingRecord meetingRecord) {
+        return meetingRecord.getParticipants() == null
+            ? List.of()
+            : meetingRecord.getParticipants().stream().map(MeetingParticipant::getUserId).toList();
     }
 
     private MeetingRecord findOrThrow(Long id) {
