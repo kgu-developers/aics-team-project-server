@@ -193,11 +193,23 @@ class SubmissionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("지각제출기간에는 이미 제출한 팀의 재제출을 막는다")
-    void canSubmitNow_FalseForResubmissionWithinLateSubmissionWindow() {
+    @DisplayName("마감 전 재제출이 비허용이어도 지각제출기간에는 이미 제출한 팀의 재제출을 허용한다")
+    void canSubmitNow_TrueForResubmissionWithinLateSubmissionWindow() {
         LocalDateTime due = LocalDateTime.now().minusHours(1);
         LocalDateTime lateUntil = LocalDateTime.now().plusDays(1);
-        Milestone milestone = milestone(5L, 2, schedule(due, lateUntil, null), true);
+        Milestone milestone = milestone(5L, 2, schedule(due, lateUntil, null));
+        given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
+        Submission submission = submission(5L);
+        submission.recordNewVersion(1);
+
+        assertThat(submissionQueryService.canSubmitNow(submission)).isTrue();
+    }
+
+    @Test
+    @DisplayName("지각제출기간이 끝나면 이미 제출한 팀도 재제출할 수 없다")
+    void canSubmitNow_FalseForResubmissionAfterLateSubmissionWindow() {
+        LocalDateTime now = LocalDateTime.now();
+        Milestone milestone = milestone(5L, 2, schedule(now.minusDays(2), now.minusDays(1), null));
         given(milestoneRepository.findById(5L)).willReturn(Optional.of(milestone));
         Submission submission = submission(5L);
         submission.recordNewVersion(1);
