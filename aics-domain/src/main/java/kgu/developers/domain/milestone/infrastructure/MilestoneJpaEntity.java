@@ -159,7 +159,8 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
                         lateSubmissionUntil,
                         revisionUntil,
                         evaluationOpensAt,
-                        evaluationClosesAt
+                        evaluationClosesAt,
+                        type == MilestoneType.PRESENTATION
                 ),
                 type,
                 allowResubmissionBeforeDueAt

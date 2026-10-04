@@ -8,8 +8,21 @@ public record MilestoneSchedule(
         LocalDateTime lateSubmissionUntil,
         LocalDateTime revisionUntil,
         LocalDateTime evaluationOpensAt,
-        LocalDateTime evaluationClosesAt
+        LocalDateTime evaluationClosesAt,
+        boolean independentEvaluationWindow
 ) {
+    public MilestoneSchedule(
+            LocalDateTime opensAt,
+            LocalDateTime dueAt,
+            LocalDateTime lateSubmissionUntil,
+            LocalDateTime revisionUntil,
+            LocalDateTime evaluationOpensAt,
+            LocalDateTime evaluationClosesAt
+    ) {
+        this(opensAt, dueAt, lateSubmissionUntil, revisionUntil,
+                evaluationOpensAt, evaluationClosesAt, false);
+    }
+
     public MilestoneSchedule {
         if (dueAt == null) {
             throw new IllegalArgumentException("마감 시각은 필수입니다.");
@@ -34,13 +47,13 @@ public record MilestoneSchedule(
         if (hasEvaluationStart != hasEvaluationEnd) {
             throw new IllegalArgumentException("평가 시작 시각과 종료 시각은 함께 설정해야 합니다.");
         }
-        if (hasEvaluationStart && evaluationOpensAt.isBefore(dueAt)) {
+        if (!independentEvaluationWindow && hasEvaluationStart && evaluationOpensAt.isBefore(dueAt)) {
             throw new IllegalArgumentException("평가 시작 시각은 마감 시각보다 빠를 수 없습니다.");
         }
         LocalDateTime submissionOrRevisionUntil = revisionUntil != null
                 ? revisionUntil
                 : lateSubmissionUntil;
-        if (hasEvaluationStart && submissionOrRevisionUntil != null
+        if (!independentEvaluationWindow && hasEvaluationStart && submissionOrRevisionUntil != null
                 && evaluationOpensAt.isBefore(submissionOrRevisionUntil)) {
             throw new IllegalArgumentException("평가 시작 시각은 제출·수정 종료 시각보다 빠를 수 없습니다.");
         }
@@ -59,7 +72,17 @@ public record MilestoneSchedule(
                 lateSubmissionUntil,
                 revisionUntil,
                 evaluationOpensAt,
-                evaluationClosesAt
+                evaluationClosesAt,
+                independentEvaluationWindow
         );
+    }
+
+    public MilestoneSchedule forType(MilestoneType type) {
+        boolean independent = type == MilestoneType.PRESENTATION;
+        if (independent == independentEvaluationWindow) {
+            return this;
+        }
+        return new MilestoneSchedule(opensAt, dueAt, lateSubmissionUntil, revisionUntil,
+                evaluationOpensAt, evaluationClosesAt, independent);
     }
 }

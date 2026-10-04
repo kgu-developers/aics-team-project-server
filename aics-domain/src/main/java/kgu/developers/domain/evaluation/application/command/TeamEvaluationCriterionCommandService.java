@@ -2,6 +2,7 @@ package kgu.developers.domain.evaluation.application.command;
 
 import kgu.developers.domain.evaluation.domain.TeamEvaluationCriterion;
 import kgu.developers.domain.evaluation.domain.TeamEvaluationCriterionRepository;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,5 +18,15 @@ public class TeamEvaluationCriterionCommandService {
     TeamEvaluationCriterion criterion =
         TeamEvaluationCriterion.create(sectionId, title, maxScore, displayOrder);
     return criterionRepository.save(criterion).getId();
+  }
+
+  public void updateCriterion(TeamEvaluationCriterion criterion, String title, int maxScore, int displayOrder) {
+    criterion.update(title, maxScore, displayOrder);
+    criterionRepository.save(criterion);
+  }
+
+  public void deleteCriterion(TeamEvaluationCriterion criterion, LocalDateTime deletedAt) {
+    criterion.delete(deletedAt);
+    criterionRepository.save(criterion);
   }
 }

@@ -4,6 +4,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import kgu.developers.admin.config.SecurityConfig;
 import kgu.developers.admin.evaluation.application.PresentationEvaluationAdminFacade;
+import kgu.developers.admin.evaluation.application.ProfessorPresentationEvaluationAdminFacade;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationEvaluationAdminRequest;
+import kgu.developers.admin.evaluation.presentation.request.ProfessorPresentationScoreAdminRequest;
 import kgu.developers.admin.evaluation.presentation.PresentationEvaluationAdminControllerImpl;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminListResponse;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminRowResponse;
@@ -34,6 +39,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
@@ -60,6 +66,36 @@ class PresentationEvaluationAdminControllerTest {
 
     private static final String BASE_URL = "/api/v1/admin/sections/{sectionId}/presentation-evaluations";
 
+    @Test
+    @WithMockUser(username = "202012345", roles = "ADMIN")
+    void saveProfessorEvaluation() throws Exception {
+        var request = new ProfessorPresentationEvaluationAdminRequest(
+            List.of(new ProfessorPresentationScoreAdminRequest(1L, 8)), "비공개 메모");
+        mockMvc.perform(put(BASE_URL + "/{milestoneId}/teams/{teamId}/professor", 1L, 3L, 10L)
+                .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"scores\":[{\"criterionId\":1,\"score\":8}],\"memo\":\"비공개 메모\"}"))
+            .andExpect(status().isOk());
+        then(professorFacade).should().saveEvaluation(1L, 3L, 10L, "202012345", request);
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void studentCannotReadProfessorMemo() throws Exception {
+        mockMvc.perform(get(BASE_URL + "/{milestoneId}/teams/{teamId}/professor", 1L, 3L, 10L))
+            .andExpect(status().isForbidden());
+        then(professorFacade).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void rejectEmptyProfessorScores() throws Exception {
+        mockMvc.perform(put(BASE_URL + "/{milestoneId}/teams/{teamId}/professor", 1L, 3L, 10L)
+                .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"scores\":[],\"memo\":\"메모\"}"))
+            .andExpect(status().isBadRequest());
+        then(professorFacade).shouldHaveNoInteractions();
+    }
+
     @SpringBootConfiguration
     static class TestApp {
     }
@@ -69,6 +105,9 @@ class PresentationEvaluationAdminControllerTest {
 
     @MockitoBean
     private PresentationEvaluationAdminFacade facade;
+
+    @MockitoBean
+    private ProfessorPresentationEvaluationAdminFacade professorFacade;
 
     @MockitoBean
     private TokenRevocationStore tokenRevocationStore;

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
+import kgu.developers.domain.milestone.domain.MilestoneType;
 
 class MilestoneScheduleTest {
     private static final LocalDateTime DUE_AT = LocalDateTime.of(2026, 9, 10, 23, 59);
@@ -111,6 +112,19 @@ class MilestoneScheduleTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("마감 시각");
+    }
+
+    @Test
+    @DisplayName("발표 평가는 제출·수정 마감과 독립적으로 시작할 수 있다")
+    void presentationEvaluationCanStartBeforeSubmissionDueAt() {
+        MilestoneSchedule schedule = new MilestoneSchedule(null, DUE_AT,
+                DUE_AT.plusDays(1), DUE_AT.plusDays(2),
+                DUE_AT.minusDays(1), DUE_AT.plusDays(3), true);
+
+        assertThat(schedule.forType(MilestoneType.PRESENTATION).evaluationOpensAt())
+                .isEqualTo(DUE_AT.minusDays(1));
+        assertThatThrownBy(() -> schedule.forType(MilestoneType.GENERAL))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

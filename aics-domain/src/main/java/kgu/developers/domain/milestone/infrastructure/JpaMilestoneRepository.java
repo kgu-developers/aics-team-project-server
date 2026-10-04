@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface JpaMilestoneRepository extends JpaRepository<MilestoneJpaEntity, Long> {
 
+    @Query("SELECT milestone.sectionId FROM MilestoneJpaEntity milestone WHERE milestone.id = :id AND milestone.deletedAt IS NULL")
+    Optional<Long> findSectionIdById(@Param("id") Long id);
+
     Optional<MilestoneJpaEntity> findByIdAndDeletedAtIsNull(Long id);
 
     Optional<MilestoneJpaEntity> findByIdAndSectionIdAndDeletedAtIsNull(Long id, Long sectionId);

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface MilestoneRepository {
+    Optional<Long> findSectionIdById(Long id);
     Milestone save(Milestone milestone);
 
     List<Milestone> saveAllWeekNumberChanges(Long sectionId, List<Milestone> milestones);

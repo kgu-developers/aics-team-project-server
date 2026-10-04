@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.evaluation.presentation.request.TeamEvaluationCriterionCreateRequest;
+import kgu.developers.admin.evaluation.presentation.request.TeamEvaluationCriterionUpdateRequest;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionListResponse;
 import kgu.developers.admin.evaluation.presentation.response.TeamEvaluationCriterionPersistResponse;
 import org.springframework.http.ResponseEntity;
@@ -42,5 +43,22 @@ public interface TeamEvaluationCriterionController {
       @Parameter(description = "분반 ID", example = "1", required = true)
       @Positive @PathVariable Long sectionId,
       @Valid @RequestBody TeamEvaluationCriterionCreateRequest request,
+      @Parameter(hidden = true) Authentication authentication);
+
+  @Operation(summary = "팀 발표 평가 항목 수정", description = "평가 시작 전이고 저장된 점수가 없을 때만 수정합니다.")
+  @ApiResponse(responseCode = "204", description = "수정 완료")
+  @ApiResponse(responseCode = "409", description = "평가 시작 또는 점수 저장으로 변경 불가")
+  ResponseEntity<Void> updateCriterion(
+      @Positive @PathVariable Long sectionId,
+      @Positive @PathVariable Long criterionId,
+      @Valid @RequestBody TeamEvaluationCriterionUpdateRequest request,
+      @Parameter(hidden = true) Authentication authentication);
+
+  @Operation(summary = "팀 발표 평가 항목 삭제", description = "평가 시작 전이고 저장된 점수가 없을 때만 삭제합니다.")
+  @ApiResponse(responseCode = "204", description = "삭제 완료")
+  @ApiResponse(responseCode = "409", description = "평가 시작 또는 점수 저장으로 변경 불가")
+  ResponseEntity<Void> deleteCriterion(
+      @Positive @PathVariable Long sectionId,
+      @Positive @PathVariable Long criterionId,
       @Parameter(hidden = true) Authentication authentication);
 }

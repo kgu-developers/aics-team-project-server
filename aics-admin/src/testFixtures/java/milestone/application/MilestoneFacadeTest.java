@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
@@ -337,6 +339,52 @@ class MilestoneFacadeTest {
     }
 
     @Test
+    @DisplayName("유형과 일정을 생략한 부분 수정은 분반 잠금 조회 후 기존 발표 일정을 유지하도록 전달한다")
+    void updateMilestoneDetailsOnlyUsesLockedExistingMilestone() {
+        MilestoneSchedule existingSchedule = new MilestoneSchedule(
+                null,
+                DUE_AT,
+                null,
+                null,
+                DUE_AT.minusDays(2),
+                DUE_AT.plusDays(1),
+                true
+        );
+        Milestone existingMilestone = Milestone.restore(
+                MILESTONE_ID,
+                SECTION_ID,
+                "발표 평가",
+                "기존 안내",
+                2,
+                MilestoneStatus.PUBLISHED,
+                existingSchedule,
+                MilestoneType.PRESENTATION,
+                false
+        );
+        given(milestoneCommandService.getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .willReturn(existingMilestone);
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "발표 평가 수정", "수정된 안내", null, null, null);
+
+        milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
+
+        InOrder inOrder = inOrder(milestoneCommandService);
+        inOrder.verify(milestoneCommandService)
+                .getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID);
+        inOrder.verify(milestoneCommandService).updateMilestone(
+                SECTION_ID,
+                PROFESSOR_ID,
+                MILESTONE_ID,
+                "발표 평가 수정",
+                "수정된 안내",
+                null,
+                null,
+                null
+        );
+        then(milestoneQueryService).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("상호 평가 마일스톤 수정 시 상호평가 양식의 기간도 함께 갱신된다")
     void updateMilestoneForPeerEvaluation() {
         LocalDateTime opensAt = DUE_AT.minusDays(7);
@@ -409,7 +457,8 @@ class MilestoneFacadeTest {
                 MilestoneType.PEER_EVALUATION,
                 false
         );
-        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(peerEvalMilestone);
+        given(milestoneCommandService.getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .willReturn(peerEvalMilestone);
 
         milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
@@ -464,10 +513,12 @@ class MilestoneFacadeTest {
                 MilestoneType.GENERAL,
                 false
         );
-        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(generalMilestone);
+        given(milestoneCommandService.getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .willReturn(generalMilestone);
 
         milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
+        then(milestoneQueryService).shouldHaveNoInteractions();
         then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
     }
 
@@ -503,7 +554,8 @@ class MilestoneFacadeTest {
                 MilestoneType.PEER_EVALUATION,
                 false
         );
-        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(existingMilestone);
+        given(milestoneCommandService.getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .willReturn(existingMilestone);
 
         milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request);
 
@@ -557,14 +609,17 @@ class MilestoneFacadeTest {
                 MilestoneType.GENERAL,
                 false
         );
-        given(milestoneQueryService.getMilestone(SECTION_ID, MILESTONE_ID)).willReturn(existingMilestone);
+        given(milestoneCommandService.getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .willReturn(existingMilestone);
 
         assertThatThrownBy(() -> milestoneFacade.updateMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request))
                 .isInstanceOf(InvalidMilestoneRequestException.class)
                 .hasCauseInstanceOf(IllegalArgumentException.class)
                 .hasRootCauseMessage("상호평가 시작 시각은 필수입니다.");
 
-        then(milestoneCommandService).shouldHaveNoInteractions();
+        then(milestoneCommandService).should()
+                .getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID);
+        then(milestoneCommandService).shouldHaveNoMoreInteractions();
         then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
     }
 
@@ -592,7 +647,9 @@ class MilestoneFacadeTest {
                 .hasCauseInstanceOf(IllegalArgumentException.class)
                 .hasRootCauseMessage("상호평가 시작 시각은 종료 시각보다 앞서야 합니다.");
 
-        then(milestoneCommandService).shouldHaveNoInteractions();
+        then(milestoneCommandService).should()
+                .getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID);
+        then(milestoneCommandService).shouldHaveNoMoreInteractions();
         then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
     }
 
@@ -727,8 +784,21 @@ class MilestoneFacadeTest {
     }
 
     @Test
-    @DisplayName("상호평가 마일스톤 수정 시 일정이 null이면 양식 기간을 갱신하지 않는다")
+    @DisplayName("기존 상호평가의 일정 없는 부분 수정은 양식 기간을 갱신하지 않는다")
     void updateMilestonePeerEvaluationWithNullSchedule() {
+        Milestone existingMilestone = Milestone.restore(
+                MILESTONE_ID,
+                SECTION_ID,
+                "상호 평가",
+                "기존 설명",
+                2,
+                MilestoneStatus.DRAFT,
+                new MilestoneSchedule(DUE_AT.minusDays(7), DUE_AT, null, null, null, null),
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+        given(milestoneCommandService.getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .willReturn(existingMilestone);
         MilestoneUpdateRequest request = new MilestoneUpdateRequest(
                 "상호 평가",
                 "팀원 상호 평가",
@@ -749,6 +819,40 @@ class MilestoneFacadeTest {
                 MilestoneType.PEER_EVALUATION,
                 false
         );
+        then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("일정 없이 일반 마일스톤을 상호평가로 변경하면 잘못된 요청으로 응답한다")
+    void rejectPeerEvaluationTypeChangeWithoutSchedule() {
+        Milestone existingMilestone = milestone();
+        given(milestoneCommandService.getMilestoneForUpdate(SECTION_ID, PROFESSOR_ID, MILESTONE_ID))
+                .willReturn(existingMilestone);
+        willThrow(new IllegalArgumentException("마일스톤 유형을 변경하려면 일정이 필요합니다."))
+                .given(milestoneCommandService)
+                .updateMilestone(
+                        SECTION_ID,
+                        PROFESSOR_ID,
+                        MILESTONE_ID,
+                        "상호 평가",
+                        "팀원 상호 평가",
+                        null,
+                        MilestoneType.PEER_EVALUATION,
+                        false
+                );
+        MilestoneUpdateRequest request = new MilestoneUpdateRequest(
+                "상호 평가",
+                "팀원 상호 평가",
+                null,
+                MilestoneType.PEER_EVALUATION,
+                false
+        );
+
+        assertThatThrownBy(() -> milestoneFacade.updateMilestone(
+                SECTION_ID, PROFESSOR_ID, MILESTONE_ID, request))
+                .isInstanceOf(InvalidMilestoneRequestException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("마일스톤 유형을 변경하려면 일정이 필요합니다.");
         then(peerEvaluationFormCommandService).shouldHaveNoInteractions();
     }
 

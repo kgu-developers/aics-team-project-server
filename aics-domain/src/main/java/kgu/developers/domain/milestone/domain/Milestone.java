@@ -35,8 +35,8 @@ public final class Milestone {
         this.description = normalizeDescription(description);
         this.weekNumber = validateWeekNumber(weekNumber);
         this.status = validateStatus(status);
-        this.schedule = validateSchedule(schedule);
         this.type = validateType(type);
+        this.schedule = validateSchedule(schedule).forType(this.type);
         this.allowResubmissionBeforeDueAt = allowResubmissionBeforeDueAt;
     }
 
@@ -143,7 +143,14 @@ public final class Milestone {
     }
 
     public void updateSchedule(MilestoneSchedule schedule) {
-        this.schedule = validateSchedule(schedule);
+        this.schedule = validateSchedule(schedule).forType(type);
+    }
+
+    public void updateSchedule(MilestoneSchedule schedule, MilestoneType type) {
+        MilestoneType nextType = validateType(type);
+        MilestoneSchedule nextSchedule = validateSchedule(schedule).forType(nextType);
+        this.schedule = nextSchedule;
+        this.type = nextType;
     }
 
     public void updateEvaluationWindow(
@@ -162,7 +169,9 @@ public final class Milestone {
     }
 
     public void changeType(MilestoneType type) {
-        this.type = validateType(type);
+        MilestoneType nextType = validateType(type);
+        this.schedule = schedule.forType(nextType);
+        this.type = nextType;
     }
 
     public void changeAllowResubmissionBeforeDueAt(boolean allowResubmissionBeforeDueAt) {

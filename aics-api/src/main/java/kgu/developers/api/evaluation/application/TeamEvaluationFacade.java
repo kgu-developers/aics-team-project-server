@@ -28,6 +28,7 @@ import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
+import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.submission.domain.SubmissionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
@@ -47,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TeamEvaluationFacade {
     private final MilestoneRepository milestoneRepository;
+    private final SectionRepository sectionRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final TeamRepository teamRepository;
@@ -134,6 +136,13 @@ public class TeamEvaluationFacade {
         User requester = userQueryService.getUserByStudentNumber(userId);
         if (requester.getGlobalRole() != UserGlobalRole.USER) {
             throw new AccessDeniedException("일반 사용자 중 활성 학생만 발표 평가에 접근할 수 있습니다.");
+        }
+        if (forUpdate) {
+            Long sectionId = milestoneRepository.findSectionIdById(milestoneId)
+                    .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
+            if (sectionRepository.findActiveByIdForUpdate(sectionId).isEmpty()) {
+                throw new AccessDeniedException("활성 분반만 발표 평가를 저장할 수 있습니다.");
+            }
         }
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));

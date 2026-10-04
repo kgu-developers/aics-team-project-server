@@ -77,6 +77,11 @@ public class MilestoneRepositoryImpl implements MilestoneRepository {
     }
 
     @Override
+    public Optional<Long> findSectionIdById(Long id) {
+        return jpaMilestoneRepository.findSectionIdById(id);
+    }
+
+    @Override
     public Optional<Milestone> findByIdAndSectionId(Long id, Long sectionId) {
         return jpaMilestoneRepository.findByIdAndSectionIdAndDeletedAtIsNull(id, sectionId)
                 .map(MilestoneJpaEntity::toDomain);

@@ -51,6 +51,11 @@ public class TeamEvaluationScoreRepositoryImpl implements TeamEvaluationScoreRep
     }
 
     @Override
+    public boolean existsByCriterionId(Long criterionId) {
+        return jpaRepository.existsByCriterionIdAndDeletedAtIsNull(criterionId);
+    }
+
+    @Override
     public void deleteAllByTeamEvaluationId(Long teamEvaluationId) {
         jpaRepository.deleteAllByTeamEvaluationId(teamEvaluationId);
         jpaRepository.flush();
