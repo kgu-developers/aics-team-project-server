@@ -89,6 +89,25 @@ class MeetingRecordEditLogAdminFacadeTest {
     }
 
     @Test
+    @DisplayName("수정자가 탈퇴해도 과거 이력의 작성자 이름은 그대로 보여준다")
+    void getSectionMeetingRecordLogs_KeepsWithdrawnEditorName() {
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+        given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(20L, "2팀")));
+        given(meetingRecordEditLogQueryService.getSectionLogs(List.of(20L), null, latestFirst()))
+            .willReturn(new PageImpl<>(List.of(editLog(3L, 7L, 20L, "202412345")), latestFirst(), 1));
+        given(meetingRecordQueryService.getMeetingRecords(List.of(7L))).willReturn(List.of(meetingRecord(7L, 20L)));
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202412345")))
+            .willReturn(List.of(user("202412345", "탈퇴한학생")));
+
+        var response = meetingRecordEditLogAdminFacade.getSectionMeetingRecordLogs(
+            1L, null, null, PAGEABLE, PROFESSOR_ID);
+
+        assertThat(response.contents()).singleElement().satisfies(content ->
+            assertThat(content.editorName()).isEqualTo("탈퇴한학생"));
+        verify(userQueryService, never()).getUsersByStudentNumbers(anyList());
+    }
+
+    @Test
     @DisplayName("조회는 최신순으로 고정되며 클라이언트 정렬은 적용하지 않는다")
     void getSectionMeetingRecordLogs_FixedSort() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));

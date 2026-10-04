@@ -62,7 +62,7 @@ class MeetingRecordEditLogFacadeTest {
         given(meetingRecordQueryService.getMeetingRecord(7L)).willReturn(meetingRecord());
         given(meetingRecordEditLogQueryService.getMeetingRecordLogs(eq(7L), any(Pageable.class)))
             .willReturn(new PageImpl<>(List.of(editLog(3L, MEMBER)), PAGEABLE, 1));
-        given(userQueryService.getUsersByStudentNumbers(List.of(MEMBER)))
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of(MEMBER)))
             .willReturn(List.of(user(MEMBER, "홍길동")));
 
         var response = meetingRecordEditLogFacade.getMeetingRecordLogs(7L, PAGEABLE, MEMBER);
@@ -93,6 +93,23 @@ class MeetingRecordEditLogFacadeTest {
         verify(meetingRecordEditLogQueryService).getMeetingRecordLogs(eq(7L), captor.capture());
         assertThat(captor.getValue().getSort())
             .isEqualTo(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
+    }
+
+    @Test
+    @DisplayName("수정자가 탈퇴해도 과거 이력의 작성자 이름은 그대로 보여준다")
+    void getMeetingRecordLogs_KeepsWithdrawnEditorName() {
+        given(meetingRecordQueryService.getMeetingRecord(7L)).willReturn(meetingRecord());
+        given(meetingRecordEditLogQueryService.getMeetingRecordLogs(eq(7L), any(Pageable.class)))
+            .willReturn(new PageImpl<>(List.of(editLog(3L, MEMBER)), PAGEABLE, 1));
+        // 탈퇴 사용자는 활성 조회에서 빠지지만, 포함 조회에서는 이름이 그대로 나온다
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of(MEMBER)))
+            .willReturn(List.of(user(MEMBER, "탈퇴한학생")));
+
+        var response = meetingRecordEditLogFacade.getMeetingRecordLogs(7L, PAGEABLE, MEMBER);
+
+        assertThat(response.contents()).singleElement().satisfies(content ->
+            assertThat(content.editorName()).isEqualTo("탈퇴한학생"));
+        verify(userQueryService, never()).getUsersByStudentNumbers(anyList());
     }
 
     @Test
