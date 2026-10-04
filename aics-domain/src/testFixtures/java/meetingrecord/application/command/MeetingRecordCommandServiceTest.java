@@ -179,6 +179,82 @@ class MeetingRecordCommandServiceTest {
     }
 
     @Test
+    @DisplayName("참석자 순서만 바꿔 보내면 실제 연결이 같으므로 이력을 남기지 않는다")
+    void updateMeetingRecord_ReorderedParticipants_DoesNotRecordLog() {
+        // given — 참석자 두 명으로 회의록 생성
+        Long id = commandService.createMeetingRecord(
+            1L, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용",
+            List.of("202412345", "202412346"));
+
+        // when — 같은 두 명을 순서만 뒤집어 전달
+        commandService.updateMeetingRecord(
+            id, null, null, null, null, null, List.of("202412346", "202412345"), null,
+            "가".repeat(30), "202412345");
+
+        // then — 리포지토리 동기화가 집합 기준이라 실제 변경이 없다
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("마일스톤 순서만 바꿔 보내면 이력을 남기지 않는다")
+    void updateMeetingRecord_ReorderedMilestones_DoesNotRecordLog() {
+        // given
+        Long id = commandService.createMeetingRecord(
+            1L, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용",
+            List.of("202412345"), List.of(3L, 4L));
+
+        // when
+        commandService.updateMeetingRecord(
+            id, null, null, null, null, null, null, List.of(4L, 3L), "가".repeat(30), "202412345");
+
+        // then
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("참석자가 실제로 바뀌면 이력을 남긴다")
+    void updateMeetingRecord_ChangedParticipants_RecordsLog() {
+        // given
+        Long id = commandService.createMeetingRecord(
+            1L, "회의록 제목", MeetingPhase.PROPOSAL, "202412345", LocalDateTime.now(), "장소", "내용",
+            List.of("202412345", "202412346"));
+
+        // when — 한 명을 뺀다
+        commandService.updateMeetingRecord(
+            id, null, null, null, null, null, List.of("202412345"), null, "가".repeat(30), "202412345");
+
+        // then
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("변경이 없는 요청이라도 사유가 30자 미만이면 거부한다")
+    void updateMeetingRecord_NoChangeWithTooShortReason_ThrowsException() {
+        // given
+        Long id = createMeetingRecord();
+        MeetingRecord before = fakeMeetingRecordRepository.findById(id).orElseThrow();
+
+        // when & then — 같은 값을 보내더라도 사유 규칙은 동일하게 적용된다
+        assertThatThrownBy(() -> commandService.updateMeetingRecord(
+            id, before.getTitle(), null, null, null, null, null, null, "짧은 사유", "202412345"))
+            .isInstanceOf(CustomException.class);
+        assertThat(fakeMeetingRecordEditLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("변경이 없는 요청이라도 사유가 500자를 넘으면 거부한다")
+    void updateMeetingRecord_NoChangeWithTooLongReason_ThrowsException() {
+        // given
+        Long id = createMeetingRecord();
+        MeetingRecord before = fakeMeetingRecordRepository.findById(id).orElseThrow();
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updateMeetingRecord(
+            id, before.getTitle(), null, null, null, null, null, null, "가".repeat(501), "202412345"))
+            .isInstanceOf(CustomException.class);
+    }
+
+    @Test
     @DisplayName("deleteMeetingRecord는 회의록을 삭제한다")
     void deleteMeetingRecord_Success() {
         // given

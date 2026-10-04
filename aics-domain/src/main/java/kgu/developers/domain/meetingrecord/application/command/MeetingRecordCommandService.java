@@ -2,6 +2,7 @@ package kgu.developers.domain.meetingrecord.application.command;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import kgu.developers.domain.meetingrecord.domain.MeetingParticipant;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
@@ -100,6 +101,12 @@ public class MeetingRecordCommandService {
             throw new MeetingRecordNoUpdateFieldException();
         }
 
+        // 실제 변경이 없어 로그를 남기지 않는 요청도 같은 사유 규칙을 적용받아야 한다.
+        // 조기 반환 뒤에서 검증하면 "같은 값 + 짧은 사유"만 통과해 API 규칙이 요청에 따라 달라진다.
+        if (reason != null) {
+            MeetingRecordEditLog.validateReason(reason);
+        }
+
         MeetingRecord meetingRecord = findOrThrow(id);
         boolean changed = false;
 
@@ -133,15 +140,17 @@ public class MeetingRecordCommandService {
                 changed = true;
             }
         }
-        if (participantIds != null && !participantUserIds(meetingRecord).equals(
-            MeetingRecord.toParticipants(meetingRecord.getId(), participantIds).stream()
+        // 참석자·마일스톤은 리포지토리가 집합 기준으로 동기화하므로(syncParticipants/syncMilestones)
+        // 순서만 바꿔 보낸 요청은 실제 연결이 그대로다. 비교도 집합으로 해야 "안 바꾼 수정"이 안 쌓인다.
+        if (participantIds != null && !Set.copyOf(participantUserIds(meetingRecord)).equals(
+            Set.copyOf(MeetingRecord.toParticipants(meetingRecord.getId(), participantIds).stream()
                 .map(MeetingParticipant::getUserId)
-                .toList())) {
+                .toList()))) {
             meetingRecord.updateParticipants(participantIds);
             changed = true;
         }
-        if (milestoneIds != null && !meetingRecord.getMilestoneIds().equals(
-            MeetingRecord.normalizeMilestoneIds(milestoneIds))) {
+        if (milestoneIds != null && !Set.copyOf(meetingRecord.getMilestoneIds()).equals(
+            Set.copyOf(MeetingRecord.normalizeMilestoneIds(milestoneIds)))) {
             meetingRecord.updateMilestoneIds(milestoneIds);
             changed = true;
         }
