@@ -6,6 +6,8 @@ import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportBlockDefinition;
+import kgu.developers.domain.midreport.domain.MidReportRevision;
+import kgu.developers.domain.midreport.domain.MidReportStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -62,5 +64,53 @@ class MidReportJpaEntityTest {
         entity.updateFromDomain(report);
 
         assertThat(entity.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("피드백 완료 메타데이터는 revision JSON 왕복 시 보존된다")
+    void mapsRevisionCompletionMetadata() {
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 9, 12, 0);
+        MidReport report = MidReport.builder()
+            .teamId(1L)
+            .milestoneId(2L)
+            .title("보고서")
+            .dueDate(LocalDateTime.of(2026, 10, 26, 23, 59))
+            .status(MidReportStatus.SUBMITTED)
+            .revision(new MidReportRevision(
+                java.util.List.of("topic"), java.util.List.of("topic"), requestedAt, null,
+                completedAt, "professor-1"
+            ))
+            .blocks(java.util.List.of())
+            .build();
+
+        MidReport restored = MidReportJpaEntity.fromDomain(report).toDomain();
+
+        assertThat(restored.getRevision().completedAt()).isEqualTo(completedAt);
+        assertThat(restored.getRevision().completedBy()).isEqualTo("professor-1");
+        assertThat(restored.getRevision().resubmittedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("기존 revision JSON은 완료 필드가 없거나 null이어도 읽을 수 있다")
+    void mapsLegacyRevisionJsonWithoutCompletionMetadata() {
+        MidReportJpaEntity entity = MidReportJpaEntity.builder()
+            .teamId(1L)
+            .milestoneId(2L)
+            .title("보고서")
+            .dueDate(LocalDateTime.of(2026, 10, 26, 23, 59))
+            .status(MidReportStatus.SUBMITTED)
+            .revisionData("""
+                {"affectedBlockKeys":["topic"],"changedBlockKeys":[],
+                 "requestedAt":"2026-09-09T10:00:00","resubmittedAt":null,"completedAt":null}
+                """)
+            .build();
+
+        MidReport restored = entity.toDomain();
+
+        assertThat(restored.getRevision().requestedAt()).isEqualTo(LocalDateTime.of(2026, 9, 9, 10, 0));
+        assertThat(restored.getRevision().resubmittedAt()).isNull();
+        assertThat(restored.getRevision().completedAt()).isNull();
+        assertThat(restored.getRevision().completedBy()).isNull();
     }
 }

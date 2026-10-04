@@ -158,7 +158,9 @@ public class MidReportJpaEntity extends BaseTimeEntity {
             strings(node.path("affectedBlockKeys")),
             strings(node.path("changedBlockKeys")),
             dateTime(node.path("requestedAt")),
-            dateTime(node.path("resubmittedAt"))
+            dateTime(node.path("resubmittedAt")),
+            dateTime(node.path("completedAt")),
+            text(node.path("completedBy"))
         );
     }
 
@@ -170,7 +172,9 @@ public class MidReportJpaEntity extends BaseTimeEntity {
             "affectedBlockKeys", revision.affectedBlockKeys(),
             "changedBlockKeys", revision.changedBlockKeys(),
             "requestedAt", revision.requestedAt().toString(),
-            "resubmittedAt", revision.resubmittedAt() == null ? "" : revision.resubmittedAt().toString()
+            "resubmittedAt", revision.resubmittedAt() == null ? "" : revision.resubmittedAt().toString(),
+            "completedAt", revision.completedAt() == null ? "" : revision.completedAt().toString(),
+            "completedBy", revision.completedBy() == null ? "" : revision.completedBy()
         )).toString();
     }
 
@@ -185,6 +189,10 @@ public class MidReportJpaEntity extends BaseTimeEntity {
 
     private static LocalDateTime dateTime(JsonNode node) {
         return node.isTextual() && !node.asText().isBlank() ? LocalDateTime.parse(node.asText()) : null;
+    }
+
+    private static String text(JsonNode node) {
+        return node.isTextual() && !node.asText().isBlank() ? node.asText() : null;
     }
 
     private static int blockOrder(String key) {

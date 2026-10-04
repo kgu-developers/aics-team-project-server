@@ -77,6 +77,19 @@ public class MidReportCommandService {
         return midReportRepository.save(report);
     }
 
+    public MidReportRevisionCompletionResult completeRevision(
+        Long reportId,
+        long expectedVersion,
+        String professorId,
+        LocalDateTime completedAt
+    ) {
+        MidReport report = get(reportId);
+        if (!report.completeRevision(expectedVersion, professorId, completedAt)) {
+            return new MidReportRevisionCompletionResult(report, false);
+        }
+        return new MidReportRevisionCompletionResult(midReportRepository.save(report), true);
+    }
+
     private MidReport get(Long reportId) {
         return midReportRepository.findById(reportId).orElseThrow(MidReportNotFoundException::new);
     }

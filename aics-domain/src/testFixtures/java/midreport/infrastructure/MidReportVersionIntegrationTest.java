@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportBlockDefinition;
+import kgu.developers.domain.midreport.domain.MidReportStatus;
 import kgu.developers.domain.midreport.exception.MidReportVersionConflictException;
 import kgu.developers.domain.midreport.infrastructure.MidReportRepositoryImpl;
 import org.junit.jupiter.api.DisplayName;
@@ -66,6 +68,30 @@ class MidReportVersionIntegrationTest {
             .isInstanceOf(MidReportVersionConflictException.class);
     }
 
+    @Test
+    @DisplayName("학생 저장이 먼저 반영되면 오래된 교수 피드백 완료 저장을 거부한다")
+    void rejectsStaleRevisionCompletionAfterStudentEdit() {
+        MidReport first = tx.execute(status -> repository.save(revisionRequestedReport()));
+        MidReport staleCompletion = tx.execute(status -> repository.findById(first.getId()).orElseThrow());
+
+        MidReport studentEdited = tx.execute(status -> {
+            MidReport current = repository.findById(first.getId()).orElseThrow();
+            current.updateBlock(
+                "topic", current.getVersion(), topicFields("학생이 먼저 저장"), "202600001",
+                LocalDateTime.of(2026, 9, 9, 10, 30)
+            );
+            return repository.save(current);
+        });
+        assertThat(studentEdited.getVersion()).isEqualTo(1L);
+
+        staleCompletion.completeRevision(
+            staleCompletion.getVersion(), "professor-1", LocalDateTime.of(2026, 9, 9, 11, 0)
+        );
+
+        assertThatThrownBy(() -> tx.execute(status -> repository.save(staleCompletion)))
+            .isInstanceOf(MidReportVersionConflictException.class);
+    }
+
     private MidReport report() {
         return MidReport.create(
             10L,
@@ -75,6 +101,29 @@ class MidReportVersionIntegrationTest {
             "CineFlow",
             "영화관 관리"
         );
+    }
+
+    private MidReport revisionRequestedReport() {
+        MidReport created = MidReport.create(
+            11L,
+            21L,
+            "CineFlow 중간보고서",
+            LocalDateTime.of(2026, 10, 26, 23, 59),
+            "CineFlow",
+            "영화관 관리"
+        );
+        MidReport submitted = MidReport.builder()
+            .teamId(created.getTeamId())
+            .milestoneId(created.getMilestoneId())
+            .title(created.getTitle())
+            .dueDate(created.getDueDate())
+            .status(MidReportStatus.SUBMITTED)
+            .submittedAt(LocalDateTime.of(2026, 9, 8, 14, 0))
+            .submittedBy("202600001")
+            .blocks(created.getBlocks())
+            .build();
+        submitted.requestRevision(List.of("topic"), LocalDateTime.of(2026, 9, 9, 10, 0));
+        return submitted;
     }
 
     private com.fasterxml.jackson.databind.JsonNode topicFields(String title) {

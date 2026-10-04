@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -91,6 +92,81 @@ class MidReportAdminControllerTest {
             .andExpect(jsonPath("$.status").value("SUBMITTED"));
 
         verify(midReportAdminFacade).getMidReport(1L, 10L, PROFESSOR_ID);
+    }
+
+    @Test
+    @DisplayName("PATCH /mid-report/feedback/complete는 인증된 교수와 조회 버전으로 피드백 반영을 완료한다")
+    void completeFeedback_Success() throws Exception {
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 13, 15, 0);
+        MidReportAdminResponse response = MidReportAdminResponse.builder()
+            .id(100L)
+            .teamId(10L)
+            .teamName("A팀")
+            .milestoneId(5L)
+            .title("A팀 중간보고서")
+            .version(4L)
+            .status(MidReportStatus.SUBMITTED)
+            .revision(new MidReportRevisionAdminResponse(
+                List.of("gui-design"), List.of(),
+                LocalDateTime.of(2026, 9, 12, 10, 0), null,
+                completedAt, PROFESSOR_ID
+            ))
+            .blocks(List.of())
+            .build();
+
+        given(midReportAdminFacade.completeFeedback(1L, 10L, 3L, PROFESSOR_ID))
+            .willReturn(response);
+
+        mockMvc.perform(patch(BASE_URL + "/feedback/complete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\":3}")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.version").value(4))
+            .andExpect(jsonPath("$.revision.resubmittedAt").doesNotExist())
+            .andExpect(jsonPath("$.revision.completedAt[0]").value(2026))
+            .andExpect(jsonPath("$.revision.completedAt[1]").value(9))
+            .andExpect(jsonPath("$.revision.completedAt[2]").value(13))
+            .andExpect(jsonPath("$.revision.completedAt[3]").value(15))
+            .andExpect(jsonPath("$.revision.completedBy").value(PROFESSOR_ID));
+
+        verify(midReportAdminFacade).completeFeedback(1L, 10L, 3L, PROFESSOR_ID);
+    }
+
+    @Test
+    @DisplayName("PATCH /mid-report/feedback/complete는 버전 누락을 거부한다")
+    void completeFeedback_MissingVersion_FailsValidation() throws Exception {
+        mockMvc.perform(patch(BASE_URL + "/feedback/complete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(midReportAdminFacade);
+    }
+
+    @Test
+    @DisplayName("PATCH /mid-report/feedback/complete는 음수 버전을 거부한다")
+    void completeFeedback_NegativeVersion_FailsValidation() throws Exception {
+        mockMvc.perform(patch(BASE_URL + "/feedback/complete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\":-1}")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(midReportAdminFacade);
+    }
+
+    @Test
+    @DisplayName("/mid-report/feedback/complete는 PATCH 메서드만 허용한다")
+    void completeFeedback_RejectsPostMethod() throws Exception {
+        mockMvc.perform(post(BASE_URL + "/feedback/complete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"version\":3}")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isMethodNotAllowed());
+
+        verifyNoInteractions(midReportAdminFacade);
     }
 
     @Test

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import kgu.developers.domain.midreport.exception.MidReportBlockIncompleteException;
+import kgu.developers.domain.midreport.exception.MidReportRevisionNotCompletableException;
 import kgu.developers.domain.midreport.exception.MidReportSubmittedException;
 import kgu.developers.domain.midreport.exception.MidReportVersionConflictException;
 import lombok.AllArgsConstructor;
@@ -79,12 +80,9 @@ public class MidReport {
             throw new MidReportBlockIncompleteException();
         }
         if (status == MidReportStatus.REVISION_REQUESTED && revision != null) {
-            List<String> changedBlockKeys = revision.requestedAt() == null ? List.of() : blocks.stream()
-                .filter(block -> block.getLastSavedAt() != null && block.getLastSavedAt().isAfter(revision.requestedAt()))
-                .map(MidReportBlock::getKey)
-                .toList();
             this.revision = new MidReportRevision(
-                revision.affectedBlockKeys(), changedBlockKeys, revision.requestedAt(), submittedAt
+                revision.affectedBlockKeys(), changedBlockKeysSinceRevisionRequest(), revision.requestedAt(), submittedAt,
+                revision.completedAt(), revision.completedBy()
             );
         }
         this.status = MidReportStatus.SUBMITTED;
@@ -101,14 +99,45 @@ public class MidReport {
         return true;
     }
 
+    public boolean completeRevision(long expectedVersion, String professorId, LocalDateTime completedAt) {
+        validateVersion(expectedVersion);
+        if (revision == null || (status != MidReportStatus.REVISION_REQUESTED && status != MidReportStatus.SUBMITTED)) {
+            throw new MidReportRevisionNotCompletableException();
+        }
+        if (revision.completedAt() != null) {
+            return false;
+        }
+
+        List<String> changedBlockKeys = status == MidReportStatus.REVISION_REQUESTED
+            ? changedBlockKeysSinceRevisionRequest()
+            : revision.changedBlockKeys();
+        this.revision = new MidReportRevision(
+            revision.affectedBlockKeys(), changedBlockKeys, revision.requestedAt(), revision.resubmittedAt(),
+            completedAt, professorId
+        );
+        this.status = MidReportStatus.SUBMITTED;
+        return true;
+    }
+
     private void validateMutable(long expectedVersion) {
+        validateVersion(expectedVersion);
+        if (status == MidReportStatus.SUBMITTED) {
+            throw new MidReportSubmittedException();
+        }
+    }
+
+    private void validateVersion(long expectedVersion) {
         long currentVersion = version == null ? 0L : version;
         if (currentVersion != expectedVersion) {
             throw new MidReportVersionConflictException();
         }
-        if (status == MidReportStatus.SUBMITTED) {
-            throw new MidReportSubmittedException();
-        }
+    }
+
+    private List<String> changedBlockKeysSinceRevisionRequest() {
+        return revision.requestedAt() == null ? List.of() : blocks.stream()
+            .filter(block -> block.getLastSavedAt() != null && block.getLastSavedAt().isAfter(revision.requestedAt()))
+            .map(MidReportBlock::getKey)
+            .toList();
     }
 
     private MidReportBlock block(String blockKey) {

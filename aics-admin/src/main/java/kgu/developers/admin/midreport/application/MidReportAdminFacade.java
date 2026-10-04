@@ -23,6 +23,7 @@ import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
+import kgu.developers.domain.midreport.application.command.MidReportRevisionCompletionResult;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportBlock;
 import kgu.developers.domain.midreport.domain.MidReportBlockDefinition;
@@ -102,6 +103,27 @@ public class MidReportAdminFacade {
     }
 
     private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("id"));
+
+    @Transactional
+    public MidReportAdminResponse completeFeedback(
+        Long sectionId, Long teamId, long expectedVersion, String professorId
+    ) {
+        Team team = validateProfessorOwnsSectionAndTeam(sectionId, teamId, professorId);
+        Milestone milestone = getMidReportMilestone(sectionId);
+        MidReport report = midReportRepository.findByTeamIdAndMilestoneId(teamId, milestone.getId())
+            .orElseThrow(MidReportNotFoundException::new);
+        MidReportRevisionCompletionResult result = midReportCommandService.completeRevision(
+            report.getId(), expectedVersion, professorId, LocalDateTime.now()
+        );
+        if (result.completed()) {
+            TeamThread thread = teamThreadCommandService.getOrCreateThread(teamId);
+            teamMessageCommandService.postMessage(
+                thread.getId(), professorId, TeamMessageRelatedType.MID_REPORT,
+                report.getId(), "중간보고서 피드백 반영을 완료 처리했습니다."
+            );
+        }
+        return toAdminResponse(team, milestone, result.report());
+    }
 
     @Transactional
     public MidReportFeedbackAdminResponse postFeedback(

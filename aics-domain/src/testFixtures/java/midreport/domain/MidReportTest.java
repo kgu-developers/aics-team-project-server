@@ -14,6 +14,7 @@ import kgu.developers.domain.midreport.domain.MidReportStatus;
 import kgu.developers.domain.midreport.exception.InvalidMidReportFieldsException;
 import kgu.developers.domain.midreport.exception.MidReportBlockIncompleteException;
 import kgu.developers.domain.midreport.exception.MidReportBlockNotFoundException;
+import kgu.developers.domain.midreport.exception.MidReportRevisionNotCompletableException;
 import kgu.developers.domain.midreport.exception.MidReportSubmittedException;
 import kgu.developers.domain.midreport.exception.MidReportVersionConflictException;
 import org.junit.jupiter.api.DisplayName;
@@ -174,6 +175,100 @@ class MidReportTest {
         assertThat(report.getStatus()).isEqualTo(MidReportStatus.REVISION_REQUESTED);
         assertThat(report.getRevision().affectedBlockKeys()).containsExactly("topic");
         assertThat(report.getRevision().requestedAt()).isEqualTo(firstRequestedAt);
+    }
+
+    @Test
+    @DisplayName("교수는 학생 재제출 없이 피드백 반영을 완료 처리할 수 있다")
+    void completesRevisionWithoutStudentResubmission() {
+        MidReport report = completedReport();
+        LocalDateTime originalSubmittedAt = LocalDateTime.of(2026, 9, 8, 14, 0);
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 9, 12, 0);
+        report.submit(0L, "202600001", originalSubmittedAt);
+        report.requestRevision(List.of("topic"), requestedAt);
+        report.updateBlock("topic", 0L, topicFields(), "202600002", requestedAt.plusMinutes(1));
+
+        assertThat(report.completeRevision(0L, "professor-1", completedAt)).isTrue();
+
+        assertThat(report.getStatus()).isEqualTo(MidReportStatus.SUBMITTED);
+        assertThat(report.getSubmittedAt()).isEqualTo(originalSubmittedAt);
+        assertThat(report.getSubmittedBy()).isEqualTo("202600001");
+        assertThat(report.getRevision().resubmittedAt()).isNull();
+        assertThat(report.getRevision().changedBlockKeys()).containsExactly("topic");
+        assertThat(report.getRevision().completedAt()).isEqualTo(completedAt);
+        assertThat(report.getRevision().completedBy()).isEqualTo("professor-1");
+    }
+
+    @Test
+    @DisplayName("학생 재제출 후 완료 처리해도 제출 정보와 재제출 시각을 보존한다")
+    void completesRevisionAfterStudentResubmission() {
+        MidReport report = completedReport();
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 9, 9, 10, 0);
+        LocalDateTime resubmittedAt = requestedAt.plusHours(1);
+        report.submit(0L, "202600001", LocalDateTime.of(2026, 9, 8, 14, 0));
+        report.requestRevision(List.of("topic"), requestedAt);
+        report.submit(0L, "202600002", resubmittedAt);
+
+        report.completeRevision(0L, "professor-1", requestedAt.plusHours(2));
+
+        assertThat(report.getSubmittedAt()).isEqualTo(resubmittedAt);
+        assertThat(report.getSubmittedBy()).isEqualTo("202600002");
+        assertThat(report.getRevision().resubmittedAt()).isEqualTo(resubmittedAt);
+    }
+
+    @Test
+    @DisplayName("피드백 수정 요청이 없는 초안은 완료 처리할 수 없다")
+    void rejectsCompletionWithoutFeedback() {
+        MidReport draft = report(0L, MidReportStatus.DRAFT);
+        MidReport submitted = report(0L, MidReportStatus.SUBMITTED);
+
+        assertThatThrownBy(() -> draft.completeRevision(0L, "professor-1", LocalDateTime.now()))
+            .isInstanceOf(MidReportRevisionNotCompletableException.class)
+            .extracting("code.code").isEqualTo("MID_REPORT_REVISION_NOT_COMPLETABLE");
+        assertThatThrownBy(() -> submitted.completeRevision(0L, "professor-1", LocalDateTime.now()))
+            .isInstanceOf(MidReportRevisionNotCompletableException.class)
+            .extracting("code.code").isEqualTo("MID_REPORT_REVISION_NOT_COMPLETABLE");
+    }
+
+    @Test
+    @DisplayName("피드백 완료 처리도 현재 문서 버전을 요구한다")
+    void rejectsStaleRevisionCompletion() {
+        MidReport report = completedReport();
+        report.submit(0L, "202600001", LocalDateTime.of(2026, 9, 8, 14, 0));
+        report.requestRevision(List.of("topic"), LocalDateTime.of(2026, 9, 9, 10, 0));
+
+        assertThatThrownBy(() -> report.completeRevision(3L, "professor-1", LocalDateTime.now()))
+            .isInstanceOf(MidReportVersionConflictException.class);
+    }
+
+    @Test
+    @DisplayName("현재 버전에서 이미 완료된 피드백은 다시 완료해도 변경하지 않는다")
+    void repeatedRevisionCompletionIsNoOp() {
+        MidReport report = completedReport();
+        LocalDateTime firstCompletedAt = LocalDateTime.of(2026, 9, 9, 12, 0);
+        report.submit(0L, "202600001", LocalDateTime.of(2026, 9, 8, 14, 0));
+        report.requestRevision(List.of("topic"), LocalDateTime.of(2026, 9, 9, 10, 0));
+        report.completeRevision(0L, "professor-1", firstCompletedAt);
+
+        assertThat(report.completeRevision(0L, "professor-2", firstCompletedAt.plusHours(1))).isFalse();
+        assertThat(report.getRevision().completedAt()).isEqualTo(firstCompletedAt);
+        assertThat(report.getRevision().completedBy()).isEqualTo("professor-1");
+    }
+
+    @Test
+    @DisplayName("새 피드백 수정 요청은 이전 완료 메타데이터를 초기화한다")
+    void newRevisionRequestResetsCompletionMetadata() {
+        MidReport report = completedReport();
+        report.submit(0L, "202600001", LocalDateTime.of(2026, 9, 8, 14, 0));
+        report.requestRevision(List.of("topic"), LocalDateTime.of(2026, 9, 9, 10, 0));
+        report.completeRevision(0L, "professor-1", LocalDateTime.of(2026, 9, 9, 12, 0));
+
+        report.requestRevision(List.of("gui-design"), LocalDateTime.of(2026, 9, 10, 10, 0));
+
+        assertThat(report.getRevision().completedAt()).isNull();
+        assertThat(report.getRevision().completedBy()).isNull();
+        assertThat(report.getRevision().resubmittedAt()).isNull();
+        assertThat(report.getRevision().changedBlockKeys()).isEmpty();
     }
 
     private MidReport report(Long version, MidReportStatus status) {

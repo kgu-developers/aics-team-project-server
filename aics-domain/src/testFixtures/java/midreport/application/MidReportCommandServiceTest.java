@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
+import kgu.developers.domain.midreport.application.command.MidReportRevisionCompletionResult;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportRepository;
 import kgu.developers.domain.team.domain.Team;
@@ -99,6 +100,43 @@ class MidReportCommandServiceTest {
 
         assertThat(midReportCommandService.requestRevision(10L, List.of(), LocalDateTime.of(2026, 9, 9, 10, 0)))
             .isSameAs(report);
+
+        then(midReportRepository).should(org.mockito.Mockito.never()).save(report);
+    }
+
+    @Test
+    @DisplayName("피드백 반영 완료 상태가 변경되면 보고서를 저장한다")
+    void completesRevisionAndSaves() {
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 9, 12, 0);
+        MidReport report = org.mockito.Mockito.mock(MidReport.class);
+        given(midReportRepository.findById(10L)).willReturn(Optional.of(report));
+        given(report.completeRevision(3L, "professor-1", completedAt)).willReturn(true);
+        given(midReportRepository.save(report)).willReturn(report);
+
+        MidReportRevisionCompletionResult result = midReportCommandService.completeRevision(
+            10L, 3L, "professor-1", completedAt
+        );
+
+        assertThat(result.report()).isSameAs(report);
+        assertThat(result.completed()).isTrue();
+
+        then(midReportRepository).should().save(report);
+    }
+
+    @Test
+    @DisplayName("이미 완료된 현재 버전은 다시 저장하지 않는다")
+    void doesNotSaveRepeatedRevisionCompletion() {
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 9, 12, 0);
+        MidReport report = org.mockito.Mockito.mock(MidReport.class);
+        given(midReportRepository.findById(10L)).willReturn(Optional.of(report));
+        given(report.completeRevision(3L, "professor-1", completedAt)).willReturn(false);
+
+        MidReportRevisionCompletionResult result = midReportCommandService.completeRevision(
+            10L, 3L, "professor-1", completedAt
+        );
+
+        assertThat(result.report()).isSameAs(report);
+        assertThat(result.completed()).isFalse();
 
         then(midReportRepository).should(org.mockito.Mockito.never()).save(report);
     }

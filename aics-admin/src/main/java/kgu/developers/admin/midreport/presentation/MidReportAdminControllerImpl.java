@@ -2,6 +2,7 @@ package kgu.developers.admin.midreport.presentation;
 
 import kgu.developers.admin.midreport.application.MidReportAdminFacade;
 import kgu.developers.admin.midreport.presentation.request.MidReportFeedbackAdminRequest;
+import kgu.developers.admin.midreport.presentation.request.MidReportFeedbackCompletionAdminRequest;
 import kgu.developers.admin.midreport.presentation.response.MidReportAdminResponse;
 import kgu.developers.admin.midreport.presentation.response.MidReportFeedbackAdminPageResponse;
 import kgu.developers.admin.midreport.presentation.response.MidReportFeedbackAdminResponse;
@@ -12,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +27,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class MidReportAdminControllerImpl implements MidReportAdminController {
 
     private final MidReportAdminFacade midReportAdminFacade;
+
+    @Override
+    @PatchMapping("/feedback/complete")
+    public ResponseEntity<MidReportAdminResponse> completeFeedback(
+        @PathVariable Long sectionId,
+        @PathVariable Long teamId,
+        @RequestBody MidReportFeedbackCompletionAdminRequest request,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(midReportAdminFacade.completeFeedback(
+            sectionId, teamId, request.version(), authentication.getName()
+        ));
+    }
 
     @Override
     @GetMapping

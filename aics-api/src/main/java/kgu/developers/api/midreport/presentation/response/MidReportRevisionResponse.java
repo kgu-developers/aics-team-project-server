@@ -8,7 +8,9 @@ public record MidReportRevisionResponse(
     List<String> affectedBlockKeys,
     List<String> changedBlockKeys,
     LocalDateTime requestedAt,
-    LocalDateTime resubmittedAt
+    LocalDateTime resubmittedAt,
+    LocalDateTime completedAt,
+    String completedBy
 ) {
     static MidReportRevisionResponse from(MidReportRevision revision) {
         if (revision == null) {
@@ -18,7 +20,9 @@ public record MidReportRevisionResponse(
             revision.affectedBlockKeys(),
             revision.changedBlockKeys(),
             revision.requestedAt(),
-            revision.resubmittedAt()
+            revision.resubmittedAt(),
+            revision.completedAt(),
+            revision.completedBy()
         );
     }
 }
