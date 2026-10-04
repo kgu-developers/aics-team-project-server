@@ -30,6 +30,7 @@ import kgu.developers.common.response.FileDownload;
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLog;
 import kgu.developers.domain.midreport.domain.MidReportRepository;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportStatus;
@@ -54,6 +55,7 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 
 import mock.repository.FakeFileObjectRepository;
+import mock.repository.FakeMeetingRecordEditLogRepository;
 import mock.repository.FakeMeetingRecordRepository;
 import mock.repository.FakeSubmissionArtifactRepository;
 import mock.repository.FakeSubmissionRepository;
@@ -86,6 +88,7 @@ class SectionArtifactAdminFacadeTest {
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
     private FakeFileObjectRepository fileObjectRepository;
     private FakeMeetingRecordRepository meetingRecordRepository;
+    private FakeMeetingRecordEditLogRepository meetingRecordEditLogRepository;
     private SectionArtifactAdminFacade facade;
     private MidReportRepository midReportRepository;
     private Long teamId;
@@ -101,6 +104,7 @@ class SectionArtifactAdminFacadeTest {
         submissionArtifactRepository = new FakeSubmissionArtifactRepository();
         fileObjectRepository = new FakeFileObjectRepository();
         meetingRecordRepository = new FakeMeetingRecordRepository();
+        meetingRecordEditLogRepository = new FakeMeetingRecordEditLogRepository();
         midReportRepository = mock(MidReportRepository.class);
 
         FakeUserRepository userRepository = new FakeUserRepository();
@@ -118,6 +122,7 @@ class SectionArtifactAdminFacadeTest {
                 submissionArtifactRepository,
                 fileObjectRepository,
                 meetingRecordRepository,
+                meetingRecordEditLogRepository,
                 midReportRepository,
                 userRepository);
         facade = new SectionArtifactAdminFacade(SERVICE_CLOCK,
@@ -166,7 +171,7 @@ class SectionArtifactAdminFacadeTest {
             assertThat(summary.getCell(1).getStringCellValue()).isEqualTo("1팀");
             assertThat(summary.getCell(2).getStringCellValue()).isEqualTo("20261234 김철수, 20261235 이영희");
             assertThat(summary.getCell(3).getNumericCellValue()).isEqualTo(1);  // 기준일 이후 회의록 제외
-            assertThat(summary.getCell(4).getNumericCellValue()).isEqualTo(3);  // 수정 로그 수(version 합)
+            assertThat(summary.getCell(4).getNumericCellValue()).isEqualTo(2);  // 기준일까지의 수정 로그 수
             assertThat(summary.getCell(5).getNumericCellValue()).isEqualTo(1);  // 제출 이력 단계 수
             assertThat(summary.getCell(6).getNumericCellValue()).isEqualTo(1);  // 마감된 미제출(최종 보고서)
 
@@ -216,7 +221,7 @@ class SectionArtifactAdminFacadeTest {
                         SectionArtifactMemberAdminResponse::studentNumber, SectionArtifactMemberAdminResponse::name)
                 .containsExactly(tuple("20261234", "김철수"), tuple("20261235", "이영희"));
         assertThat(summary.meetingRecordCount()).isEqualTo(1);  // 기준일 이후 회의록 제외
-        assertThat(summary.meetingRecordEditCount()).isEqualTo(3);  // 수정 로그 수(version 합)
+        assertThat(summary.meetingRecordEditCount()).isEqualTo(2);  // 기준일까지의 수정 로그 수
         assertThat(summary.submittedStageCount()).isEqualTo(1);
         assertThat(summary.overdueMissingStageCount()).isEqualTo(1);  // 최종 보고서
     }
@@ -262,6 +267,20 @@ class SectionArtifactAdminFacadeTest {
 
         meetingRecordRepository.save(meetingRecord(LocalDateTime.of(2026, 11, 10, 10, 0), 3L));
         meetingRecordRepository.save(meetingRecord(LocalDateTime.of(2026, 11, 21, 10, 0), 1L));
+        editLog(LocalDateTime.of(2026, 11, 11, 10, 0));
+        editLog(LocalDateTime.of(2026, 11, 12, 10, 0));
+        // 기준일 이후 수정은 집계에서 빠진다
+        editLog(LocalDateTime.of(2026, 11, 21, 10, 0));
+    }
+
+    private void editLog(LocalDateTime createdAt) {
+        meetingRecordEditLogRepository.save(MeetingRecordEditLog.builder()
+                .meetingRecordId(1L)
+                .teamId(teamId)
+                .editorId("20261234")
+                .reason("회의 내용 중 담당자 표기가 실제 논의와 달라 바로잡고 참석자 목록도 함께 고쳤습니다.")
+                .createdAt(createdAt)
+                .build());
     }
 
     private Milestone milestone(Long id, MilestoneType type, LocalDateTime dueAt, MilestoneStatus status) {

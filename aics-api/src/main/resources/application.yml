@@ -39,8 +39,10 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: ${MAX_FILE_SIZE:10MB}
-      max-request-size: ${MAX_REQUEST_SIZE:10MB}
+      # 파일 1개 상한은 100MB. 요청 전체 상한은 multipart 경계·헤더·artifacts JSON이
+      # 얹히는 만큼 여유를 둬야 정확히 100MB인 파일이 413으로 막히지 않는다.
+      max-file-size: ${MAX_FILE_SIZE:100MB}
+      max-request-size: ${MAX_REQUEST_SIZE:110MB}
 
   data:
     redis:

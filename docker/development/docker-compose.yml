@@ -53,6 +53,9 @@ services:
       AWS_S3_SECRET_KEY: ${AWS_S3_SECRET_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,https://team-project.kgudevelopers.monster}
       CSRF_COOKIE_DOMAIN: ${CSRF_COOKIE_DOMAIN:-kgudevelopers.monster}
+      # 서버 .env에 값이 없어도 빈 문자열이 주입돼 부팅이 깨지지 않도록 기본값을 함께 둔다.
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-100MB}
+      MAX_REQUEST_SIZE: ${MAX_REQUEST_SIZE:-110MB}
     volumes:
       - ./logs/api:/app/logs
     depends_on:
@@ -82,6 +85,8 @@ services:
       SPRINGDOC_APIDOCS_PATH: /admin-api-docs
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,https://team-project.kgudevelopers.monster}
       CSRF_COOKIE_DOMAIN: ${CSRF_COOKIE_DOMAIN:-kgudevelopers.monster}
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-100MB}
+      MAX_REQUEST_SIZE: ${MAX_REQUEST_SIZE:-110MB}
     volumes:
       - ./logs/admin:/app/logs
     depends_on:

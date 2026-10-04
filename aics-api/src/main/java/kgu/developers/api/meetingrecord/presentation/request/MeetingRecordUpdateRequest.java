@@ -1,6 +1,7 @@
 package kgu.developers.api.meetingrecord.presentation.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +30,14 @@ public record MeetingRecordUpdateRequest(
     List<String> participantIds,
 
     @Schema(description = "관련 마일스톤 식별자 목록(주어지면 기존 연결 전체를 치환, 빈 목록이면 모두 해제)", example = "[3, 4]")
-    List<@Positive Long> milestoneIds
+    List<@Positive Long> milestoneIds,
+
+    @Schema(
+        description = "수정 사유(필수, 앞뒤 공백을 제외하고 30자 이상 500자 이하). 수정 이력으로 적재되며 팀원과 담당 교수가 함께 조회한다.",
+        example = "회의 내용 중 다음 주 발표 준비 담당자가 잘못 기재되어 있어 실제 논의대로 수정했습니다.",
+        requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    @NotBlank
+    String reason
 ) {
 }

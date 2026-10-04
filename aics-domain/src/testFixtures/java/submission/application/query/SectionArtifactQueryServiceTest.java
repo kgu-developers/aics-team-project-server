@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLog;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportRepository;
 import kgu.developers.domain.midreport.domain.MidReportRevision;
@@ -38,6 +39,7 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 
 import mock.repository.FakeFileObjectRepository;
+import mock.repository.FakeMeetingRecordEditLogRepository;
 import mock.repository.FakeMeetingRecordRepository;
 import mock.repository.FakeSubmissionArtifactRepository;
 import mock.repository.FakeSubmissionRepository;
@@ -65,6 +67,7 @@ class SectionArtifactQueryServiceTest {
     private FakeSubmissionArtifactRepository submissionArtifactRepository;
     private FakeFileObjectRepository fileObjectRepository;
     private FakeMeetingRecordRepository meetingRecordRepository;
+    private FakeMeetingRecordEditLogRepository meetingRecordEditLogRepository;
     private SectionArtifactQueryService queryService;
     private Long teamId;
 
@@ -79,6 +82,7 @@ class SectionArtifactQueryServiceTest {
         submissionArtifactRepository = new FakeSubmissionArtifactRepository();
         fileObjectRepository = new FakeFileObjectRepository();
         meetingRecordRepository = new FakeMeetingRecordRepository();
+        meetingRecordEditLogRepository = new FakeMeetingRecordEditLogRepository();
 
         FakeUserRepository userRepository = new FakeUserRepository();
         userRepository.save(User.create(
@@ -89,7 +93,7 @@ class SectionArtifactQueryServiceTest {
         queryService = new SectionArtifactQueryService(
                 milestoneRepository, teamRepository, teamMemberRepository, submissionRepository,
                 submissionVersionRepository, submissionArtifactRepository, fileObjectRepository,
-                meetingRecordRepository, midReportRepository, userRepository);
+                meetingRecordRepository, meetingRecordEditLogRepository, midReportRepository, userRepository);
 
         teamId = teamRepository.save(Team.builder()
                 .sectionId(SECTION_ID).name("1팀").status(Status.CONFIRMED).build()).getId();
@@ -282,15 +286,37 @@ class SectionArtifactQueryServiceTest {
     }
 
     @Test
-    @DisplayName("회의록은 기준일까지 작성된 것만 세고 수정 횟수는 version 합으로 근사한다")
+    @DisplayName("회의록은 기준일까지 작성된 것만 세고, 수정 로그도 기준일까지 쌓인 것만 센다")
     void getSectionArtifactRows_CountsMeetingRecordsUntilAsOf() {
         meetingRecordRepository.save(meetingRecord(LocalDateTime.of(2026, 11, 10, 10, 0), 2L));
         meetingRecordRepository.save(meetingRecord(LocalDateTime.of(2026, 11, 12, 10, 0), 1L));
         meetingRecordRepository.save(meetingRecord(LocalDateTime.of(2026, 11, 21, 10, 0), 5L));
+        editLog(LocalDateTime.of(2026, 11, 11, 10, 0));
+        editLog(LocalDateTime.of(2026, 11, 13, 10, 0));
+        // 기준일 이후의 수정은 그때 없었던 것으로 본다(version 합으로 근사하던 시절의 결함).
+        editLog(LocalDateTime.of(2026, 11, 21, 10, 0));
 
         SectionArtifactTeamRow row = rows().get(0);
         assertThat(row.meetingRecordCount()).isEqualTo(2);
-        assertThat(row.meetingRecordEditCount()).isEqualTo(3);
+        assertThat(row.meetingRecordEditCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("기준일 정각에 남긴 수정 로그는 집계에 포함한다")
+    void getSectionArtifactRows_CountsEditLogAtBoundary() {
+        editLog(UNTIL);
+
+        assertThat(rows().get(0).meetingRecordEditCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("수정 로그가 없으면 회의록이 여러 번 저장됐어도 수정 수는 0이다")
+    void getSectionArtifactRows_NoEditLogMeansZero() {
+        meetingRecordRepository.save(meetingRecord(LocalDateTime.of(2026, 11, 10, 10, 0), 7L));
+
+        SectionArtifactTeamRow row = rows().get(0);
+        assertThat(row.meetingRecordCount()).isEqualTo(1);
+        assertThat(row.meetingRecordEditCount()).isZero();
     }
 
     @Test
@@ -357,6 +383,16 @@ class SectionArtifactQueryServiceTest {
                 .deletedAt(deleted ? LocalDateTime.of(2026, 11, 19, 21, 0) : null)
                 .build());
         return saved.getId();
+    }
+
+    private void editLog(LocalDateTime createdAt) {
+        meetingRecordEditLogRepository.save(MeetingRecordEditLog.builder()
+                .meetingRecordId(1L)
+                .teamId(teamId)
+                .editorId("20261234")
+                .reason("회의 내용 중 담당자 표기가 실제 논의와 달라 바로잡았습니다. 참석자 목록도 함께 수정했습니다.")
+                .createdAt(createdAt)
+                .build());
     }
 
     private MeetingRecord meetingRecord(LocalDateTime createdAt, long version) {

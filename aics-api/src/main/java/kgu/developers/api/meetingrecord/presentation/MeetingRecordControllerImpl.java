@@ -3,16 +3,20 @@ package kgu.developers.api.meetingrecord.presentation;
 import static org.springframework.http.HttpStatus.CREATED;
 
 import jakarta.validation.Valid;
+import kgu.developers.api.meetingrecord.application.MeetingRecordEditLogFacade;
 import kgu.developers.api.meetingrecord.application.MeetingRecordFacade;
 import kgu.developers.api.meetingrecord.presentation.request.MeetingRecordCreateRequest;
 import kgu.developers.api.meetingrecord.presentation.request.MeetingRecordUpdateRequest;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordDetailResponse;
+import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordEditLogPageResponse;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordListResponse;
 import kgu.developers.api.meetingrecord.presentation.response.MeetingRecordPersistResponse;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -24,11 +28,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
 public class MeetingRecordControllerImpl implements MeetingRecordController {
 
     private final MeetingRecordFacade meetingRecordFacade;
+    private final MeetingRecordEditLogFacade meetingRecordEditLogFacade;
 
     @Override
     @GetMapping("/teams/{teamId}/meeting-records")
@@ -65,6 +71,18 @@ public class MeetingRecordControllerImpl implements MeetingRecordController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(meetingRecordFacade.updateMeetingRecord(id, request, authentication.getName()));
+    }
+
+    @Override
+    @GetMapping("/meeting-records/{meetingRecordId}/logs")
+    public ResponseEntity<MeetingRecordEditLogPageResponse> getMeetingRecordLogs(
+        @PathVariable Long meetingRecordId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(meetingRecordEditLogFacade.getMeetingRecordLogs(
+            meetingRecordId, PageRequest.of(page, size), authentication.getName()));
     }
 
     @Override

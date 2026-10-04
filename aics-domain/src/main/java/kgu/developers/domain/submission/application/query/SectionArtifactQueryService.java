@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
+import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLogRepository;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordRepository;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordStats;
 import kgu.developers.domain.midreport.domain.MidReport;
@@ -70,6 +71,7 @@ public class SectionArtifactQueryService {
     private final SubmissionArtifactRepository submissionArtifactRepository;
     private final FileObjectRepository fileObjectRepository;
     private final MeetingRecordRepository meetingRecordRepository;
+    private final MeetingRecordEditLogRepository meetingRecordEditLogRepository;
     private final MidReportRepository midReportRepository;
     private final UserRepository userRepository;
 
@@ -89,6 +91,11 @@ public class SectionArtifactQueryService {
         List<SectionArtifactTeamRow> rows = new ArrayList<>();
         Map<Long, MeetingRecordStats> meetingRecords =
                 meetingRecordRepository.statsByTeamIdInUntil(teamIds, until);
+        // 수정 로그 테이블이 생기기 전에는 낙관적 락 version 합으로 근사했는데, 그 값은 기준일 이후의
+        // 수정까지 섞여 들어갔다(KD3-282). 이제 실제 적재된 수정 로그를 기준일까지만 세서 쓴다.
+        // 로그 도입 이전의 과거 수정은 행 자체가 없으므로 0으로 집계된다.
+        Map<Long, Long> meetingRecordEditCounts =
+                meetingRecordEditLogRepository.countByTeamIdInUntil(teamIds, until);
         for (Team team : teams) {
             List<SectionArtifactStageRow> stages = milestones.stream()
                     .map(milestone -> stageRow(team, milestone, submissions, versions, fileStats, midReports, until))
@@ -99,9 +106,7 @@ public class SectionArtifactQueryService {
                     team.getName(),
                     members.getOrDefault(team.getId(), List.of()),
                     records.recordCount(),
-                    // ponytail: 회의록 수정 이력 테이블이 없어서 낙관적 락 version(= 수정 횟수) 합으로
-                    // 근사한다. 기준일 이후의 수정도 섞이므로, 수정 이력을 따로 적재하면 그걸로 바꿀 것.
-                    records.editCount(),
+                    meetingRecordEditCounts.getOrDefault(team.getId(), 0L),
                     stages));
         }
         return rows;

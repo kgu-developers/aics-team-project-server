@@ -15,6 +15,7 @@ import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecord;
 import kgu.developers.domain.meetingrecord.infrastructure.JpaMeetingActionRepository;
 import kgu.developers.domain.meetingrecord.infrastructure.JpaMeetingParticipantRepository;
+import kgu.developers.domain.meetingrecord.infrastructure.JpaMeetingRecordEditLogRepository;
 import kgu.developers.domain.meetingrecord.infrastructure.JpaMeetingRecordMilestoneRepository;
 import kgu.developers.domain.meetingrecord.infrastructure.JpaMeetingRecordRepository;
 import kgu.developers.domain.meetingrecord.infrastructure.MeetingParticipantJpaEntity;
@@ -45,6 +46,9 @@ class MeetingRecordRepositoryImplTest {
 
   @Mock
   private JpaMeetingRecordMilestoneRepository jpaMeetingRecordMilestoneRepository;
+
+  @Mock
+  private JpaMeetingRecordEditLogRepository jpaMeetingRecordEditLogRepository;
 
   @InjectMocks
   private MeetingRecordRepositoryImpl meetingRecordRepositoryImpl;
@@ -144,13 +148,15 @@ class MeetingRecordRepositoryImplTest {
   }
 
   @Test
-  @DisplayName("deleteById는 참가자와 액션플랜을 함께 삭제한다")
+  @DisplayName("deleteById는 참가자·액션플랜·수정 이력을 함께 삭제한다")
   public void deleteById_DeletesParticipantsAndActionsTogether() {
     meetingRecordRepositoryImpl.deleteById(1L);
 
     verify(jpaMeetingParticipantRepository).deleteAllByMeetingRecordId(1L);
     verify(jpaMeetingRecordMilestoneRepository).deleteAllByMeetingRecordId(1L);
     verify(jpaMeetingActionRepository).deleteAllByMeetingRecordId(1L);
+    // 회의록이 하드 삭제라 수정 이력이 남으면 고아 행이 된다.
+    verify(jpaMeetingRecordEditLogRepository).deleteAllByMeetingRecordId(1L);
     verify(jpaMeetingRecordRepository).deleteById(1L);
   }
 

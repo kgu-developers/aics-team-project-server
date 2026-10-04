@@ -78,7 +78,9 @@ public class MeetingRecordFacade {
             request.phase(),
             request.content(),
             request.participantIds(),
-            milestoneIds
+            milestoneIds,
+            request.reason(),
+            userId
         );
         return MeetingRecordPersistResponse.of(meetingRecordQueryService.getMeetingRecord(id));
     }
