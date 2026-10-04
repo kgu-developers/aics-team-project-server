@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.midreport.presentation.request.MidReportFeedbackAdminRequest;
+import kgu.developers.admin.midreport.presentation.request.MidReportFeedbackCompletionAdminRequest;
 import kgu.developers.admin.midreport.presentation.response.MidReportAdminResponse;
 import kgu.developers.admin.midreport.presentation.response.MidReportFeedbackAdminPageResponse;
 import kgu.developers.admin.midreport.presentation.response.MidReportFeedbackAdminResponse;
@@ -25,6 +26,31 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "AdminMidReport", description = "관리자 중간보고서 및 중간점검 피드백 API")
 public interface MidReportAdminController {
+
+    @Operation(
+        summary = "관리자 중간보고서 피드백 반영 완료 API",
+        description = """
+            Description : 담당 교수가 재제출 여부와 관계없이 중간보고서 피드백 반영을 완료 처리한다.
+                기존 학생 제출 정보와 문서 내용은 변경하지 않고 완료 처리자와 시각을 기록한다.
+                완료 기록은 MID_REPORT 팀 메시지 이력에도 남겨 이후 새 피드백이 등록되어도 보존한다.
+                보고서는 SUBMITTED 상태로 돌아가 학생 수정이 잠기며, 새 피드백 등록 시 다시 수정할 수 있다.
+                피드백 요청이 없는 보고서는 완료 처리할 수 없다. 현재 조회 버전을 전달해야 한다.
+            Assignee : 최태양
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = MidReportAdminResponse.class))),
+        @ApiResponse(responseCode = "400", description = "버전 누락 또는 잘못된 입력", content = @Content(schema = @Schema(implementation = ExceptionResponse.class))),
+        @ApiResponse(responseCode = "403", description = "담당 분반이 아니거나 권한 없음", content = @Content(schema = @Schema(implementation = ExceptionResponse.class))),
+        @ApiResponse(responseCode = "404", description = "팀 또는 중간보고서를 찾을 수 없음", content = @Content(schema = @Schema(implementation = ExceptionResponse.class))),
+        @ApiResponse(responseCode = "409", description = "버전 충돌 또는 완료할 피드백 요청이 없음", content = @Content(schema = @Schema(implementation = ExceptionResponse.class)))
+    })
+    ResponseEntity<MidReportAdminResponse> completeFeedback(
+        @Parameter(description = "분반 식별자") @PathVariable @Positive Long sectionId,
+        @Parameter(description = "팀 식별자") @PathVariable @Positive Long teamId,
+        @Valid @RequestBody MidReportFeedbackCompletionAdminRequest request,
+        Authentication authentication
+    );
 
     @Operation(
         summary = "관리자 특정 팀 중간보고서 상세 조회 API",

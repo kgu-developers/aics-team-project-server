@@ -16,8 +16,20 @@ public record MidReportRevisionAdminResponse(
     LocalDateTime requestedAt,
 
     @Schema(description = "재제출 일시")
-    LocalDateTime resubmittedAt
+    LocalDateTime resubmittedAt,
+
+    @Schema(description = "교수자가 피드백 반영을 완료 처리한 일시 (재제출 일시와 별개)")
+    LocalDateTime completedAt,
+
+    @Schema(description = "피드백 반영 완료 처리 교수자의 학번")
+    String completedBy
 ) {
+    public MidReportRevisionAdminResponse(
+        List<String> affectedBlockKeys, List<String> changedBlockKeys,
+        LocalDateTime requestedAt, LocalDateTime resubmittedAt
+    ) {
+        this(affectedBlockKeys, changedBlockKeys, requestedAt, resubmittedAt, null, null);
+    }
     public static MidReportRevisionAdminResponse from(MidReportRevision revision) {
         if (revision == null) {
             return null;
@@ -26,7 +38,9 @@ public record MidReportRevisionAdminResponse(
             revision.affectedBlockKeys(),
             revision.changedBlockKeys(),
             revision.requestedAt(),
-            revision.resubmittedAt()
+            revision.resubmittedAt(),
+            revision.completedAt(),
+            revision.completedBy()
         );
     }
 }

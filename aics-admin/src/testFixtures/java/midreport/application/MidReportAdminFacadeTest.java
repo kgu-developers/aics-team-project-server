@@ -26,6 +26,7 @@ import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
+import kgu.developers.domain.midreport.application.command.MidReportRevisionCompletionResult;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.midreport.domain.MidReportBlock;
 import kgu.developers.domain.midreport.domain.MidReportBlockDefinition;
@@ -34,6 +35,7 @@ import kgu.developers.domain.midreport.domain.MidReportRepository;
 import kgu.developers.domain.midreport.domain.MidReportRevision;
 import kgu.developers.domain.midreport.domain.MidReportStatus;
 import kgu.developers.domain.midreport.exception.MidReportNotFoundException;
+import kgu.developers.domain.midreport.exception.MidReportVersionConflictException;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
@@ -184,6 +186,144 @@ class MidReportAdminFacadeTest {
         assertThatThrownBy(() -> midReportAdminFacade.getMidReport(SECTION_ID, TEAM_ID, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("해당 분반에 속한 팀이 아닙니다.");
+    }
+
+    @Test
+    @DisplayName("담당 교수는 학생 재제출 없이 현재 버전으로 피드백 반영을 완료할 수 있다")
+    void completeFeedback_SuccessWithoutResubmission() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        Milestone milestone = midReportMilestone();
+        MidReport report = revisionRequestedReport(3L);
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 13, 15, 0);
+        MidReport completedReport = completedReport(4L, completedAt, PROFESSOR_ID);
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
+        given(midReportCommandService.completeRevision(eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any()))
+            .willReturn(new MidReportRevisionCompletionResult(completedReport, true));
+        TeamThread thread = TeamThread.builder().id(50L).teamId(TEAM_ID).build();
+        TeamMessage auditMessage = TeamMessage.builder()
+            .id(501L)
+            .threadId(50L)
+            .senderId(PROFESSOR_ID)
+            .relatedType(TeamMessageRelatedType.MID_REPORT)
+            .relatedId(REPORT_ID)
+            .message("중간보고서 피드백 반영을 완료 처리했습니다.")
+            .createdAt(completedAt)
+            .build();
+        given(teamThreadCommandService.getOrCreateThread(TEAM_ID)).willReturn(thread);
+        given(teamMessageCommandService.postMessage(
+            50L, PROFESSOR_ID, TeamMessageRelatedType.MID_REPORT, REPORT_ID,
+            "중간보고서 피드백 반영을 완료 처리했습니다."
+        )).willReturn(auditMessage);
+
+        MidReportAdminResponse response = midReportAdminFacade.completeFeedback(
+            SECTION_ID, TEAM_ID, 3L, PROFESSOR_ID);
+
+        assertThat(response.status()).isEqualTo(MidReportStatus.SUBMITTED);
+        assertThat(response.version()).isEqualTo(4L);
+        assertThat(response.revision().resubmittedAt()).isNull();
+        assertThat(response.revision().completedAt()).isEqualTo(completedAt);
+        assertThat(response.revision().completedBy()).isEqualTo(PROFESSOR_ID);
+        verify(midReportCommandService).completeRevision(eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any());
+        verify(teamThreadCommandService).getOrCreateThread(TEAM_ID);
+        verify(teamMessageCommandService).postMessage(
+            50L, PROFESSOR_ID, TeamMessageRelatedType.MID_REPORT, REPORT_ID,
+            "중간보고서 피드백 반영을 완료 처리했습니다."
+        );
+    }
+
+    @Test
+    @DisplayName("이미 완료된 피드백을 다시 완료하면 감사 메시지를 중복 등록하지 않는다")
+    void completeFeedback_AlreadyCompleted_DoesNotPostDuplicateAuditMessage() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        Milestone milestone = midReportMilestone();
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 13, 15, 0);
+        MidReport completedReport = completedReport(4L, completedAt, PROFESSOR_ID);
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID))
+            .willReturn(Optional.of(completedReport));
+        given(midReportCommandService.completeRevision(eq(REPORT_ID), eq(4L), eq(PROFESSOR_ID), any()))
+            .willReturn(new MidReportRevisionCompletionResult(completedReport, false));
+
+        MidReportAdminResponse response = midReportAdminFacade.completeFeedback(
+            SECTION_ID, TEAM_ID, 4L, PROFESSOR_ID);
+
+        assertThat(response.revision().completedAt()).isEqualTo(completedAt);
+        assertThat(response.revision().completedBy()).isEqualTo(PROFESSOR_ID);
+        verifyNoInteractions(teamThreadCommandService);
+        verifyNoInteractions(teamMessageCommandService);
+    }
+
+    @Test
+    @DisplayName("담당 교수가 아니면 피드백 완료 명령을 실행하지 않는다")
+    void completeFeedback_RejectsForeignProfessorBeforeCommand() {
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(false);
+
+        assertThatThrownBy(() -> midReportAdminFacade.completeFeedback(SECTION_ID, TEAM_ID, 3L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 팀만 접근할 수 있습니다.");
+
+        verifyNoInteractions(midReportCommandService);
+        verifyNoInteractions(teamMessageCommandService);
+    }
+
+    @Test
+    @DisplayName("분반에 속하지 않은 팀이면 피드백 완료 명령을 실행하지 않는다")
+    void completeFeedback_RejectsForeignTeamBeforeCommand() {
+        Team otherSectionTeam = Team.builder().id(TEAM_ID).sectionId(999L).name("타분반팀").build();
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(otherSectionTeam));
+
+        assertThatThrownBy(() -> midReportAdminFacade.completeFeedback(SECTION_ID, TEAM_ID, 3L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("해당 분반에 속한 팀이 아닙니다.");
+
+        verifyNoInteractions(midReportCommandService);
+        verifyNoInteractions(teamMessageCommandService);
+    }
+
+    @Test
+    @DisplayName("중간보고서가 없으면 피드백 반영을 완료할 수 없다")
+    void completeFeedback_ReportNotFound() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID))
+            .willReturn(List.of(midReportMilestone()));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> midReportAdminFacade.completeFeedback(SECTION_ID, TEAM_ID, 3L, PROFESSOR_ID))
+            .isInstanceOf(MidReportNotFoundException.class);
+
+        verifyNoInteractions(midReportCommandService);
+        verifyNoInteractions(teamMessageCommandService);
+    }
+
+    @Test
+    @DisplayName("오래된 버전으로 피드백 완료를 요청하면 버전 충돌을 그대로 전파한다")
+    void completeFeedback_PropagatesVersionConflict() {
+        Team team = Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("A팀").build();
+        Milestone milestone = midReportMilestone();
+        MidReport report = revisionRequestedReport(4L);
+        MidReportVersionConflictException conflict = new MidReportVersionConflictException();
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
+        given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
+        given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
+        given(midReportCommandService.completeRevision(eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any()))
+            .willThrow(conflict);
+
+        assertThatThrownBy(() -> midReportAdminFacade.completeFeedback(SECTION_ID, TEAM_ID, 3L, PROFESSOR_ID))
+            .isSameAs(conflict);
+
+        verifyNoInteractions(teamMessageCommandService);
     }
 
     @Test
@@ -346,7 +486,7 @@ class MidReportAdminFacadeTest {
             .senderId(PROFESSOR_ID)
             .relatedType(TeamMessageRelatedType.MID_REPORT)
             .relatedId(REPORT_ID)
-            .message("수정 요청 피드백")
+            .message("중간보고서 피드백 반영을 완료 처리했습니다.")
             .createdAt(LocalDateTime.of(2026, 9, 13, 14, 0))
             .build();
         Pageable pageable = PageRequest.of(0, 20);
@@ -369,7 +509,7 @@ class MidReportAdminFacadeTest {
         assertThat(response.contents()).hasSize(1);
         assertThat(response.contents().get(0).messageId()).isEqualTo(500L);
         assertThat(response.contents().get(0).senderName()).isEqualTo("김교수");
-        assertThat(response.contents().get(0).message()).isEqualTo("수정 요청 피드백");
+        assertThat(response.contents().get(0).message()).isEqualTo("중간보고서 피드백 반영을 완료 처리했습니다.");
     }
 
     @Test
@@ -516,5 +656,44 @@ class MidReportAdminFacadeTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private MidReport revisionRequestedReport(long version) {
+        return MidReport.builder()
+            .id(REPORT_ID)
+            .teamId(TEAM_ID)
+            .milestoneId(MILESTONE_ID)
+            .title("A팀 중간보고서")
+            .version(version)
+            .status(MidReportStatus.REVISION_REQUESTED)
+            .dueDate(LocalDateTime.of(2026, 9, 30, 23, 59))
+            .submittedAt(LocalDateTime.of(2026, 9, 10, 12, 0))
+            .submittedBy(STUDENT_ID)
+            .revision(new MidReportRevision(
+                List.of("gui-design"), List.of(),
+                LocalDateTime.of(2026, 9, 12, 10, 0), null
+            ))
+            .blocks(List.of())
+            .build();
+    }
+
+    private MidReport completedReport(long version, LocalDateTime completedAt, String completedBy) {
+        return MidReport.builder()
+            .id(REPORT_ID)
+            .teamId(TEAM_ID)
+            .milestoneId(MILESTONE_ID)
+            .title("A팀 중간보고서")
+            .version(version)
+            .status(MidReportStatus.SUBMITTED)
+            .dueDate(LocalDateTime.of(2026, 9, 30, 23, 59))
+            .submittedAt(LocalDateTime.of(2026, 9, 10, 12, 0))
+            .submittedBy(STUDENT_ID)
+            .revision(new MidReportRevision(
+                List.of("gui-design"), List.of(),
+                LocalDateTime.of(2026, 9, 12, 10, 0), null,
+                completedAt, completedBy
+            ))
+            .blocks(List.of())
+            .build();
     }
 }
