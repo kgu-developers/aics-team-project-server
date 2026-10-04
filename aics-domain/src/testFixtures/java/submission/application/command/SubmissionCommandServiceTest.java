@@ -219,6 +219,28 @@ class SubmissionCommandServiceTest {
     }
 
     @Test
+    @DisplayName("정시 제출한 팀도 지각제출기간에 재제출하면 새 버전이 지각으로 저장된다")
+    void submitVersion_AllowsResubmissionWithinLateSubmissionWindow() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));
+        SubmissionVersion first = submissionCommandService.submitVersion(
+                submission.getId(), USER_ID, "1차", null, List.of());
+        LocalDateTime now = LocalDateTime.now();
+        Milestone lateMilestone = Milestone.restore(
+                MILESTONE_ID, SECTION_ID, "마일스톤", null, 2, MilestoneStatus.PUBLISHED,
+                new MilestoneSchedule(null, now.minusHours(1), now.plusDays(1), null, null, null));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(lateMilestone));
+
+        SubmissionVersion second = submissionCommandService.submitVersion(
+                submission.getId(), USER_ID, "2차", "자료 수정", List.of());
+
+        assertThat(first.isLate()).isFalse();
+        assertThat(second.getVersion()).isEqualTo(2);
+        assertThat(second.isLate()).isTrue();
+        assertThat(submissionRepository.findById(submission.getId()).orElseThrow().getCurrentVersion())
+                .isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("FILE 아티팩트는 업로드 후 FileObject로 저장되고 SubmissionArtifact가 그 파일을 참조한다")
     void submitVersion_UploadsFileArtifact() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(openMilestone()));

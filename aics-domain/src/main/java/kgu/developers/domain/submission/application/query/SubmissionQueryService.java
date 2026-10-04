@@ -120,7 +120,7 @@ public class SubmissionQueryService {
         if (isBefore(now, schedule.dueAt())) {
             return submission.hasNeverSubmitted() || milestone.isAllowResubmissionBeforeDueAt();
         }
-        return submission.hasNeverSubmitted() && isBefore(now, schedule.lateSubmissionUntil());
+        return isBefore(now, schedule.lateSubmissionUntil());
     }
 
     private boolean hasOpened(LocalDateTime now, LocalDateTime opensAt) {
