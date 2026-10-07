@@ -11,3 +11,10 @@ updates:
       - "LeeHanEum"
       - "LeeShinHaeng"
       - "minjo-on"
+    ignore:
+      # 현재 Spring Boot 3.4.x는 springdoc 2.7~2.8과 호환된다.
+      # 2.9+는 Boot 3.5 이상을 전제로 해 Swagger UI 매핑이 깨지고,
+      # 3.x는 Boot 4 런타임 모듈을 유입하므로 Boot 업그레이드 전까지 막는다.
+      - dependency-name: "org.springdoc:springdoc-openapi-starter-webmvc-ui"
+        versions:
+          - "[2.9,)"
