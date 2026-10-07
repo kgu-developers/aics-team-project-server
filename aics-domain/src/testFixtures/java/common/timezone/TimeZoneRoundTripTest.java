@@ -5,15 +5,12 @@ import static org.assertj.core.api.Assertions.within;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.TimeZone;
 import kgu.developers.domain.meetingrecord.domain.MeetingRecordEditLog;
 import kgu.developers.domain.meetingrecord.infrastructure.MeetingRecordEditLogRepositoryImpl;
 import kgu.developers.domain.meetingrecord.infrastructure.MeetingRecordJpaEntity;
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,11 +23,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-// KD3-287 — "JVM 시간대와 JDBC 시간대가 일치하면 저장·조회가 어긋나지 않는다"는 사실만 고정한다.
+// KD3-287 — "변환 설정(jdbc.time_zone)이 없으면 저장값과 조회값이 어긋나지 않는다"를 고정한다.
 //
-// 주의: 이 테스트는 스스로 기본 시간대를 KST로 맞추고 시작하므로, 배포 설정이 잘못된 것
-// (컨테이너 TZ 누락, hibernate.jdbc.time_zone 재추가)은 잡지 못한다. 그 회귀는
-// TimeZoneConfigurationTest가 설정 파일을 직접 읽어 검사한다.
+// JVM 기본 시간대는 일부러 건드리지 않는다. 변환이 없으면 어느 시간대에서 돌든 왕복이 성립하기
+// 때문이고, 테스트가 전역 시간대를 바꾸면 같은 JVM에서 도는 다른 테스트가 영향을 받는다
+// (실제로 @AfterAll 복구를 넣었다가 MeetingRecordEditLogQueryIntegrationTest가 깨졌다).
+//
+// 배포 설정이 잘못된 것(컨테이너 TZ 누락, jdbc.time_zone 재추가)은 이 테스트가 아니라
+// TimeZoneConfigurationTest가 설정 파일을 직접 읽어 잡는다.
 @DataJpaTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:tz-roundtrip;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "spring.jpa.hibernate.ddl-auto=create-drop"
@@ -47,21 +47,6 @@ class TimeZoneRoundTripTest {
     static class TestConfig {
     }
 
-    private static TimeZone originalTimeZone;
-
-    @BeforeAll
-    static void fixServiceTimeZone() {
-        // 배포 컨테이너와 같은 조건(Dockerfile/compose의 TZ=Asia/Seoul)
-        originalTimeZone = TimeZone.getDefault();
-        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"));
-    }
-
-    @AfterAll
-    static void restoreTimeZone() {
-        // 같은 JVM에서 뒤에 도는 테스트가 바뀐 기본 시간대를 물려받지 않도록 되돌린다.
-        TimeZone.setDefault(originalTimeZone);
-    }
-
     @Autowired
     private MeetingRecordEditLogRepositoryImpl editLogRepository;
 
@@ -72,7 +57,7 @@ class TimeZoneRoundTripTest {
     private EntityManager em;
 
     @Test
-    @DisplayName("JVM과 JDBC 시간대가 같으면 감사 시각의 DB 저장값과 조회값이 일치한다")
+    @DisplayName("변환 설정이 없으면 감사 시각의 DB 저장값과 조회값이 일치한다")
     void auditTimestampRoundTripsWithoutShift() {
         MeetingRecordEditLog saved = editLogRepository.save(
                 MeetingRecordEditLog.create(1L, 10L, "202412345", REASON));
@@ -91,7 +76,7 @@ class TimeZoneRoundTripTest {
     }
 
     @Test
-    @DisplayName("JVM과 JDBC 시간대가 같으면 사용자가 입력한 시각이 그대로 저장된다")
+    @DisplayName("변환 설정이 없으면 사용자가 입력한 시각이 그대로 저장된다")
     void userSuppliedTimestampIsStoredAsIs() {
         LocalDateTime inputByUser = LocalDateTime.of(2026, 10, 15, 12, 0);
 
