@@ -38,6 +38,9 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # 컨테이너 기본 시간대는 UTC다. 그대로 두면 @CreationTimestamp 같은 JVM 생성 시각과
+      # serviceClock(Asia/Seoul) 기준 시각이 9시간 어긋난 채로 섞인다(프론트 신고 건).
+      TZ: Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -69,6 +72,9 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # 컨테이너 기본 시간대는 UTC다. 그대로 두면 @CreationTimestamp 같은 JVM 생성 시각과
+      # serviceClock(Asia/Seoul) 기준 시각이 9시간 어긋난 채로 섞인다(프론트 신고 건).
+      TZ: Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -100,6 +106,9 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # 컨테이너 기본 시간대는 UTC다. 그대로 두면 @CreationTimestamp 같은 JVM 생성 시각과
+      # serviceClock(Asia/Seoul) 기준 시각이 9시간 어긋난 채로 섞인다(프론트 신고 건).
+      TZ: Asia/Seoul
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
