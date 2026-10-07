@@ -133,4 +133,17 @@ class MeetingRecordQueryServiceTest {
         assertThat(result.get(2L)).isEqualTo(1L);
         assertThat(result.get(3L)).isNull();
     }
+
+    @Test
+    @DisplayName("countMeetingRecords는 단일 팀 식별자로 회의록 개수를 집계한다")
+    void countMeetingRecords_BySingleTeamId() {
+        save(1L, MeetingPhase.PROPOSAL);
+        save(1L, MeetingPhase.FINAL);
+
+        long result = queryService.countMeetingRecords(1L);
+
+        assertThat(result).isEqualTo(2L);
+        assertThat(queryService.countMeetingRecords(999L)).isZero();
+        assertThat(queryService.countMeetingRecords((Long) null)).isZero();
+    }
 }

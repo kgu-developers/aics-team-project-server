@@ -29,6 +29,9 @@ public record SubmissionAdminResponse(
         @Schema(description = "해당 팀과 마일스톤에 연결된 회의록 수", example = "2", requiredMode = REQUIRED)
         long meetingRecordCount,
 
+        @Schema(description = "해당 팀이 작성한 전체 회의록 수(마일스톤 무관)", example = "5", requiredMode = REQUIRED)
+        long totalMeetingRecordCount,
+
         @Schema(description = "마일스톤 식별자", example = "3", requiredMode = REQUIRED)
         Long milestoneId,
 
@@ -58,7 +61,7 @@ public record SubmissionAdminResponse(
 ) {
 
     public static SubmissionAdminResponse of(Submission submission, Team team, boolean canSubmitNow, boolean hasPendingReview) {
-        return of(submission, team, canSubmitNow, hasPendingReview, null, 0L);
+        return of(submission, team, canSubmitNow, hasPendingReview, null, 0L, 0L);
     }
 
     public static SubmissionAdminResponse of(
@@ -68,7 +71,7 @@ public record SubmissionAdminResponse(
             boolean hasPendingReview,
             String projectTitle
     ) {
-        return of(submission, team, canSubmitNow, hasPendingReview, projectTitle, 0L);
+        return of(submission, team, canSubmitNow, hasPendingReview, projectTitle, 0L, 0L);
     }
 
     public static SubmissionAdminResponse of(
@@ -79,12 +82,25 @@ public record SubmissionAdminResponse(
             String projectTitle,
             long meetingRecordCount
     ) {
+        return of(submission, team, canSubmitNow, hasPendingReview, projectTitle, meetingRecordCount, 0L);
+    }
+
+    public static SubmissionAdminResponse of(
+            Submission submission,
+            Team team,
+            boolean canSubmitNow,
+            boolean hasPendingReview,
+            String projectTitle,
+            long meetingRecordCount,
+            long totalMeetingRecordCount
+    ) {
         return SubmissionAdminResponse.builder()
                 .id(submission.getId())
                 .teamId(team.getId())
                 .teamName(team.getName())
                 .projectTitle(projectTitle)
                 .meetingRecordCount(meetingRecordCount)
+                .totalMeetingRecordCount(totalMeetingRecordCount)
                 .milestoneId(submission.getMilestoneId())
                 .status(submission.getStatus())
                 .currentVersion(submission.getCurrentVersion())
@@ -107,12 +123,28 @@ public record SubmissionAdminResponse(
             SubmissionStatus status,
             int currentVersion
     ) {
+        return of(submission, team, canSubmitNow, hasPendingReview, projectTitle, meetingRecordCount, 0L, midReportId, status, currentVersion);
+    }
+
+    public static SubmissionAdminResponse of(
+            Submission submission,
+            Team team,
+            boolean canSubmitNow,
+            boolean hasPendingReview,
+            String projectTitle,
+            long meetingRecordCount,
+            long totalMeetingRecordCount,
+            Long midReportId,
+            SubmissionStatus status,
+            int currentVersion
+    ) {
         return SubmissionAdminResponse.builder()
                 .id(submission.getId())
                 .teamId(team.getId())
                 .teamName(team.getName())
                 .projectTitle(projectTitle)
                 .meetingRecordCount(meetingRecordCount)
+                .totalMeetingRecordCount(totalMeetingRecordCount)
                 .milestoneId(submission.getMilestoneId())
                 .status(status != null ? status : submission.getStatus())
                 .currentVersion(currentVersion)

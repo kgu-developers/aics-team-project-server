@@ -88,14 +88,17 @@ public class SubmissionAdminFacade {
 
         List<Team> teams = filterTeam(
                 teamRepository.findAllBySectionId(milestone.getSectionId()), teamId);
+        List<Long> teamIds = teams.stream().map(Team::getId).toList();
         Map<Long, String> projectTitles = milestone.getType() == MilestoneType.PROPOSAL
-                ? projectRepository.findAllByTeamIdIn(teams.stream().map(Team::getId).toList()).stream()
+                ? projectRepository.findAllByTeamIdIn(teamIds).stream()
                         .collect(Collectors.toMap(Project::getTeamId, Project::getTitle, (first, ignored) -> first))
                 : Map.of();
         Map<Long, Long> meetingRecordCounts = meetingRecordQueryService.countMeetingRecords(
-                teams.stream().map(Team::getId).toList(), milestoneId);
+                teamIds, milestoneId);
+        Map<Long, Long> totalMeetingRecordCounts = meetingRecordQueryService.countMeetingRecords(
+                teamIds);
         Map<Long, kgu.developers.domain.midreport.domain.MidReport> midReports = milestone.getType() == MilestoneType.MID_REPORT
-                ? midReportRepository.findAllByTeamIdInAndMilestoneId(teams.stream().map(Team::getId).toList(), milestoneId).stream()
+                ? midReportRepository.findAllByTeamIdInAndMilestoneId(teamIds, milestoneId).stream()
                         .collect(Collectors.toMap(kgu.developers.domain.midreport.domain.MidReport::getTeamId, Function.identity()))
                 : Map.of();
         List<SubmissionAdminResponse> contents = teams.stream()
@@ -116,6 +119,7 @@ public class SubmissionAdminFacade {
                                 hasPendingReview,
                                 projectTitles.get(team.getId()),
                                 meetingRecordCounts.getOrDefault(team.getId(), 0L),
+                                totalMeetingRecordCounts.getOrDefault(team.getId(), 0L),
                                 midReport.getId(),
                                 status,
                                 midReport.getVersion() != null ? midReport.getVersion().intValue() : 0);
@@ -125,7 +129,8 @@ public class SubmissionAdminFacade {
                             submissionQueryService.canSubmitNow(submission),
                             submissionQueryService.hasPendingReview(submission),
                             projectTitles.get(team.getId()),
-                            meetingRecordCounts.getOrDefault(team.getId(), 0L));
+                            meetingRecordCounts.getOrDefault(team.getId(), 0L),
+                            totalMeetingRecordCounts.getOrDefault(team.getId(), 0L));
                 })
                 .toList();
         return SubmissionAdminListResponse.from(contents);
@@ -146,6 +151,8 @@ public class SubmissionAdminFacade {
         Submission submission = submissionQueryService.getSubmission(submissionId);
         Team team = validateProfessorOwnsSubmission(submission, professorId);
         String projectTitle = resolveProjectTitle(submission, team);
+        long meetingRecordCount = meetingRecordQueryService.countMeetingRecords(team.getId(), submission.getMilestoneId());
+        long totalMeetingRecordCount = meetingRecordQueryService.countMeetingRecords(team.getId());
         Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
                 .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
         if (milestone.getType() == MilestoneType.MID_REPORT) {
@@ -164,7 +171,8 @@ public class SubmissionAdminFacade {
                         canSubmitNow,
                         hasPendingReview,
                         projectTitle,
-                        meetingRecordQueryService.countMeetingRecords(team.getId(), submission.getMilestoneId()),
+                        meetingRecordCount,
+                        totalMeetingRecordCount,
                         midReport.getId(),
                         status,
                         midReport.getVersion() != null ? midReport.getVersion().intValue() : 0);
@@ -175,7 +183,8 @@ public class SubmissionAdminFacade {
                 submissionQueryService.canSubmitNow(submission),
                 submissionQueryService.hasPendingReview(submission),
                 projectTitle,
-                meetingRecordQueryService.countMeetingRecords(team.getId(), submission.getMilestoneId()));
+                meetingRecordCount,
+                totalMeetingRecordCount);
     }
 
     private boolean canSubmitMidReportNow(Milestone milestone, kgu.developers.domain.midreport.domain.MidReport midReport) {

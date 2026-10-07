@@ -144,19 +144,22 @@ class SubmissionAdminFacadeTest {
     }
 
     @Test
-    @DisplayName("팀별 제출 현황은 해당 마일스톤과 연결된 회의록 수를 함께 응답한다")
+    @DisplayName("팀별 제출 현황은 해당 마일스톤과 연결된 회의록 수와 전체 회의록 수를 함께 응답한다")
     void getSubmissionsByMilestone_IncludesMeetingRecordCount() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
         given(meetingRecordQueryService.countMeetingRecords(List.of(teamId), MILESTONE_ID))
                 .willReturn(Map.of(teamId, 2L));
+        given(meetingRecordQueryService.countMeetingRecords(List.of(teamId)))
+                .willReturn(Map.of(teamId, 5L));
 
         SubmissionAdminListResponse response = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
 
-        assertThat(response.contents()).singleElement()
-                .extracting(SubmissionAdminResponse::meetingRecordCount)
-                .isEqualTo(2L);
+        assertThat(response.contents()).singleElement().satisfies(content -> {
+            assertThat(content.meetingRecordCount()).isEqualTo(2L);
+            assertThat(content.totalMeetingRecordCount()).isEqualTo(5L);
+        });
     }
 
     @Test
@@ -235,11 +238,15 @@ class SubmissionAdminFacadeTest {
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(meetingRecordQueryService.countMeetingRecords(teamId, MILESTONE_ID)).willReturn(2L);
+        given(meetingRecordQueryService.countMeetingRecords(teamId)).willReturn(5L);
 
         SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
         assertThat(response.id()).isEqualTo(submission.getId());
         assertThat(response.teamName()).isEqualTo("A팀");
+        assertThat(response.meetingRecordCount()).isEqualTo(2L);
+        assertThat(response.totalMeetingRecordCount()).isEqualTo(5L);
     }
 
     @Test
@@ -433,6 +440,10 @@ class SubmissionAdminFacadeTest {
     void getSubmissionsByMilestone_IncludesMidReportDetails() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(meetingRecordQueryService.countMeetingRecords(List.of(teamId), MILESTONE_ID))
+                .willReturn(Map.of(teamId, 2L));
+        given(meetingRecordQueryService.countMeetingRecords(List.of(teamId)))
+                .willReturn(Map.of(teamId, 5L));
         MidReport report = MidReport.builder()
                 .id(77L)
                 .teamId(teamId)
@@ -454,6 +465,8 @@ class SubmissionAdminFacadeTest {
             assertThat(item.canSubmitNow()).isFalse();
             assertThat(item.midReportId()).isEqualTo(77L);
             assertThat(item.currentVersion()).isEqualTo(2);
+            assertThat(item.meetingRecordCount()).isEqualTo(2L);
+            assertThat(item.totalMeetingRecordCount()).isEqualTo(5L);
             assertThat(item.id()).isNotNull().isNotEqualTo(77L);
         });
     }
@@ -464,6 +477,8 @@ class SubmissionAdminFacadeTest {
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(meetingRecordQueryService.countMeetingRecords(teamId, MILESTONE_ID)).willReturn(2L);
+        given(meetingRecordQueryService.countMeetingRecords(teamId)).willReturn(5L);
         MidReport report = MidReport.builder()
                 .id(77L)
                 .teamId(teamId)
@@ -482,6 +497,8 @@ class SubmissionAdminFacadeTest {
         assertThat(response.midReportId()).isEqualTo(77L);
         assertThat(response.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
         assertThat(response.canSubmitNow()).isTrue();
+        assertThat(response.meetingRecordCount()).isEqualTo(2L);
+        assertThat(response.totalMeetingRecordCount()).isEqualTo(5L);
     }
 
     @Test
