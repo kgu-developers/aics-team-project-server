@@ -12,6 +12,7 @@ import kgu.developers.domain.meetingrecord.infrastructure.MeetingRecordJpaEntity
 import kgu.developers.domain.meetingrecord.domain.MeetingPhase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,12 +26,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-// KD3-287 회귀 가드.
-// 예전에는 JVM 기본 시간대(UTC)와 hibernate.jdbc.time_zone(Asia/Seoul)이 어긋나 Hibernate가
-// 저장 시 +9, 조회 시 -9를 적용했다. 그 결과 DB에 적힌 값과 애플리케이션이 돌려주는 값이 9시간
-// 달라졌고(감사 시각), 사용자가 넣은 값은 DB에만 9시간 미래로 저장됐다.
-// 이 테스트는 "두 시간대가 같을 때 DB 저장값과 조회값이 일치한다"를 고정한다 —
-// 누군가 jdbc.time_zone을 되살리거나 컨테이너 TZ 설정을 빼면 여기서 깨진다.
+// KD3-287 — "JVM 시간대와 JDBC 시간대가 일치하면 저장·조회가 어긋나지 않는다"는 사실만 고정한다.
+//
+// 주의: 이 테스트는 스스로 기본 시간대를 KST로 맞추고 시작하므로, 배포 설정이 잘못된 것
+// (컨테이너 TZ 누락, hibernate.jdbc.time_zone 재추가)은 잡지 못한다. 그 회귀는
+// TimeZoneConfigurationTest가 설정 파일을 직접 읽어 검사한다.
 @DataJpaTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:tz-roundtrip;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "spring.jpa.hibernate.ddl-auto=create-drop"
@@ -47,10 +47,19 @@ class TimeZoneRoundTripTest {
     static class TestConfig {
     }
 
+    private static TimeZone originalTimeZone;
+
     @BeforeAll
     static void fixServiceTimeZone() {
         // 배포 컨테이너와 같은 조건(Dockerfile/compose의 TZ=Asia/Seoul)
+        originalTimeZone = TimeZone.getDefault();
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"));
+    }
+
+    @AfterAll
+    static void restoreTimeZone() {
+        // 같은 JVM에서 뒤에 도는 테스트가 바뀐 기본 시간대를 물려받지 않도록 되돌린다.
+        TimeZone.setDefault(originalTimeZone);
     }
 
     @Autowired
@@ -63,7 +72,7 @@ class TimeZoneRoundTripTest {
     private EntityManager em;
 
     @Test
-    @DisplayName("감사 시각은 DB에 저장된 값과 애플리케이션이 돌려주는 값이 같다")
+    @DisplayName("JVM과 JDBC 시간대가 같으면 감사 시각의 DB 저장값과 조회값이 일치한다")
     void auditTimestampRoundTripsWithoutShift() {
         MeetingRecordEditLog saved = editLogRepository.save(
                 MeetingRecordEditLog.create(1L, 10L, "202412345", REASON));
@@ -82,7 +91,7 @@ class TimeZoneRoundTripTest {
     }
 
     @Test
-    @DisplayName("사용자가 입력한 시각은 그대로 저장된다(9시간 밀리지 않는다)")
+    @DisplayName("JVM과 JDBC 시간대가 같으면 사용자가 입력한 시각이 그대로 저장된다")
     void userSuppliedTimestampIsStoredAsIs() {
         LocalDateTime inputByUser = LocalDateTime.of(2026, 10, 15, 12, 0);
 
