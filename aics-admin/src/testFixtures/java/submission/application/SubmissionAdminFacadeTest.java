@@ -440,6 +440,10 @@ class SubmissionAdminFacadeTest {
     void getSubmissionsByMilestone_IncludesMidReportDetails() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(meetingRecordQueryService.countMeetingRecords(List.of(teamId), MILESTONE_ID))
+                .willReturn(Map.of(teamId, 2L));
+        given(meetingRecordQueryService.countMeetingRecords(List.of(teamId)))
+                .willReturn(Map.of(teamId, 5L));
         MidReport report = MidReport.builder()
                 .id(77L)
                 .teamId(teamId)
@@ -461,6 +465,8 @@ class SubmissionAdminFacadeTest {
             assertThat(item.canSubmitNow()).isFalse();
             assertThat(item.midReportId()).isEqualTo(77L);
             assertThat(item.currentVersion()).isEqualTo(2);
+            assertThat(item.meetingRecordCount()).isEqualTo(2L);
+            assertThat(item.totalMeetingRecordCount()).isEqualTo(5L);
             assertThat(item.id()).isNotNull().isNotEqualTo(77L);
         });
     }
@@ -471,6 +477,8 @@ class SubmissionAdminFacadeTest {
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(meetingRecordQueryService.countMeetingRecords(teamId, MILESTONE_ID)).willReturn(2L);
+        given(meetingRecordQueryService.countMeetingRecords(teamId)).willReturn(5L);
         MidReport report = MidReport.builder()
                 .id(77L)
                 .teamId(teamId)
@@ -489,6 +497,8 @@ class SubmissionAdminFacadeTest {
         assertThat(response.midReportId()).isEqualTo(77L);
         assertThat(response.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
         assertThat(response.canSubmitNow()).isTrue();
+        assertThat(response.meetingRecordCount()).isEqualTo(2L);
+        assertThat(response.totalMeetingRecordCount()).isEqualTo(5L);
     }
 
     @Test
