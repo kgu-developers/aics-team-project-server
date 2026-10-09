@@ -131,13 +131,13 @@ class TeamMemberCommandServiceTest {
         TeamMember claimed = teamMemberCommandService.claimLeader(team, "202699999");
 
         assertThat(claimed.isLeader()).isTrue();
-        assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
+        assertThat(team.getStatus()).isEqualTo(Status.FORMING);
         verify(teamMemberRepository).save(member);
-        verify(teamRepository).save(team);
+        verify(teamRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("킥오프에서 이미 팀장으로 지정된 팀원은 자기 자신을 기존 팀장으로 오인하지 않고 확정할 수 있다")
+    @DisplayName("이미 지정된 팀장이 다시 선택해도 형성중 상태를 유지한다")
     void claimLeaderAllowsSelfWhenAlreadyDesignatedLeader() {
         TeamMember member = TeamMember.builder()
                 .id(1L).teamId(1L).userId("202699999").isLeader(true).projectRole("백엔드")
@@ -150,7 +150,29 @@ class TeamMemberCommandServiceTest {
         TeamMember claimed = teamMemberCommandService.claimLeader(team, "202699999");
 
         assertThat(claimed.isLeader()).isTrue();
-        assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED);
+        assertThat(team.getStatus()).isEqualTo(Status.FORMING);
+    }
+
+    @Test
+    @DisplayName("학생 팀장 선택 후 교수자는 역할 변경과 팀 이동을 할 수 있다")
+    void allowsMemberUpdatesAfterLeaderClaim() {
+        TeamMember member = teamMember();
+        Team team = team(1L, Status.FORMING);
+        given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
+        given(teamMemberRepository.save(member)).willReturn(member);
+
+        teamMemberCommandService.claimLeader(team, "202699999");
+
+        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team));
+        teamMemberCommandService.updateTeamMember(member, null, "프론트엔드", null);
+        assertThat(member.getProjectRole()).isEqualTo("프론트엔드");
+        assertThat(member.isLeader()).isTrue();
+
+        given(teamRepository.findByIdForUpdate(2L)).willReturn(Optional.of(team(2L, Status.FORMING)));
+        teamMemberCommandService.updateTeamMember(member, 2L, null, false);
+        assertThat(member.getTeamId()).isEqualTo(2L);
+        assertThat(member.isLeader()).isFalse();
+        assertThat(team.getStatus()).isEqualTo(Status.FORMING);
     }
 
     @Test
@@ -582,7 +604,7 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
-    @DisplayName("동시에 팀 확정과 팀원 수정 요청이 들어올 때 하나만 성공한다")
+    @DisplayName("팀장 선택과 확정된 팀의 역할 변경 요청이 동시에 들어오면 역할 변경은 차단된다")
     void concurrentTeamConfirmationAndMemberUpdate() throws InterruptedException {
         TeamMember member = teamMember();
         Team formingTeam = team(1L, Status.FORMING);
@@ -596,7 +618,6 @@ class TeamMemberCommandServiceTest {
         given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
         given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.empty());
         given(teamMemberRepository.save(member)).willReturn(member);
-        given(teamRepository.save(formingTeam)).willReturn(formingTeam);
         
         executor.submit(() -> {
             try {

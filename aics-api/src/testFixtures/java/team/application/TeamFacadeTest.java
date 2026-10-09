@@ -322,10 +322,7 @@ class TeamFacadeTest {
     given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team);
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(before), List.of(after));
-    given(teamMemberCommandService.claimLeader(team, USER)).willAnswer(invocation -> {
-      team.updateStatus(Status.CONFIRMED);
-      return after;
-    });
+    given(teamMemberCommandService.claimLeader(team, USER)).willReturn(after);
 
     teamFacade.claimLeader(1L, USER);
 
@@ -341,14 +338,8 @@ class TeamFacadeTest {
         org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_UPDATED),
         org.mockito.ArgumentMatchers.argThat(metadata ->
             "LEADER_CLAIMED".equals(metadata.path("changeType").asText())));
-    verify(auditLogCommandService).recordTeamChange(
-        org.mockito.ArgumentMatchers.eq(USER), org.mockito.ArgumentMatchers.eq(10L),
-        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_UPDATED),
-        org.mockito.ArgumentMatchers.argThat(metadata ->
-            "TEAM_STATUS_UPDATED".equals(metadata.path("changeType").asText())
-                && "FORMING".equals(metadata.at("/before/status").asText())
-                && "CONFIRMED".equals(metadata.at("/after/status").asText())));
-    verify(auditLogCommandService, times(2)).recordTeamChange(
+    assertThat(team.getStatus()).isEqualTo(Status.FORMING);
+    verify(auditLogCommandService, times(1)).recordTeamChange(
         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
         org.mockito.ArgumentMatchers.any());
