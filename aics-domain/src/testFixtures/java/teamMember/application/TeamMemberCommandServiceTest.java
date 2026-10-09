@@ -14,10 +14,6 @@ import static org.mockito.Mockito.verify;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -297,8 +293,8 @@ class TeamMemberCommandServiceTest {
     }
 
     @Test
-    @DisplayName("확정된 팀의 팀원은 수정할 수 없다")
-    void rejectsUpdateOnConfirmedTeam() {
+    @DisplayName("확정된 팀의 역할 변경은 TeamAlreadyConfirmedException으로 실패하고 저장하지 않는다")
+    void rejectsProjectRoleUpdateOnConfirmedTeam() {
         TeamMember teamMember = teamMember();
         given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(team(1L, Status.CONFIRMED)));
 
@@ -588,65 +584,4 @@ class TeamMemberCommandServiceTest {
         assertThat(teamMember.getTeamId()).isEqualTo(1L);
     }
 
-    @Test
-    @DisplayName("팀 확정과 팀원 수정 동시 실행 시 경쟁 상태를 방지한다")
-    void preventsRaceConditionBetweenTeamConfirmationAndMemberUpdate() {
-        TeamMember member = teamMember();
-        Team confirmedTeam = team(1L, Status.CONFIRMED);
-        
-        given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(confirmedTeam));
-        
-        assertThatThrownBy(() -> teamMemberCommandService.updateTeamMember(member, null, "프론트엔드", null))
-                .isInstanceOf(TeamAlreadyConfirmedException.class);
-        
-        assertThat(member.getProjectRole()).isEqualTo("백엔드");
-        verify(teamMemberRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("팀장 선택과 확정된 팀의 역할 변경 요청이 동시에 들어오면 역할 변경은 차단된다")
-    void concurrentTeamConfirmationAndMemberUpdate() throws InterruptedException {
-        TeamMember member = teamMember();
-        Team formingTeam = team(1L, Status.FORMING);
-        Team confirmedTeam = team(1L, Status.CONFIRMED);
-        
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger failureCount = new AtomicInteger(0);
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        CountDownLatch latch = new CountDownLatch(2);
-        
-        given(teamMemberRepository.findByTeamIdAndUserId(1L, "202699999")).willReturn(Optional.of(member));
-        given(teamMemberRepository.findLeaderByTeamId(1L)).willReturn(Optional.empty());
-        given(teamMemberRepository.save(member)).willReturn(member);
-        
-        executor.submit(() -> {
-            try {
-                teamMemberCommandService.claimLeader(formingTeam, "202699999");
-                successCount.incrementAndGet();
-            } catch (Exception e) {
-                failureCount.incrementAndGet();
-            } finally {
-                latch.countDown();
-            }
-        });
-        
-        executor.submit(() -> {
-            try {
-                Thread.sleep(10);
-                given(teamRepository.findByIdForUpdate(1L)).willReturn(Optional.of(confirmedTeam));
-                teamMemberCommandService.updateTeamMember(member, null, "프론트엔드", null);
-                successCount.incrementAndGet();
-            } catch (Exception e) {
-                failureCount.incrementAndGet();
-            } finally {
-                latch.countDown();
-            }
-        });
-        
-        latch.await();
-        executor.shutdown();
-        
-        assertThat(successCount.get() + failureCount.get()).isEqualTo(2);
-        assertThat(successCount.get()).isGreaterThanOrEqualTo(1);
-    }
 }
