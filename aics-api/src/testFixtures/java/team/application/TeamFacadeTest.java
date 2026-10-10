@@ -187,7 +187,7 @@ class TeamFacadeTest {
     TeamQueryService realTeamQueryService = new TeamQueryService(fakeTeamRepository, null);
     TeamFacade confirmedTeamFacade = new TeamFacade(
         realTeamQueryService,
-        new TeamCommandService(realTeamQueryService, fakeTeamRepository, null),
+        new TeamCommandService(realTeamQueryService, fakeTeamRepository, null, auditLogCommandService),
         new TeamMemberQueryService(fakeTeamMemberRepository, null),
         new TeamMemberCommandService(fakeTeamMemberRepository, realTeamQueryService, fakeTeamRepository),
         teamAccessValidator, auditLogCommandService, projectCommandService);

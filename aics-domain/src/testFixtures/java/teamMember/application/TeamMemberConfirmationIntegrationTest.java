@@ -26,8 +26,14 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.data.domain.Pageable;
+import org.springframework.test.annotation.DirtiesContext;
 
 import jakarta.persistence.EntityManager;
+import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
+import kgu.developers.domain.auditLog.domain.TargetType;
+import kgu.developers.domain.auditLog.infrastructure.AuditLogRepositoryImpl;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import kgu.developers.domain.course.infrastructure.CourseJpaEntity;
@@ -51,8 +57,10 @@ import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({TeamCommandService.class, TeamMemberCommandService.class, TeamQueryService.class,
-    TeamRepositoryImpl.class, TeamMemberRepositoryImpl.class, SectionRepositoryImpl.class})
+    TeamRepositoryImpl.class, TeamMemberRepositoryImpl.class, SectionRepositoryImpl.class,
+    AuditLogCommandService.class, AuditLogRepositoryImpl.class})
 @Transactional(propagation = NOT_SUPPORTED)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class TeamMemberConfirmationIntegrationTest {
 
     @SpringBootConfiguration
@@ -77,6 +85,8 @@ class TeamMemberConfirmationIntegrationTest {
     private TeamMemberRepositoryImpl memberRepository;
     @MockitoSpyBean
     private TeamRepositoryImpl teamRepository;
+    @MockitoSpyBean
+    private AuditLogRepositoryImpl auditLogRepository;
 
     private Long sectionId;
     private Long teamId;
@@ -109,6 +119,45 @@ class TeamMemberConfirmationIntegrationTest {
     }
 
     @Test
+    @DisplayName("확정 로그는 행위자·시각·상태를 저장하고 재요청에도 중복되지 않는다")
+    void confirmationAuditIsPersistedOnce() {
+        teamCommandService.finalizeTeams(sectionId, "202699999");
+        teamCommandService.finalizeTeams(sectionId, "another-admin");
+
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            assertThat(auditLogRepository.findAllByTeam(sectionId, teamId, Pageable.unpaged()))
+                .singleElement().satisfies(log -> {
+                    assertThat(log.getActorId()).isEqualTo("202699999");
+                    assertThat(log.getCreatedAt()).isNotNull();
+                    assertThat(log.getEventType()).isEqualTo(AuditLogEventType.TEAM_UPDATED);
+                    assertThat(log.getTargetType()).isEqualTo(TargetType.TEAM);
+                    assertThat(log.getMetadata().path("changeType").asText()).isEqualTo("TEAM_FINALIZED");
+                    assertThat(log.getMetadata().path("before").path("status").asText()).isEqualTo("FORMING");
+                    assertThat(log.getMetadata().path("after").path("status").asText()).isEqualTo("CONFIRMED");
+                });
+        });
+    }
+
+    @Test
+    @DisplayName("감사 로그 저장 후 실패해도 팀 확정과 로그가 함께 롤백된다")
+    void confirmationRollsBackWithAuditFailure() {
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new IllegalStateException("audit failure");
+        }).when(auditLogRepository).save(any());
+
+        assertThatThrownBy(() -> teamCommandService.finalizeTeams(sectionId, "202699999"))
+            .isInstanceOf(IllegalStateException.class).hasMessage("audit failure");
+
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            assertThat(teamRepository.findById(teamId).orElseThrow().getStatus()).isEqualTo(Status.FORMING);
+            assertThat(auditLogRepository.findAllByTeam(sectionId, teamId, Pageable.unpaged())).isEmpty();
+        });
+    }
+
+    @Test
     @DisplayName("역할 변경은 실제 확정 트랜잭션의 팀 행 잠금을 기다린 뒤 확정 상태로 거절된다")
     void concurrentTeamConfirmationAndMemberUpdate() throws Exception {
         CountDownLatch confirmationSaved = new CountDownLatch(1);
@@ -130,7 +179,7 @@ class TeamMemberConfirmationIntegrationTest {
 
         var executor = Executors.newFixedThreadPool(2);
         try {
-            var confirmation = executor.submit(() -> teamCommandService.finalizeTeams(sectionId));
+            var confirmation = executor.submit(() -> teamCommandService.finalizeTeams(sectionId, "202699999"));
             assertThat(confirmationSaved.await(5, TimeUnit.SECONDS)).isTrue();
             var update = executor.submit(() -> {
                 assertThatThrownBy(() -> tx.executeWithoutResult(status ->
