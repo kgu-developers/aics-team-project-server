@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Positive;
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 
 @Tag(name = "Team", description = "팀 관리 API")
@@ -42,6 +43,7 @@ public interface TeamAdminController {
 			description = "분반 ID는 URL 경로 변수 입니다.",
 			example = "1",
 			required = true
-		) @Positive @PathVariable Long sectionId
+		) @Positive @PathVariable Long sectionId,
+		@Parameter(hidden = true) Authentication authentication
 	);
 }

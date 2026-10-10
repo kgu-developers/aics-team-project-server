@@ -88,11 +88,11 @@ class TeamAdminFacadeTest {
 	@Test
 	@DisplayName("finalizeTeams는 확정된 팀 목록을 응답한다")
 	void finalizeTeams() {
-		given(teamCommandService.finalizeTeams(10L)).willReturn(List.of(
+		given(teamCommandService.finalizeTeams(10L, "admin")).willReturn(List.of(
 			Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.CONFIRMED).build(),
 			Team.builder().id(2L).sectionId(10L).name("2팀").status(Status.CONFIRMED).build()));
 
-		TeamAdminListResponse response = teamAdminFacade.finalizeTeams(10L);
+		TeamAdminListResponse response = teamAdminFacade.finalizeTeams(10L, "admin");
 
 		assertThat(response.contents()).extracting("name", "status")
 			.containsExactly(
