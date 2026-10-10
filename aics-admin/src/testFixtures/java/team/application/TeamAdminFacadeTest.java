@@ -88,15 +88,25 @@ class TeamAdminFacadeTest {
 	@Test
 	@DisplayName("finalizeTeams는 확정된 팀 목록을 응답한다")
 	void finalizeTeams() {
-		given(teamCommandService.finalizeTeams(10L)).willReturn(List.of(
+		given(teamCommandService.finalizeTeams(10L, "admin")).willReturn(List.of(
 			Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.CONFIRMED).build(),
 			Team.builder().id(2L).sectionId(10L).name("2팀").status(Status.CONFIRMED).build()));
 
-		TeamAdminListResponse response = teamAdminFacade.finalizeTeams(10L);
+		TeamAdminListResponse response = teamAdminFacade.finalizeTeams(10L, "admin");
 
 		assertThat(response.contents()).extracting("name", "status")
 			.containsExactly(
 				org.assertj.core.groups.Tuple.tuple("1팀", Status.CONFIRMED),
 				org.assertj.core.groups.Tuple.tuple("2팀", Status.CONFIRMED));
+	}
+
+	@Test
+	@DisplayName("unfinalizeTeams는 평가 상태와 관계없이 취소된 팀 목록을 응답한다")
+	void unfinalizeTeams() {
+		given(teamCommandService.unfinalizeTeams(10L, "admin")).willReturn(List.of(
+			Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build()));
+
+		assertThat(teamAdminFacade.unfinalizeTeams(10L, "admin").contents())
+			.singleElement().satisfies(team -> assertThat(team.status()).isEqualTo(Status.FORMING));
 	}
 }

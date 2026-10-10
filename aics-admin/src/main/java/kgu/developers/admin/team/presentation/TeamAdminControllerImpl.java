@@ -6,6 +6,7 @@ import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,7 +32,14 @@ public class TeamAdminControllerImpl implements TeamAdminController {
 	@Override
 	@PatchMapping("/sections/{sectionId}/teams/finalize")
 	public ResponseEntity<TeamAdminListResponse> finalizeTeams(
-			@Positive @PathVariable Long sectionId) {
-		return ResponseEntity.ok(teamAdminFacade.finalizeTeams(sectionId));
+			@Positive @PathVariable Long sectionId, Authentication authentication) {
+		return ResponseEntity.ok(teamAdminFacade.finalizeTeams(sectionId, authentication.getName()));
+	}
+
+	@Override
+	@PatchMapping("/sections/{sectionId}/teams/unfinalize")
+	public ResponseEntity<TeamAdminListResponse> unfinalizeTeams(
+			@Positive @PathVariable Long sectionId, Authentication authentication) {
+		return ResponseEntity.ok(teamAdminFacade.unfinalizeTeams(sectionId, authentication.getName()));
 	}
 }

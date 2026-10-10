@@ -24,8 +24,12 @@ public class TeamAdminFacade {
 		return TeamAdminDetailResponse.of(teamQueryService.getTeamById(teamId), members(teamId));
 	}
 
-	public TeamAdminListResponse finalizeTeams(Long sectionId) {
-		return TeamAdminListResponse.from(teamCommandService.finalizeTeams(sectionId));
+	public TeamAdminListResponse finalizeTeams(Long sectionId, String actorId) {
+		return TeamAdminListResponse.from(teamCommandService.finalizeTeams(sectionId, actorId));
+	}
+
+	public TeamAdminListResponse unfinalizeTeams(Long sectionId, String actorId) {
+		return TeamAdminListResponse.from(teamCommandService.unfinalizeTeams(sectionId, actorId));
 	}
 
 	private List<TeamMemberAdminResponse> members(Long teamId) {

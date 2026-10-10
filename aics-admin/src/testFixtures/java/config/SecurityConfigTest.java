@@ -33,6 +33,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.Cookie;
 import kgu.developers.admin.config.SecurityConfig;
+import kgu.developers.admin.team.application.TeamAdminFacade;
+import kgu.developers.admin.team.presentation.TeamAdminControllerImpl;
 import kgu.developers.admin.user.application.UserAdminFacade;
 import kgu.developers.admin.user.presentation.UserAdminControllerImpl;
 import kgu.developers.admin.user.presentation.response.UserAdminListResponse;
@@ -44,7 +46,7 @@ import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 
 @WebMvcTest
 @Import({SecurityConfig.class, JwtCookieAuthenticationFilter.class, JwtUtil.class, CorsConfig.class,
-    UserAdminControllerImpl.class})
+    UserAdminControllerImpl.class, TeamAdminControllerImpl.class})
 @TestPropertySource(properties = {
     "jwt.secret_key=local-dev-jwt-secret-key-0123456789",
     "jwt.issuer=kgudevelopers@gmail.com",
@@ -71,6 +73,39 @@ class SecurityConfigTest {
 
   @MockitoBean
   private UserAdminFacade userAdminFacade;
+
+  @MockitoBean
+  private TeamAdminFacade teamAdminFacade;
+
+  @Test
+  @DisplayName("확정 취소는 일반 사용자와 조교를 거부하고 상태 변경 경로를 호출하지 않는다")
+  void unfinalizeRejectsNonAdmin() throws Exception {
+    for (String role : List.of("USER", "ASSISTANT")) {
+      mockMvc.perform(patch("/api/v1/admin/sections/1/teams/unfinalize")
+          .cookie(accessTokenCookie(role)).with(csrf()))
+          .andExpect(status().isForbidden());
+    }
+    verifyNoInteractions(teamAdminFacade);
+  }
+
+  @Test
+  @DisplayName("확정 취소는 관리자 JWT와 CSRF가 있으면 사유 없이 호출자를 전달한다")
+  void unfinalizeAdminSuccess() throws Exception {
+    mockMvc.perform(patch("/api/v1/admin/sections/1/teams/unfinalize")
+        .cookie(accessTokenCookie("ADMIN")).with(csrf()))
+        .andExpect(status().isOk());
+    verify(teamAdminFacade).unfinalizeTeams(1L, STUDENT_NUMBER);
+  }
+
+  @Test
+  @DisplayName("확정 취소는 인증 또는 CSRF가 없으면 변경 경로를 호출하지 않는다")
+  void unfinalizeRejectsUnauthenticatedOrMissingCsrf() throws Exception {
+    mockMvc.perform(patch("/api/v1/admin/sections/1/teams/unfinalize").with(csrf()))
+        .andExpect(status().isUnauthorized());
+    mockMvc.perform(patch("/api/v1/admin/sections/1/teams/unfinalize").cookie(accessTokenCookie("ADMIN")))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(teamAdminFacade);
+  }
 
   // Redis 없이 도는 슬라이스 테스트라 무효화 조회는 대역으로 둔다 (기본값 false = 무효화 안 됨).
   @MockitoBean
