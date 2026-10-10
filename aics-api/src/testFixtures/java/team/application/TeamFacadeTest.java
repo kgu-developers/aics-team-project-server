@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -308,9 +309,7 @@ class TeamFacadeTest {
 
     verify(teamCommandService, never()).updateKickoff(1L, "1팀", null, null);
     verify(auditLogCommandService, never()).recordTeamChange(
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any());
+        any(), any(), any(), any(), any());
   }
 
   @Test
@@ -334,15 +333,12 @@ class TeamFacadeTest {
     verify(teamAccessValidator).validateMembership(1L, USER);
     verify(teamMemberCommandService).claimLeader(team, USER);
     verify(auditLogCommandService).recordTeamChange(
-        org.mockito.ArgumentMatchers.eq(USER), org.mockito.ArgumentMatchers.eq(10L),
-        org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_UPDATED),
-        org.mockito.ArgumentMatchers.argThat(metadata ->
+        eq(USER), eq(10L), eq(1L), eq(AuditLogEventType.TEAM_UPDATED),
+        argThat(metadata ->
             "LEADER_CLAIMED".equals(metadata.path("changeType").asText())));
     assertThat(team.getStatus()).isEqualTo(Status.FORMING);
     verify(auditLogCommandService, times(1)).recordTeamChange(
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any());
+        any(), any(), any(), any(), any());
   }
 
   @Test
@@ -381,30 +377,22 @@ class TeamFacadeTest {
 
     InOrder order = inOrder(auditLogCommandService);
     order.verify(auditLogCommandService).recordTeamChange(
-        org.mockito.ArgumentMatchers.eq(USER), org.mockito.ArgumentMatchers.eq(10L),
-        org.mockito.ArgumentMatchers.eq(1L),
-        org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_NAME_UPDATED),
-        org.mockito.ArgumentMatchers.argThat(metadata ->
+        eq(USER), eq(10L), eq(1L), eq(AuditLogEventType.TEAM_NAME_UPDATED),
+        argThat(metadata ->
             "기존 팀".equals(metadata.at("/before/name").asText())
                 && "새 팀".equals(metadata.at("/after/name").asText())));
     order.verify(auditLogCommandService).recordTeamChange(
-        org.mockito.ArgumentMatchers.eq(USER), org.mockito.ArgumentMatchers.eq(10L),
-        org.mockito.ArgumentMatchers.eq(1L),
-        org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_RULE_UPDATED),
-        org.mockito.ArgumentMatchers.argThat(metadata ->
+        eq(USER), eq(10L), eq(1L), eq(AuditLogEventType.TEAM_RULE_UPDATED),
+        argThat(metadata ->
             "기존 규칙".equals(metadata.at("/before/kickoffRule").asText())
                 && "새 일정".equals(metadata.at("/after/meetingSchedule").asText())));
     order.verify(auditLogCommandService).recordTeamChange(
-        org.mockito.ArgumentMatchers.eq(USER), org.mockito.ArgumentMatchers.eq(10L),
-        org.mockito.ArgumentMatchers.eq(1L),
-        org.mockito.ArgumentMatchers.eq(AuditLogEventType.TEAM_UPDATED),
-        org.mockito.ArgumentMatchers.argThat(metadata ->
+        eq(USER), eq(10L), eq(1L), eq(AuditLogEventType.TEAM_UPDATED),
+        argThat(metadata ->
             "KICKOFF_MEMBERS_UPDATED".equals(metadata.path("changeType").asText())
                 && metadata.at("/after/members/0/leader").asBoolean()));
     verify(auditLogCommandService, times(3)).recordTeamChange(
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any());
+        any(), any(), any(), any(), any());
   }
 
   @Test
@@ -425,9 +413,7 @@ class TeamFacadeTest {
     teamFacade.updateKickoff(1L, USER, request);
 
     verify(auditLogCommandService, never()).recordTeamChange(
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any());
+        any(), any(), any(), any(), any());
   }
 
   @Test
@@ -448,9 +434,7 @@ class TeamFacadeTest {
         .isInstanceOf(IllegalStateException.class);
 
     verify(auditLogCommandService, never()).recordTeamChange(
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any());
+        any(), any(), any(), any(), any());
   }
 
   @Test
