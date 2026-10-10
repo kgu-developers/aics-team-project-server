@@ -129,9 +129,9 @@ public class TeamImportFacade {
         Map<String, String> leaderOf = plannedLeaders(planned, teamIds, currentLeaderByTeamId);
 
         // 위 teamStatusById는 잠금 없이 읽은 스냅샷이라, 그 사이 다른 요청이
-        // TeamCommandService.finalizeTeam()(findByIdForUpdate로 팀을 잠그고 CONFIRMED로
-        // 전환)을 실행하면 옛 FORMING 상태를 그대로 믿고 이미 확정된 팀의 팀원을 수정할 수
-        // 있다(sunzx0428 리뷰 09-03). 실제로 반영 대상인 팀들만 ID 오름차순으로 잠가(다른
+        // TeamCommandService.changeTeamStatus()(findByIdForUpdate로 팀을 잠그고 CONFIRMED
+        // 또는 FORMING으로 전환)를 실행하면 옛 상태를 그대로 믿고 이미 확정된 팀의 팀원을
+        // 수정하거나, 확정 취소된 팀을 확정된 것으로 보고 건너뛸 수 있다(sunzx0428 리뷰 09-03). 실제로 반영 대상인 팀들만 ID 오름차순으로 잠가(다른
         // 트랜잭션과 반대 순서로 잠가서 나는 데드락 방지, Part 5 참고) 최신 상태로 다시 확인한다.
         Set<Long> touchedTeamIds = new TreeSet<>();
         planned.forEach(row -> {

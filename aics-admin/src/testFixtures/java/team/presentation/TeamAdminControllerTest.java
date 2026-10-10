@@ -90,4 +90,16 @@ class TeamAdminControllerTest {
 
 		verify(teamAdminFacade).finalizeTeams(10L, "admin");
 	}
+
+	@Test
+	@DisplayName("취소 사유 없이 분반 팀 배정 확정을 취소한다")
+	void unfinalizeTeamsWithoutRequestBody() throws Exception {
+		given(teamAdminFacade.unfinalizeTeams(10L, "admin")).willReturn(new TeamAdminListResponse(List.of(
+			new TeamAdminResponse(1L, "1팀", null, null, Status.FORMING, null))));
+		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/unfinalize", 10L)
+			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.contents[0].status").value("FORMING"));
+		verify(teamAdminFacade).unfinalizeTeams(10L, "admin");
+	}
 }

@@ -2,6 +2,7 @@ package kgu.developers.domain.team.application.command;
 
 import static kgu.developers.domain.auditLog.domain.AuditLogEventType.TEAM_UPDATED;
 import static kgu.developers.domain.team.domain.Status.CONFIRMED;
+import static kgu.developers.domain.team.domain.Status.FORMING;
 import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED;
 
 import java.util.List;
@@ -63,27 +64,39 @@ public class TeamCommandService {
         return teamRepository.findAllBySectionId(sectionId).stream()
                 .map(Team::getId)
                 .sorted()
-                .map(teamId -> transactionTemplate.execute(status -> finalizeTeam(teamId, actorId)))
+                .map(teamId -> transactionTemplate.execute(status ->
+                        changeTeamStatus(teamId, actorId, CONFIRMED, "TEAM_FINALIZED")))
                 .toList();
     }
 
-    private Team finalizeTeam(Long teamId, String actorId) {
-        // updateTeamMember 와 같은 Team 행을 잠가서, 확정 처리 중에 그 팀의
-        // 팀원 정보가 바뀌는 경쟁 상태를 막는다(sunzx0428 리뷰 08-27 2번).
+    @Transactional(propagation = NOT_SUPPORTED)
+    public List<Team> unfinalizeTeams(Long sectionId, String actorId) {
+        teamQueryService.validateSectionExists(sectionId);
+
+        return teamRepository.findAllBySectionId(sectionId).stream()
+                .map(Team::getId)
+                .sorted()
+                .map(teamId -> transactionTemplate.execute(status ->
+                        changeTeamStatus(teamId, actorId, FORMING, "TEAM_UNFINALIZED")))
+                .toList();
+    }
+
+    private Team changeTeamStatus(Long teamId, String actorId, Status targetStatus, String changeType) {
+        // 팀원 변경과 같은 행을 잠가 상태 변경과 수정 허용 여부가 일치하도록 한다.
         Team team = teamRepository.findByIdForUpdate(teamId)
                 .orElseThrow(() -> new TeamNotFoundException());
-        if (team.getStatus() == CONFIRMED) {
+        if (team.getStatus() == targetStatus) {
             return team;
         }
         Status before = team.getStatus();
-        team.updateStatus(CONFIRMED);
+        team.updateStatus(targetStatus);
         Team saved = teamRepository.save(team);
         auditLogCommandService.recordTeamChange(
                 actorId, team.getSectionId(), teamId, TEAM_UPDATED,
                 JsonConverter.toTree(Map.of(
-                        "changeType", "TEAM_FINALIZED",
+                        "changeType", changeType,
                         "before", Map.of("status", before),
-                        "after", Map.of("status", CONFIRMED))));
+                        "after", Map.of("status", targetStatus))));
         return saved;
     }
 }

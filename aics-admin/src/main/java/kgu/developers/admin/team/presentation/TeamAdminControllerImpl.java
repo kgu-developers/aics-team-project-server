@@ -35,4 +35,11 @@ public class TeamAdminControllerImpl implements TeamAdminController {
 			@Positive @PathVariable Long sectionId, Authentication authentication) {
 		return ResponseEntity.ok(teamAdminFacade.finalizeTeams(sectionId, authentication.getName()));
 	}
+
+	@Override
+	@PatchMapping("/sections/{sectionId}/teams/unfinalize")
+	public ResponseEntity<TeamAdminListResponse> unfinalizeTeams(
+			@Positive @PathVariable Long sectionId, Authentication authentication) {
+		return ResponseEntity.ok(teamAdminFacade.unfinalizeTeams(sectionId, authentication.getName()));
+	}
 }

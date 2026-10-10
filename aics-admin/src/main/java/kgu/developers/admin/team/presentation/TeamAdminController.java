@@ -46,4 +46,19 @@ public interface TeamAdminController {
 		) @Positive @PathVariable Long sectionId,
 		@Parameter(hidden = true) Authentication authentication
 	);
+
+	@Operation(summary = "팀 배정 확정 취소 API", description = """
+			- 관리자만 분반의 확정된 팀을 FORMING으로 되돌립니다. 취소 사유와 요청 본문은 없습니다.
+			- 취소 후 팀 이동과 역할 변경이 가능하며, 기존 팀원·문서·평가 데이터는 보존됩니다.
+			- 평가 시작·제출 여부와 관계없이 취소할 수 있습니다.
+			- 이미 FORMING인 팀은 변경하지 않으며 재요청해도 중복 감사 로그가 생기지 않습니다.
+			- 팀별 트랜잭션으로 처리하므로 실패한 팀은 롤백되고 앞서 처리된 팀은 유지됩니다.
+		""")
+	@ApiResponse(responseCode = "200",
+		content = @Content(schema = @Schema(implementation = TeamAdminListResponse.class)))
+	ResponseEntity<TeamAdminListResponse> unfinalizeTeams(
+		@Parameter(description = "분반 ID", example = "1", required = true)
+		@Positive @PathVariable Long sectionId,
+		@Parameter(hidden = true) Authentication authentication
+	);
 }
