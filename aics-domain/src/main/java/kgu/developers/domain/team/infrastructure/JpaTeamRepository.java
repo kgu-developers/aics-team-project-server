@@ -14,6 +14,9 @@ public interface JpaTeamRepository extends JpaRepository<TeamJpaEntity, Long> {
 
     List<TeamJpaEntity> findAllBySectionIdAndDeletedAtIsNull(Long sectionId);
 
+    @Query("select t.id from TeamJpaEntity t where t.section.id = :sectionId and t.deletedAt is null order by t.id")
+    List<Long> findAllIdsBySectionId(@Param("sectionId") Long sectionId);
+
     List<TeamJpaEntity> findAllBySectionIdInAndDeletedAtIsNull(List<Long> sectionIds);
 
     List<TeamJpaEntity> findAllByIdInAndDeletedAtIsNull(List<Long> ids);

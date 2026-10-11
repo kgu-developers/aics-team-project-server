@@ -59,6 +59,11 @@ public class TeamRepositoryImpl implements TeamRepository {
     }
 
     @Override
+    public List<Long> findAllIdsBySectionId(Long sectionId) {
+        return jpaTeamRepository.findAllIdsBySectionId(sectionId);
+    }
+
+    @Override
     public List<Team> findAllById(List<Long> ids) {
         return jpaTeamRepository.findAllByIdInAndDeletedAtIsNull(ids)
                 .stream()

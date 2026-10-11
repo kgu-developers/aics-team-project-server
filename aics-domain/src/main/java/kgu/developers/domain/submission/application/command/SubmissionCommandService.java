@@ -1,5 +1,7 @@
 package kgu.developers.domain.submission.application.command;
 
+import static kgu.developers.domain.team.domain.Status.CONFIRMED;
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -46,6 +48,10 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.section.exception.SectionNotFoundException;
+import kgu.developers.domain.submission.exception.SubmissionTeamNotConfirmedException;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -65,6 +71,7 @@ public class SubmissionCommandService {
     private final RequiredArtifactRepository requiredArtifactRepository;
     private final TeamRepository teamRepository;
     private final SubmissionQueryService submissionQueryService;
+    private final SectionRepository sectionRepository;
 
     public SubmissionVersion submitVersion(
             Long submissionId,
@@ -144,16 +151,28 @@ public class SubmissionCommandService {
     // 최종보고서 마일스톤이면 팀원 전원(WITHDRAWN 제외)이 "지금 버전"을 실제로(true/true) 확인해야 통과한다.
     // 그 외 마일스톤은 게이트 자체가 없다(문서화된 동작). 미제출 상태는 애초에 완료 대상이 아니다.
     public void completeSubmission(Long submissionId, String completedBy) {
-        // submitVersion과 같은 잠금 규약: 제출·재개와 경합해도 상태가 유실되지 않게 잠근다.
+        Submission initial = submissionRepository.findById(submissionId)
+                .orElseThrow(SubmissionNotFoundException::new);
+        if (!initial.isSubmitted()) {
+            throw new SubmissionNotYetSubmittedException();
+        }
+        Milestone milestone = milestoneRepository.findById(initial.getMilestoneId())
+                .orElseThrow(() -> new MilestoneNotFoundException(initial.getMilestoneId()));
+        if (milestone.getType() == MilestoneType.FINAL_REPORT) {
+            // 확정 취소와 잠금 순서를 맞춘다: 분반 → 제출 → 팀.
+            sectionRepository.findActiveByIdForUpdate(milestone.getSectionId())
+                    .orElseThrow(SectionNotFoundException::new);
+        }
         Submission submission = submissionRepository.findByIdForUpdate(submissionId)
                 .orElseThrow(SubmissionNotFoundException::new);
         if (!submission.isSubmitted()) {
             throw new SubmissionNotYetSubmittedException();
         }
-        Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
-                .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
-
         if (milestone.getType() == MilestoneType.FINAL_REPORT) {
+            Team team = teamRepository.findByIdForUpdate(submission.getTeamId()).orElseThrow(TeamNotFoundException::new);
+            if (team.getStatus() != CONFIRMED) {
+                throw new SubmissionTeamNotConfirmedException();
+            }
             validateAllActiveMembersConfirmed(submission, milestone);
         }
 

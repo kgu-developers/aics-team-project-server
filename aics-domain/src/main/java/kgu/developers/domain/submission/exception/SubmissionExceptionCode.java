@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 @AllArgsConstructor
 public enum SubmissionExceptionCode implements ExceptionCode {
 
+    SUBMISSION_TEAM_NOT_CONFIRMED(HttpStatus.CONFLICT, "팀 배정을 확정한 후 최종보고서를 완료해 주세요."),
     SUBMISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 제출을 찾을 수 없습니다."),
     SUBMISSION_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 버전을 찾을 수 없습니다."),
     SUBMISSION_NOT_ALLOWED_NOW(HttpStatus.FORBIDDEN, "지금은 제출할 수 있는 기간이 아닙니다."),

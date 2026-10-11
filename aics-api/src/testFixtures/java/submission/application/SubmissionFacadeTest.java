@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+import kgu.developers.domain.section.domain.Section;
+import mock.repository.FakeSectionRepository;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -115,6 +118,8 @@ class SubmissionFacadeTest {
         UserQueryService userQueryService = new UserQueryService(userRepository, enrollmentRepository);
         FakeRequiredArtifactRepository requiredArtifactRepository = new FakeRequiredArtifactRepository();
         teamRepository = new FakeTeamRepository();
+        var sectionRepository = new FakeSectionRepository();
+        sectionRepository.save(Section.builder().id(SECTION_ID).build());
         projectRepository = new FakeProjectRepository();
 
         SubmissionQueryService submissionQueryService =
@@ -131,7 +136,8 @@ class SubmissionFacadeTest {
                 enrollmentRepository,
                 requiredArtifactRepository,
                 teamRepository,
-                submissionQueryService
+                submissionQueryService,
+                sectionRepository
         );
 
         submissionFacade = new SubmissionFacade(

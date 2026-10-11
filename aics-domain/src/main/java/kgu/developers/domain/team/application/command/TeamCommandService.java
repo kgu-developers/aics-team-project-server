@@ -5,8 +5,8 @@ import static kgu.developers.domain.team.domain.Status.CONFIRMED;
 import static kgu.developers.domain.team.domain.Status.FORMING;
 import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED;
 
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -22,6 +22,12 @@ import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.DuplicateTeamNameException;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.team.exception.TeamInvalidUnfinalizeReasonException;
+import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.section.exception.SectionNotFoundException;
+import kgu.developers.domain.milestone.domain.MilestoneRepository;
+import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.submission.domain.SubmissionRepository;
+import kgu.developers.domain.team.exception.TeamUnfinalizeCompletedFinalReportException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,6 +38,9 @@ public class TeamCommandService {
     private final TeamRepository teamRepository;
     private final TransactionTemplate transactionTemplate;
     private final AuditLogCommandService auditLogCommandService;
+    private final SectionRepository sectionRepository;
+    private final MilestoneRepository milestoneRepository;
+    private final SubmissionRepository submissionRepository;
 
     public Team updateKickoff(Long teamId, String name, String kickoffRule, String meetingSchedule) {
         Team team = teamQueryService.getTeamById(teamId);
@@ -77,14 +86,22 @@ public class TeamCommandService {
         if (normalizedReason.length() < 30 || normalizedReason.length() > 500) {
             throw new TeamInvalidUnfinalizeReasonException();
         }
-        teamQueryService.validateSectionExists(sectionId);
-
-        return teamRepository.findAllBySectionId(sectionId).stream()
-                .map(Team::getId)
-                .sorted()
-                .map(teamId -> transactionTemplate.execute(status ->
-                        changeTeamStatus(teamId, actorId, FORMING, "TEAM_UNFINALIZED", normalizedReason)))
-                .toList();
+        return transactionTemplate.execute(status -> {
+            // 최종보고서 완료와 같은 분반 행을 잠가 검증부터 전체 취소까지 직렬화한다.
+            sectionRepository.findActiveByIdForUpdate(sectionId).orElseThrow(SectionNotFoundException::new);
+            // 상태 엔티티는 미리 적재하지 않고 각 팀 잠금을 얻은 뒤 최신 값으로 읽는다.
+            List<Long> teamIds = teamRepository.findAllIdsBySectionId(sectionId);
+            boolean hasCompletedFinalReport = milestoneRepository.findAllBySectionIdOrderByWeekNumber(sectionId).stream()
+                    .filter(milestone -> milestone.getType() == MilestoneType.FINAL_REPORT)
+                    .flatMap(milestone -> submissionRepository.findAllByMilestoneId(milestone.getId()).stream())
+                    .anyMatch(submission -> teamIds.contains(submission.getTeamId()) && submission.isCompleted());
+            if (hasCompletedFinalReport) {
+                throw new TeamUnfinalizeCompletedFinalReportException();
+            }
+            return teamIds.stream()
+                    .map(teamId -> changeTeamStatus(teamId, actorId, FORMING, "TEAM_UNFINALIZED", normalizedReason))
+                    .toList();
+        });
     }
 
     private Team changeTeamStatus(Long teamId, String actorId, Status targetStatus, String changeType, String reason) {
