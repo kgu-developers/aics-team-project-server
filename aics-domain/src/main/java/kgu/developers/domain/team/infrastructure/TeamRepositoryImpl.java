@@ -59,6 +59,24 @@ public class TeamRepositoryImpl implements TeamRepository {
     }
 
     @Override
+    public Optional<Team> findByIdForNameUpdate(Long id) {
+        // 확정 취소와 같은 분반 → 팀 순서로 잠가 이름 중복 검증의 교착을 막는다.
+        var sectionIds = entityManager.createQuery(
+                "select t.section.id from TeamJpaEntity t where t.id = :id and t.deletedAt is null", Long.class)
+            .setParameter("id", id).getResultList();
+        if (sectionIds.isEmpty()) {
+            return Optional.empty();
+        }
+        entityManager.find(SectionJpaEntity.class, sectionIds.getFirst(), PESSIMISTIC_WRITE);
+        TeamJpaEntity entity = entityManager.find(TeamJpaEntity.class, id);
+        if (entity == null) {
+            return Optional.empty();
+        }
+        entityManager.refresh(entity, PESSIMISTIC_WRITE);
+        return entity.getDeletedAt() == null ? Optional.of(entity.toDomain()) : Optional.empty();
+    }
+
+    @Override
     public List<Long> findAllIdsBySectionId(Long sectionId) {
         return jpaTeamRepository.findAllIdsBySectionId(sectionId);
     }

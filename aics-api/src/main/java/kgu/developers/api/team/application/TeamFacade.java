@@ -78,7 +78,9 @@ public class TeamFacade {
       String leaderStudentNumber,
       List<MemberRole> memberRoles
   ) {
-    TeamSnapshot beforeTeam = TeamSnapshot.from(teamQueryService.getTeamByIdForUpdate(teamId));
+    TeamSnapshot beforeTeam = TeamSnapshot.from(name == null
+        ? teamQueryService.getTeamByIdForUpdate(teamId)
+        : teamQueryService.getTeamByIdForNameUpdate(teamId));
     List<TeamMember> before = teamMemberQueryService.getTeamMembersByTeamId(teamId);
     TeamMembersAuditSnapshot beforeMembers = TeamMembersAuditSnapshot.from(before);
 

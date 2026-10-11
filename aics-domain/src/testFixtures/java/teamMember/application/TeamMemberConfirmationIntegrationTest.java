@@ -121,6 +121,8 @@ class TeamMemberConfirmationIntegrationTest {
     @Autowired
     private TeamCommandService teamCommandService;
     @Autowired
+    private TeamQueryService teamQueryService;
+    @Autowired
     private TeamMemberCommandService memberCommandService;
     @Autowired
     private TeamMemberRepositoryImpl memberRepository;
@@ -661,6 +663,78 @@ class TeamMemberConfirmationIntegrationTest {
             entityManager.flush();
             return submission.getId();
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @DisplayName("확정 취소와 팀명 수정은 시작 순서와 관계없이 교착 없이 완료된다")
+    void cancellationAndKickoffUpdateUseSameLockOrder(boolean cancellationFirst) throws Exception {
+        CountDownLatch firstLocked = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondStarted = new CountDownLatch(1);
+        var firstLock = new java.util.concurrent.atomic.AtomicBoolean(true);
+        var executor = Executors.newFixedThreadPool(2);
+        org.mockito.stubbing.Answer<Object> pauseFirstLock = invocation -> {
+            Object result = invocation.callRealMethod();
+            if (firstLock.compareAndSet(true, false)) {
+                firstLocked.countDown();
+                assertThat(releaseFirst.await(10, TimeUnit.SECONDS)).isTrue();
+            }
+            return result;
+        };
+        doAnswer(pauseFirstLock).when(teamRepository).findByIdForUpdate(teamId);
+        doAnswer(pauseFirstLock).when(teamRepository).findByIdForNameUpdate(teamId);
+        Runnable cancel = () -> teamCommandService.unfinalizeTeams(sectionId, "202699999", REASON);
+        Runnable kickoff = () -> tx.executeWithoutResult(status -> {
+            teamQueryService.getTeamByIdForNameUpdate(teamId);
+            teamCommandService.updateKickoff(teamId, "변경한 팀명", "규칙", "일정");
+        });
+        try {
+            var first = executor.submit(cancellationFirst ? cancel : kickoff);
+            assertThat(firstLocked.await(10, TimeUnit.SECONDS)).isTrue();
+            var second = executor.submit(() -> {
+                secondStarted.countDown();
+                (cancellationFirst ? kickoff : cancel).run();
+            });
+            assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(200, TimeUnit.MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+            releaseFirst.countDown();
+            first.get(15, TimeUnit.SECONDS);
+            second.get(15, TimeUnit.SECONDS);
+            tx.executeWithoutResult(status -> {
+                entityManager.clear();
+                Team team = teamRepository.findById(teamId).orElseThrow();
+                assertThat(team.getName()).isEqualTo("변경한 팀명");
+                assertThat(team.getStatus()).isEqualTo(Status.FORMING);
+            });
+        } finally {
+            releaseFirst.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("팀명 수정 잠금은 앞서 읽은 팀의 상태를 최신 확정 상태로 갱신한다")
+    void nameUpdateLockRefreshesPreviouslyLoadedTeam() {
+        assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
+            assertThat(teamQueryService.getTeamById(teamId).getStatus()).isEqualTo(Status.FORMING);
+            var independent = new TransactionTemplate(tx.getTransactionManager());
+            independent.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            independent.executeWithoutResult(inner -> teamCommandService.finalizeTeams(sectionId, "202699999"));
+            assertThat(teamQueryService.getTeamByIdForNameUpdate(teamId).getStatus()).isEqualTo(Status.CONFIRMED);
+            teamCommandService.updateKickoff(teamId, "변경한 팀명", "규칙", "일정");
+        })).isInstanceOf(TeamAlreadyConfirmedException.class);
+        tx.executeWithoutResult(status ->
+            assertThat(teamRepository.findById(teamId).orElseThrow().getName()).isEqualTo("1팀"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 팀의 팀명 수정 잠금은 팀 없음 예외를 반환한다")
+    void nameUpdateLockRejectsMissingTeam() {
+        assertThatThrownBy(() -> teamQueryService.getTeamByIdForNameUpdate(Long.MAX_VALUE))
+            .isInstanceOf(kgu.developers.domain.team.exception.TeamNotFoundException.class);
     }
 
 }
