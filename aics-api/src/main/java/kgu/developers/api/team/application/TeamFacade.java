@@ -18,7 +18,6 @@ import kgu.developers.domain.auditLog.domain.TeamMembersAuditSnapshot;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
-import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
@@ -122,14 +121,12 @@ public class TeamFacade {
   public void claimLeader(Long teamId, String userId) {
     teamAccessValidator.validateMembership(teamId, userId);
     Team team = teamQueryService.getTeamByIdForUpdate(teamId);
-    Status beforeStatus = team.getStatus();
     TeamMembersAuditSnapshot beforeMembers = TeamMembersAuditSnapshot.from(
         teamMemberQueryService.getTeamMembersByTeamId(teamId));
     teamMemberCommandService.claimLeader(team, userId);
     TeamMembersAuditSnapshot afterMembers = TeamMembersAuditSnapshot.from(
         teamMemberQueryService.getTeamMembersByTeamId(teamId));
     recordTeamMemberChange(userId, team, "LEADER_CLAIMED", beforeMembers, afterMembers);
-    recordTeamStatusChange(userId, team, beforeStatus, team.getStatus());
   }
 
   // 팀명은 제안서 5번에 들어가지 않으므로 이름만 바뀐 경우는 제외한다.
@@ -192,23 +189,6 @@ public class TeamFacade {
         ));
   }
 
-  private void recordTeamStatusChange(
-      String actorId,
-      Team team,
-      Status beforeStatus,
-      Status afterStatus
-  ) {
-    if (beforeStatus == afterStatus) {
-      return;
-    }
-    record(actorId, team, AuditLogEventType.TEAM_UPDATED,
-        Map.of(
-            "changeType", "TEAM_STATUS_UPDATED",
-            "before", new TeamStatusSnapshot(beforeStatus),
-            "after", new TeamStatusSnapshot(afterStatus)
-        ));
-  }
-
   private void record(String actorId, Team team, AuditLogEventType eventType, Object metadata) {
     auditLogCommandService.recordTeamChange(
         actorId,
@@ -232,9 +212,6 @@ public class TeamFacade {
   }
 
   private record TeamRuleSnapshot(String kickoffRule, String meetingSchedule) {
-  }
-
-  private record TeamStatusSnapshot(Status status) {
   }
 
 }

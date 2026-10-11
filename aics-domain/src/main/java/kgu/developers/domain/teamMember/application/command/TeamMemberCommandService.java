@@ -99,10 +99,7 @@ public class TeamMemberCommandService {
     validateNoLeaderInTeam(teamId, member.getId());
 
     member.updateIsLeader(true);
-    TeamMember claimed = teamMemberRepository.save(member);
-    team.updateStatus(Status.CONFIRMED);
-    teamRepository.save(team);
-    return claimed;
+    return teamMemberRepository.save(member);
   }
 
   public void withdrawFromTeam(Long sectionId, String userId) {

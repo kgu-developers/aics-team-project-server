@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -75,17 +76,18 @@ class TeamAdminControllerTest {
 	@Test
 	@DisplayName("팀 배정을 확정하면 200과 확정된 팀 목록을 응답한다")
 	void finalizeTeams() throws Exception {
-		given(teamAdminFacade.finalizeTeams(10L)).willReturn(new TeamAdminListResponse(List.of(
+		given(teamAdminFacade.finalizeTeams(10L, "admin")).willReturn(new TeamAdminListResponse(List.of(
 			new TeamAdminResponse(1L, "1팀", null, null, Status.CONFIRMED, null),
 			new TeamAdminResponse(2L, "2팀", null, null, Status.CONFIRMED, null))));
 
-		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/finalize", 10L))
+		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/finalize", 10L)
+			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.contents.length()").value(2))
 			.andExpect(jsonPath("$.contents[0].name").value("1팀"))
 			.andExpect(jsonPath("$.contents[0].status").value("CONFIRMED"))
 			.andExpect(jsonPath("$.contents[1].status").value("CONFIRMED"));
 
-		verify(teamAdminFacade).finalizeTeams(10L);
+		verify(teamAdminFacade).finalizeTeams(10L, "admin");
 	}
 }

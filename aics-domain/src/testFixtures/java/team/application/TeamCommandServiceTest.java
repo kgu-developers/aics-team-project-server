@@ -3,12 +3,14 @@ package team.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.List;
 
@@ -22,6 +24,8 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import kgu.developers.domain.section.exception.SectionNotFoundException;
+import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
+import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.team.application.command.TeamCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
@@ -41,6 +45,9 @@ class TeamCommandServiceTest {
 
     @Mock
     private TransactionTemplate transactionTemplate;
+
+    @Mock
+    private AuditLogCommandService auditLogCommandService;
 
     @InjectMocks
     private TeamCommandService teamCommandService;
@@ -66,12 +73,16 @@ class TeamCommandServiceTest {
         given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
-        List<Team> finalized = teamCommandService.finalizeTeams(10L);
+        List<Team> finalized = teamCommandService.finalizeTeams(10L, "admin");
 
         assertThat(finalized).hasSize(2)
                 .allSatisfy(team -> assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED));
         verify(teamRepository, times(2)).save(any());
         verify(transactionTemplate, times(2)).execute(any());
+        verify(auditLogCommandService).recordTeamChange(
+                eq("admin"), eq(10L), eq(1L), eq(AuditLogEventType.TEAM_UPDATED), any());
+        verify(auditLogCommandService).recordTeamChange(
+                eq("admin"), eq(10L), eq(2L), eq(AuditLogEventType.TEAM_UPDATED), any());
     }
 
     @Test
@@ -85,7 +96,7 @@ class TeamCommandServiceTest {
         given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
-        assertThat(teamCommandService.finalizeTeams(10L))
+        assertThat(teamCommandService.finalizeTeams(10L, "admin"))
                 .extracting(Team::getStatus)
                 .containsExactly(Status.CONFIRMED, Status.CONFIRMED);
     }
@@ -101,10 +112,14 @@ class TeamCommandServiceTest {
         given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(forming));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
 
-        List<Team> finalized = teamCommandService.finalizeTeams(10L);
+        List<Team> finalized = teamCommandService.finalizeTeams(10L, "admin");
 
         verify(teamRepository, times(1)).save(any());
         verify(teamRepository, never()).save(confirmed);
+        verify(auditLogCommandService, never()).recordTeamChange(
+                any(), any(), eq(1L), any(), any());
+        verify(auditLogCommandService).recordTeamChange(
+                eq("admin"), eq(10L), eq(2L), eq(AuditLogEventType.TEAM_UPDATED), any());
 
         assertThat(finalized).hasSize(2)
                 .allSatisfy(team -> assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED));
@@ -115,11 +130,12 @@ class TeamCommandServiceTest {
     void rejectsMissingSection() {
         willThrow(new SectionNotFoundException()).given(teamQueryService).validateSectionExists(99L);
 
-        assertThatThrownBy(() -> teamCommandService.finalizeTeams(99L))
+        assertThatThrownBy(() -> teamCommandService.finalizeTeams(99L, "admin"))
                 .isInstanceOf(SectionNotFoundException.class);
 
         verify(teamRepository, never()).findAllBySectionId(any());
         verify(teamRepository, never()).save(any());
+        verifyNoInteractions(auditLogCommandService);
     }
 
     @Test
