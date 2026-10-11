@@ -6,6 +6,7 @@ import static kgu.developers.domain.team.domain.Status.FORMING;
 import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED;
 
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.DuplicateTeamNameException;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.team.exception.TeamInvalidUnfinalizeReasonException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -65,23 +67,27 @@ public class TeamCommandService {
                 .map(Team::getId)
                 .sorted()
                 .map(teamId -> transactionTemplate.execute(status ->
-                        changeTeamStatus(teamId, actorId, CONFIRMED, "TEAM_FINALIZED")))
+                        changeTeamStatus(teamId, actorId, CONFIRMED, "TEAM_FINALIZED", null)))
                 .toList();
     }
 
     @Transactional(propagation = NOT_SUPPORTED)
-    public List<Team> unfinalizeTeams(Long sectionId, String actorId) {
+    public List<Team> unfinalizeTeams(Long sectionId, String actorId, String reason) {
+        String normalizedReason = reason == null ? "" : reason.trim();
+        if (normalizedReason.length() < 30 || normalizedReason.length() > 500) {
+            throw new TeamInvalidUnfinalizeReasonException();
+        }
         teamQueryService.validateSectionExists(sectionId);
 
         return teamRepository.findAllBySectionId(sectionId).stream()
                 .map(Team::getId)
                 .sorted()
                 .map(teamId -> transactionTemplate.execute(status ->
-                        changeTeamStatus(teamId, actorId, FORMING, "TEAM_UNFINALIZED")))
+                        changeTeamStatus(teamId, actorId, FORMING, "TEAM_UNFINALIZED", normalizedReason)))
                 .toList();
     }
 
-    private Team changeTeamStatus(Long teamId, String actorId, Status targetStatus, String changeType) {
+    private Team changeTeamStatus(Long teamId, String actorId, Status targetStatus, String changeType, String reason) {
         // 팀원 변경과 같은 행을 잠가 상태 변경과 수정 허용 여부가 일치하도록 한다.
         Team team = teamRepository.findByIdForUpdate(teamId)
                 .orElseThrow(() -> new TeamNotFoundException());
@@ -91,12 +97,15 @@ public class TeamCommandService {
         Status before = team.getStatus();
         team.updateStatus(targetStatus);
         Team saved = teamRepository.save(team);
+        Map<String, Object> metadata = new HashMap<>(Map.of(
+                "changeType", changeType,
+                "before", Map.of("status", before),
+                "after", Map.of("status", targetStatus)));
+        if (reason != null) {
+            metadata.put("reason", reason);
+        }
         auditLogCommandService.recordTeamChange(
-                actorId, team.getSectionId(), teamId, TEAM_UPDATED,
-                JsonConverter.toTree(Map.of(
-                        "changeType", changeType,
-                        "before", Map.of("status", before),
-                        "after", Map.of("status", targetStatus))));
+                actorId, team.getSectionId(), teamId, TEAM_UPDATED, JsonConverter.toTree(metadata));
         return saved;
     }
 }

@@ -54,6 +54,8 @@ import kgu.developers.globalutils.jwt.PasswordChangeRequirementChecker;
 })
 class SecurityConfigTest {
 
+    private static final String REASON = "팀 배정 오류를 수정하고 학생들의 팀 구성을 다시 조정하기 위해 취소합니다.";
+
   private static final String ADMIN_URL = "/api/v1/admin/users";
   private static final String ROSTER_IMPORT_STATUS_URL =
       "/api/v1/admin/sections/1/roster-import-status";
@@ -89,12 +91,13 @@ class SecurityConfigTest {
   }
 
   @Test
-  @DisplayName("확정 취소는 관리자 JWT와 CSRF가 있으면 사유 없이 호출자를 전달한다")
+  @DisplayName("확정 취소는 관리자 JWT와 CSRF가 있으면 호출자와 취소 사유를 전달한다")
   void unfinalizeAdminSuccess() throws Exception {
     mockMvc.perform(patch("/api/v1/admin/sections/1/teams/unfinalize")
-        .cookie(accessTokenCookie("ADMIN")).with(csrf()))
+        .cookie(accessTokenCookie("ADMIN")).with(csrf())
+        .contentType("application/json").content("{\"reason\":\"" + REASON + "\"}"))
         .andExpect(status().isOk());
-    verify(teamAdminFacade).unfinalizeTeams(1L, STUDENT_NUMBER);
+    verify(teamAdminFacade).unfinalizeTeams(1L, STUDENT_NUMBER, REASON);
   }
 
   @Test

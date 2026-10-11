@@ -1,6 +1,8 @@
 package kgu.developers.admin.team.presentation;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import kgu.developers.admin.team.presentation.request.TeamUnfinalizeRequest;
 import kgu.developers.admin.team.application.TeamAdminFacade;
 import kgu.developers.admin.team.presentation.response.TeamAdminDetailResponse;
 import kgu.developers.admin.team.presentation.response.TeamAdminListResponse;
@@ -11,6 +13,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,7 +42,9 @@ public class TeamAdminControllerImpl implements TeamAdminController {
 	@Override
 	@PatchMapping("/sections/{sectionId}/teams/unfinalize")
 	public ResponseEntity<TeamAdminListResponse> unfinalizeTeams(
-			@Positive @PathVariable Long sectionId, Authentication authentication) {
-		return ResponseEntity.ok(teamAdminFacade.unfinalizeTeams(sectionId, authentication.getName()));
+			@Positive @PathVariable Long sectionId,
+			@Valid @RequestBody TeamUnfinalizeRequest request, 
+			Authentication authentication) {
+		return ResponseEntity.ok(teamAdminFacade.unfinalizeTeams(sectionId, authentication.getName(), request.reason()));
 	}
 }

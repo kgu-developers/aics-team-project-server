@@ -18,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -53,6 +54,7 @@ import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.exception.TeamAlreadyConfirmedException;
+import kgu.developers.domain.team.exception.TeamInvalidUnfinalizeReasonException;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.team.infrastructure.TeamRepositoryImpl;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
@@ -72,6 +74,8 @@ import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 @Transactional(propagation = NOT_SUPPORTED)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class TeamMemberConfirmationIntegrationTest {
+
+    private static final String REASON = "팀 배정 오류를 수정하고 학생들의 팀 구성을 다시 조정하기 위해 취소합니다.";
 
     @SpringBootConfiguration
     @EntityScan("kgu.developers")
@@ -230,9 +234,9 @@ class TeamMemberConfirmationIntegrationTest {
             entityManager.flush();
             return team.getId();
         });
-        assertThat(teamCommandService.unfinalizeTeams(sectionId, "202699999"))
+        assertThat(teamCommandService.unfinalizeTeams(sectionId, "202699999", "  " + REASON + "  "))
             .hasSize(2).allSatisfy(team -> assertThat(team.getStatus()).isEqualTo(Status.FORMING));
-        teamCommandService.unfinalizeTeams(sectionId, "another-admin");
+        teamCommandService.unfinalizeTeams(sectionId, "another-admin", REASON);
 
         tx.executeWithoutResult(status -> {
             entityManager.clear();
@@ -247,8 +251,50 @@ class TeamMemberConfirmationIntegrationTest {
                     assertThat(log.getTargetType()).isEqualTo(TargetType.TEAM);
                     assertThat(log.getMetadata().path("before").path("status").asText()).isEqualTo("CONFIRMED");
                     assertThat(log.getMetadata().path("after").path("status").asText()).isEqualTo("FORMING");
-                    assertThat(log.getMetadata().has("reason")).isFalse();
+                    assertThat(log.getMetadata().path("reason").asText()).isEqualTo(REASON);
                 });
+        });
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "   ", "짧은 사유"})
+    @DisplayName("잘못된 취소 사유는 상태와 로그를 변경하지 않는다")
+    void invalidUnfinalizationReasonChangesNothing(String reason) {
+        teamCommandService.finalizeTeams(sectionId, "202699999");
+        assertThatThrownBy(() -> teamCommandService.unfinalizeTeams(sectionId, "202699999", reason))
+            .isInstanceOf(TeamInvalidUnfinalizeReasonException.class);
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            assertThat(teamRepository.findById(teamId).orElseThrow().getStatus()).isEqualTo(Status.CONFIRMED);
+            assertThat(auditLogRepository.findAllByTeam(sectionId, teamId, Pageable.unpaged())).hasSize(1);
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {29, 30, 500, 501})
+    @DisplayName("직접 취소 호출도 공백 제거 후 30~500자만 허용하고 저장한다")
+    void unfinalizationReasonLength(int length) {
+        teamCommandService.finalizeTeams(sectionId, "202699999");
+        String reason = "가".repeat(length);
+        boolean valid = length >= 30 && length <= 500;
+        if (valid) {
+            teamCommandService.unfinalizeTeams(sectionId, "202699999", "  " + reason + "  ");
+        } else {
+            assertThatThrownBy(() -> teamCommandService.unfinalizeTeams(sectionId, "202699999", "  " + reason + "  "))
+                .isInstanceOf(TeamInvalidUnfinalizeReasonException.class);
+        }
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            assertThat(teamRepository.findById(teamId).orElseThrow().getStatus())
+                .isEqualTo(valid ? Status.FORMING : Status.CONFIRMED);
+            var logs = auditLogRepository.findAllByTeam(sectionId, teamId, Pageable.unpaged());
+            assertThat(logs).hasSize(valid ? 2 : 1);
+            if (valid) {
+                assertThat(logs.stream().filter(log -> log.getMetadata().path("changeType").asText()
+                    .equals("TEAM_UNFINALIZED"))).singleElement().satisfies(log ->
+                        assertThat(log.getMetadata().path("reason").asText()).isEqualTo(reason));
+            }
         });
     }
 
@@ -261,7 +307,7 @@ class TeamMemberConfirmationIntegrationTest {
             throw new IllegalStateException("audit failure");
         }).when(auditLogRepository).save(any());
 
-        assertThatThrownBy(() -> teamCommandService.unfinalizeTeams(sectionId, "202699999"))
+        assertThatThrownBy(() -> teamCommandService.unfinalizeTeams(sectionId, "202699999", REASON))
             .isInstanceOf(IllegalStateException.class).hasMessage("audit failure");
         tx.executeWithoutResult(status -> {
             entityManager.clear();
@@ -275,7 +321,7 @@ class TeamMemberConfirmationIntegrationTest {
     @DisplayName("없는 분반 취소는 상태와 로그를 변경하지 않는다")
     void unfinalizationRejectsMissingSection() {
         teamCommandService.finalizeTeams(sectionId, "202699999");
-        assertThatThrownBy(() -> teamCommandService.unfinalizeTeams(Long.MAX_VALUE, "202699999"))
+        assertThatThrownBy(() -> teamCommandService.unfinalizeTeams(Long.MAX_VALUE, "202699999", REASON))
             .isInstanceOf(SectionNotFoundException.class);
         tx.executeWithoutResult(status -> {
             assertThat(teamRepository.findById(teamId).orElseThrow().getStatus()).isEqualTo(Status.CONFIRMED);
@@ -308,7 +354,7 @@ class TeamMemberConfirmationIntegrationTest {
 
         var executor = Executors.newFixedThreadPool(2);
         try {
-            var cancellation = executor.submit(() -> teamCommandService.unfinalizeTeams(sectionId, "202699999"));
+            var cancellation = executor.submit(() -> teamCommandService.unfinalizeTeams(sectionId, "202699999", REASON));
             assertThat(cancellationSaved.await(5, TimeUnit.SECONDS)).isTrue();
             var competing = executor.submit(() -> {
                 if (finalizeAgain) {
@@ -363,7 +409,7 @@ class TeamMemberConfirmationIntegrationTest {
             return new Long[]{project.getId(), meeting.getId(), evaluation.getId(), target.getId()};
         });
         teamCommandService.finalizeTeams(sectionId, "202699999");
-        teamCommandService.unfinalizeTeams(sectionId, "202699999");
+        teamCommandService.unfinalizeTeams(sectionId, "202699999", REASON);
         tx.executeWithoutResult(status -> {
             entityManager.clear();
             var member = memberRepository.findById(memberId).orElseThrow();

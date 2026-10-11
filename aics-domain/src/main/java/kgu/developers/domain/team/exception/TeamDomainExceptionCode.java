@@ -1,6 +1,7 @@
 package kgu.developers.domain.team.exception;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,7 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum TeamDomainExceptionCode implements ExceptionCode {
+    TEAM_INVALID_UNFINALIZE_REASON(BAD_REQUEST, "팀 확정 취소 사유는 30자 이상 500자 이하여야 합니다."),
     TEAM_NOT_FOUND(NOT_FOUND, "해당 팀을 찾을 수 없습니다."),
     TEAM_ALREADY_CONFIRMED(CONFLICT, "확정된 팀은 수정할 수 없습니다."),
     TEAM_CONCURRENTLY_MODIFIED(CONFLICT, "다른 요청이 팀을 먼저 수정했습니다. 다시 시도해 주세요."),

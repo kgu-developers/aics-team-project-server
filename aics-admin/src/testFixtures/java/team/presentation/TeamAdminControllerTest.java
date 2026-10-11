@@ -2,6 +2,7 @@ package team.presentation;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,6 +14,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,6 +34,8 @@ import kgu.developers.domain.team.domain.Status;
 
 @ExtendWith(MockitoExtension.class)
 class TeamAdminControllerTest {
+
+	private static final String REASON = "팀 배정 오류를 수정하고 학생들의 팀 구성을 다시 조정하기 위해 취소합니다.";
 
 	private static final String BASE_URL = "/api/v1/admin";
 
@@ -92,14 +97,47 @@ class TeamAdminControllerTest {
 	}
 
 	@Test
-	@DisplayName("취소 사유 없이 분반 팀 배정 확정을 취소한다")
-	void unfinalizeTeamsWithoutRequestBody() throws Exception {
-		given(teamAdminFacade.unfinalizeTeams(10L, "admin")).willReturn(new TeamAdminListResponse(List.of(
+	@DisplayName("확정 취소는 요청 본문이 없으면 거부한다")
+	void unfinalizeRejectsMissingRequestBody() throws Exception {
+		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/unfinalize", 10L)
+			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
+			.andExpect(status().isBadRequest());
+		verifyNoInteractions(teamAdminFacade);
+	}
+
+	@Test
+	@DisplayName("취소 사유를 전달하여 분반 팀 배정 확정을 취소한다")
+	void unfinalizeTeamsWithReason() throws Exception {
+		given(teamAdminFacade.unfinalizeTeams(10L, "admin", REASON)).willReturn(new TeamAdminListResponse(List.of(
 			new TeamAdminResponse(1L, "1팀", null, null, Status.FORMING, null))));
 		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/unfinalize", 10L)
+			.contentType("application/json").content("{\"reason\":\"  " + REASON + "  \"}")
 			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.contents[0].status").value("FORMING"));
-		verify(teamAdminFacade).unfinalizeTeams(10L, "admin");
+		verify(teamAdminFacade).unfinalizeTeams(10L, "admin", REASON);
 	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"{}", "{\"reason\":null}", "{\"reason\":\"\"}", "{\"reason\":\"   \"}"})
+	@DisplayName("확정 취소는 사유 누락과 공백을 거부한다")
+	void unfinalizeRejectsInvalidReason(String body) throws Exception {
+		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/unfinalize", 10L)
+			.contentType("application/json").content(body)
+			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
+			.andExpect(status().isBadRequest());
+		verifyNoInteractions(teamAdminFacade);
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = {29, 501})
+	@DisplayName("확정 취소는 공백 제거 후 30~500자 범위를 벗어난 사유를 거부한다")
+	void unfinalizeRejectsReasonLength(int length) throws Exception {
+		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/unfinalize", 10L)
+			.contentType("application/json").content("{\"reason\":\"  " + "가".repeat(length) + "  \"}")
+			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
+			.andExpect(status().isBadRequest());
+		verifyNoInteractions(teamAdminFacade);
+	}
+
 }

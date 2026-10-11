@@ -27,6 +27,8 @@ import kgu.developers.domain.user.domain.User;
 @ExtendWith(MockitoExtension.class)
 class TeamAdminFacadeTest {
 
+	private static final String REASON = "팀 배정 오류를 수정하고 학생들의 팀 구성을 다시 조정하기 위해 취소합니다.";
+
 	@Mock
 	private TeamQueryService teamQueryService;
 
@@ -103,10 +105,10 @@ class TeamAdminFacadeTest {
 	@Test
 	@DisplayName("unfinalizeTeams는 평가 상태와 관계없이 취소된 팀 목록을 응답한다")
 	void unfinalizeTeams() {
-		given(teamCommandService.unfinalizeTeams(10L, "admin")).willReturn(List.of(
+		given(teamCommandService.unfinalizeTeams(10L, "admin", REASON)).willReturn(List.of(
 			Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build()));
 
-		assertThat(teamAdminFacade.unfinalizeTeams(10L, "admin").contents())
+		assertThat(teamAdminFacade.unfinalizeTeams(10L, "admin", REASON).contents())
 			.singleElement().satisfies(team -> assertThat(team.status()).isEqualTo(Status.FORMING));
 	}
 }
