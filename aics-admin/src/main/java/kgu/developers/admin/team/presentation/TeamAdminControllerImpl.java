@@ -43,7 +43,7 @@ public class TeamAdminControllerImpl implements TeamAdminController {
 	@PatchMapping("/sections/{sectionId}/teams/unfinalize")
 	public ResponseEntity<TeamAdminListResponse> unfinalizeTeams(
 			@Positive @PathVariable Long sectionId,
-			@Valid @RequestBody TeamUnfinalizeRequest request, 
+			@Valid @RequestBody TeamUnfinalizeRequest request,
 			Authentication authentication) {
 		return ResponseEntity.ok(teamAdminFacade.unfinalizeTeams(sectionId, authentication.getName(), request.reason()));
 	}
