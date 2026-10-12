@@ -73,14 +73,12 @@ public class TeamCommandService {
 
     @Transactional(propagation = NOT_SUPPORTED)
     public List<Team> finalizeTeams(Long sectionId, String actorId) {
-        teamQueryService.validateSectionExists(sectionId);
-
-        return teamRepository.findAllBySectionId(sectionId).stream()
-                .map(Team::getId)
-                .sorted()
-                .map(teamId -> transactionTemplate.execute(status ->
-                        changeTeamStatus(teamId, actorId, CONFIRMED, "TEAM_FINALIZED", null)))
-                .toList();
+        return transactionTemplate.execute(status -> {
+            sectionRepository.findActiveByIdForUpdate(sectionId).orElseThrow(SectionNotFoundException::new);
+            return teamRepository.findAllIdsBySectionId(sectionId).stream()
+                    .map(teamId -> changeTeamStatus(teamId, actorId, CONFIRMED, "TEAM_FINALIZED", null))
+                    .toList();
+        });
     }
 
     @Transactional(propagation = NOT_SUPPORTED)

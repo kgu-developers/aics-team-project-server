@@ -220,6 +220,31 @@ class TeamMemberConfirmationIntegrationTest {
     }
 
     @Test
+    @DisplayName("두 번째 팀 확정 로그 실패 시 앞선 팀도 함께 롤백한다")
+    void confirmationRollsBackEntireSection() {
+        Long secondId = createTeam("2팀", Status.FORMING);
+        doAnswer(invocation -> {
+            var log = (kgu.developers.domain.auditLog.domain.AuditLog) invocation.getArgument(0);
+            invocation.callRealMethod();
+            if (log.getTargetId().equals(secondId)) {
+                throw new IllegalStateException("second audit failure");
+            }
+            return log;
+        }).when(auditLogRepository).save(any());
+
+        assertThatThrownBy(() -> teamCommandService.finalizeTeams(sectionId, "202699999"))
+            .isInstanceOf(IllegalStateException.class).hasMessage("second audit failure");
+
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            for (Long id : java.util.List.of(teamId, secondId)) {
+                assertThat(teamRepository.findById(id).orElseThrow().getStatus()).isEqualTo(Status.FORMING);
+                assertThat(auditLogRepository.findAllByTeam(sectionId, id, Pageable.unpaged())).isEmpty();
+            }
+        });
+    }
+
+    @Test
     @DisplayName("역할 변경은 실제 확정 트랜잭션의 팀 행 잠금을 기다린 뒤 확정 상태로 거절된다")
     void concurrentTeamConfirmationAndMemberUpdate() throws Exception {
         CountDownLatch confirmationSaved = new CountDownLatch(1);
@@ -393,12 +418,17 @@ class TeamMemberConfirmationIntegrationTest {
             }
             return saved;
         }).when(teamRepository).save(any());
-        doAnswer(invocation -> {
+        org.mockito.stubbing.Answer<Object> observeCompetingLock = invocation -> {
             if (cancellationSaved.getCount() == 0) {
                 competingAttempted.countDown();
             }
             return invocation.callRealMethod();
-        }).when(teamRepository).findByIdForUpdate(teamId);
+        };
+        if (finalizeAgain) {
+            doAnswer(observeCompetingLock).when(sectionRepository).findActiveByIdForUpdate(sectionId);
+        } else {
+            doAnswer(observeCompetingLock).when(teamRepository).findByIdForUpdate(teamId);
+        }
 
         var executor = Executors.newFixedThreadPool(2);
         try {
@@ -551,6 +581,62 @@ class TeamMemberConfirmationIntegrationTest {
                 assertThat(auditLogRepository.findAllByTeam(sectionId, id, Pageable.unpaged())).hasSize(1);
             }
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @DisplayName("확정과 취소는 분반 잠금을 기다려 분반 전체를 순서대로 변경한다")
+    void confirmationAndUnfinalizationSerialize(boolean confirmationFirst) throws Exception {
+        Long secondId = createTeam("2팀", Status.FORMING);
+        CountDownLatch firstLocked = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondAttempted = new CountDownLatch(1);
+        var firstLock = new java.util.concurrent.atomic.AtomicBoolean(true);
+        doAnswer(invocation -> {
+            boolean first = firstLock.compareAndSet(true, false);
+            if (!first) {
+                secondAttempted.countDown();
+            }
+            Object result = invocation.callRealMethod();
+            if (first) {
+                firstLocked.countDown();
+                assertThat(releaseFirst.await(10, TimeUnit.SECONDS)).isTrue();
+            }
+            return result;
+        }).when(sectionRepository).findActiveByIdForUpdate(sectionId);
+        Runnable confirm = () -> teamCommandService.finalizeTeams(sectionId, "202699999");
+        Runnable cancel = () -> teamCommandService.unfinalizeTeams(sectionId, "202699999", REASON);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(confirmationFirst ? confirm : cancel);
+            assertThat(firstLocked.await(10, TimeUnit.SECONDS)).isTrue();
+            var second = executor.submit(confirmationFirst ? cancel : confirm);
+            assertThat(secondAttempted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(200, TimeUnit.MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+            releaseFirst.countDown();
+            first.get(15, TimeUnit.SECONDS);
+            second.get(15, TimeUnit.SECONDS);
+            tx.executeWithoutResult(status -> {
+                entityManager.clear();
+                for (Long id : java.util.List.of(teamId, secondId)) {
+                    assertThat(teamRepository.findById(id).orElseThrow().getStatus())
+                        .isEqualTo(confirmationFirst ? Status.FORMING : Status.CONFIRMED);
+                    var logs = auditLogRepository.findAllByTeam(sectionId, id, Pageable.unpaged());
+                    assertThat(logs).hasSize(confirmationFirst ? 2 : 1);
+                    assertThat(logs).anySatisfy(log ->
+                        assertThat(log.getMetadata().path("changeType").asText()).isEqualTo("TEAM_FINALIZED"));
+                    if (confirmationFirst) {
+                        assertThat(logs).anySatisfy(log ->
+                            assertThat(log.getMetadata().path("changeType").asText()).isEqualTo("TEAM_UNFINALIZED"));
+                    }
+                }
+            });
+        } finally {
+            releaseFirst.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @ParameterizedTest

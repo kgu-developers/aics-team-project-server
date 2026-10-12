@@ -37,6 +37,7 @@ public interface TeamAdminController {
 			- Description : 이 API는 분반의 팀 배정을 최종 확정합니다.
 			- 확정된 팀의 팀원은 이동/역할 변경이 불가하며 409를 응답합니다.
 			- 이미 확정된 팀이 있어도 그대로 두므로 여러 번 호출해도 결과는 같습니다.
+			- 분반 전체를 한 트랜잭션으로 처리하며 실패하면 상태 변경과 감사 로그를 모두 롤백합니다.
 		""")
 	@ApiResponse(
 		responseCode = "200",

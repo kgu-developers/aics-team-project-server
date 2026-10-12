@@ -6,13 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
-import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +24,8 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import kgu.developers.domain.section.exception.SectionNotFoundException;
+import kgu.developers.domain.section.domain.Section;
+import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
 import kgu.developers.domain.auditLog.domain.AuditLogEventType;
 import kgu.developers.domain.team.application.command.TeamCommandService;
@@ -49,6 +51,9 @@ class TeamCommandServiceTest {
     @Mock
     private AuditLogCommandService auditLogCommandService;
 
+    @Mock
+    private SectionRepository sectionRepository;
+
     @InjectMocks
     private TeamCommandService teamCommandService;
 
@@ -57,7 +62,7 @@ class TeamCommandServiceTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void runEachTeamTransactionInline() {
+    private void runTransactionInline() {
         given(transactionTemplate.execute(any())).willAnswer(invocation ->
                 invocation.getArgument(0, TransactionCallback.class).doInTransaction(null));
     }
@@ -67,8 +72,9 @@ class TeamCommandServiceTest {
     void finalizeTeams() {
         Team team1 = team(1L, Status.FORMING);
         Team team2 = team(2L, Status.FORMING);
-        runEachTeamTransactionInline();
-        given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(team1, team2));
+        runTransactionInline();
+        given(sectionRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.of(Section.builder().id(10L).build()));
+        given(teamRepository.findAllIdsBySectionId(10L)).willReturn(List.of(1L, 2L));
         given(teamRepository.findByIdForUpdate(1L)).willReturn(java.util.Optional.of(team1));
         given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
@@ -78,7 +84,7 @@ class TeamCommandServiceTest {
         assertThat(finalized).hasSize(2)
                 .allSatisfy(team -> assertThat(team.getStatus()).isEqualTo(Status.CONFIRMED));
         verify(teamRepository, times(2)).save(any());
-        verify(transactionTemplate, times(2)).execute(any());
+        verify(transactionTemplate).execute(any());
         verify(auditLogCommandService).recordTeamChange(
                 eq("admin"), eq(10L), eq(1L), eq(AuditLogEventType.TEAM_UPDATED), any());
         verify(auditLogCommandService).recordTeamChange(
@@ -90,8 +96,9 @@ class TeamCommandServiceTest {
     void finalizeTeamsIsIdempotent() {
         Team team1 = team(1L, Status.CONFIRMED);
         Team team2 = team(2L, Status.FORMING);
-        runEachTeamTransactionInline();
-        given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(team1, team2));
+        runTransactionInline();
+        given(sectionRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.of(Section.builder().id(10L).build()));
+        given(teamRepository.findAllIdsBySectionId(10L)).willReturn(List.of(1L, 2L));
         given(teamRepository.findByIdForUpdate(1L)).willReturn(java.util.Optional.of(team1));
         given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(team2));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
@@ -106,8 +113,9 @@ class TeamCommandServiceTest {
     void finalizeTeamsSkipsAlreadyConfirmed() {
         Team confirmed = team(1L, Status.CONFIRMED);
         Team forming = team(2L, Status.FORMING);
-        runEachTeamTransactionInline();
-        given(teamRepository.findAllBySectionId(10L)).willReturn(List.of(confirmed, forming));
+        runTransactionInline();
+        given(sectionRepository.findActiveByIdForUpdate(10L)).willReturn(Optional.of(Section.builder().id(10L).build()));
+        given(teamRepository.findAllIdsBySectionId(10L)).willReturn(List.of(1L, 2L));
         given(teamRepository.findByIdForUpdate(1L)).willReturn(java.util.Optional.of(confirmed));
         given(teamRepository.findByIdForUpdate(2L)).willReturn(java.util.Optional.of(forming));
         willAnswer(invocation -> invocation.getArgument(0)).given(teamRepository).save(any());
@@ -128,12 +136,13 @@ class TeamCommandServiceTest {
     @Test
     @DisplayName("없는 분반은 확정할 수 없다")
     void rejectsMissingSection() {
-        willThrow(new SectionNotFoundException()).given(teamQueryService).validateSectionExists(99L);
+        runTransactionInline();
+        given(sectionRepository.findActiveByIdForUpdate(99L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> teamCommandService.finalizeTeams(99L, "admin"))
                 .isInstanceOf(SectionNotFoundException.class);
 
-        verify(teamRepository, never()).findAllBySectionId(any());
+        verify(teamRepository, never()).findAllIdsBySectionId(any());
         verify(teamRepository, never()).save(any());
         verifyNoInteractions(auditLogCommandService);
     }
