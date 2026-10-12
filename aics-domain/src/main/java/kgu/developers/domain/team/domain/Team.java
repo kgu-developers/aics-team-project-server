@@ -12,6 +12,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor(access = PROTECTED)
 public class Team {
+    public static final int MIN_UNFINALIZE_REASON_LENGTH = 30;
+    public static final int MAX_UNFINALIZE_REASON_LENGTH = 500;
+
     private Long id;
     private Long version;  // 낙관적 락 버전 (신규는 null)
 

@@ -3,6 +3,8 @@ package kgu.developers.domain.team.application.command;
 import static kgu.developers.domain.auditLog.domain.AuditLogEventType.TEAM_UPDATED;
 import static kgu.developers.domain.team.domain.Status.CONFIRMED;
 import static kgu.developers.domain.team.domain.Status.FORMING;
+import static kgu.developers.domain.team.domain.Team.MIN_UNFINALIZE_REASON_LENGTH;
+import static kgu.developers.domain.team.domain.Team.MAX_UNFINALIZE_REASON_LENGTH;
 import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED;
 
 import java.util.HashMap;
@@ -83,7 +85,8 @@ public class TeamCommandService {
     @Transactional(propagation = NOT_SUPPORTED)
     public List<Team> unfinalizeTeams(Long sectionId, String actorId, String reason) {
         String normalizedReason = reason == null ? "" : reason.trim();
-        if (normalizedReason.length() < 30 || normalizedReason.length() > 500) {
+        if (normalizedReason.length() < MIN_UNFINALIZE_REASON_LENGTH
+                || normalizedReason.length() > MAX_UNFINALIZE_REASON_LENGTH) {
             throw new TeamInvalidUnfinalizeReasonException();
         }
         return transactionTemplate.execute(status -> {
