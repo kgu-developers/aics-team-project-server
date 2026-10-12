@@ -67,7 +67,7 @@ public class TeamRepositoryImpl implements TeamRepository {
         if (sectionIds.isEmpty()) {
             return Optional.empty();
         }
-        entityManager.find(SectionJpaEntity.class, sectionIds.getFirst(), PESSIMISTIC_WRITE);
+        entityManager.find(SectionJpaEntity.class, sectionIds.get(0), PESSIMISTIC_WRITE);
         TeamJpaEntity entity = entityManager.find(TeamJpaEntity.class, id);
         if (entity == null) {
             return Optional.empty();
