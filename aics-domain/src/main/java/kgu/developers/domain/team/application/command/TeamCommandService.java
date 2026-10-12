@@ -10,6 +10,7 @@ import static org.springframework.transaction.annotation.Propagation.NOT_SUPPORT
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -94,10 +95,11 @@ public class TeamCommandService {
             sectionRepository.findActiveByIdForUpdate(sectionId).orElseThrow(SectionNotFoundException::new);
             // 상태 엔티티는 미리 적재하지 않고 각 팀 잠금을 얻은 뒤 최신 값으로 읽는다.
             List<Long> teamIds = teamRepository.findAllIdsBySectionId(sectionId);
+            Set<Long> teamIdSet = Set.copyOf(teamIds);
             boolean hasCompletedFinalReport = milestoneRepository.findAllBySectionIdOrderByWeekNumber(sectionId).stream()
                     .filter(milestone -> milestone.getType() == MilestoneType.FINAL_REPORT)
                     .flatMap(milestone -> submissionRepository.findAllByMilestoneId(milestone.getId()).stream())
-                    .anyMatch(submission -> teamIds.contains(submission.getTeamId()) && submission.isCompleted());
+                    .anyMatch(submission -> teamIdSet.contains(submission.getTeamId()) && submission.isCompleted());
             if (hasCompletedFinalReport) {
                 throw new TeamUnfinalizeCompletedFinalReportException();
             }
