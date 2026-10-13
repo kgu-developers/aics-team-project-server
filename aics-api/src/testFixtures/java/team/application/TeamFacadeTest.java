@@ -116,7 +116,7 @@ class TeamFacadeTest {
     given(teamCommandService.updateKickoff(1L, "1팀", "매주 화요일 회고", "매주 목 19:00"))
         .willReturn(Team.builder().id(1L).sectionId(10L).name("1팀")
             .kickoffRule("매주 화요일 회고").meetingSchedule("매주 목 19:00").status(Status.FORMING).build());
-    given(teamQueryService.getTeamByIdForUpdate(1L))
+    given(teamQueryService.getTeamByIdForNameUpdate(1L))
         .willReturn(team("기존 팀", "기존 규칙", "기존 일정"));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(member(1L, "202699999", false)));
@@ -187,7 +187,7 @@ class TeamFacadeTest {
     TeamQueryService realTeamQueryService = new TeamQueryService(fakeTeamRepository, null);
     TeamFacade confirmedTeamFacade = new TeamFacade(
         realTeamQueryService,
-        new TeamCommandService(realTeamQueryService, fakeTeamRepository, null, auditLogCommandService),
+        new TeamCommandService(realTeamQueryService, fakeTeamRepository, null, auditLogCommandService, null, null, null),
         new TeamMemberQueryService(fakeTeamMemberRepository, null),
         new TeamMemberCommandService(fakeTeamMemberRepository, realTeamQueryService, fakeTeamRepository),
         teamAccessValidator, auditLogCommandService, projectCommandService);
@@ -212,7 +212,7 @@ class TeamFacadeTest {
         "1팀", "새 규칙", "매주 목 19:00", "202699999", null);
     given(teamCommandService.updateKickoff(1L, "1팀", "새 규칙", "매주 목 19:00"))
         .willReturn(team("1팀", "새 규칙", "매주 목 19:00"));
-    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForNameUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
 
     teamFacade.updateKickoff(1L, USER, request);
 
@@ -226,7 +226,7 @@ class TeamFacadeTest {
         "새 팀명", "기존 규칙", "매주 목 19:00", "202699999", null);
     given(teamCommandService.updateKickoff(1L, "새 팀명", "기존 규칙", "매주 목 19:00"))
         .willReturn(team("새 팀명", "기존 규칙", "매주 목 19:00"));
-    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForNameUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
 
     teamFacade.updateKickoff(1L, USER, request);
 
@@ -240,7 +240,7 @@ class TeamFacadeTest {
         "1팀", "기존 규칙", "매주 목 19:00", "202611111", null);
     given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
         .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
-    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
+    given(teamQueryService.getTeamByIdForNameUpdate(1L)).willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(member(1L, "202699999", true), member(2L, "202611111", false)));
     given(teamMemberCommandService.updateKickoffRoles(1L, "202611111", Map.of()))
@@ -258,7 +258,7 @@ class TeamFacadeTest {
         "1팀", null, null, "202699999", null);
     given(teamCommandService.updateKickoff(1L, "1팀", null, null))
         .willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build());
-    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team("1팀", null, null));
+    given(teamQueryService.getTeamByIdForNameUpdate(1L)).willReturn(team("1팀", null, null));
 
     teamFacade.updateKickoff(1L, USER, request);
 
@@ -273,7 +273,7 @@ class TeamFacadeTest {
         List.of(new MemberRole("202699999", null), new MemberRole("202611111", "백엔드")));
     given(teamCommandService.updateKickoff(1L, "1팀", "매주 화요일 회고", "매주 목 19:00"))
         .willReturn(Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build());
-    given(teamQueryService.getTeamByIdForUpdate(1L))
+    given(teamQueryService.getTeamByIdForNameUpdate(1L))
         .willReturn(team("1팀", "매주 화요일 회고", "매주 목 19:00"));
 
     teamFacade.updateKickoff(1L, USER, request);
@@ -366,7 +366,7 @@ class TeamFacadeTest {
         "새 팀", "새 규칙", "새 일정", USER,
         List.of(new MemberRole(USER, "프론트엔드")));
 
-    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(beforeTeam);
+    given(teamQueryService.getTeamByIdForNameUpdate(1L)).willReturn(beforeTeam);
     given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(beforeMember));
     given(teamCommandService.updateKickoff(1L, "새 팀", "새 규칙", "새 일정"))
         .willReturn(afterTeam);
@@ -404,7 +404,7 @@ class TeamFacadeTest {
     TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
         "1팀", "규칙", "일정", USER, List.of(new MemberRole(USER, "백엔드")));
 
-    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(unchanged);
+    given(teamQueryService.getTeamByIdForNameUpdate(1L)).willReturn(unchanged);
     given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(member));
     given(teamCommandService.updateKickoff(1L, "1팀", "규칙", "일정")).willReturn(unchanged);
     given(teamMemberCommandService.updateKickoffRoles(1L, USER, Map.of(USER, "백엔드")))
@@ -424,7 +424,7 @@ class TeamFacadeTest {
     TeamKickoffUpdateRequest request = new TeamKickoffUpdateRequest(
         "새 팀", "새 규칙", "새 일정", USER, List.of());
 
-    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(before);
+    given(teamQueryService.getTeamByIdForNameUpdate(1L)).willReturn(before);
     given(teamCommandService.updateKickoff(1L, "새 팀", "새 규칙", "새 일정"))
         .willReturn(after);
     given(teamMemberCommandService.updateKickoffRoles(1L, USER, Map.of()))
@@ -449,7 +449,7 @@ class TeamFacadeTest {
         List.of(new MemberRole("202699999", "프론트엔드")));
     given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
         .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
-    given(teamQueryService.getTeamByIdForUpdate(1L))
+    given(teamQueryService.getTeamByIdForNameUpdate(1L))
         .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(beforeMember));
@@ -473,7 +473,7 @@ class TeamFacadeTest {
         List.of(new MemberRole("202699999", "백엔드"), new MemberRole("202611111", "프론트엔드")));
     given(teamCommandService.updateKickoff(1L, "1팀", "기존 규칙", "매주 목 19:00"))
         .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
-    given(teamQueryService.getTeamByIdForUpdate(1L))
+    given(teamQueryService.getTeamByIdForNameUpdate(1L))
         .willReturn(team("1팀", "기존 규칙", "매주 목 19:00"));
     given(teamMemberQueryService.getTeamMembersByTeamId(1L))
         .willReturn(List.of(member1, member2));

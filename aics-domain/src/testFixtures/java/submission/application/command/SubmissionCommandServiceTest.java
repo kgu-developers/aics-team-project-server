@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.BDDMockito.given;
 
+import kgu.developers.domain.section.domain.Section;
+import mock.repository.FakeSectionRepository;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +86,7 @@ class SubmissionCommandServiceTest {
     private FakeEnrollmentRepository enrollmentRepository;
     private FakeRequiredArtifactRepository requiredArtifactRepository;
     private FakeTeamRepository teamRepository;
+    private FakeSectionRepository sectionRepository;
     private SubmissionCommandService submissionCommandService;
     private Submission submission;
 
@@ -98,6 +102,8 @@ class SubmissionCommandServiceTest {
         enrollmentRepository = new FakeEnrollmentRepository();
         requiredArtifactRepository = new FakeRequiredArtifactRepository();
         teamRepository = new FakeTeamRepository();
+        sectionRepository = new FakeSectionRepository();
+        sectionRepository.save(Section.builder().id(SECTION_ID).build());
 
         SubmissionQueryService submissionQueryService =
                 new SubmissionQueryService(submissionRepository, milestoneRepository, transactionManager);
@@ -113,7 +119,8 @@ class SubmissionCommandServiceTest {
                 enrollmentRepository,
                 requiredArtifactRepository,
                 teamRepository,
-                submissionQueryService
+                submissionQueryService,
+                sectionRepository
         );
 
         submission = submissionRepository.save(Submission.create(TEAM_ID, MILESTONE_ID));
@@ -458,6 +465,8 @@ class SubmissionCommandServiceTest {
     @DisplayName("최종보고서 마일스톤은 활성 팀원 전원이 확인해야 완료 처리된다")
     void completeSubmission_RequiresAllActiveMembersConfirmed() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID)
+            .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build());
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         teamMemberRepository.save(TeamMember.create(TEAM_ID, "202611111", false, "팀원"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
@@ -478,6 +487,8 @@ class SubmissionCommandServiceTest {
     @DisplayName("확인을 취소하면 다시 완료 게이트를 통과하지 못한다")
     void completeSubmission_RejectsAfterConfirmationCancelled() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID)
+            .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build());
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "최종보고서 제출", null, List.of());
@@ -493,6 +504,8 @@ class SubmissionCommandServiceTest {
     @DisplayName("재제출로 버전이 올라가면 이전 버전에서 한 확인은 더 이상 유효하지 않다")
     void completeSubmission_InvalidatesConfirmationFromPreviousVersion() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone(true)));
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID)
+            .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build());
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
         submissionCommandService.submitVersion(submission.getId(), USER_ID, "1차 제출", null, List.of());
@@ -509,6 +522,8 @@ class SubmissionCommandServiceTest {
     @DisplayName("최종보고서 완료 게이트는 탈퇴한 팀원은 확인 대상에서 뺀다")
     void completeSubmission_ExcludesWithdrawnMember() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID)
+            .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build());
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         teamMemberRepository.save(TeamMember.create(TEAM_ID, "202611111", false, "탈퇴함"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));
@@ -525,6 +540,8 @@ class SubmissionCommandServiceTest {
     @DisplayName("최종보고서 완료 게이트는 활성 조교도 확인 대상에서 뺀다(활성 STUDENT만 대상)")
     void completeSubmission_ExcludesActiveAssistant() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID)
+            .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build());
         teamMemberRepository.save(TeamMember.create(TEAM_ID, USER_ID, true, "팀장"));
         teamMemberRepository.save(TeamMember.create(TEAM_ID, "202611111", false, "조교"));
         enrollmentRepository.save(Enrollment.create(SECTION_ID, USER_ID, Role.STUDENT, Status.ACTIVE));

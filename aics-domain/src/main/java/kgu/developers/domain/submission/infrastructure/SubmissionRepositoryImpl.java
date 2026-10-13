@@ -1,5 +1,6 @@
 package kgu.developers.domain.submission.infrastructure;
 
+import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SubmissionRepositoryImpl implements SubmissionRepository {
     private final JpaSubmissionRepository jpaSubmissionRepository;
+    private final EntityManager entityManager;
 
     @Override
     public Submission save(Submission submission) {
@@ -28,8 +30,11 @@ public class SubmissionRepositoryImpl implements SubmissionRepository {
 
     @Override
     public Optional<Submission> findByIdForUpdate(Long id) {
-        return jpaSubmissionRepository.findByIdForUpdate(id)
-                .map(SubmissionJpaEntity::toDomain);
+        return jpaSubmissionRepository.findByIdForUpdate(id).map(entity -> {
+            // 호출자가 미리 조회한 엔티티도 잠금 대기 후 커밋된 최신 상태로 갱신한다.
+            entityManager.refresh(entity);
+            return entity.toDomain();
+        });
     }
 
     @Override

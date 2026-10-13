@@ -143,7 +143,8 @@ public interface SubmissionController {
     @Operation(
         summary = "단계 완료 처리 API",
         description = """
-            Description : 팀장 전용. 최종보고서 마일스톤이면 팀원 전원(탈퇴자 제외) 확인이 끝나야 200,
+            Description : 팀장 전용. 최종보고서는 확정된 팀에서만 완료할 수 있으며 미확정이면 409.
+            최종보고서 마일스톤이면 팀원 전원(탈퇴자 제외) 확인이 끝나야 200,
             아니면 428을 반환한다. 그 외 마일스톤은 게이트 없이 바로 200.
             Assignee : 담당자명
             """
