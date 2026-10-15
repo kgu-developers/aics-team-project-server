@@ -13,11 +13,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
-import kgu.developers.domain.evaluation.domain.PeerEvaluationResponseRepository;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationSubmissionRepository;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationSubmissionStatus;
 import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluationRepository;
 import kgu.developers.domain.evaluation.domain.TeamEvaluationRepository;
 import kgu.developers.domain.feedback.domain.RequiredArtifact;
 import kgu.developers.domain.feedback.domain.RequiredArtifactRepository;
+import kgu.developers.domain.midreport.domain.MidReportRepository;
+import kgu.developers.domain.midreport.domain.MidReportStatus;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
@@ -45,7 +48,8 @@ public class MilestoneCommandService {
     private final TeamEvaluationRepository teamEvaluationRepository;
     private final ProfessorPresentationEvaluationRepository professorPresentationEvaluationRepository;
     private final PeerEvaluationFormRepository peerEvaluationFormRepository;
-    private final PeerEvaluationResponseRepository peerEvaluationResponseRepository;
+    private final PeerEvaluationSubmissionRepository peerEvaluationSubmissionRepository;
+    private final MidReportRepository midReportRepository;
     private final Clock serviceClock;
 
     public Long createMilestone(
@@ -188,7 +192,8 @@ public class MilestoneCommandService {
         return hasBlockingSubmission(milestoneId)
                 || !teamEvaluationRepository.findAllByMilestoneId(milestoneId).isEmpty()
                 || !professorPresentationEvaluationRepository.findAllByMilestoneId(milestoneId).isEmpty()
-                || hasPeerEvaluationResponse(milestoneId);
+                || hasSubmittedPeerEvaluation(milestoneId)
+                || hasBlockingMidReport(milestoneId);
     }
 
     // 제출 현황 조회 시 자동 생성되는 NOT_SUBMITTED placeholder row는 삭제를 막지 않는다.
@@ -198,10 +203,20 @@ public class MilestoneCommandService {
                         || submission.getPresentationOrder() != null);
     }
 
-    private boolean hasPeerEvaluationResponse(Long milestoneId) {
+    // 상호평가 실제 제출은 PeerEvaluationSubmission(formId 기준)에 저장된다. 아직 제출 전인 DRAFT는 막지 않는다.
+    private boolean hasSubmittedPeerEvaluation(Long milestoneId) {
         return peerEvaluationFormRepository.findByMilestoneId(milestoneId)
-                .map(form -> peerEvaluationResponseRepository.existsByFormId(form.getId()))
+                .map(form -> peerEvaluationSubmissionRepository.findAllByFormId(form.getId()).stream()
+                        .anyMatch(submission -> submission.getStatus() == PeerEvaluationSubmissionStatus.SUBMITTED))
                 .orElse(false);
+    }
+
+    // 중간보고서는 Submission과 별개 애그리거트(teamId+milestoneId 직접 식별)라 따로 조회해야 한다.
+    // 아직 제출 전인 DRAFT는 막지 않는다.
+    private boolean hasBlockingMidReport(Long milestoneId) {
+        return midReportRepository.findAllByMilestoneId(milestoneId).stream()
+                .anyMatch(report -> report.getStatus() == MidReportStatus.SUBMITTED
+                        || report.getStatus() == MidReportStatus.REVISION_REQUESTED);
     }
 
     private void cascadeDeleteDraftConfig(Long milestoneId) {

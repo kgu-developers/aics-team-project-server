@@ -62,4 +62,11 @@ public class MidReportRepositoryImpl implements MidReportRepository {
             .map(MidReportJpaEntity::toDomain)
             .toList();
     }
+
+    @Override
+    public java.util.List<MidReport> findAllByMilestoneId(Long milestoneId) {
+        return jpaMidReportRepository.findAllActiveByMilestoneId(milestoneId).stream()
+            .map(MidReportJpaEntity::toDomain)
+            .toList();
+    }
 }

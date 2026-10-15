@@ -33,11 +33,6 @@ public class PeerEvaluationResponseRepositoryImpl implements PeerEvaluationRespo
                 .map(PeerEvaluationResponseJpaEntity::toDomain);
     }
 
-    @Override
-    public boolean existsByFormId(Long formId) {
-        return jpaRepository.existsByFormIdAndDeletedAtIsNull(formId);
-    }
-
     private static String normalizeStudentNumber(String studentNumber) {
         return studentNumber == null ? null : studentNumber.trim();
     }
