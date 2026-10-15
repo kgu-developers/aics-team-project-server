@@ -901,6 +901,14 @@ class MilestoneFacadeTest {
     }
 
     @Test
+    @DisplayName("삭제 요청을 분반 경계와 함께 CommandService로 위임한다")
+    void deleteMilestone() {
+        milestoneFacade.deleteMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID);
+
+        verify(milestoneCommandService).deleteMilestone(SECTION_ID, PROFESSOR_ID, MILESTONE_ID);
+    }
+
+    @Test
     @DisplayName("평가 기간 수정에 분반 경계와 요청 시각을 포함한다")
     void updateEvaluationWindow() {
         LocalDateTime evaluationOpensAt = DUE_AT.plusDays(1);

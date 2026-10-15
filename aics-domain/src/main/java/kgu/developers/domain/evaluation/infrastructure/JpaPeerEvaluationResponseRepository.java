@@ -12,4 +12,6 @@ public interface JpaPeerEvaluationResponseRepository extends JpaRepository<PeerE
             String evaluatorId,
             String targetId
     );
+
+    boolean existsByFormIdAndDeletedAtIsNull(Long formId);
 }

@@ -143,6 +143,7 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
         evaluationClosesAt = schedule.evaluationClosesAt();
         allowResubmissionBeforeDueAt = milestone.isAllowResubmissionBeforeDueAt();
         type = milestone.getType();
+        setDeletedAt(milestone.getDeletedAt());
     }
 
     public Milestone toDomain() {
@@ -163,7 +164,8 @@ public class MilestoneJpaEntity extends BaseTimeEntity {
                         type == MilestoneType.PRESENTATION
                 ),
                 type,
-                allowResubmissionBeforeDueAt
+                allowResubmissionBeforeDueAt,
+                getDeletedAt()
         );
     }
 }

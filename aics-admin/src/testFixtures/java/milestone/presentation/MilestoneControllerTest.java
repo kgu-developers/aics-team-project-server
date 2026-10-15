@@ -291,6 +291,16 @@ class MilestoneControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 마일스톤을 삭제할 수 있다")
+    void deleteMilestone() throws Exception {
+        mockMvc.perform(delete(MILESTONES_URL + "/2").with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(milestoneFacade).deleteMilestone(1L, "user", 2L);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
     @DisplayName("관리자는 마일스톤 평가 기간을 수정할 수 있다")
     void updateEvaluationWindow() throws Exception {
         mockMvc.perform(patch(MILESTONES_URL + "/2/evaluation-window").with(csrf())

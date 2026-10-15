@@ -91,6 +91,10 @@ public class PeerEvaluationForm {
         update(this.anonymous, opensAt, closesAt);
     }
 
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
     private static void validateRequired(Object value, String message) {
         if (value == null) {
             throw new IllegalArgumentException(message);

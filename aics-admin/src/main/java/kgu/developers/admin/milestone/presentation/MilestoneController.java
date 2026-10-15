@@ -93,6 +93,18 @@ public interface MilestoneController {
             @Parameter(hidden = true) Authentication authentication);
 
     @Operation(
+            summary = "마일스톤 삭제",
+            description = "DRAFT 상태이고 실제 제출·평가 등 운영 데이터가 없는 마일스톤만 소프트 삭제한다. "
+                    + "필수 산출물 설정, 상호평가 양식(초안)은 함께 삭제된다."
+    )
+    @ApiResponse(responseCode = "409", description = "DRAFT 상태가 아니거나 운영 데이터가 존재함")
+    ResponseEntity<Void> deleteMilestone(
+            @Parameter(description = "분반 ID", required = true) @Positive Long sectionId,
+            @Parameter(description = "마일스톤 ID", required = true) @Positive Long milestoneId,
+            @Parameter(hidden = true) Authentication authentication
+    );
+
+    @Operation(
             summary = "마일스톤 주차 일괄 변경",
             description = "주차는 표시·정렬 값만 변경하며 기존 제출·수정·평가 일정은 유지한다. "
                     + "일정 변경은 마일스톤 내용과 일정 수정 API 또는 평가 기간 수정 API를 사용한다."

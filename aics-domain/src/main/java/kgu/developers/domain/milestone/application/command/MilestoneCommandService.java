@@ -12,16 +12,26 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationResponseRepository;
+import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluationRepository;
+import kgu.developers.domain.evaluation.domain.TeamEvaluationRepository;
+import kgu.developers.domain.feedback.domain.RequiredArtifact;
+import kgu.developers.domain.feedback.domain.RequiredArtifactRepository;
 import kgu.developers.domain.milestone.domain.Milestone;
 import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
+import kgu.developers.domain.milestone.exception.MilestoneHasOperationalDataException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.exception.MilestoneEvaluationWindowConflictException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
+import kgu.developers.domain.milestone.exception.MilestoneStatusNotDraftException;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.submission.domain.SubmissionRepository;
+import kgu.developers.domain.submission.domain.SubmissionStatus;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -30,6 +40,12 @@ import lombok.RequiredArgsConstructor;
 public class MilestoneCommandService {
     private final MilestoneRepository milestoneRepository;
     private final SectionRepository sectionRepository;
+    private final RequiredArtifactRepository requiredArtifactRepository;
+    private final SubmissionRepository submissionRepository;
+    private final TeamEvaluationRepository teamEvaluationRepository;
+    private final ProfessorPresentationEvaluationRepository professorPresentationEvaluationRepository;
+    private final PeerEvaluationFormRepository peerEvaluationFormRepository;
+    private final PeerEvaluationResponseRepository peerEvaluationResponseRepository;
     private final Clock serviceClock;
 
     public Long createMilestone(
@@ -152,6 +168,51 @@ public class MilestoneCommandService {
     public Milestone getMilestoneForUpdate(Long sectionId, String professorId, Long milestoneId) {
         lockOwnedSection(sectionId, professorId);
         return getRequiredMilestoneForUpdate(sectionId, milestoneId);
+    }
+
+    public void deleteMilestone(Long sectionId, String professorId, Long milestoneId) {
+        lockOwnedSection(sectionId, professorId);
+        Milestone milestone = getRequiredMilestoneForUpdate(sectionId, milestoneId);
+        if (milestone.getStatus() != MilestoneStatus.DRAFT) {
+            throw new MilestoneStatusNotDraftException();
+        }
+        if (hasOperationalData(milestoneId)) {
+            throw new MilestoneHasOperationalDataException();
+        }
+        cascadeDeleteDraftConfig(milestoneId);
+        milestone.delete();
+        milestoneRepository.save(milestone);
+    }
+
+    private boolean hasOperationalData(Long milestoneId) {
+        return hasBlockingSubmission(milestoneId)
+                || !teamEvaluationRepository.findAllByMilestoneId(milestoneId).isEmpty()
+                || !professorPresentationEvaluationRepository.findAllByMilestoneId(milestoneId).isEmpty()
+                || hasPeerEvaluationResponse(milestoneId);
+    }
+
+    // 제출 현황 조회 시 자동 생성되는 NOT_SUBMITTED placeholder row는 삭제를 막지 않는다.
+    private boolean hasBlockingSubmission(Long milestoneId) {
+        return submissionRepository.findAllByMilestoneId(milestoneId).stream()
+                .anyMatch(submission -> submission.getStatus() != SubmissionStatus.NOT_SUBMITTED
+                        || submission.getPresentationOrder() != null);
+    }
+
+    private boolean hasPeerEvaluationResponse(Long milestoneId) {
+        return peerEvaluationFormRepository.findByMilestoneId(milestoneId)
+                .map(form -> peerEvaluationResponseRepository.existsByFormId(form.getId()))
+                .orElse(false);
+    }
+
+    private void cascadeDeleteDraftConfig(Long milestoneId) {
+        for (RequiredArtifact artifact : requiredArtifactRepository.findAllByMilestoneId(milestoneId)) {
+            artifact.delete();
+            requiredArtifactRepository.save(artifact);
+        }
+        peerEvaluationFormRepository.findByMilestoneId(milestoneId).ifPresent(form -> {
+            form.delete();
+            peerEvaluationFormRepository.save(form);
+        });
     }
 
     public void changeStatus(

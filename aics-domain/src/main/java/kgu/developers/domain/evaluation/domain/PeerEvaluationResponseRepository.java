@@ -8,4 +8,6 @@ public interface PeerEvaluationResponseRepository {
     Optional<PeerEvaluationResponse> findById(Long id);
 
     Optional<PeerEvaluationResponse> findByFormIdAndEvaluatorIdAndTargetId(Long formId, String evaluatorId, String targetId);
+
+    boolean existsByFormId(Long formId);
 }

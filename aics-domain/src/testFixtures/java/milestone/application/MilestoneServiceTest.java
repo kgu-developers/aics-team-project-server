@@ -20,6 +20,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import kgu.developers.domain.evaluation.domain.PeerEvaluationForm;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationFormRepository;
+import kgu.developers.domain.evaluation.domain.PeerEvaluationResponseRepository;
+import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluation;
+import kgu.developers.domain.evaluation.domain.ProfessorPresentationEvaluationRepository;
+import kgu.developers.domain.evaluation.domain.TeamEvaluation;
+import kgu.developers.domain.evaluation.domain.TeamEvaluationRepository;
+import kgu.developers.domain.feedback.domain.RequiredArtifact;
+import kgu.developers.domain.feedback.domain.RequiredArtifactType;
 import kgu.developers.domain.milestone.application.command.MilestoneCommandService;
 import kgu.developers.domain.milestone.application.command.MilestoneWeekNumberChange;
 import kgu.developers.domain.milestone.application.query.MilestoneQueryService;
@@ -30,15 +39,26 @@ import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneEvaluationWindowConflictException;
 import kgu.developers.domain.milestone.exception.DuplicateMilestoneWeekException;
+import kgu.developers.domain.milestone.exception.MilestoneHasOperationalDataException;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.milestone.exception.MilestoneSectionAccessDeniedException;
+import kgu.developers.domain.milestone.exception.MilestoneStatusNotDraftException;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.submission.domain.Submission;
+import mock.repository.FakeRequiredArtifactRepository;
+import mock.repository.FakeSubmissionRepository;
 
 class MilestoneServiceTest {
     private static final String PROFESSOR_ID = "20260001";
 
     private FakeMilestoneRepository repository;
     private SectionRepository sectionRepository;
+    private FakeRequiredArtifactRepository requiredArtifactRepository;
+    private FakeSubmissionRepository submissionRepository;
+    private TeamEvaluationRepository teamEvaluationRepository;
+    private ProfessorPresentationEvaluationRepository professorPresentationEvaluationRepository;
+    private PeerEvaluationFormRepository peerEvaluationFormRepository;
+    private PeerEvaluationResponseRepository peerEvaluationResponseRepository;
     private MilestoneCommandService commandService;
     private MilestoneQueryService queryService;
 
@@ -47,7 +67,16 @@ class MilestoneServiceTest {
         repository = new FakeMilestoneRepository();
         sectionRepository = mock(SectionRepository.class);
         when(sectionRepository.lockActiveByIdAndProfessorId(anyLong(), anyString())).thenReturn(true);
+        requiredArtifactRepository = new FakeRequiredArtifactRepository();
+        submissionRepository = new FakeSubmissionRepository();
+        teamEvaluationRepository = mock(TeamEvaluationRepository.class);
+        professorPresentationEvaluationRepository = mock(ProfessorPresentationEvaluationRepository.class);
+        peerEvaluationFormRepository = mock(PeerEvaluationFormRepository.class);
+        peerEvaluationResponseRepository = mock(PeerEvaluationResponseRepository.class);
         commandService = new MilestoneCommandService(repository, sectionRepository,
+                requiredArtifactRepository, submissionRepository, teamEvaluationRepository,
+                professorPresentationEvaluationRepository, peerEvaluationFormRepository,
+                peerEvaluationResponseRepository,
                 java.time.Clock.fixed(java.time.Instant.parse("2026-10-02T01:00:00Z"),
                         java.time.ZoneId.of("Asia/Seoul")));
         queryService = new MilestoneQueryService(repository);
@@ -473,6 +502,133 @@ class MilestoneServiceTest {
                 .isInstanceOf(MilestoneNotFoundException.class);
     }
 
+    @Test
+    @DisplayName("DRAFT 상태이고 운영 데이터가 없는 마일스톤은 삭제할 수 있다")
+    void deleteDraftMilestoneSucceeds() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+
+        commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId);
+
+        assertThatThrownBy(() -> queryService.getMilestone(1L, milestoneId))
+                .isInstanceOf(MilestoneNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("DRAFT 상태가 아닌 마일스톤은 삭제할 수 없다")
+    void rejectDeleteWhenNotDraft() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        commandService.changeStatus(1L, PROFESSOR_ID, milestoneId, MilestoneStatus.PUBLISHED);
+
+        assertThatThrownBy(() -> commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId))
+                .isInstanceOf(MilestoneStatusNotDraftException.class);
+    }
+
+    @Test
+    @DisplayName("제출 현황 조회로 자동 생성된 NOT_SUBMITTED 레코드만 있으면 삭제를 막지 않는다")
+    void allowDeleteWhenOnlyNotSubmittedPlaceholderExists() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        submissionRepository.save(Submission.create(100L, milestoneId));
+
+        commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId);
+
+        assertThatThrownBy(() -> queryService.getMilestone(1L, milestoneId))
+                .isInstanceOf(MilestoneNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("실제 제출물이 있으면 삭제할 수 없다")
+    void rejectDeleteWhenSubmissionExists() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        Submission submission = Submission.create(100L, milestoneId);
+        submission.recordNewVersion(1);
+        submissionRepository.save(submission);
+
+        assertThatThrownBy(() -> commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId))
+                .isInstanceOf(MilestoneHasOperationalDataException.class);
+    }
+
+    @Test
+    @DisplayName("제출 전이어도 발표 순서가 배정돼 있으면 삭제할 수 없다")
+    void rejectDeleteWhenPresentationOrderAssigned() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        Submission submission = Submission.create(100L, milestoneId);
+        submission.assignPresentationOrder(1);
+        submissionRepository.save(submission);
+
+        assertThatThrownBy(() -> commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId))
+                .isInstanceOf(MilestoneHasOperationalDataException.class);
+    }
+
+    @Test
+    @DisplayName("팀간평가 응답이 있으면 삭제할 수 없다")
+    void rejectDeleteWhenTeamEvaluationExists() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        when(teamEvaluationRepository.findAllByMilestoneId(milestoneId))
+                .thenReturn(List.of(mock(TeamEvaluation.class)));
+
+        assertThatThrownBy(() -> commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId))
+                .isInstanceOf(MilestoneHasOperationalDataException.class);
+    }
+
+    @Test
+    @DisplayName("교수 발표평가 결과가 있으면 삭제할 수 없다")
+    void rejectDeleteWhenProfessorPresentationEvaluationExists() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        when(professorPresentationEvaluationRepository.findAllByMilestoneId(milestoneId))
+                .thenReturn(List.of(mock(ProfessorPresentationEvaluation.class)));
+
+        assertThatThrownBy(() -> commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId))
+                .isInstanceOf(MilestoneHasOperationalDataException.class);
+    }
+
+    @Test
+    @DisplayName("상호평가 응답이 있으면 삭제할 수 없다")
+    void rejectDeleteWhenPeerEvaluationResponseExists() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        PeerEvaluationForm form = PeerEvaluationForm.restore(
+                10L, 1L, milestoneId, true,
+                LocalDateTime.of(2026, 9, 1, 0, 0),
+                LocalDateTime.of(2026, 9, 10, 0, 0),
+                null, null, null
+        );
+        when(peerEvaluationFormRepository.findByMilestoneId(milestoneId)).thenReturn(Optional.of(form));
+        when(peerEvaluationResponseRepository.existsByFormId(10L)).thenReturn(true);
+
+        assertThatThrownBy(() -> commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId))
+                .isInstanceOf(MilestoneHasOperationalDataException.class);
+    }
+
+    @Test
+    @DisplayName("삭제 시 필수 산출물과 상호평가 양식(초안)은 함께 소프트 삭제된다")
+    void cascadeDeletesDraftConfigOnSuccess() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        requiredArtifactRepository.save(RequiredArtifact.create(
+                milestoneId, RequiredArtifactType.FILE, "최종 산출물", true, "zip", 100));
+        PeerEvaluationForm form = PeerEvaluationForm.restore(
+                10L, 1L, milestoneId, true,
+                LocalDateTime.of(2026, 9, 1, 0, 0),
+                LocalDateTime.of(2026, 9, 10, 0, 0),
+                null, null, null
+        );
+        when(peerEvaluationFormRepository.findByMilestoneId(milestoneId)).thenReturn(Optional.of(form));
+
+        commandService.deleteMilestone(1L, PROFESSOR_ID, milestoneId);
+
+        assertThat(requiredArtifactRepository.findAllByMilestoneId(milestoneId)).isEmpty();
+        assertThat(form.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("담당 교수가 아니면 마일스톤을 삭제할 수 없다")
+    void rejectDeleteForNonOwningProfessor() {
+        Long milestoneId = createMilestone(1L, "제안서", 2);
+        when(sectionRepository.lockActiveByIdAndProfessorId(1L, "other"))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> commandService.deleteMilestone(1L, "other", milestoneId))
+                .isInstanceOf(MilestoneSectionAccessDeniedException.class);
+    }
+
     private Long createMilestone(Long sectionId, String title, int weekNumber) {
         return commandService.createMilestone(
                 sectionId,
@@ -510,7 +666,8 @@ class MilestoneServiceTest {
                         milestone.getStatus(),
                         milestone.getSchedule(),
                         milestone.getType(),
-                        milestone.isAllowResubmissionBeforeDueAt()
+                        milestone.isAllowResubmissionBeforeDueAt(),
+                        milestone.getDeletedAt()
                 );
             }
             milestones.put(saved.getId(), saved);
@@ -525,7 +682,8 @@ class MilestoneServiceTest {
 
         @Override
         public Optional<Milestone> findById(Long id) {
-            return Optional.ofNullable(milestones.get(id));
+            return Optional.ofNullable(milestones.get(id))
+                    .filter(milestone -> milestone.getDeletedAt() == null);
         }
 
         @Override

@@ -192,6 +192,10 @@ public class MilestoneFacade {
                 sectionId, professorId, milestoneId, request.evaluationClosesAt()));
     }
 
+    public void deleteMilestone(Long sectionId, String professorId, Long milestoneId) {
+        asInvalidRequest(() -> milestoneCommandService.deleteMilestone(sectionId, professorId, milestoneId));
+    }
+
     public void updateWeekNumbers(
             Long sectionId,
             String professorId,

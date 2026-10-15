@@ -20,6 +20,8 @@ public enum MilestoneDomainExceptionCode implements ExceptionCode {
     MILESTONE_WEEK_CONFLICT(CONFLICT, "같은 분반에서 마일스톤 주차를 중복할 수 없습니다."),
     MILESTONE_CONCURRENTLY_MODIFIED(CONFLICT, "다른 요청이 먼저 마일스톤을 변경했습니다. 다시 시도해주세요."),
     MILESTONE_EVALUATION_WINDOW_CONFLICT(CONFLICT, "발표 평가 기간의 현재 상태에서는 요청한 변경을 할 수 없습니다."),
+    MILESTONE_STATUS_NOT_DRAFT(CONFLICT, "작성중(DRAFT) 상태의 마일스톤만 삭제할 수 있습니다."),
+    MILESTONE_HAS_OPERATIONAL_DATA(CONFLICT, "제출·평가 등 운영 데이터가 있는 마일스톤은 삭제할 수 없습니다."),
     INVALID_MILESTONE_REQUEST(BAD_REQUEST, "마일스톤 요청 값이 올바르지 않습니다."),
     ;
 

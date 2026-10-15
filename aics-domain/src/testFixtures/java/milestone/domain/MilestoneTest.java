@@ -141,6 +141,17 @@ class MilestoneTest {
         assertThat(milestone.belongsToSection(11L)).isFalse();
     }
 
+    @Test
+    @DisplayName("삭제하면 삭제 시각이 기록된다")
+    void delete() {
+        Milestone milestone = Milestone.create(1L, "제안서", null, 1, schedule());
+        assertThat(milestone.getDeletedAt()).isNull();
+
+        milestone.delete();
+
+        assertThat(milestone.getDeletedAt()).isNotNull();
+    }
+
     private MilestoneSchedule schedule() {
         return new MilestoneSchedule(null, LocalDateTime.of(2026, 9, 10, 23, 59), null, null, null, null);
     }
