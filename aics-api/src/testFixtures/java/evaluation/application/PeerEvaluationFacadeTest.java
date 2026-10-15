@@ -32,6 +32,7 @@ import kgu.developers.domain.milestone.domain.MilestoneRepository;
 import kgu.developers.domain.milestone.domain.MilestoneSchedule;
 import kgu.developers.domain.milestone.domain.MilestoneStatus;
 import kgu.developers.domain.milestone.domain.MilestoneType;
+import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -70,6 +71,8 @@ class PeerEvaluationFacadeTest {
     void setUpRequester() {
         given(userQueryService.getUserByStudentNumber(REQUESTER)).willReturn(user(REQUESTER, "학생 A", UserGlobalRole.USER));
         lenient().when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(form()));
+        lenient().when(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+            .thenReturn(Optional.of(milestone()));
     }
 
     @Test
@@ -286,6 +289,29 @@ class PeerEvaluationFacadeTest {
 
         assertThatThrownBy(() -> facade.submitResponse(FORM_ID, REQUESTER, request))
             .isInstanceOf(InvalidPeerEvaluationResponseException.class);
+
+        then(submissionRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("응답 저장 직전 마일스톤이 이미 삭제돼 락을 잡지 못하면 저장을 거부한다")
+    void rejectsSubmitResponseWhenMilestoneLockFails() {
+        given(enrollmentRepository.findBySectionIdAndUserIdForUpdate(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(enrollment(REQUESTER, Role.STUDENT, Status.ACTIVE)));
+        given(teamMemberRepository.findActiveBySectionIdAndUserId(SECTION_ID, REQUESTER))
+            .willReturn(Optional.of(member(REQUESTER, true, "개발")));
+        given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(
+            member(REQUESTER, true, "개발")
+        ));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+            .willReturn(Optional.empty());
+
+        PeerEvaluationResponseRequest request = new PeerEvaluationResponseRequest(
+            "자기 기여도", "리뷰", List.of(), false
+        );
+
+        assertThatThrownBy(() -> facade.submitResponse(FORM_ID, REQUESTER, request))
+            .isInstanceOf(MilestoneNotFoundException.class);
 
         then(submissionRepository).shouldHaveNoInteractions();
     }

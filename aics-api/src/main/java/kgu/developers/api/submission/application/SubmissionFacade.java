@@ -412,7 +412,7 @@ public class SubmissionFacade {
                 throw new SubmissionInvalidPresentationOrderException();
             }
         }
-        submissionCommandService.assignPresentationOrders(milestoneId, orderByTeamId);
+        submissionCommandService.assignPresentationOrders(milestoneId, milestone.getSectionId(), orderByTeamId);
     }
 
     // 최종보고서 파일 제출은 팀장만 가능하다(프론트 요구사항). 그 외 마일스톤은
