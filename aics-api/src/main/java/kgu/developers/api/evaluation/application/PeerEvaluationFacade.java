@@ -117,6 +117,8 @@ public class PeerEvaluationFacade {
         PeerEvaluationResponseRequest request
     ) {
         AccessContext context = accessContext(formId, userId, true);
+        milestoneRepository.findByIdAndSectionIdForUpdate(context.form().getMilestoneId(), context.form().getSectionId())
+            .orElseThrow(() -> new MilestoneNotFoundException(context.form().getMilestoneId()));
         if (request.answers().stream().anyMatch(java.util.Objects::isNull)
             || exceedsLimit(request.selfContribution())
             || exceedsLimit(request.projectReviewComment())) {

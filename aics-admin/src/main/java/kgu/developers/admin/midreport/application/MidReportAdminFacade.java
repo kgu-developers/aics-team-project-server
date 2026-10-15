@@ -91,6 +91,7 @@ public class MidReportAdminFacade {
         Project project = projectRepository.findAllByTeamId(team.getId()).stream().findFirst().orElse(null);
         String baseTitle = project == null ? team.getName() : project.getTitle();
         MidReport report = midReportCommandService.getOrCreate(
+            sectionId,
             team.getId(),
             milestone.getId(),
             baseTitle + " 중간보고서",
@@ -113,7 +114,7 @@ public class MidReportAdminFacade {
         MidReport report = midReportRepository.findByTeamIdAndMilestoneId(teamId, milestone.getId())
             .orElseThrow(MidReportNotFoundException::new);
         MidReportRevisionCompletionResult result = midReportCommandService.completeRevision(
-            report.getId(), expectedVersion, professorId, LocalDateTime.now()
+            sectionId, report.getId(), expectedVersion, professorId, LocalDateTime.now()
         );
         if (result.completed()) {
             TeamThread thread = teamThreadCommandService.getOrCreateThread(teamId);
@@ -147,7 +148,7 @@ public class MidReportAdminFacade {
             MidReportBlockDefinition.fromKey(blockKey);
         }
 
-        MidReport updatedReport = midReportCommandService.requestRevision(report.getId(), affectedBlockKeys, LocalDateTime.now());
+        MidReport updatedReport = midReportCommandService.requestRevision(sectionId, report.getId(), affectedBlockKeys, LocalDateTime.now());
         if (updatedReport.getStatus() != MidReportStatus.REVISION_REQUESTED) {
             throw new MidReportNotSubmittedException();
         }

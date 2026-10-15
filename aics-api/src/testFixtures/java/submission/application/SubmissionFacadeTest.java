@@ -404,6 +404,8 @@ class SubmissionFacadeTest {
         teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());
         teamRepository.save(Team.builder().id(20L).sectionId(SECTION_ID).name("다른팀").build());
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.of(presentationMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
 
         submissionFacade.assignPresentationOrder(MILESTONE_ID, PROFESSOR, new PresentationOrderRequest(List.of(
@@ -653,6 +655,8 @@ class SubmissionFacadeTest {
         teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());
         teamRepository.save(Team.builder().id(20L).sectionId(SECTION_ID).name("다른팀").build());
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.of(presentationMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
 
         assertThatThrownBy(() -> submissionFacade.assignPresentationOrder(
@@ -666,6 +670,8 @@ class SubmissionFacadeTest {
     void assignPresentationOrder_RejectsDuplicateTeam() {
         teamRepository.save(Team.builder().id(TEAM_ID).sectionId(SECTION_ID).name("우리팀").build());
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(presentationMilestone()));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.of(presentationMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
 
         assertThatThrownBy(() -> submissionFacade.assignPresentationOrder(

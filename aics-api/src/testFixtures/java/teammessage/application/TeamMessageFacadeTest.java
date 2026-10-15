@@ -96,7 +96,8 @@ public class TeamMessageFacadeTest {
             null,
             null,
             null,
-            null
+            null,
+            fakeTeamRepository
         );
     }
 

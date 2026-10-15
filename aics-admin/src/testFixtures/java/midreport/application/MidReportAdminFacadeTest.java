@@ -135,7 +135,7 @@ class MidReportAdminFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(projectRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of());
-        given(midReportCommandService.getOrCreate(eq(TEAM_ID), eq(MILESTONE_ID), anyString(), any(), anyString(), anyString()))
+        given(midReportCommandService.getOrCreate(eq(SECTION_ID), eq(TEAM_ID), eq(MILESTONE_ID), anyString(), any(), anyString(), anyString()))
             .willReturn(report);
 
         TeamMember leader = TeamMember.builder().teamId(TEAM_ID).userId(STUDENT_ID).isLeader(true).build();
@@ -201,7 +201,7 @@ class MidReportAdminFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
-        given(midReportCommandService.completeRevision(eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any()))
+        given(midReportCommandService.completeRevision(eq(SECTION_ID), eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any()))
             .willReturn(new MidReportRevisionCompletionResult(completedReport, true));
         TeamThread thread = TeamThread.builder().id(50L).teamId(TEAM_ID).build();
         TeamMessage auditMessage = TeamMessage.builder()
@@ -227,7 +227,7 @@ class MidReportAdminFacadeTest {
         assertThat(response.revision().resubmittedAt()).isNull();
         assertThat(response.revision().completedAt()).isEqualTo(completedAt);
         assertThat(response.revision().completedBy()).isEqualTo(PROFESSOR_ID);
-        verify(midReportCommandService).completeRevision(eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any());
+        verify(midReportCommandService).completeRevision(eq(SECTION_ID), eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any());
         verify(teamThreadCommandService).getOrCreateThread(TEAM_ID);
         verify(teamMessageCommandService).postMessage(
             50L, PROFESSOR_ID, TeamMessageRelatedType.MID_REPORT, REPORT_ID,
@@ -248,7 +248,7 @@ class MidReportAdminFacadeTest {
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID))
             .willReturn(Optional.of(completedReport));
-        given(midReportCommandService.completeRevision(eq(REPORT_ID), eq(4L), eq(PROFESSOR_ID), any()))
+        given(midReportCommandService.completeRevision(eq(SECTION_ID), eq(REPORT_ID), eq(4L), eq(PROFESSOR_ID), any()))
             .willReturn(new MidReportRevisionCompletionResult(completedReport, false));
 
         MidReportAdminResponse response = midReportAdminFacade.completeFeedback(
@@ -317,7 +317,7 @@ class MidReportAdminFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
-        given(midReportCommandService.completeRevision(eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any()))
+        given(midReportCommandService.completeRevision(eq(SECTION_ID), eq(REPORT_ID), eq(3L), eq(PROFESSOR_ID), any()))
             .willThrow(conflict);
 
         assertThatThrownBy(() -> midReportAdminFacade.completeFeedback(SECTION_ID, TEAM_ID, 3L, PROFESSOR_ID))
@@ -360,7 +360,7 @@ class MidReportAdminFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
-        given(midReportCommandService.requestRevision(eq(REPORT_ID), anyList(), any())).willReturn(updatedReport);
+        given(midReportCommandService.requestRevision(eq(SECTION_ID), eq(REPORT_ID), anyList(), any())).willReturn(updatedReport);
         given(teamThreadCommandService.getOrCreateThread(TEAM_ID)).willReturn(thread);
         given(teamMessageCommandService.postMessage(
             eq(50L), eq(PROFESSOR_ID), eq(TeamMessageRelatedType.MID_REPORT), eq(REPORT_ID), eq("GUI 화면 흐름을 보완해주세요.")))
@@ -381,7 +381,7 @@ class MidReportAdminFacadeTest {
         assertThat(response.senderName()).isEqualTo("김교수");
         assertThat(response.message()).isEqualTo("GUI 화면 흐름을 보완해주세요.");
 
-        verify(midReportCommandService).requestRevision(eq(REPORT_ID), eq(List.of("gui-design")), any());
+        verify(midReportCommandService).requestRevision(eq(SECTION_ID), eq(REPORT_ID), eq(List.of("gui-design")), any());
         verify(teamMessageCommandService).postMessage(
             eq(50L), eq(PROFESSOR_ID), eq(TeamMessageRelatedType.MID_REPORT), eq(REPORT_ID), eq("GUI 화면 흐름을 보완해주세요."));
     }
@@ -460,7 +460,7 @@ class MidReportAdminFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team));
         given(milestoneRepository.findAllBySectionIdOrderByWeekNumber(SECTION_ID)).willReturn(List.of(milestone));
         given(midReportRepository.findByTeamIdAndMilestoneId(TEAM_ID, MILESTONE_ID)).willReturn(Optional.of(report));
-        given(midReportCommandService.requestRevision(eq(REPORT_ID), anyList(), any())).willReturn(unexpectedStatusReport);
+        given(midReportCommandService.requestRevision(eq(SECTION_ID), eq(REPORT_ID), anyList(), any())).willReturn(unexpectedStatusReport);
 
         MidReportFeedbackAdminRequest request = new MidReportFeedbackAdminRequest(
             "피드백 메시지",

@@ -50,7 +50,7 @@ class RequiredArtifactFacadeTest {
                 20
         );
         given(requiredArtifactCommandService.create(
-                MILESTONE_ID, RequiredArtifactType.FILE, "보고서", true, "pdf", 20
+                SECTION_ID, MILESTONE_ID, RequiredArtifactType.FILE, "보고서", true, "pdf", 20
         )).willReturn(3L);
 
         assertThat(milestoneFacade.createRequiredArtifact(
@@ -107,7 +107,7 @@ class RequiredArtifactFacadeTest {
                 null
         );
         given(requiredArtifactCommandService.create(
-                MILESTONE_ID, RequiredArtifactType.LINK, "시연 링크", true, "pdf", null
+                SECTION_ID, MILESTONE_ID, RequiredArtifactType.LINK, "시연 링크", true, "pdf", null
         )).willThrow(new IllegalArgumentException("FILE 유형만 설정 가능"));
 
         assertThatThrownBy(() -> milestoneFacade.createRequiredArtifact(
@@ -133,7 +133,7 @@ class RequiredArtifactFacadeTest {
         verify(milestoneAccessValidator).validateSectionAccess(SECTION_ID, PROFESSOR_ID);
         verify(milestoneQueryService).getMilestone(SECTION_ID, MILESTONE_ID);
         verify(requiredArtifactCommandService).update(
-                MILESTONE_ID, 3L, RequiredArtifactType.FILE, "수정된 보고서", false, "pdf", 10
+                SECTION_ID, MILESTONE_ID, 3L, RequiredArtifactType.FILE, "수정된 보고서", false, "pdf", 10
         );
     }
 
@@ -146,7 +146,7 @@ class RequiredArtifactFacadeTest {
 
         verify(milestoneAccessValidator).validateSectionAccess(SECTION_ID, PROFESSOR_ID);
         verify(milestoneQueryService).getMilestone(SECTION_ID, MILESTONE_ID);
-        verify(requiredArtifactCommandService).delete(MILESTONE_ID, 3L);
+        verify(requiredArtifactCommandService).delete(SECTION_ID, MILESTONE_ID, 3L);
     }
 
     @Test

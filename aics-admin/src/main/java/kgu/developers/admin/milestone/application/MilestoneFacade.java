@@ -192,6 +192,10 @@ public class MilestoneFacade {
                 sectionId, professorId, milestoneId, request.evaluationClosesAt()));
     }
 
+    public void deleteMilestone(Long sectionId, String professorId, Long milestoneId) {
+        asInvalidRequest(() -> milestoneCommandService.deleteMilestone(sectionId, professorId, milestoneId));
+    }
+
     public void updateWeekNumbers(
             Long sectionId,
             String professorId,
@@ -224,6 +228,7 @@ public class MilestoneFacade {
         validateRequiredArtifactAccess(sectionId, professorId, milestoneId);
         return asInvalidRequiredArtifactRequest(() -> RequiredArtifactPersistResponse.of(
                 requiredArtifactCommandService.create(
+                        sectionId,
                         milestoneId,
                         request.type(),
                         request.label(),
@@ -243,6 +248,7 @@ public class MilestoneFacade {
     ) {
         validateRequiredArtifactAccess(sectionId, professorId, milestoneId);
         asInvalidRequiredArtifactRequest(() -> requiredArtifactCommandService.update(
+                sectionId,
                 milestoneId,
                 requiredArtifactId,
                 request.type(),
@@ -260,7 +266,7 @@ public class MilestoneFacade {
             Long requiredArtifactId
     ) {
         validateRequiredArtifactAccess(sectionId, professorId, milestoneId);
-        requiredArtifactCommandService.delete(milestoneId, requiredArtifactId);
+        requiredArtifactCommandService.delete(sectionId, milestoneId, requiredArtifactId);
     }
 
     private void validateRequiredArtifactAccess(Long sectionId, String professorId, Long milestoneId) {

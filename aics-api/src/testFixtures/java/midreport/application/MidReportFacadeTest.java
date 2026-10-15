@@ -94,7 +94,7 @@ class MidReportFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team()));
         given(projectRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(project));
         given(midReportCommandService.getOrCreate(
-            eq(TEAM_ID), eq(MILESTONE_ID), eq("CineFlow 중간보고서"), any(), eq("CineFlow"), eq("영화관 관리")
+            eq(SECTION_ID), eq(TEAM_ID), eq(MILESTONE_ID), eq("CineFlow 중간보고서"), any(), eq("CineFlow"), eq("영화관 관리")
         )).willReturn(report());
         given(teamMemberRepository.findLeaderByTeamId(TEAM_ID)).willReturn(Optional.of(member));
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(any())).willReturn(List.of(user(UserGlobalRole.USER, "학생 A")));
@@ -140,7 +140,7 @@ class MidReportFacadeTest {
         given(teamRepository.findById(TEAM_ID)).willReturn(Optional.of(team()));
         given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID))
             .willReturn(Optional.of(enrollment(Role.STUDENT)));
-        given(midReportCommandService.updateBlock(eq(100L), eq("topic"), eq(0L), any(), eq(USER_ID), any()))
+        given(midReportCommandService.updateBlock(eq(SECTION_ID), eq(100L), eq("topic"), eq(0L), any(), eq(USER_ID), any()))
             .willReturn(report());
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone(updatedDueDate)));
         given(teamMemberRepository.findLeaderByTeamId(TEAM_ID)).willReturn(Optional.empty());
@@ -153,7 +153,7 @@ class MidReportFacadeTest {
 
         assertThat(response.dueDate()).isEqualTo(updatedDueDate);
         then(teamAccessValidator).should().validateMembership(TEAM_ID, USER_ID);
-        then(midReportCommandService).should().updateBlock(eq(100L), eq("topic"), eq(0L), any(), eq(USER_ID), any());
+        then(midReportCommandService).should().updateBlock(eq(SECTION_ID), eq(100L), eq("topic"), eq(0L), any(), eq(USER_ID), any());
     }
 
     @Test
@@ -182,14 +182,14 @@ class MidReportFacadeTest {
         given(enrollmentRepository.findBySectionIdAndUserId(SECTION_ID, USER_ID))
             .willReturn(Optional.of(enrollment(Role.STUDENT)));
         given(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, USER_ID)).willReturn(Optional.of(leader));
-        given(midReportCommandService.submit(eq(100L), eq(0L), eq(USER_ID), any())).willReturn(report());
+        given(midReportCommandService.submit(eq(SECTION_ID), eq(100L), eq(0L), eq(USER_ID), any())).willReturn(report());
         given(teamMemberRepository.findLeaderByTeamId(TEAM_ID)).willReturn(Optional.of(leader));
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(any()))
             .willReturn(List.of(user(UserGlobalRole.USER, "학생 A")));
 
         midReportFacade.submit(100L, USER_ID, new MidReportSubmissionRequest(0L));
 
-        then(midReportCommandService).should().submit(eq(100L), eq(0L), eq(USER_ID), any());
+        then(midReportCommandService).should().submit(eq(SECTION_ID), eq(100L), eq(0L), eq(USER_ID), any());
     }
 
     @Test
@@ -223,9 +223,9 @@ class MidReportFacadeTest {
         given(teamMemberRepository.findAllByTeamId(TEAM_ID)).willReturn(List.of(member));
         given(fileObjectRepository.findById(50L)).willReturn(Optional.of(file));
         given(fileStorage.presignedUrl("mid-report/home.png")).willReturn("https://files.example/home.png");
-        given(midReportCommandService.updateBlock(eq(100L), eq("gui-design"), eq(0L), any(), eq(USER_ID), any()))
+        given(midReportCommandService.updateBlock(eq(SECTION_ID), eq(100L), eq("gui-design"), eq(0L), any(), eq(USER_ID), any()))
             .willAnswer(invocation -> {
-                report.updateBlock("gui-design", 0L, invocation.getArgument(3), USER_ID, LocalDateTime.now());
+                report.updateBlock("gui-design", 0L, invocation.getArgument(4), USER_ID, LocalDateTime.now());
                 return report;
             });
         given(teamMemberRepository.findLeaderByTeamId(TEAM_ID)).willReturn(Optional.of(member));

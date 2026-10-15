@@ -17,6 +17,7 @@ public final class Milestone {
     private MilestoneSchedule schedule;
     private MilestoneType type;
     private boolean allowResubmissionBeforeDueAt;
+    private LocalDateTime deletedAt;
 
     private Milestone(
             Long id,
@@ -27,7 +28,8 @@ public final class Milestone {
             MilestoneStatus status,
             MilestoneSchedule schedule,
             MilestoneType type,
-            boolean allowResubmissionBeforeDueAt
+            boolean allowResubmissionBeforeDueAt,
+            LocalDateTime deletedAt
     ) {
         this.id = validateOptionalId(id);
         this.sectionId = validateSectionId(sectionId);
@@ -38,6 +40,7 @@ public final class Milestone {
         this.type = validateType(type);
         this.schedule = validateSchedule(schedule).forType(this.type);
         this.allowResubmissionBeforeDueAt = allowResubmissionBeforeDueAt;
+        this.deletedAt = deletedAt;
     }
 
     // B3(제출·이력·발표)가 "이 마일스톤이 최종보고서/발표용인지" 구분하려고 추가한 필드.
@@ -81,7 +84,8 @@ public final class Milestone {
                 MilestoneStatus.DRAFT,
                 schedule,
                 type,
-                allowResubmissionBeforeDueAt
+                allowResubmissionBeforeDueAt,
+                null
         );
     }
 
@@ -94,7 +98,7 @@ public final class Milestone {
             MilestoneStatus status,
             MilestoneSchedule schedule
     ) {
-        return restore(id, sectionId, title, description, weekNumber, status, schedule, MilestoneType.GENERAL, false);
+        return restore(id, sectionId, title, description, weekNumber, status, schedule, MilestoneType.GENERAL, false, null);
     }
 
     public static Milestone restore(
@@ -107,7 +111,7 @@ public final class Milestone {
             MilestoneSchedule schedule,
             MilestoneType type
     ) {
-        return restore(id, sectionId, title, description, weekNumber, status, schedule, type, false);
+        return restore(id, sectionId, title, description, weekNumber, status, schedule, type, false, null);
     }
 
     public static Milestone restore(
@@ -121,6 +125,21 @@ public final class Milestone {
             MilestoneType type,
             boolean allowResubmissionBeforeDueAt
     ) {
+        return restore(id, sectionId, title, description, weekNumber, status, schedule, type, allowResubmissionBeforeDueAt, null);
+    }
+
+    public static Milestone restore(
+            Long id,
+            Long sectionId,
+            String title,
+            String description,
+            int weekNumber,
+            MilestoneStatus status,
+            MilestoneSchedule schedule,
+            MilestoneType type,
+            boolean allowResubmissionBeforeDueAt,
+            LocalDateTime deletedAt
+    ) {
         if (id == null) {
             throw new IllegalArgumentException("마일스톤 식별자는 필수입니다.");
         }
@@ -133,7 +152,8 @@ public final class Milestone {
                 status,
                 schedule,
                 type,
-                allowResubmissionBeforeDueAt
+                allowResubmissionBeforeDueAt,
+                deletedAt
         );
     }
 
@@ -180,6 +200,10 @@ public final class Milestone {
 
     public boolean belongsToSection(Long sectionId) {
         return this.sectionId.equals(sectionId);
+    }
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
     }
 
     private static Long validateOptionalId(Long id) {

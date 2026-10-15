@@ -222,8 +222,8 @@ public class SubmissionCommandService {
     // 교수가 드래그앤드롭으로 지정한 발표 순서를 일괄 반영한다. 순서 로직 자체는 없음(임의 지정, PRD 그대로).
     // Submission은 "우리팀 제출 조회" 시점에 lazy 생성되는데, 발표순서 지정은 그 조회 여부와
     // 무관하게 분반의 팀 전체를 대상으로 해야 하므로, 아직 조회 안 해본 팀은 여기서 만들어준다.
-    public void assignPresentationOrders(Long milestoneId, Map<Long, Integer> orderByTeamId) {
-        Milestone milestone = milestoneRepository.findById(milestoneId)
+    public void assignPresentationOrders(Long milestoneId, Long sectionId, Map<Long, Integer> orderByTeamId) {
+        Milestone milestone = milestoneRepository.findByIdAndSectionIdForUpdate(milestoneId, sectionId)
                 .orElseThrow(() -> new MilestoneNotFoundException(milestoneId));
         List<Team> sectionTeams = teamRepository.findAllBySectionId(milestone.getSectionId());
         validatePresentationOrders(sectionTeams, orderByTeamId);

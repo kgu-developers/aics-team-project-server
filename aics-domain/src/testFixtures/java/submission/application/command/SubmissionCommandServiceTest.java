@@ -594,10 +594,11 @@ class SubmissionCommandServiceTest {
     void assignPresentationOrders_CoversAllSectionTeams() {
         Team teamA = teamRepository.save(Team.create(SECTION_ID, "A팀", null, null, null));
         Team teamB = teamRepository.save(Team.create(SECTION_ID, "B팀", null, null, null));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.of(finalReportMilestone()));
 
         submissionCommandService.assignPresentationOrders(
-                MILESTONE_ID, Map.of(teamA.getId(), 2, teamB.getId(), 1));
+                MILESTONE_ID, SECTION_ID, Map.of(teamA.getId(), 2, teamB.getId(), 1));
 
         Submission submissionA = submissionRepository.findByTeamIdAndMilestoneId(teamA.getId(), MILESTONE_ID).orElseThrow();
         Submission submissionB = submissionRepository.findByTeamIdAndMilestoneId(teamB.getId(), MILESTONE_ID).orElseThrow();
@@ -610,10 +611,11 @@ class SubmissionCommandServiceTest {
     void assignPresentationOrders_RejectsWhenTeamMissing() {
         Team teamA = teamRepository.save(Team.create(SECTION_ID, "A팀", null, null, null));
         teamRepository.save(Team.create(SECTION_ID, "B팀", null, null, null));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.of(finalReportMilestone()));
 
         assertThatThrownBy(() -> submissionCommandService.assignPresentationOrders(
-                MILESTONE_ID, Map.of(teamA.getId(), 1)))
+                MILESTONE_ID, SECTION_ID, Map.of(teamA.getId(), 1)))
                 .isInstanceOf(SubmissionInvalidPresentationOrderException.class);
     }
 
@@ -622,10 +624,11 @@ class SubmissionCommandServiceTest {
     void assignPresentationOrders_RejectsDuplicateOrder() {
         Team teamA = teamRepository.save(Team.create(SECTION_ID, "A팀", null, null, null));
         Team teamB = teamRepository.save(Team.create(SECTION_ID, "B팀", null, null, null));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.of(finalReportMilestone()));
 
         assertThatThrownBy(() -> submissionCommandService.assignPresentationOrders(
-                MILESTONE_ID, Map.of(teamA.getId(), 1, teamB.getId(), 1)))
+                MILESTONE_ID, SECTION_ID, Map.of(teamA.getId(), 1, teamB.getId(), 1)))
                 .isInstanceOf(SubmissionInvalidPresentationOrderException.class);
     }
 
@@ -633,11 +636,23 @@ class SubmissionCommandServiceTest {
     @DisplayName("발표순서에 0 이하 값이 있으면 거부된다")
     void assignPresentationOrders_RejectsNonPositiveOrder() {
         Team teamA = teamRepository.save(Team.create(SECTION_ID, "A팀", null, null, null));
-        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(finalReportMilestone()));
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.of(finalReportMilestone()));
 
         assertThatThrownBy(() -> submissionCommandService.assignPresentationOrders(
-                MILESTONE_ID, Map.of(teamA.getId(), 0)))
+                MILESTONE_ID, SECTION_ID, Map.of(teamA.getId(), 0)))
                 .isInstanceOf(SubmissionInvalidPresentationOrderException.class);
+    }
+
+    @Test
+    @DisplayName("마일스톤이 삭제돼 락을 잡지 못하면 발표순서를 지정할 수 없다")
+    void assignPresentationOrders_RejectsWhenMilestoneLockFails() {
+        given(milestoneRepository.findByIdAndSectionIdForUpdate(MILESTONE_ID, SECTION_ID))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> submissionCommandService.assignPresentationOrders(
+                MILESTONE_ID, SECTION_ID, Map.of(1L, 1)))
+                .isInstanceOf(kgu.developers.domain.milestone.exception.MilestoneNotFoundException.class);
     }
 
     private Milestone openMilestone() {

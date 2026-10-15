@@ -11,4 +11,6 @@ public interface MidReportRepository {
     Optional<MidReport> findByTeamIdAndMilestoneId(Long teamId, Long milestoneId);
 
     List<MidReport> findAllByTeamIdInAndMilestoneId(List<Long> teamIds, Long milestoneId);
+
+    List<MidReport> findAllByMilestoneId(Long milestoneId);
 }

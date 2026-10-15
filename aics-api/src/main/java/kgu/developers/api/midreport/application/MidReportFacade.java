@@ -68,6 +68,7 @@ public class MidReportFacade {
         Project project = projectRepository.findAllByTeamId(context.team().getId()).stream().findFirst().orElse(null);
         String baseTitle = project == null ? context.team().getName() : project.getTitle();
         MidReport report = midReportCommandService.getOrCreate(
+            context.team().getSectionId(),
             context.team().getId(),
             context.milestone().getId(),
             baseTitle + " 중간보고서",
@@ -84,10 +85,11 @@ public class MidReportFacade {
         String userId,
         MidReportBlockUpdateRequest request
     ) {
-        MidReport current = authorizeActiveStudent(reportId, userId);
+        AuthorizedReport access = authorizeActiveStudent(reportId, userId);
+        MidReport current = access.report();
         JsonNode fields = prepareFieldsForSave(current, blockKey, request.fields());
         MidReport saved = midReportCommandService.updateBlock(
-            current.getId(), blockKey, request.version(), fields, userId, LocalDateTime.now()
+            access.sectionId(), current.getId(), blockKey, request.version(), fields, userId, LocalDateTime.now()
         );
         return response(saved);
     }
@@ -98,22 +100,24 @@ public class MidReportFacade {
         String userId,
         MidReportBlockCompletionRequest request
     ) {
-        MidReport current = authorizeActiveStudent(reportId, userId);
+        AuthorizedReport access = authorizeActiveStudent(reportId, userId);
+        MidReport current = access.report();
         MidReport saved = midReportCommandService.completeBlock(
-            current.getId(), blockKey, request.version(), userId, LocalDateTime.now()
+            access.sectionId(), current.getId(), blockKey, request.version(), userId, LocalDateTime.now()
         );
         return response(saved);
     }
 
     public MidReportResponse submit(Long reportId, String userId, MidReportSubmissionRequest request) {
-        MidReport current = authorizeActiveStudent(reportId, userId);
+        AuthorizedReport access = authorizeActiveStudent(reportId, userId);
+        MidReport current = access.report();
         TeamMember member = teamMemberRepository.findByTeamIdAndUserId(current.getTeamId(), userId)
             .orElseThrow(MidReportLeaderOnlyException::new);
         if (!member.isLeader()) {
             throw new MidReportLeaderOnlyException();
         }
         MidReport saved = midReportCommandService.submit(
-            current.getId(), request.version(), userId, LocalDateTime.now()
+            access.sectionId(), current.getId(), request.version(), userId, LocalDateTime.now()
         );
         return response(saved);
     }
@@ -148,7 +152,7 @@ public class MidReportFacade {
         throw new AccessDeniedException("활성 학생으로 소속된 팀의 중간보고서만 접근할 수 있습니다.");
     }
 
-    private MidReport authorizeActiveStudent(Long reportId, String userId) {
+    private AuthorizedReport authorizeActiveStudent(Long reportId, String userId) {
         validateUserRole(userId);
         MidReport report = midReportQueryService.getById(reportId);
         teamAccessValidator.validateMembership(report.getTeamId(), userId);
@@ -159,7 +163,7 @@ public class MidReportFacade {
         if (!activeStudent) {
             throw new AccessDeniedException("활성 학생으로 소속된 팀의 중간보고서만 수정할 수 있습니다.");
         }
-        return report;
+        return new AuthorizedReport(report, team.getSectionId());
     }
 
     private void validateUserRole(String userId) {
@@ -312,5 +316,8 @@ public class MidReportFacade {
     }
 
     private record CurrentContext(Team team, Milestone milestone) {
+    }
+
+    private record AuthorizedReport(MidReport report, Long sectionId) {
     }
 }

@@ -133,6 +133,17 @@ public class MilestoneControllerImpl implements MilestoneController {
     }
 
     @Override
+    @DeleteMapping("/{milestoneId}")
+    public ResponseEntity<Void> deleteMilestone(
+            @PathVariable Long sectionId,
+            @PathVariable Long milestoneId,
+            Authentication authentication
+    ) {
+        milestoneFacade.deleteMilestone(sectionId, authentication.getName(), milestoneId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
     @PutMapping("/week-numbers")
     public ResponseEntity<Void> updateWeekNumbers(
             @PathVariable Long sectionId,
