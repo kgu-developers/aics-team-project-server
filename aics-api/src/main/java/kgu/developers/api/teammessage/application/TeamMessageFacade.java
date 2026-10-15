@@ -23,6 +23,8 @@ import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
 import kgu.developers.domain.midreport.application.query.MidReportQueryService;
+import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +47,7 @@ public class TeamMessageFacade {
     private final ProjectCommandService projectCommandService;
     private final MidReportQueryService midReportQueryService;
     private final MidReportCommandService midReportCommandService;
+    private final TeamRepository teamRepository;
 
     public TeamMessagePersistResponse postMessage(Long teamId, String senderId, TeamMessageCreateRequest request) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, senderId);
@@ -68,7 +71,8 @@ public class TeamMessageFacade {
             if (!report.getTeamId().equals(teamId)) {
                 throw new AccessDeniedException("해당 팀의 중간보고서에만 피드백을 남길 수 있습니다.");
             }
-            midReportCommandService.requestRevision(report.getId(), java.util.List.of(), java.time.LocalDateTime.now());
+            Long sectionId = teamRepository.findById(teamId).orElseThrow(TeamNotFoundException::new).getSectionId();
+            midReportCommandService.requestRevision(sectionId, report.getId(), java.util.List.of(), java.time.LocalDateTime.now());
         }
     }
 
