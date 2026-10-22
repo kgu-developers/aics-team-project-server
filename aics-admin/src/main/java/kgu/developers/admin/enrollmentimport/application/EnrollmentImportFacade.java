@@ -159,7 +159,7 @@ public class EnrollmentImportFacade {
                     continue;
                 }
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
-                    row.path("name").asText(), phone, UserGlobalRole.USER,
+                    row.path("name").asText(), phone.replace("-", ""), UserGlobalRole.USER,
                     phone, major, false);
                 existingUsers.add(studentNumber);
                 createdUsers++;

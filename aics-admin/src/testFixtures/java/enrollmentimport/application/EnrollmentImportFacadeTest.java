@@ -402,7 +402,7 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
-    @DisplayName("apply는 미가입 학생 계정을 만들고 수강 등록한다")
+    @DisplayName("apply는 전화번호의 대시를 뺀 초기 비밀번호로 미가입 학생 계정을 만들고 수강 등록한다")
     public void apply_CreatesUsersAndEnrollments() {
         // given
         ImportBatch batch = batch(0, List.of(
@@ -420,7 +420,7 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.createdUsers()).isEqualTo(1);
         // ENROLLED 행은 DUPLICATE라 반영되지 않고, skipped 필드("이미 등록되어 건너뛴 수")에 잡혀야 한다
         assertThat(response.skipped()).isEqualTo(1);
-        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "010-0000-0000",
+        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "01000000000",
             UserGlobalRole.USER, "010-0000-0000", null, false);
         verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);
