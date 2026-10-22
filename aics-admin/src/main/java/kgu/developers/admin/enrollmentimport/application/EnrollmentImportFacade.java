@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.admin.enrollmentimport.presentation.response.EnrollmentImportApplyResponse;
 import kgu.developers.admin.enrollmentimport.presentation.response.EnrollmentImportPreviewResponse;
+import kgu.developers.admin.importcommon.Phones;
 import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
@@ -154,13 +155,14 @@ public class EnrollmentImportFacade {
             }
             if (newUser && !existingUsers.contains(studentNumber)) {
                 String phone = row.path("phone").asText();
-                if (phone.isEmpty()) {
+                // 미리보기 때 연락처 검사가 없던 배치도 반영될 수 있어 쓰기 직전에 한 번 더 본다
+                if (!Phones.isValid(phone)) {
                     skipped++;
                     continue;
                 }
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
-                    row.path("name").asText(), phone, UserGlobalRole.USER,
-                    phone, major, false);
+                    row.path("name").asText(), Phones.digits(phone), UserGlobalRole.USER,
+                    Phones.normalize(phone), major, false);
                 existingUsers.add(studentNumber);
                 createdUsers++;
             }
@@ -247,6 +249,7 @@ public class EnrollmentImportFacade {
         if (everUsedEmailOwner != null && !everUsedEmailOwner.equals(row.studentNumber())) {
             return row.with(INVALID, "탈퇴한 사용자가 사용했던 이메일입니다. 관리자에게 문의하세요.");
         }
+        // 형식은 EnrollmentSheetReader가 이미 걸렀다 — 여기서는 신규 가입 대상에만 필수인 점만 본다
         if (row.phone().isEmpty()) {
             return row.with(INVALID, "신규 가입 대상은 연락처가 필요합니다.");
         }

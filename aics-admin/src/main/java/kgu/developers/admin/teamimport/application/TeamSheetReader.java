@@ -12,16 +12,12 @@ import java.util.regex.Pattern;
 import org.apache.poi.ss.usermodel.Row;
 import org.springframework.web.multipart.MultipartFile;
 
+import kgu.developers.admin.importcommon.Phones;
 import kgu.developers.admin.importcommon.Sheets;
 
 public final class TeamSheetReader {
     private static final List<String> LEADER_MARKS =
         List.of("Y", "y", "O", "o", "TRUE", "true", "1", "팀장", "리더");
-    
-    // 하이픈은 있어도 없어도 된다(-?). 하이픈 없는 표기는 이 분기들이 그대로 커버한다
-    private static final Pattern PHONE_PATTERN = Pattern.compile(
-        "^(01[016789]|02|0[3-9][0-9])-?\\d{3,4}-?\\d{4}$"
-    );
 
     private static final Pattern GRADE_PATTERN = Pattern.compile("^[1-4](학년)?$");
 
@@ -54,7 +50,7 @@ public final class TeamSheetReader {
         String name = cell(row, columns.name());
         boolean leader = LEADER_MARKS.contains(cell(row, columns.leader()));
         String projectRole = cell(row, columns.projectRole());
-        String phoneNumber = cell(row, columns.phoneNumber());
+        String phoneNumber = Phones.restoreLeadingZero(cell(row, columns.phoneNumber()));
         String grade = cell(row, columns.grade());
 
         if (teamName.isEmpty() && studentNumber.isEmpty() && name.isEmpty()) {
@@ -78,9 +74,9 @@ public final class TeamSheetReader {
         }
         
         // 전화번호 형식 검증 (빈 값은 허용)
-        if (!phoneNumber.isEmpty() && !PHONE_PATTERN.matcher(phoneNumber).matches()) {
-            return invalid(rowNumber, teamName, studentNumber, name, leader, projectRole, phoneNumber, grade, 
-                "전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)");
+        if (!phoneNumber.isEmpty() && !Phones.isValid(phoneNumber)) {
+            return invalid(rowNumber, teamName, studentNumber, name, leader, projectRole, phoneNumber, grade,
+                Phones.FORMAT_MESSAGE);
         }
 
         // 학년 형식 검증 (빈 값은 허용)
@@ -90,19 +86,7 @@ public final class TeamSheetReader {
         }
 
         return new TeamImportRow(rowNumber, teamName, studentNumber, name, leader, projectRole,
-            format(phoneNumber), grade, VALID, null);
-    }
-
-    // 시트마다 제각각인 표기(01012345678, 010-12345678 ...)를 010-1234-5678 한 가지로 맞춘다.
-    // 형식 검증을 통과한 값만 들어오므로 자릿수는 믿고 잘라도 된다
-    private static String format(String phoneNumber) {
-        String digits = phoneNumber.replace("-", "");
-        if (digits.isEmpty()) {
-            return phoneNumber;
-        }
-        int head = digits.startsWith("02") ? 2 : 3;
-        int tail = digits.length() - 4;
-        return digits.substring(0, head) + "-" + digits.substring(head, tail) + "-" + digits.substring(tail);
+            Phones.normalize(phoneNumber), grade, VALID, null);
     }
 
     private static TeamImportRow invalid(int rowNumber, String teamName, String studentNumber, String name,

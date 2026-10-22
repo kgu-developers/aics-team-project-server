@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import org.apache.poi.ss.usermodel.Row;
 import org.springframework.web.multipart.MultipartFile;
 
+import kgu.developers.admin.importcommon.Phones;
 import kgu.developers.admin.importcommon.Sheets;
 import kgu.developers.domain.enrollment.domain.Role;
 
@@ -47,7 +48,7 @@ public final class EnrollmentSheetReader {
         String studentNumber = cell(row, columns.studentNumber());
         String name = cell(row, columns.name());
         String email = cell(row, columns.email());
-        String phone = cell(row, columns.phone());
+        String phone = Phones.restoreLeadingZero(cell(row, columns.phone()));
         String major = cell(row, columns.major());
         String roleText = cell(row, columns.role());
 
@@ -80,7 +81,13 @@ public final class EnrollmentSheetReader {
         if (tooLong != null) {
             return invalid(rowNumber, studentNumber, name, email, phone, major, tooLong);
         }
-        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone,
+
+        // 빈 값은 여기서 허용한다 — 연락처가 필수인지는 신규 가입 대상인지에 달려 있어서 분류 단계에서 가린다.
+        if (!phone.isEmpty() && !Phones.isValid(phone)) {
+            return invalid(rowNumber, studentNumber, name, email, phone, major, Phones.FORMAT_MESSAGE);
+        }
+        // 오류 행은 관리자가 입력한 값을 그대로 보여줘야 고칠 수 있으니, 통일된 표기는 정상 행에만 쓴다
+        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, Phones.normalize(phone),
             major.isEmpty() ? null : major, role, VALID, null);
     }
 

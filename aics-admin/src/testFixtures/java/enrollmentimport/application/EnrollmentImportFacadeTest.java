@@ -24,6 +24,9 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
@@ -402,7 +405,7 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
-    @DisplayName("apply는 미가입 학생 계정을 만들고 수강 등록한다")
+    @DisplayName("apply는 전화번호의 대시를 뺀 초기 비밀번호로 미가입 학생 계정을 만들고 수강 등록한다")
     public void apply_CreatesUsersAndEnrollments() {
         // given
         ImportBatch batch = batch(0, List.of(
@@ -420,9 +423,9 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.createdUsers()).isEqualTo(1);
         // ENROLLED 행은 DUPLICATE라 반영되지 않고, skipped 필드("이미 등록되어 건너뛴 수")에 잡혀야 한다
         assertThat(response.skipped()).isEqualTo(1);
-        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "010-0000-0000",
+        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "01000000000",
             UserGlobalRole.USER, "010-0000-0000", null, false);
-        verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), anyBoolean());
+        verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.STUDENT);
         verify(enrollmentCommandService, never()).createEnrollment(eq(SECTION_ID), eq(ENROLLED), any());
@@ -496,12 +499,14 @@ public class EnrollmentImportFacadeTest {
         verify(enrollmentCommandService, never()).createEnrollment(any(), any(), any());
     }
 
-    @Test
-    @DisplayName("apply는 연락처가 빈 신규 가입 행을 쓰기 직전에 건너뛴다")
-    public void apply_SkipsNewUserWithoutPhone() {
+    @ParameterizedTest
+    @ValueSource(strings = {"", "-", "---", "010 1234 5678", "010-abcd-5678", "123", "0101234567",
+        "010123456789", "010--1234-5678", "0101-234-5678", "099-1234-5678", "+82-10-1234-5678"})
+    @DisplayName("apply는 연락처 형식이 잘못된 신규 가입 행을 쓰기 직전에 건너뛴다")
+    public void apply_SkipsNewUserWithInvalidPhone(String phone) {
         // given: preview에 연락처 검사가 없던 시점에 만들어진 배치
         EnrollmentImportRow noPhone = new EnrollmentImportRow(2, NEWCOMER, "이영희",
-            NEWCOMER + "@kyonggi.ac.kr", "", Role.STUDENT, RowStatus.NEW_USER, null);
+            NEWCOMER + "@kyonggi.ac.kr", phone, Role.STUDENT, RowStatus.NEW_USER, null);
         given(importBatchRepository.findById(1L))
             .willReturn(Optional.of(batch(0, List.of(noPhone))));
 
@@ -512,8 +517,66 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.createdUsers()).isZero();
         assertThat(response.applied()).isZero();
         assertThat(response.skipped()).isEqualTo(1);
-        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), anyBoolean());
+        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService, never()).createEnrollment(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-", "---", "010 1234 5678", "010-abcd-5678", "123", "0101234567",
+        "010123456789", "010--1234-5678", "0101-234-5678", "099-1234-5678", "+82-10-1234-5678"})
+    @DisplayName("preview는 신규 가입 대상의 연락처 형식과 길이가 잘못되면 오류로 표시한다")
+    public void preview_RejectsNewUserWithInvalidPhone(String phone) throws IOException {
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", "", phone, ""}));
+
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("전화번호 형식");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"010-1234-5678,01012345678,010-1234-5678", "01012345678,01012345678,010-1234-5678",
+        "02-123-4567,021234567,02-123-4567", "02-1234-5678,0212345678,02-1234-5678",
+        "031-123-4567,0311234567,031-123-4567", "03112345678,03112345678,031-1234-5678",
+        "011-123-4567,0111234567,011-123-4567", "01112345678,01112345678,011-1234-5678",
+        "070-1234-5678,07012345678,070-1234-5678"})
+    @DisplayName("정상 연락처는 통일된 표기로 미리보기에 보이고, 대시 없는 초기 비밀번호로 계정을 생성한다")
+    public void previewAndApply_AcceptsValidPhone(String phone, String initialPassword, String storedPhone)
+        throws IOException {
+        EnrollmentImportPreviewResponse preview = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", "", phone, ""}));
+        assertThat(preview.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+        assertThat(preview.rows().get(0).phone()).isEqualTo(storedPhone);
+        ArgumentCaptor<ImportBatch> captor = ArgumentCaptor.forClass(ImportBatch.class);
+        verify(importBatchRepository).save(captor.capture());
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(captor.getValue()));
+
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        assertThat(response.createdUsers()).isEqualTo(1);
+        assertThat(response.applied()).isEqualTo(1);
+        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이영희",
+            initialPassword, UserGlobalRole.USER, storedPhone, null, false);
+        verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.STUDENT);
+    }
+
+    @Test
+    @DisplayName("preview는 Excel이 숫자로 읽어 앞자리 0이 사라진 연락처를 되살린다")
+    public void preview_RestoresLeadingZeroDroppedByExcel() throws IOException {
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excelWithNumericPhone(NEWCOMER, 1012345678d));
+
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+        assertThat(response.rows().get(0).phone()).isEqualTo("010-1234-5678");
+    }
+
+    @Test
+    @DisplayName("preview는 이미 가입된 학생이라도 연락처 형식이 잘못되면 오류로 표시한다")
+    public void preview_RejectsMalformedPhoneOfExistingMember() throws IOException {
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-abcd-5678", ""}));
+
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("전화번호 형식");
     }
 
     @Test
@@ -545,7 +608,7 @@ public class EnrollmentImportFacadeTest {
         assertThatThrownBy(() -> facade.apply(1L, ASSISTANT))
             .isInstanceOf(ImportBatchHasInvalidRowsException.class);
         verify(enrollmentCommandService, never()).createEnrollment(any(), anyString(), any());
-        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), anyBoolean());
+        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -755,6 +818,18 @@ public class EnrollmentImportFacadeTest {
 
     private MockMultipartFile excelWithMajor(String[]... rows) throws IOException {
         return excel(new String[] {"학번", "성명", "이메일", "연락처", "전공", "역할"}, rows);
+    }
+
+    /** 일반 서식 셀에 01012345678을 입력하면 Excel이 숫자로 저장해 앞자리 0을 잃는 상황을 재현한다. */
+    private MockMultipartFile excelWithNumericPhone(String studentNumber, double phone) throws IOException {
+        MockMultipartFile file = excel(new String[] {studentNumber, "이영희", "", "", ""});
+        try (Workbook workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(file.getBytes()));
+            ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            workbook.getSheetAt(0).getRow(1).getCell(3).setCellValue(phone);
+            workbook.write(out);
+            return new MockMultipartFile("file", "enrollments.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
     }
 
     private MockMultipartFile excel(String[] headers, String[][] rows) throws IOException {
