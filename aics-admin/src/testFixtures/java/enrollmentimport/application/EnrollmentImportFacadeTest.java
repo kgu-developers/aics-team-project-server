@@ -539,12 +539,13 @@ public class EnrollmentImportFacadeTest {
         "031-123-4567,0311234567,031-123-4567", "03112345678,03112345678,031-1234-5678",
         "011-123-4567,0111234567,011-123-4567", "01112345678,01112345678,011-1234-5678",
         "070-1234-5678,07012345678,070-1234-5678"})
-    @DisplayName("정상 연락처는 미리보기를 통과하고, 대시 없는 초기 비밀번호와 통일된 표기의 연락처로 계정을 생성한다")
+    @DisplayName("정상 연락처는 통일된 표기로 미리보기에 보이고, 대시 없는 초기 비밀번호로 계정을 생성한다")
     public void previewAndApply_AcceptsValidPhone(String phone, String initialPassword, String storedPhone)
         throws IOException {
         EnrollmentImportPreviewResponse preview = facade.preview(SECTION_ID, ASSISTANT,
             excel(new String[] {NEWCOMER, "이영희", "", phone, ""}));
         assertThat(preview.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+        assertThat(preview.rows().get(0).phone()).isEqualTo(storedPhone);
         ArgumentCaptor<ImportBatch> captor = ArgumentCaptor.forClass(ImportBatch.class);
         verify(importBatchRepository).save(captor.capture());
         given(importBatchRepository.findById(1L)).willReturn(Optional.of(captor.getValue()));
@@ -565,7 +566,7 @@ public class EnrollmentImportFacadeTest {
             excelWithNumericPhone(NEWCOMER, 1012345678d));
 
         assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
-        assertThat(response.rows().get(0).phone()).isEqualTo("01012345678");
+        assertThat(response.rows().get(0).phone()).isEqualTo("010-1234-5678");
     }
 
     @Test

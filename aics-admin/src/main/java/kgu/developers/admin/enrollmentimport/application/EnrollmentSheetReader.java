@@ -86,7 +86,8 @@ public final class EnrollmentSheetReader {
         if (!phone.isEmpty() && !Phones.isValid(phone)) {
             return invalid(rowNumber, studentNumber, name, email, phone, major, Phones.FORMAT_MESSAGE);
         }
-        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone,
+        // 오류 행은 관리자가 입력한 값을 그대로 보여줘야 고칠 수 있으니, 통일된 표기는 정상 행에만 쓴다
+        return new EnrollmentImportRow(rowNumber, studentNumber, name, email, Phones.normalize(phone),
             major.isEmpty() ? null : major, role, VALID, null);
     }
 
