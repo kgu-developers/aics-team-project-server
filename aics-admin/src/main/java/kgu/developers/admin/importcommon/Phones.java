@@ -21,6 +21,16 @@ public final class Phones {
         return PHONE_PATTERN.matcher(phone).matches();
     }
 
+    // 일반 서식 셀에 01012345678을 입력하면 Excel이 숫자로 저장해 앞자리 0을 잃는다(→ 1012345678).
+    // 국내 번호는 모두 0으로 시작하므로, 0을 붙여 유효해지는 값만 되살린다.
+    public static String restoreLeadingZero(String phone) {
+        if (phone.isEmpty() || phone.startsWith("0")) {
+            return phone;
+        }
+        String restored = "0" + phone;
+        return isValid(restored) ? restored : phone;
+    }
+
     /** 초기 비밀번호처럼 숫자만 필요한 자리에 쓴다. */
     public static String digits(String phone) {
         return phone.replace("-", "");

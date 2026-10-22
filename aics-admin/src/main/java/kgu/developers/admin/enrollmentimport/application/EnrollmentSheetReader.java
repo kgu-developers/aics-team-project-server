@@ -48,7 +48,7 @@ public final class EnrollmentSheetReader {
         String studentNumber = cell(row, columns.studentNumber());
         String name = cell(row, columns.name());
         String email = cell(row, columns.email());
-        String phone = cell(row, columns.phone());
+        String phone = Phones.restoreLeadingZero(cell(row, columns.phone()));
         String major = cell(row, columns.major());
         String roleText = cell(row, columns.role());
 

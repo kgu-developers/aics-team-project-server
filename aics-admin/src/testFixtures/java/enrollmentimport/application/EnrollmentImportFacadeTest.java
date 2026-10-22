@@ -557,6 +557,16 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("preview는 Excel이 숫자로 읽어 앞자리 0이 사라진 연락처를 되살린다")
+    public void preview_RestoresLeadingZeroDroppedByExcel() throws IOException {
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excelWithNumericPhone(NEWCOMER, 1012345678d));
+
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+        assertThat(response.rows().get(0).phone()).isEqualTo("01012345678");
+    }
+
+    @Test
     @DisplayName("preview는 이미 가입된 학생이라도 연락처 형식이 잘못되면 오류로 표시한다")
     public void preview_RejectsMalformedPhoneOfExistingMember() throws IOException {
         EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
@@ -805,6 +815,18 @@ public class EnrollmentImportFacadeTest {
 
     private MockMultipartFile excelWithMajor(String[]... rows) throws IOException {
         return excel(new String[] {"학번", "성명", "이메일", "연락처", "전공", "역할"}, rows);
+    }
+
+    /** 일반 서식 셀에 01012345678을 입력하면 Excel이 숫자로 저장해 앞자리 0을 잃는 상황을 재현한다. */
+    private MockMultipartFile excelWithNumericPhone(String studentNumber, double phone) throws IOException {
+        MockMultipartFile file = excel(new String[] {studentNumber, "이영희", "", "", ""});
+        try (Workbook workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(file.getBytes()));
+            ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            workbook.getSheetAt(0).getRow(1).getCell(3).setCellValue(phone);
+            workbook.write(out);
+            return new MockMultipartFile("file", "enrollments.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
     }
 
     private MockMultipartFile excel(String[] headers, String[][] rows) throws IOException {

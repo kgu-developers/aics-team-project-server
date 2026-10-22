@@ -50,7 +50,7 @@ public final class TeamSheetReader {
         String name = cell(row, columns.name());
         boolean leader = LEADER_MARKS.contains(cell(row, columns.leader()));
         String projectRole = cell(row, columns.projectRole());
-        String phoneNumber = cell(row, columns.phoneNumber());
+        String phoneNumber = Phones.restoreLeadingZero(cell(row, columns.phoneNumber()));
         String grade = cell(row, columns.grade());
 
         if (teamName.isEmpty() && studentNumber.isEmpty() && name.isEmpty()) {
