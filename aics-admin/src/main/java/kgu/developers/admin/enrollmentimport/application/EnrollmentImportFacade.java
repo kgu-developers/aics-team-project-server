@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -46,6 +47,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EnrollmentImportFacade {
     private static final Duration PREVIEW_TTL = Duration.ofMinutes(30);
+    private static final Pattern PHONE_PATTERN = Pattern.compile(
+        "^(?:010-?[0-9]{4}|01[16789]-?[0-9]{3,4}"
+            + "|(?:02|031|032|033|041|042|043|044|051|052|053|054|055|061|062|063|064)-?[0-9]{3,4}"
+            + "|070-?[0-9]{4})-?[0-9]{4}$");
 
     private final ImportBatchRepository importBatchRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -154,12 +159,13 @@ public class EnrollmentImportFacade {
             }
             if (newUser && !existingUsers.contains(studentNumber)) {
                 String phone = row.path("phone").asText();
-                if (phone.isEmpty()) {
+                String initialPassword = phone.replace("-", "");
+                if (!PHONE_PATTERN.matcher(phone).matches()) {
                     skipped++;
                     continue;
                 }
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
-                    row.path("name").asText(), phone.replace("-", ""), UserGlobalRole.USER,
+                    row.path("name").asText(), initialPassword, UserGlobalRole.USER,
                     phone, major, false);
                 existingUsers.add(studentNumber);
                 createdUsers++;
@@ -249,6 +255,9 @@ public class EnrollmentImportFacade {
         }
         if (row.phone().isEmpty()) {
             return row.with(INVALID, "신규 가입 대상은 연락처가 필요합니다.");
+        }
+        if (!PHONE_PATTERN.matcher(row.phone()).matches()) {
+            return row.with(INVALID, "전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678, 01012345678)");
         }
         return row.with(NEW_USER, "가입되지 않은 학생입니다. 반영 시 계정을 만듭니다.");
     }

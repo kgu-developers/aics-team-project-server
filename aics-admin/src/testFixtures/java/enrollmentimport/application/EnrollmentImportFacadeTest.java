@@ -24,6 +24,9 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
@@ -496,12 +499,14 @@ public class EnrollmentImportFacadeTest {
         verify(enrollmentCommandService, never()).createEnrollment(any(), any(), any());
     }
 
-    @Test
-    @DisplayName("apply는 연락처가 빈 신규 가입 행을 쓰기 직전에 건너뛴다")
-    public void apply_SkipsNewUserWithoutPhone() {
+    @ParameterizedTest
+    @ValueSource(strings = {"", "-", "---", "010 1234 5678", "010-abcd-5678", "123", "0101234567",
+        "010123456789", "010--1234-5678", "0101-234-5678", "099-1234-5678", "+82-10-1234-5678"})
+    @DisplayName("apply는 연락처 형식이 잘못된 신규 가입 행을 쓰기 직전에 건너뛴다")
+    public void apply_SkipsNewUserWithInvalidPhone(String phone) {
         // given: preview에 연락처 검사가 없던 시점에 만들어진 배치
         EnrollmentImportRow noPhone = new EnrollmentImportRow(2, NEWCOMER, "이영희",
-            NEWCOMER + "@kyonggi.ac.kr", "", Role.STUDENT, RowStatus.NEW_USER, null);
+            NEWCOMER + "@kyonggi.ac.kr", phone, Role.STUDENT, RowStatus.NEW_USER, null);
         given(importBatchRepository.findById(1L))
             .willReturn(Optional.of(batch(0, List.of(noPhone))));
 
@@ -512,8 +517,43 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.createdUsers()).isZero();
         assertThat(response.applied()).isZero();
         assertThat(response.skipped()).isEqualTo(1);
-        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), anyBoolean());
+        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService, never()).createEnrollment(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-", "---", "010 1234 5678", "010-abcd-5678", "123", "0101234567",
+        "010123456789", "010--1234-5678", "0101-234-5678", "099-1234-5678", "+82-10-1234-5678"})
+    @DisplayName("preview는 신규 가입 대상의 연락처 형식과 길이가 잘못되면 오류로 표시한다")
+    public void preview_RejectsNewUserWithInvalidPhone(String phone) throws IOException {
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", "", phone, ""}));
+
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("전화번호 형식");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"010-1234-5678,01012345678", "01012345678,01012345678",
+        "02-123-4567,021234567", "02-1234-5678,0212345678", "031-123-4567,0311234567",
+        "03112345678,03112345678", "011-123-4567,0111234567", "01112345678,01112345678",
+        "070-1234-5678,07012345678"})
+    @DisplayName("정상 연락처는 미리보기를 통과하고 대시 없는 초기 비밀번호로 계정을 생성한다")
+    public void previewAndApply_AcceptsValidPhone(String phone, String initialPassword) throws IOException {
+        EnrollmentImportPreviewResponse preview = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {NEWCOMER, "이영희", "", phone, ""}));
+        assertThat(preview.rows().get(0).status()).isEqualTo(RowStatus.NEW_USER);
+        ArgumentCaptor<ImportBatch> captor = ArgumentCaptor.forClass(ImportBatch.class);
+        verify(importBatchRepository).save(captor.capture());
+        given(importBatchRepository.findById(1L)).willReturn(Optional.of(captor.getValue()));
+
+        EnrollmentImportApplyResponse response = facade.apply(1L, ASSISTANT);
+
+        assertThat(response.createdUsers()).isEqualTo(1);
+        assertThat(response.applied()).isEqualTo(1);
+        verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이영희",
+            initialPassword, UserGlobalRole.USER, phone, null, false);
+        verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.STUDENT);
     }
 
     @Test
