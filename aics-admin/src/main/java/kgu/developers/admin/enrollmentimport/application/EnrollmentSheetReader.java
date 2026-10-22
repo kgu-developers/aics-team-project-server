@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import org.apache.poi.ss.usermodel.Row;
 import org.springframework.web.multipart.MultipartFile;
 
+import kgu.developers.admin.importcommon.Phones;
 import kgu.developers.admin.importcommon.Sheets;
 import kgu.developers.domain.enrollment.domain.Role;
 
@@ -79,6 +80,11 @@ public final class EnrollmentSheetReader {
         tooLong = tooLong != null ? tooLong : tooLong("전공", major, 64);
         if (tooLong != null) {
             return invalid(rowNumber, studentNumber, name, email, phone, major, tooLong);
+        }
+
+        // 빈 값은 여기서 허용한다 — 연락처가 필수인지는 신규 가입 대상인지에 달려 있어서 분류 단계에서 가린다.
+        if (!phone.isEmpty() && !Phones.isValid(phone)) {
+            return invalid(rowNumber, studentNumber, name, email, phone, major, Phones.FORMAT_MESSAGE);
         }
         return new EnrollmentImportRow(rowNumber, studentNumber, name, email, phone,
             major.isEmpty() ? null : major, role, VALID, null);

@@ -12,7 +12,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -24,6 +23,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import kgu.developers.admin.enrollmentimport.presentation.response.EnrollmentImportApplyResponse;
 import kgu.developers.admin.enrollmentimport.presentation.response.EnrollmentImportPreviewResponse;
+import kgu.developers.admin.importcommon.Phones;
 import kgu.developers.admin.importcommon.SectionStaffValidator;
 import kgu.developers.common.json.JsonConverter;
 import kgu.developers.domain.enrollment.application.command.EnrollmentCommandService;
@@ -47,10 +47,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EnrollmentImportFacade {
     private static final Duration PREVIEW_TTL = Duration.ofMinutes(30);
-    private static final Pattern PHONE_PATTERN = Pattern.compile(
-        "^(?:010-?[0-9]{4}|01[16789]-?[0-9]{3,4}"
-            + "|(?:02|031|032|033|041|042|043|044|051|052|053|054|055|061|062|063|064)-?[0-9]{3,4}"
-            + "|070-?[0-9]{4})-?[0-9]{4}$");
 
     private final ImportBatchRepository importBatchRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -159,13 +155,13 @@ public class EnrollmentImportFacade {
             }
             if (newUser && !existingUsers.contains(studentNumber)) {
                 String phone = row.path("phone").asText();
-                String initialPassword = phone.replace("-", "");
-                if (!PHONE_PATTERN.matcher(phone).matches()) {
+                // 미리보기 때 연락처 검사가 없던 배치도 반영될 수 있어 쓰기 직전에 한 번 더 본다
+                if (!Phones.isValid(phone)) {
                     skipped++;
                     continue;
                 }
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
-                    row.path("name").asText(), initialPassword, UserGlobalRole.USER,
+                    row.path("name").asText(), Phones.digits(phone), UserGlobalRole.USER,
                     phone, major, false);
                 existingUsers.add(studentNumber);
                 createdUsers++;
@@ -253,11 +249,9 @@ public class EnrollmentImportFacade {
         if (everUsedEmailOwner != null && !everUsedEmailOwner.equals(row.studentNumber())) {
             return row.with(INVALID, "탈퇴한 사용자가 사용했던 이메일입니다. 관리자에게 문의하세요.");
         }
+        // 형식은 EnrollmentSheetReader가 이미 걸렀다 — 여기서는 신규 가입 대상에만 필수인 점만 본다
         if (row.phone().isEmpty()) {
             return row.with(INVALID, "신규 가입 대상은 연락처가 필요합니다.");
-        }
-        if (!PHONE_PATTERN.matcher(row.phone()).matches()) {
-            return row.with(INVALID, "전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678, 01012345678)");
         }
         return row.with(NEW_USER, "가입되지 않은 학생입니다. 반영 시 계정을 만듭니다.");
     }

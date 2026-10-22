@@ -425,7 +425,7 @@ public class EnrollmentImportFacadeTest {
         assertThat(response.skipped()).isEqualTo(1);
         verify(userCommandService).createUser(NEWCOMER, NEWCOMER + "@kyonggi.ac.kr", "이름", "01000000000",
             UserGlobalRole.USER, "010-0000-0000", null, false);
-        verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), anyBoolean());
+        verify(userCommandService, never()).createUser(eq(MEMBER), any(), any(), any(), any(), any(), any(), anyBoolean());
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, MEMBER, Role.STUDENT);
         verify(enrollmentCommandService).createEnrollment(SECTION_ID, NEWCOMER, Role.STUDENT);
         verify(enrollmentCommandService, never()).createEnrollment(eq(SECTION_ID), eq(ENROLLED), any());
@@ -557,6 +557,16 @@ public class EnrollmentImportFacadeTest {
     }
 
     @Test
+    @DisplayName("preview는 이미 가입된 학생이라도 연락처 형식이 잘못되면 오류로 표시한다")
+    public void preview_RejectsMalformedPhoneOfExistingMember() throws IOException {
+        EnrollmentImportPreviewResponse response = facade.preview(SECTION_ID, ASSISTANT,
+            excel(new String[] {MEMBER, "홍길동", "hong@kyonggi.ac.kr", "010-abcd-5678", ""}));
+
+        assertThat(response.rows().get(0).status()).isEqualTo(RowStatus.INVALID);
+        assertThat(response.rows().get(0).message()).contains("전화번호 형식");
+    }
+
+    @Test
     @DisplayName("apply는 미리보기 이후 등록된 학생을 건너뛴다")
     public void apply_SkipsAlreadyEnrolled() {
         // given
@@ -585,7 +595,7 @@ public class EnrollmentImportFacadeTest {
         assertThatThrownBy(() -> facade.apply(1L, ASSISTANT))
             .isInstanceOf(ImportBatchHasInvalidRowsException.class);
         verify(enrollmentCommandService, never()).createEnrollment(any(), anyString(), any());
-        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), anyBoolean());
+        verify(userCommandService, never()).createUser(any(), any(), any(), any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
