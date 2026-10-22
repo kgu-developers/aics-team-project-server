@@ -37,12 +37,13 @@ public final class Phones {
     }
 
     // 시트마다 제각각인 표기(01012345678, 010-12345678 ...)를 010-1234-5678 한 가지로 맞춘다.
-    // 형식 검증을 통과한 값만 들어오므로 자릿수는 믿고 잘라도 된다
+    // 자릿수를 믿고 자르기 전에 직접 검증한다 — 호출자가 isValid 를 빠뜨려도 행 단위 오류로 남고,
+    // 빈 값이나 형식이 깨진 값에 substring 이 터지지 않는다.
     public static String normalize(String phone) {
-        String digits = digits(phone);
-        if (digits.isEmpty()) {
+        if (!isValid(phone)) {
             return phone;
         }
+        String digits = digits(phone);
         int head = digits.startsWith("02") ? 2 : 3;
         int tail = digits.length() - 4;
         return digits.substring(0, head) + "-" + digits.substring(head, tail) + "-" + digits.substring(tail);
