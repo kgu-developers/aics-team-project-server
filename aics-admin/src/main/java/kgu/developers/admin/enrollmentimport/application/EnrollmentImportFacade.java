@@ -162,7 +162,7 @@ public class EnrollmentImportFacade {
                 }
                 userCommandService.createUser(studentNumber, row.path("email").asText(),
                     row.path("name").asText(), Phones.digits(phone), UserGlobalRole.USER,
-                    phone, major, false);
+                    Phones.normalize(phone), major, false);
                 existingUsers.add(studentNumber);
                 createdUsers++;
             }
