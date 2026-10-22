@@ -64,6 +64,9 @@ aws:
     secret-key: ${AWS_S3_SECRET_KEY:}
 
 springdoc:
+  # GHSA-rhhx-6j8h-8cvw: 임의 Accept-Language 값마다 OpenAPI 캐시가
+  # 무제한 생성되지 않도록 서비스에서 사용하는 locale만 허용한다.
+  allowed-locales: ${SPRINGDOC_ALLOWED_LOCALES:ko-KR,en-US,en}
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
   swagger-ui:
