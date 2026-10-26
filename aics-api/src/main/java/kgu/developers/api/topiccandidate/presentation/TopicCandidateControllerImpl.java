@@ -5,6 +5,7 @@ import static org.springframework.http.HttpStatus.CREATED;
 import jakarta.validation.Valid;
 import kgu.developers.api.topiccandidate.application.TopicCandidateFacade;
 import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
+import kgu.developers.api.topiccandidate.presentation.request.TopicDirectFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
@@ -55,5 +56,15 @@ public class TopicCandidateControllerImpl implements TopicCandidateController {
         Authentication authentication
     ) {
         return ResponseEntity.ok(topicCandidateFacade.finalizeTopic(teamId, authentication.getName(), request));
+    }
+
+    @Override
+    @PatchMapping("/teams/{teamId}/topic-finalize/direct")
+    public ResponseEntity<TopicFinalizeResponse> finalizeTopicDirectly(
+        @PathVariable Long teamId,
+        @Valid @RequestBody TopicDirectFinalizeRequest request,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(topicCandidateFacade.finalizeTopicDirectly(teamId, authentication.getName(), request));
     }
 }

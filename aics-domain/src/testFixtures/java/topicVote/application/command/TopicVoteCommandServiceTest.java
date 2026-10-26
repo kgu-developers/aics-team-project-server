@@ -47,7 +47,7 @@ class TopicVoteCommandServiceTest {
     @DisplayName("후보가 해당 팀 소속이면 투표가 저장된다")
     void voteForCandidateInSameTeam() {
         TopicVote saved = TopicVote.create(TEAM, CANDIDATE, VOTER);
-        given(topicCandidateRepository.findById(CANDIDATE)).willReturn(Optional.of(candidateOf(TEAM)));
+        given(topicCandidateRepository.findByIdForUpdate(CANDIDATE)).willReturn(Optional.of(candidateOf(TEAM)));
         given(topicVoteRepository.upsert(any())).willReturn(saved);
 
         assertThat(topicVoteCommandService.vote(TEAM, CANDIDATE, VOTER)).isSameAs(saved);
@@ -56,8 +56,8 @@ class TopicVoteCommandServiceTest {
     @Test
     @DisplayName("후보가 없거나 삭제됐으면 TopicCandidateNotFoundException 이고 투표는 저장되지 않는다")
     void voteForMissingCandidate() {
-        // findById 는 활성 후보만 주므로 삭제된 후보도 이 경로로 들어온다
-        given(topicCandidateRepository.findById(CANDIDATE)).willReturn(Optional.empty());
+        // findByIdForUpdate 는 팀 잠금 후 활성 후보만 주므로 삭제된 후보도 이 경로로 들어온다
+        given(topicCandidateRepository.findByIdForUpdate(CANDIDATE)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> topicVoteCommandService.vote(TEAM, CANDIDATE, VOTER))
                 .isInstanceOf(TopicCandidateNotFoundException.class);
@@ -67,7 +67,7 @@ class TopicVoteCommandServiceTest {
     @Test
     @DisplayName("다른 팀 후보에는 투표할 수 없다")
     void voteForCandidateInAnotherTeam() {
-        given(topicCandidateRepository.findById(CANDIDATE)).willReturn(Optional.of(candidateOf(OTHER_TEAM)));
+        given(topicCandidateRepository.findByIdForUpdate(CANDIDATE)).willReturn(Optional.of(candidateOf(OTHER_TEAM)));
 
         assertThatThrownBy(() -> topicVoteCommandService.vote(TEAM, CANDIDATE, VOTER))
                 .isInstanceOf(TopicCandidateNotFoundException.class);

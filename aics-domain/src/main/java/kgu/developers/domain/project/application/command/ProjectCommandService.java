@@ -53,6 +53,15 @@ public class ProjectCommandService {
         JsonNode screenConfiguration,
         String projectSchedule
     ) {
+        return saveProject(teamId, title, description, goal, repositoryUrl, externalLinks, topicCandidateId,
+            dataConfiguration, screenConfiguration, projectSchedule, topicCandidateId != null);
+    }
+
+    private Project saveProject(
+        Long teamId, String title, String description, String goal, String repositoryUrl, JsonNode externalLinks,
+        Long topicCandidateId, JsonNode dataConfiguration, JsonNode screenConfiguration, String projectSchedule,
+        boolean replaceTopicCandidate
+    ) {
         // 팀당 프로젝트는 하나다. 조회-수정-저장이 갈라지지 않도록 팀 행을 먼저 잠근다.
         projectRepository.lockTeam(teamId);
 
@@ -65,7 +74,8 @@ public class ProjectCommandService {
         if (existing.getDeletedAt() != null) {
             return reactivateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
         }
-        return updateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
+        return updateProject(existing, title, description, goal, repositoryUrl, externalLinks, topicCandidateId,
+            dataConfiguration, screenConfiguration, projectSchedule, replaceTopicCandidate);
     }
 
     public Project finalizeTopic(Long teamId, Long topicCandidateId, String title, String description, String goal) {
@@ -79,7 +89,7 @@ public class ProjectCommandService {
             teamId,
             title,
             description,
-            goal,
+            goal == null ? (active == null ? "" : active.getGoal()) : goal,
             active == null ? null : active.getRepositoryUrl(),
             active == null ? null : active.getExternalLinks(),
             topicCandidateId,
@@ -88,7 +98,8 @@ public class ProjectCommandService {
             // 배열은 요청마다 새로 만든다 — ArrayNode는 가변이라 상수로 공유하면 안 된다.
             active == null ? JsonNodeFactory.instance.arrayNode() : active.getDataConfiguration(),
             active == null ? JsonNodeFactory.instance.arrayNode() : active.getScreenConfiguration(),
-            active == null ? null : active.getProjectSchedule()
+            active == null ? null : active.getProjectSchedule(),
+            true
         );
 
         return project;
@@ -127,19 +138,21 @@ public class ProjectCommandService {
         Long topicCandidateId,
         JsonNode dataConfiguration,
         JsonNode screenConfiguration,
-        String projectSchedule
+        String projectSchedule,
+        boolean replaceTopicCandidate
     ) {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
 
         if (project.hasSameProposalContent(title, description, goal, repositoryUrl, externalLinks, dataConfiguration, screenConfiguration, projectSchedule) &&
-            (topicCandidateId == null || topicCandidateId.equals(project.getTopicCandidateId()))) {
+            (!replaceTopicCandidate || Objects.equals(topicCandidateId, project.getTopicCandidateId()))) {
             return project;
         }
 
         // 변경된 필드에 따라 해당 섹션의 완료 상태를 해제 (업데이트 전에 실행)
-        resetCompletedSectionsForChanges(project, title, description, goal, topicCandidateId, dataConfiguration, screenConfiguration, projectSchedule);
+        resetCompletedSectionsForChanges(project, title, description, goal, topicCandidateId,
+            dataConfiguration, screenConfiguration, projectSchedule, replaceTopicCandidate);
 
         project.updateTitle(title);
         project.updateDescription(description);
@@ -149,7 +162,7 @@ public class ProjectCommandService {
         project.updateProjectSchedule(projectSchedule);
         project.updateRepositoryUrl(repositoryUrl);
         project.updateExternalLinks(externalLinks);
-        if (topicCandidateId != null) {
+        if (replaceTopicCandidate) {
             project.updateTopicCandidateId(topicCandidateId);
         }
         if (project.getApprovalStatus() != ApprovalStatus.REVISION_REQUESTED) {
@@ -169,13 +182,14 @@ public class ProjectCommandService {
         Long topicCandidateId,
         JsonNode dataConfiguration,
         JsonNode screenConfiguration,
-        String projectSchedule
+        String projectSchedule,
+        boolean replaceTopicCandidate
     ) {
         // TOPIC 섹션: title, description, goal, topicCandidateId 변경 시 완료 상태 해제
         if (!Objects.equals(project.getTitle(), title) 
             || !Objects.equals(project.getDescription(), description)
             || !Objects.equals(project.getGoal(), goal)
-            || (topicCandidateId != null && !Objects.equals(project.getTopicCandidateId(), topicCandidateId))) {
+            || (replaceTopicCandidate && !Objects.equals(project.getTopicCandidateId(), topicCandidateId))) {
             proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.TOPIC)
                 .ifPresent(section -> {
                     section.forceIncomplete();
@@ -288,6 +302,10 @@ public class ProjectCommandService {
         Project project = findProjectAfterLockingTeam(projectId);
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
+        }
+        // 직접 주제 확정은 목표를 빈 값으로 시작한다. 섹션 완료 표시만으로 빈 목표가 제출되는 걸 막는다.
+        if (project.getGoal().isBlank()) {
+            throw new ProposalSectionIncompleteException();
         }
         Set<ProposalSectionType> completedSections = proposalSectionRepository.findAllByProjectId(projectId).stream()
             .filter(ProposalSection::isCompleted)

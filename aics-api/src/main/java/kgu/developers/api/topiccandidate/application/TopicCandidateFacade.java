@@ -3,6 +3,7 @@ package kgu.developers.api.topiccandidate.application;
 import java.util.List;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
+import kgu.developers.api.topiccandidate.presentation.request.TopicDirectFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
@@ -75,5 +76,17 @@ public class TopicCandidateFacade {
             request.goal()
         );
         return TopicFinalizeResponse.of(savedProject, topicCandidate);
+    }
+
+    @Transactional
+    public TopicFinalizeResponse finalizeTopicDirectly(Long teamId, String userId, TopicDirectFinalizeRequest request) {
+        teamAccessValidator.validateLeaderWithTeamLock(teamId, userId);
+        Project project = projectCommandService.finalizeTopic(
+            teamId, null, request.title(), request.description(), null);
+        List<TopicCandidate> candidates = topicCandidateRepository.findByTeamId(teamId);
+        topicVoteRepository.findAllByCandidateIdIn(candidates.stream().map(TopicCandidate::getId).toList())
+            .forEach(vote -> topicVoteRepository.deleteById(vote.getId()));
+        candidates.forEach(candidate -> topicCandidateCommandService.deleteTopicCandidate(candidate.getId()));
+        return TopicFinalizeResponse.of(project);
     }
 }

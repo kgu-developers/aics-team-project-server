@@ -12,6 +12,7 @@ import java.util.List;
 import kgu.developers.api.topiccandidate.application.TopicCandidateFacade;
 import kgu.developers.api.topiccandidate.presentation.TopicCandidateControllerImpl;
 import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
+import kgu.developers.api.topiccandidate.presentation.request.TopicDirectFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.request.TopicFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
@@ -111,6 +112,33 @@ class TopicCandidateControllerTest {
             .andExpect(jsonPath("$.title").value("AI 기반 학습 도우미"));
 
         verify(topicCandidateFacade).finalizeTopic(TEAM_ID, USER_ID, request);
+    }
+
+    @Test
+    @DisplayName("PATCH /topic-finalize/direct는 텍스트 주제를 후보 없이 확정한다")
+    void finalizeTopicDirectly_FinalizesTypedTopic() throws Exception {
+        TopicDirectFinalizeRequest request = new TopicDirectFinalizeRequest("직접 입력", "설명");
+        given(topicCandidateFacade.finalizeTopicDirectly(TEAM_ID, USER_ID, request))
+            .willReturn(new TopicFinalizeResponse(2L, null, "직접 입력"));
+
+        mockMvc.perform(patch("/api/v1/teams/{teamId}/topic-finalize/direct", TEAM_ID)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"직접 입력\",\"description\":\"설명\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.projectId").value(2L))
+            .andExpect(jsonPath("$.candidateId").isEmpty())
+            .andExpect(jsonPath("$.title").value("직접 입력"));
+    }
+
+    @Test
+    @DisplayName("직접 확정은 공백 제목을 거절한다")
+    void finalizeTopicDirectly_RejectsBlankTitle() throws Exception {
+        mockMvc.perform(patch("/api/v1/teams/{teamId}/topic-finalize/direct", TEAM_ID)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null, List.of()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"   \",\"description\":\"설명\"}"))
+            .andExpect(status().isBadRequest());
     }
 
     @Test
