@@ -18,4 +18,8 @@ public record TopicFinalizeResponse(
     public static TopicFinalizeResponse of(Project project, TopicCandidate topicCandidate) {
         return new TopicFinalizeResponse(project.getId(), topicCandidate.getId(), project.getTitle());
     }
+
+    public static TopicFinalizeResponse of(Project project) {
+        return new TopicFinalizeResponse(project.getId(), null, project.getTitle());
+    }
 }

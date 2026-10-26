@@ -83,6 +83,6 @@ public class TopicCandidateFacade {
         teamAccessValidator.validateLeaderWithTeamLock(teamId, userId);
         Project project = projectCommandService.finalizeTopic(
             teamId, null, request.title(), request.description(), null);
-        return new TopicFinalizeResponse(project.getId(), null, project.getTitle());
+        return TopicFinalizeResponse.of(project);
     }
 }
