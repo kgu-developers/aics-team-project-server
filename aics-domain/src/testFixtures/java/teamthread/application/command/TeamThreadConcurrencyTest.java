@@ -45,6 +45,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * 같은 팀의 TeamThread를 두 요청이 동시에 처음 생성하려 할 때(KD3-302) 500 없이
  * 둘 다 같은 스레드로 수렴하는지를 실제 PostgreSQL 환경(Testcontainers)에서 검증한다.
+ *
+ * 실제 운영 경로(TeamMessageFacade)는 이미 열려있는 @Transactional 트랜잭션 안에서
+ * getOrCreateThread()를 호출한다 — 원래 버그(self-invocation으로 REQUIRES_NEW가 안 먹혀
+ * insert 실패 시 Postgres가 그 바깥 트랜잭션 전체를 abort시키는 것)는 그 바깥 트랜잭션이
+ * 열려있을 때만 재현된다. 서비스를 트랜잭션 없이 맨몸으로 직접 호출하면 Spring Data JPA가
+ * 각 리포지토리 호출마다 자체 트랜잭션을 열어버려 이 조건이 재현되지 않으므로,
+ * TransactionalCaller로 그 바깥 트랜잭션 경계를 재현한다.
  */
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -67,13 +74,30 @@ class TeamThreadConcurrencyTest {
     @EnableJpaRepositories("kgu.developers.domain")
     @org.springframework.context.annotation.Import({
         TeamThreadCommandService.class,
-        TeamThreadRepositoryImpl.class
+        TeamThreadRepositoryImpl.class,
+        TeamThreadConcurrencyTest.TransactionalCaller.class
     })
     static class TestConfig {
     }
 
+    // TeamMessageFacade(@Transactional)가 getOrCreateThread()를 호출하는 바깥 트랜잭션 경계를
+    // 흉내만 낸다 — 전체 facade(의존성 다수)를 그대로 조립하지 않고도 버그 재현 조건을 맞춘다.
+    @org.springframework.stereotype.Component
+    @org.springframework.transaction.annotation.Transactional
+    static class TransactionalCaller {
+        private final TeamThreadCommandService teamThreadCommandService;
+
+        TransactionalCaller(TeamThreadCommandService teamThreadCommandService) {
+            this.teamThreadCommandService = teamThreadCommandService;
+        }
+
+        TeamThread getOrCreateThread(Long teamId) {
+            return teamThreadCommandService.getOrCreateThread(teamId);
+        }
+    }
+
     @Autowired
-    private TeamThreadCommandService teamThreadCommandService;
+    private TransactionalCaller transactionalCaller;
 
     @Autowired
     private TransactionTemplate transactionTemplate;
@@ -133,7 +157,7 @@ class TeamThreadConcurrencyTest {
     }
 
     @Test
-    @DisplayName("같은 팀의 스레드를 두 요청이 동시에 처음 생성하려 하면 예외 없이 같은 스레드로 수렴한다")
+    @DisplayName("메시지 등록 흐름(바깥 트랜잭션 안)에서 두 요청이 동시에 처음 생성하려 하면 예외 없이 같은 스레드로 수렴한다")
     void concurrentGetOrCreateThread_SameTeam_ConvergesToSameThreadWithoutException() throws Exception {
         // given
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -141,7 +165,7 @@ class TeamThreadConcurrencyTest {
 
         Callable<TeamThread> task = () -> {
             start.await();
-            return teamThreadCommandService.getOrCreateThread(teamId);
+            return transactionalCaller.getOrCreateThread(teamId);
         };
 
         // when
