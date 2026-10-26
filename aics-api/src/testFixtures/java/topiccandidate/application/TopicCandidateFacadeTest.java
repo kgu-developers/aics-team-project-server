@@ -9,6 +9,7 @@ import java.util.List;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.topiccandidate.application.TopicCandidateFacade;
 import kgu.developers.api.topiccandidate.presentation.request.TopicCandidateCreateRequest;
+import kgu.developers.api.topiccandidate.presentation.request.TopicDirectFinalizeRequest;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidateListResponse;
 import kgu.developers.api.topiccandidate.presentation.response.TopicCandidatePersistResponse;
 import kgu.developers.domain.topicCandidate.application.command.TopicCandidateCommandService;
@@ -159,6 +160,23 @@ class TopicCandidateFacadeTest {
         verify(projectCommandService).finalizeTopic(
             TEAM_ID, topicCandidate.getId(), topicCandidate.getTitle(), topicCandidate.getDescription(), "AI 기반 학습 도우미 개발"
         );
+    }
+
+    @Test
+    @DisplayName("직접 확정은 팀장 권한을 검사하고 후보 없이 프로젝트에 주제를 저장한다")
+    void finalizeTopicDirectly_UsesTypedTopic() {
+        TopicDirectFinalizeRequest request = new TopicDirectFinalizeRequest("직접 입력", "설명");
+        Project saved = Project.builder().id(2L).teamId(TEAM_ID).title(request.title()).build();
+        given(projectCommandService.finalizeTopic(TEAM_ID, null, "직접 입력", "설명", null))
+            .willReturn(saved);
+
+        TopicFinalizeResponse result = topicCandidateFacade.finalizeTopicDirectly(TEAM_ID, CURRENT_USER_ID, request);
+
+        assertThat(result.projectId()).isEqualTo(2L);
+        assertThat(result.candidateId()).isNull();
+        assertThat(result.title()).isEqualTo("직접 입력");
+        verify(teamAccessValidator).validateLeaderWithTeamLock(TEAM_ID, CURRENT_USER_ID);
+        verify(projectCommandService).finalizeTopic(TEAM_ID, null, "직접 입력", "설명", null);
     }
 
     private TopicCandidate candidate(Long id, String title, String description) {

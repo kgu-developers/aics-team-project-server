@@ -1,0 +1,14 @@
+package kgu.developers.api.topiccandidate.presentation.request;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record TopicDirectFinalizeRequest(
+    @Schema(description = "확정할 주제 제목", example = "AI 기반 학습 도우미")
+    @NotBlank @Size(max = 200) String title,
+
+    @Schema(description = "주제 설명", example = "학생별 맞춤형 학습 계획을 지원하는 서비스")
+    @NotBlank String description
+) {
+}

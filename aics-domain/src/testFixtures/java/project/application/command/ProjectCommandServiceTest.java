@@ -386,6 +386,38 @@ class ProjectCommandServiceTest {
     }
 
     @Test
+    @DisplayName("직접 확정은 기존 후보 연결을 해제하고 내용이 같아도 동의를 무효화한다")
+    void finalizeTopicDirectly_clearsCandidateLink() {
+        Project existing = Project.builder().id(10L).teamId(1L).topicCandidateId(7L)
+            .title("제목").description("설명").goal("목표").approvalStatus(ApprovalStatus.APPROVED)
+            .dataConfiguration(new ObjectMapper().createArrayNode())
+            .screenConfiguration(new ObjectMapper().createArrayNode()).build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+
+        Project result = projectCommandService.finalizeTopic(1L, null, "제목", "설명", null);
+
+        assertThat(result.getTopicCandidateId()).isNull();
+        assertThat(result.getGoal()).isEqualTo("목표");
+        assertThat(result.getProposalRevision()).isEqualTo(1L);
+        assertThat(result.getApprovalStatus()).isEqualTo(ApprovalStatus.DRAFT);
+        then(projectApprovalRepository).should().deleteAllByProjectId(10L);
+    }
+
+    @Test
+    @DisplayName("새 프로젝트의 직접 확정은 목표를 빈 값으로 시작한다")
+    void finalizeTopicDirectly_createsWithoutGoal() {
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.empty());
+        given(projectRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        Project result = projectCommandService.finalizeTopic(1L, null, "제목", "설명", null);
+
+        assertThat(result.getTitle()).isEqualTo("제목");
+        assertThat(result.getGoal()).isEmpty();
+        assertThat(result.getTopicCandidateId()).isNull();
+    }
+
+    @Test
     @DisplayName("finalizeTopic은 완료된 제안서의 주제를 바꿀 수 없다")
     void finalizeTopic_rejectsCompletedProject() {
         Project completed = Project.builder().id(10L).teamId(1L).title("제목").description("설명").goal("목표")
