@@ -23,6 +23,10 @@ import org.springframework.web.multipart.MultipartFile;
 @Transactional
 public class SectionAnnouncementCommandService {
 
+    // file_object.file_name 컬럼 길이(FileObjectJpaEntity)와 맞춤 — 넘으면 DB insert가 실패해 S3엔
+    // 이미 올라간 파일이 고아로 남으므로, 업로드 전에 여기서 먼저 잘라낸다.
+    private static final int MAX_FILE_NAME_LENGTH = 255;
+
     private final SectionAnnouncementRepository sectionAnnouncementRepository;
     private final SectionAnnouncementAttachmentRepository sectionAnnouncementAttachmentRepository;
     private final FileObjectRepository fileObjectRepository;
@@ -83,12 +87,23 @@ public class SectionAnnouncementCommandService {
             return;
         }
         for (MultipartFile file : files) {
+            String fileName = sanitizeFileName(file.getOriginalFilename());
             String storageKey = fileStorage.upload(file);
             FileObject fileObject = fileObjectRepository.save(FileObject.create(
-                uploaderId, storageKey, file.getOriginalFilename(), file.getContentType(), file.getSize(), false, null));
+                uploaderId, storageKey, fileName, file.getContentType(), file.getSize(), false, null));
             sectionAnnouncementAttachmentRepository.save(
                 SectionAnnouncementAttachment.create(announcementId, fileObject.getId()));
         }
+    }
+
+    private String sanitizeFileName(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "첨부파일";
+        }
+        if (originalFilename.length() > MAX_FILE_NAME_LENGTH) {
+            return originalFilename.substring(0, MAX_FILE_NAME_LENGTH);
+        }
+        return originalFilename;
     }
 
     // 첨부 해제는 연결(join) 행만 지운다 — FileObject/S3 원본은 SubmissionArtifact 등 다른 기능과 동일하게

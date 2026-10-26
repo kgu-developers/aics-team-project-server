@@ -23,16 +23,18 @@ class SectionAnnouncementCommandServiceTest {
 
     private FakeSectionAnnouncementRepository fakeSectionAnnouncementRepository;
     private FakeSectionAnnouncementAttachmentRepository fakeSectionAnnouncementAttachmentRepository;
+    private FakeFileObjectRepository fakeFileObjectRepository;
     private SectionAnnouncementCommandService commandService;
 
     @BeforeEach
     void init() {
         fakeSectionAnnouncementRepository = new FakeSectionAnnouncementRepository();
         fakeSectionAnnouncementAttachmentRepository = new FakeSectionAnnouncementAttachmentRepository();
+        fakeFileObjectRepository = new FakeFileObjectRepository();
         commandService = new SectionAnnouncementCommandService(
             fakeSectionAnnouncementRepository,
             fakeSectionAnnouncementAttachmentRepository,
-            new FakeFileObjectRepository(),
+            fakeFileObjectRepository,
             new FakeFileStorage()
         );
     }
@@ -65,6 +67,38 @@ class SectionAnnouncementCommandServiceTest {
         // then
         List<SectionAnnouncementAttachment> attachments = fakeSectionAnnouncementAttachmentRepository.findAllByAnnouncementId(id);
         assertThat(attachments).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("createAnnouncement는 원본 파일명이 255자를 넘으면 잘라서 저장한다")
+    void createAnnouncement_FileNameOverMaxLength_IsTruncated() {
+        // given
+        String longName = "가".repeat(300) + ".pdf";
+        MultipartFile file = new MockMultipartFile("file", longName, "application/pdf", "content".getBytes());
+
+        // when
+        Long id = commandService.createAnnouncement(1L, "제목", "내용", LocalDateTime.now(), List.of(file), "202400001");
+
+        // then
+        Long fileId = fakeSectionAnnouncementAttachmentRepository.findAllByAnnouncementId(id).get(0).getFileId();
+        String savedFileName = fakeFileObjectRepository.findById(fileId).orElseThrow().getFileName();
+        assertThat(savedFileName).hasSize(255);
+        assertThat(savedFileName).isEqualTo(longName.substring(0, 255));
+    }
+
+    @Test
+    @DisplayName("createAnnouncement는 원본 파일명이 없으면 기본 이름으로 저장한다")
+    void createAnnouncement_FileNameMissing_UsesFallbackName() {
+        // given
+        MultipartFile file = new MockMultipartFile("file", null, "application/pdf", "content".getBytes());
+
+        // when
+        Long id = commandService.createAnnouncement(1L, "제목", "내용", LocalDateTime.now(), List.of(file), "202400001");
+
+        // then
+        Long fileId = fakeSectionAnnouncementAttachmentRepository.findAllByAnnouncementId(id).get(0).getFileId();
+        String savedFileName = fakeFileObjectRepository.findById(fileId).orElseThrow().getFileName();
+        assertThat(savedFileName).isEqualTo("첨부파일");
     }
 
     @Test
