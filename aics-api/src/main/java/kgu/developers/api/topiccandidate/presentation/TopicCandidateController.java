@@ -61,8 +61,13 @@ public interface TopicCandidateController {
         Authentication authentication
     );
 
-    @Operation(summary = "팀장 직접 주제 확정 API",
-        description = "팀장이 투표 또는 후보 등록 없이 입력한 제목과 설명으로 주제를 확정한다. 기존 제안서의 목표는 유지한다.")
+    @Operation(
+        summary = "팀장 직접 주제 확정 API",
+        description = """
+            Description : 팀장이 투표 또는 후보 등록 없이 입력한 제목과 설명으로 주제를 확정한다. 기존 제안서의 목표는 유지한다.
+            Assignee : 담당자명
+            """
+    )
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TopicFinalizeResponse.class)))
     ResponseEntity<TopicFinalizeResponse> finalizeTopicDirectly(
         @PathVariable Long teamId,
