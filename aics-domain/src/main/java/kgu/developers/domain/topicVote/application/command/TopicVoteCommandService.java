@@ -18,7 +18,7 @@ public class TopicVoteCommandService {
   private final TopicCandidateRepository topicCandidateRepository;
 
   public TopicVote vote(Long teamId, Long candidateId, String voterUserId) {
-    TopicCandidate candidate = topicCandidateRepository.findById(candidateId)
+    TopicCandidate candidate = topicCandidateRepository.findByIdForUpdate(candidateId)
             .orElseThrow(TopicCandidateNotFoundException::new);
     if (!candidate.getTeamId().equals(teamId)) {
       throw new TopicCandidateNotFoundException();

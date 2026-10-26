@@ -83,6 +83,10 @@ public class TopicCandidateFacade {
         teamAccessValidator.validateLeaderWithTeamLock(teamId, userId);
         Project project = projectCommandService.finalizeTopic(
             teamId, null, request.title(), request.description(), null);
+        List<TopicCandidate> candidates = topicCandidateRepository.findByTeamId(teamId);
+        topicVoteRepository.findAllByCandidateIdIn(candidates.stream().map(TopicCandidate::getId).toList())
+            .forEach(vote -> topicVoteRepository.deleteById(vote.getId()));
+        candidates.forEach(candidate -> topicCandidateCommandService.deleteTopicCandidate(candidate.getId()));
         return TopicFinalizeResponse.of(project);
     }
 }

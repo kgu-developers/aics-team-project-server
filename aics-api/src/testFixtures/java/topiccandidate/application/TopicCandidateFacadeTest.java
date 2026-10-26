@@ -179,6 +179,28 @@ class TopicCandidateFacadeTest {
         verify(projectCommandService).finalizeTopic(TEAM_ID, null, "직접 입력", "설명", null);
     }
 
+    @Test
+    @DisplayName("직접 확정은 기존 후보와 투표를 모두 무효화한다")
+    void finalizeTopicDirectly_ClearsCandidatesAndVotes() {
+        TopicCandidate first = candidate(7L, "기존 후보", "설명");
+        TopicCandidate second = candidate(8L, "다른 후보", "설명");
+        given(topicCandidateRepository.findByTeamId(TEAM_ID)).willReturn(List.of(first, second));
+        given(topicVoteRepository.findAllByCandidateIdIn(List.of(7L, 8L))).willReturn(List.of(
+            TopicVote.builder().id(11L).teamId(TEAM_ID).candidateId(7L).voterUserId(CURRENT_USER_ID).build(),
+            TopicVote.builder().id(12L).teamId(TEAM_ID).candidateId(8L).voterUserId("202412346").build()
+        ));
+        given(projectCommandService.finalizeTopic(TEAM_ID, null, "직접 입력", "설명", null))
+            .willReturn(Project.builder().id(2L).teamId(TEAM_ID).title("직접 입력").build());
+
+        topicCandidateFacade.finalizeTopicDirectly(
+            TEAM_ID, CURRENT_USER_ID, new TopicDirectFinalizeRequest("직접 입력", "설명"));
+
+        verify(topicVoteRepository).deleteById(11L);
+        verify(topicVoteRepository).deleteById(12L);
+        verify(topicCandidateCommandService).deleteTopicCandidate(7L);
+        verify(topicCandidateCommandService).deleteTopicCandidate(8L);
+    }
+
     private TopicCandidate candidate(Long id, String title, String description) {
         return TopicCandidate.builder()
             .id(id)
