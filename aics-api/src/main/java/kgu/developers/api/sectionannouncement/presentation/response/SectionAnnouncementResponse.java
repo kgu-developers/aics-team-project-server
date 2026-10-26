@@ -4,6 +4,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncement;
 import lombok.Builder;
 
@@ -23,18 +24,24 @@ public record SectionAnnouncementResponse(
     String content,
 
     @Schema(description = "게시일시", example = "2026-08-24 10:00", requiredMode = REQUIRED)
-    String publishedAt
+    String publishedAt,
+
+    @Schema(description = "첨부파일 목록", requiredMode = REQUIRED)
+    List<SectionAnnouncementAttachmentResponse> attachments
 ) {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public static SectionAnnouncementResponse from(SectionAnnouncement announcement) {
+    public static SectionAnnouncementResponse from(
+        SectionAnnouncement announcement, List<SectionAnnouncementAttachmentResponse> attachments
+    ) {
         return SectionAnnouncementResponse.builder()
             .id(announcement.getId())
             .sectionId(announcement.getSectionId())
             .title(announcement.getTitle())
             .content(announcement.getContent())
             .publishedAt(announcement.getPublishedAt().format(FORMATTER))
+            .attachments(attachments)
             .build();
     }
 }
