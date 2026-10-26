@@ -21,6 +21,12 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    # KD3-303: 배포 서버가 총 메모리 911MB짜리 소형 인스턴스라, 커넥션풀 기본값(앱당 10개,
+    # 유휴여도 그대로 유지)을 3개 앱이 각각 쓰면 postgres 유휴 커넥션 30개가 메모리 377MB를
+    # 그대로 점유해버린다(실측, 스왑 1.3GB까지 쓰는 원인). 지금 트래픽 수준엔 과한 설정이라 낮춘다.
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
 
   jpa:
     hibernate:
