@@ -3,12 +3,15 @@ package teamthread.application.command;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.EntityManager;
@@ -20,6 +23,8 @@ import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.infrastructure.TeamJpaEntity;
 import kgu.developers.domain.teamthread.application.command.TeamThreadCommandService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
+import kgu.developers.domain.teamthread.domain.TeamThreadRepository;
+import kgu.developers.domain.teamthread.infrastructure.JpaTeamThreadRepository;
 import kgu.developers.domain.teamthread.infrastructure.TeamThreadRepositoryImpl;
 import kgu.developers.domain.user.domain.UserGlobalRole;
 import kgu.developers.domain.user.infrastructure.UserJpaEntity;
@@ -52,6 +57,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * 열려있을 때만 재현된다. 서비스를 트랜잭션 없이 맨몸으로 직접 호출하면 Spring Data JPA가
  * 각 리포지토리 호출마다 자체 트랜잭션을 열어버려 이 조건이 재현되지 않으므로,
  * TransactionalCaller로 그 바깥 트랜잭션 경계를 재현한다.
+ *
+ * CountDownLatch로 두 스레드를 동시에 깨우는 것만으로는, 한쪽이 조회+삽입을 전부 끝낸 뒤에야
+ * 다른 쪽이 조회를 시작해도(즉 실제로는 겹치지 않고 순차 실행돼도) 테스트가 통과해버린다 —
+ * 두 번째 스레드는 그냥 이미 존재하는 스레드를 찾아서 반환할 뿐, insert 경쟁이 전혀 일어나지
+ * 않기 때문이다. LookupBarrierTeamThreadRepository로 "두 스레드 모두 최초 조회에서
+ * 스레드 없음을 확인한 지점"에서 다시 동기화해, 그 다음에야 둘 다 삽입으로 넘어가도록 강제한다.
  */
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -74,10 +85,18 @@ class TeamThreadConcurrencyTest {
     @EnableJpaRepositories("kgu.developers.domain")
     @org.springframework.context.annotation.Import({
         TeamThreadCommandService.class,
-        TeamThreadRepositoryImpl.class,
         TeamThreadConcurrencyTest.TransactionalCaller.class
     })
     static class TestConfig {
+
+        // TeamThreadCommandService가 주입받는 TeamThreadRepository 자리에, 실제 구현체를
+        // LookupBarrierTeamThreadRepository로 감싼 것을 등록한다 — 두 스레드의 최초 조회
+        // 타이밍을 강제로 맞추기 위한 테스트 전용 빈이라 TeamThreadRepositoryImpl을
+        // 그대로 빈으로 노출하지 않는다(그러면 같은 타입 빈이 2개가 돼 주입이 모호해진다).
+        @org.springframework.context.annotation.Bean
+        TeamThreadRepository teamThreadRepository(JpaTeamThreadRepository jpaTeamThreadRepository) {
+            return new LookupBarrierTeamThreadRepository(new TeamThreadRepositoryImpl(jpaTeamThreadRepository));
+        }
     }
 
     // TeamMessageFacade(@Transactional)가 getOrCreateThread()를 호출하는 바깥 트랜잭션 경계를
@@ -93,6 +112,51 @@ class TeamThreadConcurrencyTest {
 
         TeamThread getOrCreateThread(Long teamId) {
             return teamThreadCommandService.getOrCreateThread(teamId);
+        }
+    }
+
+    // 최초 조회(findByTeamId)가 "스레드 없음"을 확인한 호출 2건(동시에 뛰는 스레드 수)에 대해서만
+    // CyclicBarrier로 서로를 기다리게 한다 — 그 뒤로 일어나는 재조회(삽입 실패 후 재조회)는
+    // 걸리지 않게 해서, 승자가 먼저 커밋하고 패자가 재조회하는 흐름을 막지 않는다.
+    static class LookupBarrierTeamThreadRepository implements TeamThreadRepository {
+        private final TeamThreadRepository delegate;
+        private final CyclicBarrier emptyLookupBarrier = new CyclicBarrier(2);
+        private final AtomicInteger emptyLookupCount = new AtomicInteger();
+
+        LookupBarrierTeamThreadRepository(TeamThreadRepository delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public TeamThread save(TeamThread teamThread) {
+            return delegate.save(teamThread);
+        }
+
+        @Override
+        public Optional<TeamThread> findById(Long id) {
+            return delegate.findById(id);
+        }
+
+        @Override
+        public Optional<TeamThread> findByTeamId(Long teamId) {
+            Optional<TeamThread> result = delegate.findByTeamId(teamId);
+            if (result.isEmpty() && emptyLookupCount.incrementAndGet() <= 2) {
+                awaitBothLookups();
+            }
+            return result;
+        }
+
+        @Override
+        public List<TeamThread> findAllByTeamIdIn(List<Long> teamIds) {
+            return delegate.findAllByTeamIdIn(teamIds);
+        }
+
+        private void awaitBothLookups() {
+            try {
+                emptyLookupBarrier.await(10, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
         }
     }
 
