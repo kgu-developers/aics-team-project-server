@@ -88,7 +88,7 @@ public class SectionAnnouncementCommandService {
         }
         for (MultipartFile file : files) {
             String fileName = sanitizeFileName(file.getOriginalFilename());
-            String storageKey = fileStorage.upload(file);
+            String storageKey = fileStorage.upload(file, file.getContentType(), fileName);
             FileObject fileObject = fileObjectRepository.save(FileObject.create(
                 uploaderId, storageKey, fileName, file.getContentType(), file.getSize(), false, null));
             sectionAnnouncementAttachmentRepository.save(
