@@ -28,11 +28,12 @@ public interface TeamMessageController {
     @Operation(
         summary = "분반 전체 팀 메시지 등록 API",
         description = """
-            Description: 담당 교수만 본인 분반의 삭제되지 않은 모든 팀에 동일한 GENERAL 메시지를 등록할 수 있다.
-            발신자는 인증된 사용자로 기록하며, 팀별 스레드가 없으면 생성한다.
-            관련 문서 상태는 변경하지 않고, 읽음 여부는 기존 팀 메시지와 동일하게 사용자별로 관리한다.
-            전송 대상 팀이 없으면 sentCount는 0이다.
-            Assignee: 담당자명
+            Description : 담당 교수만 본인 분반의 삭제되지 않은 모든 팀에 동일한 GENERAL 메시지를 등록할 수 있다.
+                팀 status(FORMING/CONFIRMED)는 가리지 않으므로 아직 구성 중인 팀에도 전달된다.
+                발신자는 인증된 사용자로 기록하며, 팀별 스레드가 없으면 생성한다.
+                관련 문서 상태는 변경하지 않고, 읽음 여부는 기존 팀 메시지와 동일하게 사용자별로 관리한다.
+                전송 대상 팀이 없으면 sentCount는 0이다.
+            Assignee : 담당자명
             """
     )
     @ApiResponse(responseCode = "201", content = @Content(schema = @Schema(implementation = SectionTeamMessagePersistResponse.class)))

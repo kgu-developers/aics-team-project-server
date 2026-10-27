@@ -108,10 +108,12 @@ public class TeamMessageFacadeTest {
     }
 
     @Test
-    @DisplayName("분반 전체 전송은 해당 분반의 활성 팀에만 일반 메시지를 남기고 사용자별 읽음을 유지한다")
+    @DisplayName("분반 전체 전송은 해당 분반의 삭제되지 않은 모든 팀에 status와 무관하게 일반 메시지를 남기고 사용자별 읽음을 유지한다")
     void postSectionMessages_OnlyActiveTeamsInSection() {
         fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
         fakeTeamRepository.save(Team.builder().id(3L).sectionId(2L).build());
+        // 아직 구성 중인 팀에도 교수 공지는 전달되어야 한다.
+        fakeTeamRepository.save(Team.builder().id(5L).sectionId(1L).status(Status.FORMING).build());
         Team deletedTeam = team(4L);
         deletedTeam.delete();
         fakeTeamRepository.save(deletedTeam);
@@ -120,8 +122,8 @@ public class TeamMessageFacadeTest {
         var result = teamMessageFacade.postSectionMessages(
             1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내"));
 
-        assertEquals(3, result.sentCount());
-        for (Long teamId : List.of(1L, 2L, 99L)) {
+        assertEquals(4, result.sentCount());
+        for (Long teamId : List.of(1L, 2L, 5L, 99L)) {
             var messages = teamMessageFacade.getMessages(teamId, null, PageRequest.of(0, 10), PROFESSOR_ID);
             var sent = messages.contents().get(0);
             assertEquals("전체 팀 안내", sent.message());
