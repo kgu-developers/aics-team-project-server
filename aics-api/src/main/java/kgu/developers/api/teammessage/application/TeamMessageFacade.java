@@ -5,7 +5,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import kgu.developers.api.team.application.TeamAccessValidator;
+import kgu.developers.api.teammessage.presentation.request.SectionTeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.request.TeamMessageCreateRequest;
+import kgu.developers.api.teammessage.presentation.response.SectionTeamMessagePersistResponse;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePageResponse;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePersistResponse;
 import kgu.developers.api.teammessage.presentation.response.UnreadMessageCountResponse;
@@ -23,6 +25,7 @@ import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
 import kgu.developers.domain.midreport.application.query.MidReportQueryService;
+import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +51,22 @@ public class TeamMessageFacade {
     private final MidReportQueryService midReportQueryService;
     private final MidReportCommandService midReportCommandService;
     private final TeamRepository teamRepository;
+    private final SectionRepository sectionRepository;
+
+    public SectionTeamMessagePersistResponse postSectionMessages(
+        Long sectionId, String senderId, SectionTeamMessageCreateRequest request
+    ) {
+        if (!sectionRepository.existsActiveByIdAndProfessorId(sectionId, senderId)) {
+            throw new AccessDeniedException("해당 분반의 담당 교수만 전체 팀에 메시지를 보낼 수 있습니다.");
+        }
+        List<Long> teamIds = teamRepository.findAllIdsBySectionId(sectionId);
+        for (Long teamId : teamIds) {
+            TeamThread thread = teamThreadCommandService.getOrCreateThread(teamId);
+            teamMessageCommandService.postMessage(
+                thread.getId(), senderId, TeamMessageRelatedType.GENERAL, null, request.message());
+        }
+        return new SectionTeamMessagePersistResponse(teamIds.size());
+    }
 
     public TeamMessagePersistResponse postMessage(Long teamId, String senderId, TeamMessageCreateRequest request) {
         teamAccessValidator.validateMembershipOrProfessor(teamId, senderId);

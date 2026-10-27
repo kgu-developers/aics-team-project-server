@@ -1,11 +1,15 @@
 package teammessage.presentation;
 
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import kgu.developers.api.teammessage.application.TeamMessageFacade;
 import kgu.developers.api.teammessage.presentation.TeamMessageControllerImpl;
+import kgu.developers.api.teammessage.presentation.request.SectionTeamMessageCreateRequest;
+import kgu.developers.api.teammessage.presentation.response.SectionTeamMessagePersistResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +33,30 @@ class TeamMessageControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new TeamMessageControllerImpl(facade))
             .setValidator(validator)
             .build();
+    }
+
+    @Test
+    void acceptsSectionMessage() throws Exception {
+        when(facade.postSectionMessages(1L, "202699999", new SectionTeamMessageCreateRequest("전체 팀 안내")))
+            .thenReturn(new SectionTeamMessagePersistResponse(3));
+
+        mockMvc.perform(post("/api/v1/sections/{sectionId}/messages", 1L)
+                .principal(new UsernamePasswordAuthenticationToken("202699999", null))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"message\":\"전체 팀 안내\",\"senderId\":\"다른 사용자\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.sentCount").value(3));
+    }
+
+    @Test
+    void rejectsBlankSectionMessage() throws Exception {
+        mockMvc.perform(post("/api/v1/sections/{sectionId}/messages", 1L)
+                .principal(new UsernamePasswordAuthenticationToken("202699999", null))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"message\":\"  \"}"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(facade);
     }
 
     @Test
