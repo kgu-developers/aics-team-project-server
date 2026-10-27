@@ -4,6 +4,7 @@ import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import java.util.Map;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncement;
 import lombok.Builder;
 
@@ -14,9 +15,15 @@ public record SectionAnnouncementListResponse(
     List<SectionAnnouncementResponse> contents
 ) {
 
-    public static SectionAnnouncementListResponse from(List<SectionAnnouncement> announcements) {
+    public static SectionAnnouncementListResponse from(
+        List<SectionAnnouncement> announcements,
+        Map<Long, List<SectionAnnouncementAttachmentResponse>> attachmentsByAnnouncementId
+    ) {
         return SectionAnnouncementListResponse.builder()
-            .contents(announcements.stream().map(SectionAnnouncementResponse::from).toList())
+            .contents(announcements.stream()
+                .map(announcement -> SectionAnnouncementResponse.from(
+                    announcement, attachmentsByAnnouncementId.getOrDefault(announcement.getId(), List.of())))
+                .toList())
             .build();
     }
 }

@@ -3,8 +3,10 @@ package sectionannouncement.application;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import kgu.developers.api.sectionannouncement.application.SectionAnnouncementFacade;
 import kgu.developers.api.sectionannouncement.presentation.request.SectionAnnouncementCreateRequest;
 import kgu.developers.api.sectionannouncement.presentation.request.SectionAnnouncementUpdateRequest;
@@ -20,13 +22,18 @@ import kgu.developers.domain.sectionannouncement.application.command.SectionAnno
 import kgu.developers.domain.sectionannouncement.application.query.SectionAnnouncementQueryService;
 import kgu.developers.domain.sectionannouncement.domain.SectionAnnouncement;
 import mock.repository.FakeEnrollmentRepository;
+import mock.repository.FakeFileObjectRepository;
+import mock.repository.FakeFileStorage;
 import mock.repository.FakeNotificationRepository;
+import mock.repository.FakeSectionAnnouncementAttachmentRepository;
 import mock.repository.FakeSectionAnnouncementRepository;
 import mock.repository.FakeSectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.multipart.MultipartFile;
 
 public class SectionAnnouncementFacadeTest {
 
@@ -45,6 +52,10 @@ public class SectionAnnouncementFacadeTest {
         FakeEnrollmentRepository fakeEnrollmentRepository = new FakeEnrollmentRepository();
         fakeSectionAnnouncementRepository = new FakeSectionAnnouncementRepository();
         fakeNotificationRepository = new FakeNotificationRepository();
+        FakeSectionAnnouncementAttachmentRepository fakeSectionAnnouncementAttachmentRepository =
+            new FakeSectionAnnouncementAttachmentRepository();
+        FakeFileObjectRepository fakeFileObjectRepository = new FakeFileObjectRepository();
+        FakeFileStorage fakeFileStorage = new FakeFileStorage();
 
         Section section = fakeSectionRepository.save(
             Section.create(PROFESSOR, 1L, "DD015_1206", "월 1교시", 40, null, null)
@@ -54,8 +65,16 @@ public class SectionAnnouncementFacadeTest {
         fakeEnrollmentRepository.save(Enrollment.create(sectionId, STUDENT, Role.STUDENT, Status.ACTIVE));
 
         facade = new SectionAnnouncementFacade(
-            new SectionAnnouncementCommandService(fakeSectionAnnouncementRepository),
+            new SectionAnnouncementCommandService(
+                fakeSectionAnnouncementRepository,
+                fakeSectionAnnouncementAttachmentRepository,
+                fakeFileObjectRepository,
+                fakeFileStorage
+            ),
             new SectionAnnouncementQueryService(fakeSectionAnnouncementRepository),
+            fakeSectionAnnouncementAttachmentRepository,
+            fakeFileObjectRepository,
+            fakeFileStorage,
             new NotificationCommandService(fakeNotificationRepository),
             fakeSectionRepository,
             fakeEnrollmentRepository
@@ -69,17 +88,55 @@ public class SectionAnnouncementFacadeTest {
             .build();
     }
 
+    private SectionAnnouncementResponse createDefaultAnnouncement() {
+        return facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest(), null);
+    }
+
     @Test
     @DisplayName("createAnnouncement는 담당 교수가 공지사항을 생성하면 분반 전원에게 알림을 발송한다")
     public void createAnnouncement_BroadcastsToActiveEnrollments() {
         // when
-        SectionAnnouncementResponse result = facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest());
+        SectionAnnouncementResponse result = createDefaultAnnouncement();
 
         // then
         assertNotNull(result.id());
         assertEquals(1, fakeNotificationRepository.findAll().size());
         assertEquals(STUDENT, fakeNotificationRepository.findAll().get(0).getUserId());
         assertEquals(result.id(), fakeNotificationRepository.findAll().get(0).getSourceId());
+    }
+
+    @Test
+    @DisplayName("createAnnouncement에 파일을 함께 보내면 응답의 attachments에 다운로드 URL이 포함된다")
+    public void createAnnouncement_WithFiles_ReturnsAttachmentsWithDownloadUrl() {
+        // given
+        MultipartFile file = new MockMultipartFile("file", "안내문.pdf", "application/pdf", "content".getBytes());
+
+        // when
+        SectionAnnouncementResponse result = facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest(), List.of(file));
+
+        // then
+        assertEquals(1, result.attachments().size());
+        assertEquals("안내문.pdf", result.attachments().get(0).fileName());
+        assertTrue(result.attachments().get(0).downloadUrl() != null && !result.attachments().get(0).downloadUrl().isBlank());
+    }
+
+    @Test
+    @DisplayName("updateAnnouncement는 deleteAttachmentIds로 지정한 첨부파일을 제거한다")
+    public void updateAnnouncement_DeleteAttachmentIds_RemovesAttachment() {
+        // given
+        MultipartFile file = new MockMultipartFile("file", "안내문.pdf", "application/pdf", "content".getBytes());
+        SectionAnnouncementResponse created = facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest(), List.of(file));
+        Long attachmentId = created.attachments().get(0).id();
+
+        SectionAnnouncementUpdateRequest updateRequest = SectionAnnouncementUpdateRequest.builder()
+            .deleteAttachmentIds(List.of(attachmentId))
+            .build();
+
+        // when
+        SectionAnnouncementResponse updated = facade.updateAnnouncement(created.id(), PROFESSOR, updateRequest, null);
+
+        // then
+        assertEquals(0, updated.attachments().size());
     }
 
     @Test
@@ -91,7 +148,7 @@ public class SectionAnnouncementFacadeTest {
             .content("내일 공개됩니다.")
             .publishedAt(LocalDateTime.now().plusDays(1))
             .build();
-        facade.createAnnouncement(sectionId, PROFESSOR, scheduledRequest);
+        facade.createAnnouncement(sectionId, PROFESSOR, scheduledRequest, null);
 
         // when
         SectionAnnouncementListResponse result = facade.getAnnouncements(sectionId, STUDENT);
@@ -111,7 +168,7 @@ public class SectionAnnouncementFacadeTest {
             .build();
 
         // when
-        facade.createAnnouncement(sectionId, PROFESSOR, scheduledRequest);
+        facade.createAnnouncement(sectionId, PROFESSOR, scheduledRequest, null);
 
         // then
         assertEquals(0, fakeNotificationRepository.findAll().size());
@@ -126,7 +183,8 @@ public class SectionAnnouncementFacadeTest {
                 .title("예약 공지")
                 .content("곧 공개됩니다.")
                 .publishedAt(LocalDateTime.now().plusDays(1))
-                .build());
+                .build(),
+            null);
         assertEquals(0, fakeNotificationRepository.findAll().size());
 
         SectionAnnouncement announcement = fakeSectionAnnouncementRepository.findById(persisted.id()).orElseThrow();
@@ -144,7 +202,7 @@ public class SectionAnnouncementFacadeTest {
     @DisplayName("publishScheduledAnnouncements는 이미 알림을 보낸 공지사항은 다시 발송하지 않는다")
     public void publishScheduledAnnouncements_DoesNotRenotifyAlreadyNotified() {
         // given — 즉시 게시(알림 즉시 발송) 공지
-        facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest());
+        createDefaultAnnouncement();
         assertEquals(1, fakeNotificationRepository.findAll().size());
 
         // when
@@ -158,7 +216,7 @@ public class SectionAnnouncementFacadeTest {
     @DisplayName("담당 교수가 아니면 공지사항을 생성할 수 없다")
     public void createAnnouncement_NonProfessor_ThrowsAccessDenied() {
         // when & then
-        assertThatThrownBy(() -> facade.createAnnouncement(sectionId, STUDENT, buildCreateRequest()))
+        assertThatThrownBy(() -> facade.createAnnouncement(sectionId, STUDENT, buildCreateRequest(), null))
             .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -166,7 +224,7 @@ public class SectionAnnouncementFacadeTest {
     @DisplayName("getAnnouncements는 분반 소속 학생도 조회할 수 있다")
     public void getAnnouncements_StudentCanView() {
         // given
-        facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest());
+        createDefaultAnnouncement();
 
         // when
         SectionAnnouncementListResponse result = facade.getAnnouncements(sectionId, STUDENT);
@@ -187,13 +245,13 @@ public class SectionAnnouncementFacadeTest {
     @DisplayName("updateAnnouncement는 전달된 필드만 갱신한다")
     public void updateAnnouncement_UpdatesOnlyProvidedFields() {
         // given
-        SectionAnnouncementResponse persisted = facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest());
+        SectionAnnouncementResponse persisted = createDefaultAnnouncement();
         SectionAnnouncementUpdateRequest updateRequest = SectionAnnouncementUpdateRequest.builder()
             .title("수정된 제목")
             .build();
 
         // when
-        SectionAnnouncementResponse updated = facade.updateAnnouncement(persisted.id(), PROFESSOR, updateRequest);
+        SectionAnnouncementResponse updated = facade.updateAnnouncement(persisted.id(), PROFESSOR, updateRequest, null);
 
         // then
         assertEquals("수정된 제목", updated.title());
@@ -204,13 +262,13 @@ public class SectionAnnouncementFacadeTest {
     @DisplayName("담당 교수가 아니면 공지사항을 수정할 수 없다")
     public void updateAnnouncement_NonProfessor_ThrowsAccessDenied() {
         // given
-        SectionAnnouncementResponse persisted = facade.createAnnouncement(sectionId, PROFESSOR, buildCreateRequest());
+        SectionAnnouncementResponse persisted = createDefaultAnnouncement();
         SectionAnnouncementUpdateRequest updateRequest = SectionAnnouncementUpdateRequest.builder()
             .title("수정 시도")
             .build();
 
         // when & then
-        assertThatThrownBy(() -> facade.updateAnnouncement(persisted.id(), STUDENT, updateRequest))
+        assertThatThrownBy(() -> facade.updateAnnouncement(persisted.id(), STUDENT, updateRequest, null))
             .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -223,7 +281,7 @@ public class SectionAnnouncementFacadeTest {
             .build();
 
         // when & then
-        assertThatThrownBy(() -> facade.updateAnnouncement(999L, PROFESSOR, updateRequest))
+        assertThatThrownBy(() -> facade.updateAnnouncement(999L, PROFESSOR, updateRequest, null))
             .isInstanceOf(CustomException.class);
     }
 }
