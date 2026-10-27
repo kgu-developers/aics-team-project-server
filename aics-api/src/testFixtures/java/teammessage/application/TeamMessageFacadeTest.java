@@ -4,10 +4,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.teammessage.application.TeamMessageFacade;
+import kgu.developers.api.teammessage.presentation.request.SectionTeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.request.TeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePageResponse;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePersistResponse;
@@ -98,8 +102,81 @@ public class TeamMessageFacadeTest {
             null,
             null,
             null,
-            fakeTeamRepository
+            fakeTeamRepository,
+            fakeSectionRepository
         );
+    }
+
+    @Test
+    @DisplayName("분반 전체 전송은 해당 분반의 삭제되지 않은 모든 팀에 status와 무관하게 일반 메시지를 남기고 사용자별 읽음을 유지한다")
+    void postSectionMessages_OnlyActiveTeamsInSection() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+        fakeTeamRepository.save(Team.builder().id(3L).sectionId(2L).build());
+        // 아직 구성 중인 팀에도 교수 공지는 전달되어야 한다.
+        fakeTeamRepository.save(Team.builder().id(5L).sectionId(1L).status(Status.FORMING).build());
+        Team deletedTeam = team(4L);
+        deletedTeam.delete();
+        fakeTeamRepository.save(deletedTeam);
+        teamMessageFacade.postMessage(1L, USER_A, createRequest("기존 메시지"));
+
+        var result = teamMessageFacade.postSectionMessages(
+            1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내"));
+
+        assertEquals(4, result.sentCount());
+        for (Long teamId : List.of(1L, 2L, 5L, 99L)) {
+            var messages = teamMessageFacade.getMessages(teamId, null, PageRequest.of(0, 10), PROFESSOR_ID);
+            var sent = messages.contents().get(0);
+            assertEquals("전체 팀 안내", sent.message());
+            assertEquals(PROFESSOR_ID, sent.senderId());
+            assertEquals(TeamMessageRelatedType.GENERAL, sent.relatedType());
+            assertNull(sent.relatedId());
+            assertFalse(sent.read());
+        }
+        assertTrue(fakeTeamThreadRepository.findByTeamId(3L).isEmpty());
+        assertTrue(fakeTeamThreadRepository.findByTeamId(4L).isEmpty());
+        assertEquals(2, teamMessageFacade.getUnreadCount(1L, USER_A).count());
+        assertEquals(1, teamMessageFacade.getUnreadCount(2L, USER_A).count());
+        var posted = teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), USER_A).contents().get(0);
+        teamMessageFacade.markAsRead(posted.id(), USER_A);
+        assertEquals(1, teamMessageFacade.getUnreadCount(1L, USER_A).count());
+        assertEquals(2, teamMessageFacade.getUnreadCount(1L, USER_B).count());
+    }
+
+    @Test
+    @DisplayName("학생과 다른 분반 교수는 전체 팀에 전송할 수 없다")
+    void postSectionMessages_RejectsNonOwner() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+        for (String sender : List.of(USER_A, "202688888")) {
+            assertThatThrownBy(() -> teamMessageFacade.postSectionMessages(
+                1L, sender, new SectionTeamMessageCreateRequest("전체 팀 안내")))
+                .isInstanceOf(AccessDeniedException.class);
+        }
+        assertTrue(fakeTeamThreadRepository.findByTeamId(1L).isEmpty());
+    }
+
+    @Test
+    @DisplayName("삭제되거나 없는 분반에는 전송할 수 없다")
+    void postSectionMessages_RejectsDeletedOrMissingSection() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID)
+            .deletedAt(LocalDateTime.now()).build());
+        for (Long sectionId : List.of(1L, 999L)) {
+            assertThatThrownBy(() -> teamMessageFacade.postSectionMessages(
+                sectionId, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내")))
+                .isInstanceOf(AccessDeniedException.class);
+        }
+        assertTrue(fakeTeamThreadRepository.findByTeamId(1L).isEmpty());
+    }
+
+    @Test
+    @DisplayName("팀이 없는 분반은 전송 건수 0으로 응답한다")
+    void postSectionMessages_EmptySection() {
+        fakeSectionRepository.save(Section.builder().id(2L).professorId(PROFESSOR_ID).build());
+
+        var result = teamMessageFacade.postSectionMessages(
+            2L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내"));
+
+        assertEquals(0, result.sentCount());
+        assertTrue(fakeTeamThreadRepository.findByTeamId(1L).isEmpty());
     }
 
     private TeamMessageCreateRequest createRequest(String message) {

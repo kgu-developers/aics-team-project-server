@@ -1,8 +1,10 @@
 package kgu.developers.api.teammessage.presentation;
 
 import kgu.developers.api.teammessage.application.TeamMessageFacade;
+import kgu.developers.api.teammessage.presentation.request.SectionTeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.request.TeamMessageCreateRequest;
 import kgu.developers.api.teammessage.presentation.request.TeamMessageImportantUpdateRequest;
+import kgu.developers.api.teammessage.presentation.response.SectionTeamMessagePersistResponse;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePageResponse;
 import kgu.developers.api.teammessage.presentation.response.TeamMessagePersistResponse;
 import kgu.developers.api.teammessage.presentation.response.UnreadMessageCountResponse;
@@ -30,6 +32,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class TeamMessageControllerImpl implements TeamMessageController {
 
     private final TeamMessageFacade teamMessageFacade;
+
+    @Override
+    @PostMapping("/sections/{sectionId}/messages")
+    public ResponseEntity<SectionTeamMessagePersistResponse> postSectionMessages(
+        @PathVariable Long sectionId,
+        @Valid @RequestBody SectionTeamMessageCreateRequest request,
+        Authentication authentication
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(teamMessageFacade.postSectionMessages(sectionId, authentication.getName(), request));
+    }
 
     @Override
     @GetMapping("/teams/{teamId}/messages")
