@@ -33,6 +33,7 @@ import mock.repository.FakeTeamMessageRepository;
 import mock.repository.FakeTeamMessageUnreadRepository;
 import mock.repository.FakeTeamRepository;
 import mock.repository.FakeTeamThreadRepository;
+import mock.repository.FakeTransactionManager;
 import mock.repository.FakeUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -80,7 +81,7 @@ public class TeamMessageFacadeTest {
         UserQueryService userQueryService = new UserQueryService(fakeUserRepository, fakeEnrollmentRepository);
 
         teamMessageFacade = new TeamMessageFacade(
-            new TeamThreadCommandService(fakeTeamThreadRepository),
+            new TeamThreadCommandService(fakeTeamThreadRepository, new FakeTransactionManager()),
             new TeamThreadQueryService(fakeTeamThreadRepository),
             new TeamMessageCommandService(fakeTeamMessageRepository, fakeTeamMessageReadReceiptRepository),
             new TeamMessageQueryService(

@@ -16,6 +16,7 @@ import mock.repository.FakeSectionRepository;
 import mock.repository.FakeTeamMemberRepository;
 import mock.repository.FakeTeamRepository;
 import mock.repository.FakeTeamThreadRepository;
+import mock.repository.FakeTransactionManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,7 @@ public class TeamThreadFacadeTest {
         fakeTeamMemberRepository.save(TeamMember.create(1L, MEMBER, false, "기록자"));
 
         teamThreadFacade = new TeamThreadFacade(
-            new TeamThreadCommandService(fakeTeamThreadRepository),
+            new TeamThreadCommandService(fakeTeamThreadRepository, new FakeTransactionManager()),
             new TeamAccessValidator(fakeTeamRepository, fakeTeamMemberRepository, fakeSectionRepository)
         );
     }
