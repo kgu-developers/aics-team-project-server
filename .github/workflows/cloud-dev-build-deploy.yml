@@ -119,6 +119,13 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          # KD3-313(sunzx0428 리뷰): health check는 서비스당 180초 경과시간으로
+          # 상한을 걸어(아래 wait_for_service_health) 세 서비스 합산 최악
+          # 9분(540초)으로 보장한다. 여기에 이미지 pull·stop/rm·up 재시도·Caddy
+          # 재생성·로그인/구 Swagger 스모크 테스트까지 더해도 기본 10분을 넘길
+          # 수 있고, 그러면 rollback_deployment를 못 거친 채 액션이 스크립트를
+          # 강제 종료한다. 전체 예산(최악 약 18분 추산)보다 넉넉히 잡는다.
+          command_timeout: 25m
           script: |
             set -euo pipefail
             cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
@@ -181,19 +188,75 @@ jobs:
             # KD3-170: up -d 가 일시적인 Docker 오류로 실패하면 set -e 로 바로
             # 스크립트가 종료되어 애플리케이션 컨테이너가 없는 상태로 남는다.
             # 일시적 실패에 한해 제한된 횟수로 재시도한다.
-            up_attempt=1
-            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d; do
-              if [ "$up_attempt" -ge 5 ]; then
-                echo "docker compose up 실패 (재시도 $up_attempt회 초과)." >&2
-                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
-                rollback_deployment || true
-                exit 1
-              fi
+            up_one_service() {
+              local service="$1"
+              local attempt=1
+              until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d --no-deps "$service"; do
+                if [ "$attempt" -ge 5 ]; then
+                  echo "docker compose up 실패 ($service, 재시도 $attempt회 초과)." >&2
+                  docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
+                  rollback_deployment || true
+                  exit 1
+                fi
 
-              echo "docker compose up 실패, 재시도합니다. ($up_attempt/5)"
-              up_attempt=$((up_attempt + 1))
-              sleep 5
-            done
+                echo "docker compose up 실패 ($service), 재시도합니다. ($attempt/5)"
+                attempt=$((attempt + 1))
+                sleep 5
+              done
+            }
+
+            # KD3-313: 2 vCPU/911MB 서버에서 세 JVM을 동시에 올리면 CPU·메모리 경합으로
+            # 기동이 3~5분까지 늘어나 아래 health check(최대 3분)가 반복 타임아웃됐다
+            # (#309 배포 2회 연속 실패, HikariCP housekeeper delta 최대 1m34s 관측 —
+            # 코드 문제가 아니라 세 앱이 동시에 CPU를 다투는 게 원인이었음). 한 번에
+            # 하나씩만 올리고 그 앱이 health check를 통과한 뒤에야 다음 앱을 올려서,
+            # 기동 중인 앱이 항상 vCPU를 혼자 쓰도록 한다.
+            # KD3-313(sunzx0428 재리뷰): 시도 횟수(90회)로 예산을 세면, wget -T 5가
+            # 매 시도마다 최대 5초까지 걸릴 수 있어 실제로는 90*(5+2)=630초까지
+            # 늘어날 수 있다(세 서비스 합산 최악 약 31분) — command_timeout을 아무리
+            # 넉넉히 잡아도 안전하다고 보장할 수 없다. 시도 횟수 대신 서비스별 실제
+            # 경과시간(180초)으로 상한을 건다.
+            # timeout_seconds는 생략하면 180초(최초 기동 대기용). 아래 최종
+            # 재확인(lee-seokmin 리뷰)처럼 이미 한 번 떴던 앱을 짧게 다시
+            # 찔러볼 때는 더 작은 값을 넘긴다.
+            wait_for_service_health() {
+              local service_label="$1"
+              local url="$2"
+              local timeout_seconds="${3:-180}"
+              local deadline=$(( $(date +%s) + timeout_seconds ))
+              until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
+                wget -T 5 -q -O /dev/null "$url"; do
+                if [ "$(date +%s)" -ge "$deadline" ]; then
+                  echo "$service_label 기동 확인에 실패했습니다 (${timeout_seconds}초 초과)." >&2
+                  docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
+                  rollback_deployment || true
+                  exit 1
+                fi
+
+                echo "$service_label 기동을 기다립니다."
+                sleep 2
+              done
+            }
+
+            # KD3-313(lee-seokmin·sunzx0428 리뷰): 앱을 더 이상 "--no-deps 없는 전체
+            # up -d"로 올리지 않으므로, postgres/redis/caddy가 이미 내려가 있던 경우
+            # (서버 재부팅, 수동 정지, 최초 배포 등) 더는 자동으로 복구되지 않는다.
+            # 특히 health check는 뒤쪽 Caddy 재생성보다 먼저 caddy 컨테이너에 exec
+            # 하므로, caddy가 없으면 앱이 멀쩡히 떠도 probe 자체가 실패해 롤백된다.
+            # 순차 기동에 들어가기 전에 기반 서비스를 먼저 확보한다.
+            up_one_service postgres
+            up_one_service redis
+            up_one_service pgadmin
+            up_one_service caddy
+
+            up_one_service aics-api
+            wait_for_service_health aics-api http://aics-api:8080/v3/api-docs
+
+            up_one_service aics-admin
+            wait_for_service_health aics-admin http://aics-admin:8081/admin-api-docs
+
+            up_one_service aics-auth
+            wait_for_service_health aics-auth http://aics-auth:8082/auth-api-docs
 
             # scp-action은 Caddyfile을 새 inode로 교체할 수 있다. 단일 파일 bind mount를
             # 유지한 채 reload만 하면 실행 중인 Caddy가 이전 inode의 설정을 다시 읽어
@@ -226,30 +289,6 @@ jobs:
               echo "Caddy admin API is not ready. Retrying reload ($reload_attempt/10)..."
               reload_attempt=$((reload_attempt + 1))
               sleep 1
-            done
-
-            health_attempt=1
-            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
-              wget -q -O /dev/null http://aics-api:8080/v3/api-docs \
-              && docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
-                wget -q -O /dev/null http://aics-admin:8081/admin-api-docs \
-              && docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
-                wget -q -O /dev/null http://aics-auth:8082/auth-api-docs; do
-              if [ "$health_attempt" -ge 90 ]; then
-                # 실패한 컨테이너의 상세 로그(docker compose logs)는 여기서 GitHub Actions
-                # 로그로 직접 찍지 않는다 — 애플리케이션 로그에 토큰·개인정보·환경값이 섞여
-                # 있으면 팀 전체가 보는 CI 로그에 그대로 노출될 위험이 있다(sunzx0428 리뷰
-                # 09-06). 상태 확인은 ps로 제한하고, 상세 로그는 KD3-168로 이미 컨테이너
-                # 밖에 파일로 남고 있으니(docker/logs/) 필요하면 서버에 직접 들어가서 본다.
-                echo "애플리케이션 기동 확인에 실패했습니다." >&2
-                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
-                rollback_deployment || true
-                exit 1
-              fi
-
-              echo "애플리케이션 기동을 기다립니다. ($health_attempt/90)"
-              health_attempt=$((health_attempt + 1))
-              sleep 2
             done
 
             # 문서 URL만 확인하면 Caddy가 구 prefix를 계속 사용해도 배포가 성공한다.
@@ -302,6 +341,14 @@ jobs:
                 sleep 2
               done
             done
+
+            # KD3-313(lee-seokmin 리뷰): API를 먼저 확인한 뒤 Admin·Auth가 순차로
+            # 뜨는 동안 API가 죽는 경우를, 각 앱 기동 직후 1회성 체크만으로는 못
+            # 잡는다. 성공 태그를 기록하기 전에 세 앱 상태를 한 번 더 짧게(앱당
+            # 최대 10초) 재확인한다.
+            wait_for_service_health aics-api http://aics-api:8080/v3/api-docs 10
+            wait_for_service_health aics-admin http://aics-admin:8081/admin-api-docs 10
+            wait_for_service_health aics-auth http://aics-auth:8082/auth-api-docs 10
 
             echo "API, Admin, Auth 애플리케이션 기동 확인을 완료했습니다."
             echo "$IMAGE_TAG" > "$LAST_GOOD_TAG_FILE"
