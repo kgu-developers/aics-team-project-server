@@ -155,6 +155,15 @@ class SectionAdminControllerTest {
     }
 
     @Test
+    @DisplayName("GET /sections는 courseId/professorId 둘 다 없으면 404가 아니라 400을 응답한다")
+    void getSectionsWithNeitherCourseIdNorProfessorIdReturnsBadRequest() throws Exception {
+        mockMvc.perform(get(BASE_URL)
+                        .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
     @DisplayName("POST /sections/{sectionId}/enrollments는 201과 생성된 수강 ID를 응답한다")
     void createEnrollment() throws Exception {
         EnrollmentAdminRequest request = new EnrollmentAdminRequest("202699999", Role.STUDENT);
