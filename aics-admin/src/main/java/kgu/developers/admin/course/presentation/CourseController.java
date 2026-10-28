@@ -40,8 +40,8 @@ public interface CourseController {
 	);
 
 	@Operation(summary = "강좌 목록 조회 API", description = """
-			- Description : 이 API는 호출한 교수 본인이 분반을 담당하고 있는 강좌 목록만 조회합니다.
-			- 강좌는 여러 교수의 분반이 같이 달릴 수 있는 공용 카탈로그라, 본인 분반이 없는 강좌는 응답에 포함되지 않습니다.
+			- Description : 이 API는 호출한 교수 본인이 담당 분반을 가진 강좌, 그리고 분반이 아직 하나도 없는 강좌를 조회합니다.
+			- 강좌는 여러 교수의 분반이 같이 달릴 수 있는 공용 카탈로그입니다. 다른 교수만 담당하는 분반이 있는 강좌는 응답에서 제외됩니다.
 		""")
 	@ApiResponse(
 		responseCode = "200",
