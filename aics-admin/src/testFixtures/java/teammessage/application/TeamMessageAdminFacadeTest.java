@@ -26,6 +26,9 @@ import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
+import kgu.developers.domain.user.domain.UserGlobalRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +64,9 @@ class TeamMessageAdminFacadeTest {
     @Mock
     private TeamMessageQueryService teamMessageQueryService;
 
+    @Mock
+    private UserQueryService userQueryService;
+
     @InjectMocks
     private TeamMessageAdminFacade teamMessageAdminFacade;
 
@@ -91,6 +97,9 @@ class TeamMessageAdminFacadeTest {
             .willReturn(new PageImpl<>(List.of(message), latestFirstPageable, 1));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L, 200L), PROFESSOR_ID)).willReturn(3L);
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202612345")))
+            .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
+                UserGlobalRole.USER, "010-1234-5678")));
 
         var response = teamMessageAdminFacade.getMessages(null, pageable, PROFESSOR_ID);
 
@@ -100,6 +109,7 @@ class TeamMessageAdminFacadeTest {
             assertThat(content.teamName()).isEqualTo("B팀");
             assertThat(content.message()).isEqualTo("화면설계서 확인 부탁드립니다.");
             assertThat(content.read()).isFalse();
+            assertThat(content.senderName()).isEqualTo("김학생");
         });
         verify(teamRepository).findAllBySectionIdIn(List.of(1L, 2L));
         verify(teamMessageQueryService).getMessages(List.of(100L, 200L), latestFirstPageable);

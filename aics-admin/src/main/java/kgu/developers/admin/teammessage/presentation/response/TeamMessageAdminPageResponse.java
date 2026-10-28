@@ -36,7 +36,8 @@ public record TeamMessageAdminPageResponse(
         Set<Long> readMessageIds,
         Map<Long, TeamThread> threadsById,
         Map<Long, Team> teamsById,
-        Map<Long, Section> sectionsById
+        Map<Long, Section> sectionsById,
+        Map<String, String> senderNamesBySenderId
     ) {
         List<TeamMessageAdminResponse> contents = page.getContent().stream()
             .map(message -> {
@@ -47,7 +48,8 @@ public record TeamMessageAdminPageResponse(
                 Section section = Optional.ofNullable(sectionsById.get(team.getSectionId()))
                     .orElseThrow(SectionNotFoundException::new);
                 return TeamMessageAdminResponse.from(
-                    message, team, section, readMessageIds.contains(message.getId()));
+                    message, team, section, readMessageIds.contains(message.getId()),
+                    senderNamesBySenderId.get(message.getSenderId()));
             })
             .toList();
 
