@@ -54,8 +54,8 @@ public class SectionAdminFacade {
         return SectionAdminResponse.from(sectionQueryService.getSectionById(id));
     }
 
-    public SectionAdminListResponse getSectionsByCourseId(Long courseId) {
-        return SectionAdminListResponse.from(sectionQueryService.getSectionsByCourseId(courseId));
+    public SectionAdminListResponse getSectionsByCourseId(Long courseId, String professorId) {
+        return SectionAdminListResponse.from(sectionQueryService.getSectionsByCourseId(courseId, professorId));
     }
 
     public SectionAdminListResponse getSectionsByProfessorId(String professorId, StatusType status, Integer year,

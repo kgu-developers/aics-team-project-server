@@ -21,6 +21,7 @@ import kgu.developers.domain.course.domain.StatusType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,20 +52,22 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     @Override
     @GetMapping(params = {"courseId", "!professorId"})
     public ResponseEntity<SectionAdminListResponse> getSectionsByCourseId(
-        @Positive @RequestParam Long courseId) {
-        SectionAdminListResponse response = sectionAdminFacade.getSectionsByCourseId(courseId);
+        @Positive @RequestParam Long courseId,
+        Authentication authentication) {
+        SectionAdminListResponse response =
+            sectionAdminFacade.getSectionsByCourseId(courseId, authentication.getName());
         return ResponseEntity.ok(response);
     }
 
     @Override
     @GetMapping(params = {"professorId", "!courseId"})
     public ResponseEntity<SectionAdminListResponse> getSectionsByProfessorId(
-        @NotBlank @RequestParam String professorId,
         @RequestParam(required = false) StatusType status,
         @RequestParam(required = false) Integer year,
-        @RequestParam(required = false) SemesterType semester) {
+        @RequestParam(required = false) SemesterType semester,
+        Authentication authentication) {
         SectionAdminListResponse response =
-            sectionAdminFacade.getSectionsByProfessorId(professorId, status, year, semester);
+            sectionAdminFacade.getSectionsByProfessorId(authentication.getName(), status, year, semester);
         return ResponseEntity.ok(response);
     }
 

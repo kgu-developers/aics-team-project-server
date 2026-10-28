@@ -13,6 +13,7 @@ import kgu.developers.admin.course.presentation.response.CourseListResponse;
 import kgu.developers.admin.course.presentation.response.CoursePersistResponse;
 import kgu.developers.admin.course.presentation.response.CourseResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,12 +40,13 @@ public interface CourseController {
 	);
 
 	@Operation(summary = "강좌 목록 조회 API", description = """
-			- Description : 이 API는 모든 OOP 강좌 목록을 조회합니다.
+			- Description : 이 API는 호출한 교수 본인이 분반을 담당하고 있는 강좌 목록만 조회합니다.
+			- 강좌는 여러 교수의 분반이 같이 달릴 수 있는 공용 카탈로그라, 본인 분반이 없는 강좌는 응답에 포함되지 않습니다.
 		""")
 	@ApiResponse(
 		responseCode = "200",
 		content = @Content(schema = @Schema(implementation = CourseListResponse.class)))
-	ResponseEntity<CourseListResponse> getCourses();
+	ResponseEntity<CourseListResponse> getCourses(Authentication authentication);
 
 	@Operation(summary = "강좌 수정 API", description = """
 			- Description : 이 API는 기존 강좌 정보를 수정합니다.

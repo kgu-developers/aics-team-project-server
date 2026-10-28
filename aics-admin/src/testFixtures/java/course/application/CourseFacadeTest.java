@@ -82,12 +82,12 @@ class CourseFacadeTest {
   }
 
   @Test
-  @DisplayName("getAllCourses는 목록을 응답으로 감싸 반환한다")
-  void getAllCourses() {
+  @DisplayName("getCoursesOwnedByProfessor는 목록을 응답으로 감싸 반환한다")
+  void getCoursesOwnedByProfessor() {
     List<Course> courses = List.of(course());
-    given(courseQueryService.getAllCourses()).willReturn(courses);
+    given(courseQueryService.getCoursesOwnedByProfessor("202012345")).willReturn(courses);
 
-    assertThat(courseFacade.getAllCourses().contents())
+    assertThat(courseFacade.getCoursesOwnedByProfessor("202012345").contents())
         .isEqualTo(courses.stream().map(CourseResponse::from).toList());
   }
 }

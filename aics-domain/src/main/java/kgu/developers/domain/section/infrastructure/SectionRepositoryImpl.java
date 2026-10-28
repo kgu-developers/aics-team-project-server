@@ -49,6 +49,15 @@ public class SectionRepositoryImpl implements SectionRepository {
     }
 
     @Override
+    public List<SectionDetail> findAllByCourseIdAndProfessorId(Long courseId, String professorId) {
+        List<SectionJpaEntity> entities = jpaSectionRepository
+                .findAllByCourseIdAndProfessorStudentNumberAndDeletedAtIsNullOrderByCodeAsc(courseId, professorId);
+        return entities.stream()
+                .map(SectionJpaEntity::toDetail)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<SectionDetail> findAllByProfessorId(String professorId) {
         List<SectionJpaEntity> entities = jpaSectionRepository.findAllByProfessorStudentNumberAndDeletedAtIsNullOrderByCodeAsc(professorId);
         return entities.stream()

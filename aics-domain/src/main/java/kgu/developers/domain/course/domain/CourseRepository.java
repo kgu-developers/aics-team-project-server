@@ -8,7 +8,7 @@ public interface CourseRepository {
 
   Optional<Course> findById(Long id);
 
-  List<Course> findAllOrderByYearAndName();
+  List<Course> findAllOwnedByProfessor(String professorId);
 
   void deleteById(Long id);
 }

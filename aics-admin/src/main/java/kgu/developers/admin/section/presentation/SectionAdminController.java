@@ -24,6 +24,7 @@ import kgu.developers.admin.section.presentation.response.SectionAdminResponse;
 import kgu.developers.domain.course.domain.SemesterType;
 import kgu.developers.domain.course.domain.StatusType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -59,8 +60,9 @@ public interface SectionAdminController {
     );
 
     @Operation(summary = "강좌별 분반 목록 조회 API", description = """
-            - Description : 이 API는 지정된 강좌의 분반 목록을 조회합니다.
+            - Description : 이 API는 지정된 강좌에서 호출한 교수 본인이 담당하는 분반 목록만 조회합니다.
             - courseId 쿼리 파라미터가 있을 때만 이 API로 라우팅됩니다.
+            - 같은 강좌라도 다른 교수가 담당하는 분반은 응답에 포함되지 않습니다.
         """)
     @ApiResponse(
         responseCode = "200",
@@ -70,23 +72,20 @@ public interface SectionAdminController {
             description = "강좌 ID 입니다.",
             example = "1",
             required = true
-        ) @Positive @RequestParam Long courseId
+        ) @Positive @RequestParam Long courseId,
+        Authentication authentication
     );
 
     @Operation(summary = "교수별 분반 목록 조회 API", description = """
-            - Description : 이 API는 지정된 교수가 담당하는 분반 목록을 조회합니다.
-            - professorId 쿼리 파라미터가 있을 때만 이 API로 라우팅됩니다.
+            - Description : 이 API는 호출자 본인이 담당하는 분반 목록을 조회합니다.
+            - professorId 쿼리 파라미터가 있을 때만 이 API로 라우팅되지만, 실제 조회 기준은 그 값이 아니라
+              인증된 사용자(호출자) 본인의 학번입니다 — 다른 교수의 학번을 넣어도 본인 분반만 조회됩니다.
             - 강좌 상태/학년도/학기는 선택값이며, 생략하면 해당 조건으로는 거르지 않습니다.
         """)
     @ApiResponse(
         responseCode = "200",
         content = @Content(schema = @Schema(implementation = SectionAdminListResponse.class)))
     ResponseEntity<SectionAdminListResponse> getSectionsByProfessorId(
-        @Parameter(
-            description = "교수 학번 입니다.",
-            example = "202699999",
-            required = true
-        ) @NotBlank @RequestParam String professorId,
         @Parameter(
             description = "강좌 상태 입니다.",
             example = "ACTIVE"
@@ -98,7 +97,8 @@ public interface SectionAdminController {
         @Parameter(
             description = "학기 입니다.",
             example = "SPRING"
-        ) @RequestParam(required = false) SemesterType semester
+        ) @RequestParam(required = false) SemesterType semester,
+        Authentication authentication
     );
 
     @Operation(summary = "분반 수강생/조교 등록 API", description = """

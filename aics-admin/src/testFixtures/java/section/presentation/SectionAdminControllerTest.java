@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -126,27 +127,29 @@ class SectionAdminControllerTest {
     }
 
     @Test
-    @DisplayName("GET /sections?courseId=는 강좌별 목록으로 라우팅된다")
+    @DisplayName("GET /sections?courseId=는 강좌별 목록으로 라우팅되고, 인증된 사용자 본인 분반만 조회한다")
     void getSectionsByCourseId() throws Exception {
-        given(sectionAdminFacade.getSectionsByCourseId(1L))
+        given(sectionAdminFacade.getSectionsByCourseId(1L, PROFESSOR_ID))
                 .willReturn(SectionAdminListResponse.builder().contents(List.of(response())).build());
 
-        mockMvc.perform(get(BASE_URL).param("courseId", "1"))
+        mockMvc.perform(get(BASE_URL).param("courseId", "1")
+                        .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.contents[0].id").value(1L));
     }
 
     @Test
-    @DisplayName("GET /sections?professorId=는 교수별 목록으로 라우팅되고 조건은 그대로 전달된다")
+    @DisplayName("GET /sections?professorId=는 교수별 목록으로 라우팅되지만, 실제 조회 기준은 쿼리값이 아니라 인증된 사용자다")
     void getSectionsByProfessorId() throws Exception {
         given(sectionAdminFacade.getSectionsByProfessorId(PROFESSOR_ID, StatusType.ACTIVE, 2026, SemesterType.SPRING))
                 .willReturn(SectionAdminListResponse.builder().contents(List.of(response())).build());
 
         mockMvc.perform(get(BASE_URL)
-                        .param("professorId", PROFESSOR_ID)
+                        .param("professorId", "다른교수학번으로-보내도-무시된다")
                         .param("status", "ACTIVE")
                         .param("year", "2026")
-                        .param("semester", "SPRING"))
+                        .param("semester", "SPRING")
+                        .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.contents[0].id").value(1L));
     }

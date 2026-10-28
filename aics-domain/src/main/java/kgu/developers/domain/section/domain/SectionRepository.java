@@ -10,6 +10,8 @@ public interface SectionRepository {
 
     List<SectionDetail> findAllByCourseId(Long courseId);
 
+    List<SectionDetail> findAllByCourseIdAndProfessorId(Long courseId, String professorId);
+
     List<SectionDetail> findAllByProfessorId(String professorId);
 
     List<SectionDetail> findAllByIdIn(List<Long> ids);
