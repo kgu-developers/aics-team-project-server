@@ -18,6 +18,10 @@ public interface JpaSectionRepository extends JpaRepository<SectionJpaEntity, Lo
     @EntityGraph(attributePaths = {"course", "professor"})
     List<SectionJpaEntity> findAllByCourseIdAndDeletedAtIsNullOrderByCodeAsc(Long courseId);
 
+    @EntityGraph(attributePaths = {"course", "professor"})
+    List<SectionJpaEntity> findAllByCourseIdAndProfessorStudentNumberAndDeletedAtIsNullOrderByCodeAsc(
+            Long courseId, String studentNumber);
+
     // UserJpaEntity의 식별자는 id가 아니라 studentNumber라서 professorId로는 해석되지 않는다
     @EntityGraph(attributePaths = {"course", "professor"})
     List<SectionJpaEntity> findAllByProfessorStudentNumberAndDeletedAtIsNullOrderByCodeAsc(String studentNumber);

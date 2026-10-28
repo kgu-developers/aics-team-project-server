@@ -10,6 +10,7 @@ import kgu.developers.admin.course.presentation.response.CourseResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,8 +40,8 @@ public class CourseControllerImpl implements CourseController {
 
   @Override
   @GetMapping
-  public ResponseEntity<CourseListResponse> getCourses() {
-    CourseListResponse response = courseFacade.getAllCourses();
+  public ResponseEntity<CourseListResponse> getCourses(Authentication authentication) {
+    CourseListResponse response = courseFacade.getCoursesOwnedByProfessor(authentication.getName());
     return ResponseEntity.ok(response);
   }
 

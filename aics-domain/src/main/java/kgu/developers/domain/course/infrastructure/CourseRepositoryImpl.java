@@ -29,8 +29,8 @@ public class CourseRepositoryImpl implements CourseRepository {
   }
 
   @Override
-  public List<Course> findAllOrderByYearAndName() {
-    List<CourseJpaEntity> entities = jpaCourseRepository.findAllByDeletedAtIsNullOrderByYearAscNameAsc();
+  public List<Course> findAllOwnedByProfessor(String professorId) {
+    List<CourseJpaEntity> entities = jpaCourseRepository.findAllOwnedByProfessor(professorId);
     return entities.stream()
         .map(CourseJpaEntity::toDomain)
         .collect(Collectors.toList());

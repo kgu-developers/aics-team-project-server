@@ -35,7 +35,7 @@ public class CourseFacade {
         return CourseResponse.from(courseQueryService.getCourseById(id));
 	}
 
-	public CourseListResponse getAllCourses() {
-		return CourseListResponse.from(courseQueryService.getAllCourses());
+	public CourseListResponse getCoursesOwnedByProfessor(String professorId) {
+		return CourseListResponse.from(courseQueryService.getCoursesOwnedByProfessor(professorId));
 	}
 }

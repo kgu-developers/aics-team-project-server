@@ -21,6 +21,7 @@ import kgu.developers.domain.course.domain.StatusType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,20 +52,25 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     @Override
     @GetMapping(params = {"courseId", "!professorId"})
     public ResponseEntity<SectionAdminListResponse> getSectionsByCourseId(
-        @Positive @RequestParam Long courseId) {
-        SectionAdminListResponse response = sectionAdminFacade.getSectionsByCourseId(courseId);
+        @Positive @RequestParam Long courseId,
+        Authentication authentication) {
+        SectionAdminListResponse response =
+            sectionAdminFacade.getSectionsByCourseId(courseId, authentication.getName());
         return ResponseEntity.ok(response);
     }
 
     @Override
-    @GetMapping(params = {"professorId", "!courseId"})
+    @GetMapping(params = "!courseId")
     public ResponseEntity<SectionAdminListResponse> getSectionsByProfessorId(
+        // professorId는 /professorId 라우팅 분기와 Swagger 입력란 유지를 위해 선언만 하고,
+        // 실제 조회는 아래처럼 항상 인증된 사용자 기준으로 한다 — 값은 의도적으로 안 쓴다.
         @NotBlank @RequestParam String professorId,
         @RequestParam(required = false) StatusType status,
         @RequestParam(required = false) Integer year,
-        @RequestParam(required = false) SemesterType semester) {
+        @RequestParam(required = false) SemesterType semester,
+        Authentication authentication) {
         SectionAdminListResponse response =
-            sectionAdminFacade.getSectionsByProfessorId(professorId, status, year, semester);
+            sectionAdminFacade.getSectionsByProfessorId(authentication.getName(), status, year, semester);
         return ResponseEntity.ok(response);
     }
 

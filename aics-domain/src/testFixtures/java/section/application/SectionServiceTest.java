@@ -370,17 +370,19 @@ class SectionServiceTest {
     }
 
     @Test
-    @DisplayName("강좌별 분반을 조회한다")
+    @DisplayName("강좌별 분반을 조회한다 — 같은 강좌라도 본인 담당 분반만 반환한다")
     void findsSectionsByCourse() {
         given(courseRepository.findById(1L)).willReturn(Optional.of(course));
-        given(sectionRepository.findAllByCourseId(1L)).willReturn(List.of(sectionDetail()));
+        given(sectionRepository.findAllByCourseIdAndProfessorId(1L, "202012345"))
+                .willReturn(List.of(sectionDetail()));
 
-        assertThat(queryService.getSectionsByCourseId(1L))
+        assertThat(queryService.getSectionsByCourseId(1L, "202012345"))
                 .singleElement()
                 .satisfies(detail -> {
                     assertThat(detail.professor().getName()).isEqualTo("김교수");
                     assertThat(detail.course().getName()).isEqualTo("객체지향프로그래밍");
                 });
+        verify(sectionRepository, never()).findAllByCourseId(1L);
     }
 
     @Test
@@ -388,7 +390,7 @@ class SectionServiceTest {
     void rejectsQueryForMissingCourse() {
         given(courseRepository.findById(99L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> queryService.getSectionsByCourseId(99L))
+        assertThatThrownBy(() -> queryService.getSectionsByCourseId(99L, "202012345"))
                 .isInstanceOf(CourseNotFoundException.class);
     }
 

@@ -40,11 +40,12 @@ public class SectionQueryService {
         return sectionRepository.existsActiveByIdAndProfessorId(sectionId, professorId);
     }
 
-    public List<SectionDetail> getSectionsByCourseId(Long courseId) {
+    /** 교수 소유 분반만 보이도록, courseId가 맞아도 본인 분반이 아니면 결과에서 빠진다. */
+    public List<SectionDetail> getSectionsByCourseId(Long courseId, String professorId) {
         if (courseRepository.findById(courseId).isEmpty()) {
             throw new CourseNotFoundException();
         }
-        return sectionRepository.findAllByCourseId(courseId);
+        return sectionRepository.findAllByCourseIdAndProfessorId(courseId, professorId);
     }
 
     public List<SectionDetail> getSectionsByProfessorId(String professorId) {

@@ -58,6 +58,15 @@ public class FakeSectionRepository implements SectionRepository {
     }
 
     @Override
+    public List<SectionDetail> findAllByCourseIdAndProfessorId(Long courseId, String professorId) {
+        return store.values().stream()
+            .filter(section -> section.getCourseId().equals(courseId))
+            .filter(section -> section.getProfessorId().equals(professorId))
+            .map(section -> new SectionDetail(section, null, null))
+            .toList();
+    }
+
+    @Override
     public List<SectionDetail> findAllByProfessorId(String professorId) {
         return store.values().stream()
             .filter(section -> section.getProfessorId().equals(professorId))

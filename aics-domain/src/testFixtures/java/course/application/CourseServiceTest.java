@@ -88,12 +88,12 @@ class CourseServiceTest {
   }
 
   @Test
-  @DisplayName("getAllCourses는 연도와 이름 순으로 정렬된 목록을 반환한다")
-  void getAllCourses() {
+  @DisplayName("getCoursesOwnedByProfessor는 해당 교수의 분반이 있는 강좌만 반환한다")
+  void getCoursesOwnedByProfessor() {
     List<Course> courses = List.of(course(1L), course(2L));
-    given(courseRepository.findAllOrderByYearAndName()).willReturn(courses);
+    given(courseRepository.findAllOwnedByProfessor("202012345")).willReturn(courses);
 
-    assertThat(queryService.getAllCourses()).isEqualTo(courses);
+    assertThat(queryService.getCoursesOwnedByProfessor("202012345")).isEqualTo(courses);
   }
 
   @Test
