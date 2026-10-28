@@ -87,6 +87,11 @@ public interface SectionAdminController {
         content = @Content(schema = @Schema(implementation = SectionAdminListResponse.class)))
     ResponseEntity<SectionAdminListResponse> getSectionsByProfessorId(
         @Parameter(
+            description = "교수 학번 입니다. 라우팅 분기용으로만 쓰이고 실제 조회 기준은 인증된 사용자입니다.",
+            example = "202699999",
+            required = true
+        ) @NotBlank @RequestParam String professorId,
+        @Parameter(
             description = "강좌 상태 입니다.",
             example = "ACTIVE"
         ) @RequestParam(required = false) StatusType status,

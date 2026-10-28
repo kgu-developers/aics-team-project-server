@@ -62,6 +62,9 @@ public class SectionAdminControllerImpl implements SectionAdminController {
     @Override
     @GetMapping(params = {"professorId", "!courseId"})
     public ResponseEntity<SectionAdminListResponse> getSectionsByProfessorId(
+        // professorId는 /professorId 라우팅 분기와 Swagger 입력란 유지를 위해 선언만 하고,
+        // 실제 조회는 아래처럼 항상 인증된 사용자 기준으로 한다 — 값은 의도적으로 안 쓴다.
+        @NotBlank @RequestParam String professorId,
         @RequestParam(required = false) StatusType status,
         @RequestParam(required = false) Integer year,
         @RequestParam(required = false) SemesterType semester,
