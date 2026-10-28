@@ -47,6 +47,20 @@ spring:
 file:
   secret-key: ${FILE_SECRET_KEY}
 
+# KD3-309: scanBasePackages가 "kgu.developers"라 aics-admin/aics-api와 동일하게
+# 공유 도메인 전체를 스캔하므로, SectionAnnouncementCommandService(KD3-301에서
+# FileStorage 의존성이 추가됨)도 여기서 빈 생성 대상이 된다. S3FileStorage는
+# @ConditionalOnProperty(aws.s3.enabled)라 이 설정이 없으면 FileStorage 빈 자체가
+# 안 만들어져 부팅이 실패한다(KD3-147 때 aics-admin에서 겪은 것과 같은 패턴).
+# aics-api/aics-admin과 동일하게 켠다.
+aws:
+  s3:
+    enabled: true
+    region: ${AWS_S3_REGION:ap-northeast-2}
+    bucket: ${AWS_S3_BUCKET:}
+    access-key: ${AWS_S3_ACCESS_KEY:}
+    secret-key: ${AWS_S3_SECRET_KEY:}
+
 springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
