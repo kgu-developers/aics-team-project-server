@@ -119,12 +119,13 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          # KD3-313(sunzx0428 리뷰): 세 앱을 순차로 health check하면 최악의 경우
-          # (각 앱이 마지막 시도에서야 성공) sleep만 90*2초*3 = 540초다. 이미지
-          # pull·stop/rm·Caddy 재생성·스모크 테스트까지 더하면 기본 10분을 넘겨
-          # 액션이 스크립트를 강제 종료할 수 있고, 그러면 rollback_deployment를
-          # 못 거친 채 중단된다. 전체 예산에 여유를 두고 명시한다.
-          command_timeout: 20m
+          # KD3-313(sunzx0428 리뷰): health check는 서비스당 180초 경과시간으로
+          # 상한을 걸어(아래 wait_for_service_health) 세 서비스 합산 최악
+          # 9분(540초)으로 보장한다. 여기에 이미지 pull·stop/rm·up 재시도·Caddy
+          # 재생성·로그인/구 Swagger 스모크 테스트까지 더해도 기본 10분을 넘길
+          # 수 있고, 그러면 rollback_deployment를 못 거친 채 액션이 스크립트를
+          # 강제 종료한다. 전체 예산(최악 약 18분 추산)보다 넉넉히 잡는다.
+          command_timeout: 25m
           script: |
             set -euo pipefail
             cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
@@ -210,21 +211,25 @@ jobs:
             # 코드 문제가 아니라 세 앱이 동시에 CPU를 다투는 게 원인이었음). 한 번에
             # 하나씩만 올리고 그 앱이 health check를 통과한 뒤에야 다음 앱을 올려서,
             # 기동 중인 앱이 항상 vCPU를 혼자 쓰도록 한다.
+            # KD3-313(sunzx0428 재리뷰): 시도 횟수(90회)로 예산을 세면, wget -T 5가
+            # 매 시도마다 최대 5초까지 걸릴 수 있어 실제로는 90*(5+2)=630초까지
+            # 늘어날 수 있다(세 서비스 합산 최악 약 31분) — command_timeout을 아무리
+            # 넉넉히 잡아도 안전하다고 보장할 수 없다. 시도 횟수 대신 서비스별 실제
+            # 경과시간(180초)으로 상한을 건다.
             wait_for_service_health() {
               local service_label="$1"
               local url="$2"
-              local attempt=1
+              local deadline=$(( $(date +%s) + 180 ))
               until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
                 wget -T 5 -q -O /dev/null "$url"; do
-                if [ "$attempt" -ge 90 ]; then
-                  echo "$service_label 기동 확인에 실패했습니다." >&2
+                if [ "$(date +%s)" -ge "$deadline" ]; then
+                  echo "$service_label 기동 확인에 실패했습니다 (180초 초과)." >&2
                   docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
                   rollback_deployment || true
                   exit 1
                 fi
 
-                echo "$service_label 기동을 기다립니다. ($attempt/90)"
-                attempt=$((attempt + 1))
+                echo "$service_label 기동을 기다립니다."
                 sleep 2
               done
             }
