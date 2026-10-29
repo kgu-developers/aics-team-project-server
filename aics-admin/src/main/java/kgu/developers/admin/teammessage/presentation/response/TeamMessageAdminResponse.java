@@ -32,6 +32,9 @@ public record TeamMessageAdminResponse(
     @Schema(description = "발신자 학번", example = "202412345", requiredMode = REQUIRED)
     String senderId,
 
+    @Schema(description = "발신자 이름", example = "홍길동", requiredMode = NOT_REQUIRED)
+    String senderName,
+
     @Schema(description = "메시지 본문", example = "화면설계서 확인 부탁드립니다.", requiredMode = REQUIRED)
     String message,
 
@@ -56,7 +59,8 @@ public record TeamMessageAdminResponse(
         TeamMessage teamMessage,
         Team team,
         Section section,
-        boolean read
+        boolean read,
+        String senderName
     ) {
         return TeamMessageAdminResponse.builder()
             .id(teamMessage.getId())
@@ -65,6 +69,7 @@ public record TeamMessageAdminResponse(
             .teamId(team.getId())
             .teamName(team.getName())
             .senderId(teamMessage.getSenderId())
+            .senderName(senderName)
             .message(teamMessage.getMessage())
             .relatedType(teamMessage.getRelatedType())
             .relatedId(teamMessage.getRelatedId())

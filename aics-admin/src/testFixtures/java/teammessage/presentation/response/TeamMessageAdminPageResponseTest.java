@@ -68,7 +68,8 @@ class TeamMessageAdminPageResponseTest {
             Set.of(),
             threadsById,
             teamsById,
-            sectionsById
+            sectionsById,
+            Map.of()
         );
     }
 }

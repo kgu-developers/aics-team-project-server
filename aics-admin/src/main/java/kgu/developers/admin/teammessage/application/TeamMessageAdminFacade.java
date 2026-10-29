@@ -18,6 +18,8 @@ import kgu.developers.domain.teammessage.application.query.TeamMessageQueryServi
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
+import kgu.developers.domain.user.application.query.UserQueryService;
+import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -40,6 +42,7 @@ public class TeamMessageAdminFacade {
     private final TeamThreadQueryService teamThreadQueryService;
     private final TeamMessageCommandService teamMessageCommandService;
     private final TeamMessageQueryService teamMessageQueryService;
+    private final UserQueryService userQueryService;
 
     public TeamMessageAdminPageResponse getMessages(Long sectionId, Pageable pageable, String professorId) {
         return getMessages(sectionId, null, null, pageable, professorId);
@@ -85,8 +88,17 @@ public class TeamMessageAdminFacade {
         Map<Long, Section> sectionsById = sections.stream()
             .collect(Collectors.toMap(Section::getId, Function.identity()));
 
+        List<String> senderIds = messages.getContent().stream()
+            .map(TeamMessage::getSenderId)
+            .filter(id -> id != null && !id.isBlank())
+            .distinct()
+            .toList();
+        Map<String, String> senderNamesBySenderId = userQueryService
+            .getUsersByStudentNumbersIncludingDeleted(senderIds).stream()
+            .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
+
         return TeamMessageAdminPageResponse.from(
-            messages, unreadCount, readMessageIds, threadsById, teamsById, sectionsById);
+            messages, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId);
     }
 
     @Transactional
