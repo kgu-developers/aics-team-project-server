@@ -7,7 +7,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
-import jakarta.validation.constraints.Size;
 import kgu.developers.api.team.presentation.request.TeamKickoffUpdateRequest.MemberRole;
 
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.NOT_REQUIRED;
@@ -32,7 +31,6 @@ public record ProjectRequest(
     Long sectionVersion,
 
     @Schema(description = "프로젝트 제목. TOPIC 저장 시 필수.", example = "AI 기반 학습 도우미", requiredMode = NOT_REQUIRED)
-    @Size(max = 200)
     String title,
 
     @Schema(description = "프로젝트 설명. TOPIC 저장 시 필수.", example = "개인별 학습 기록을 분석하는 서비스", requiredMode = NOT_REQUIRED)
@@ -70,7 +68,6 @@ public record ProjectRequest(
     String projectSchedule,
 
     @Schema(description = "저장소 URL. TOPIC 저장 시 사용하며, 생략/null이면 비운다.", example = "https://github.com/kgu/project", requiredMode = NOT_REQUIRED)
-    @Size(max = 255)
     String repositoryUrl,
 
     @Schema(description = "외부 링크 목록(JSON). TOPIC 저장 시 사용하며, 생략/null이면 비운다.",
@@ -83,6 +80,18 @@ public record ProjectRequest(
         return sectionKey != ProposalSectionType.TOPIC
             || (title != null && !title.isBlank() && description != null && !description.isBlank()
                 && goal != null && !goal.isBlank());
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "TOPIC 섹션의 제목은 200자 이하여야 합니다.")
+    public boolean isTitleLengthValid() {
+        return sectionKey != ProposalSectionType.TOPIC || title == null || title.length() <= 200;
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "TOPIC 섹션의 저장소 URL은 255자 이하여야 합니다.")
+    public boolean isRepositoryUrlLengthValid() {
+        return sectionKey != ProposalSectionType.TOPIC || repositoryUrl == null || repositoryUrl.length() <= 255;
     }
 
     @JsonIgnore

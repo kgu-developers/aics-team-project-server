@@ -156,6 +156,39 @@ class ProjectControllerTest {
         then(projectFacade).shouldHaveNoMoreInteractions();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"DATA", "SCREEN", "TEAM_OPERATION"})
+    void saveProjectIgnoresTopicFieldLengthsForOtherSections(String sectionKey) throws Exception {
+        given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
+            .willReturn(response());
+        ProjectRequest request = ProjectRequest.builder()
+            .sectionKey(ProposalSectionType.valueOf(sectionKey)).sectionVersion(0L)
+            .title("a".repeat(201)).repositoryUrl("a".repeat(256))
+            .dataConfiguration(objectMapper.createArrayNode())
+            .screenConfiguration(objectMapper.createArrayNode()).build();
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void saveProjectAcceptsTopicFieldLengthLimits() throws Exception {
+        given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
+            .willReturn(response());
+        ProjectRequest request = ProjectRequest.builder().sectionKey(ProposalSectionType.TOPIC).sectionVersion(0L)
+            .title("a".repeat(200)).description("설명").goal("목표")
+            .repositoryUrl("a".repeat(255)).build();
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+    }
+
     @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")
     @CsvSource({"title, 201", "repositoryUrl, 256"})
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 DB 길이 제한 초과 시 400을 반환한다")
