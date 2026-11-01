@@ -16,9 +16,24 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
 
     Page<TeamMessageJpaEntity> findByThreadIdAndRelatedTypeAndRelatedId(Long threadId, TeamMessageRelatedType relatedType, Long relatedId, Pageable pageable);
 
-    Page<TeamMessageJpaEntity> findByThreadIdIn(List<Long> threadIds, Pageable pageable);
-
-    Page<TeamMessageJpaEntity> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable);
+    @Query(value = """
+        SELECT message FROM TeamMessageJpaEntity message
+        WHERE message.threadId IN :threadIds
+          AND (:relatedType IS NULL OR message.relatedType = :relatedType)
+          AND (:senderIds IS NULL OR message.senderId IN :senderIds)
+        """,
+        countQuery = """
+        SELECT COUNT(message) FROM TeamMessageJpaEntity message
+        WHERE message.threadId IN :threadIds
+          AND (:relatedType IS NULL OR message.relatedType = :relatedType)
+          AND (:senderIds IS NULL OR message.senderId IN :senderIds)
+        """)
+    Page<TeamMessageJpaEntity> findByThreadIdIn(
+        @Param("threadIds") List<Long> threadIds,
+        @Param("relatedType") TeamMessageRelatedType relatedType,
+        @Param("senderIds") List<String> senderIds,
+        Pageable pageable
+    );
 
     @Query("""
         SELECT COUNT(message)

@@ -29,6 +29,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -55,7 +56,9 @@ class TeamMessageAdminControllerTest {
     @Test
     @DisplayName("GET /messages는 분반 필터와 인증된 교수 학번을 전달한다")
     void getMessages_WithSectionFilter() throws Exception {
-        given(teamMessageAdminFacade.getMessages(eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), any(Pageable.class), eq(PROFESSOR_ID)))
+        given(teamMessageAdminFacade.getMessages(
+                eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(), eq(Sort.Direction.DESC), any(Pageable.class), eq(PROFESSOR_ID)))
             .willReturn(response());
 
         mockMvc.perform(get(BASE_URL)
@@ -67,7 +70,9 @@ class TeamMessageAdminControllerTest {
             .andExpect(jsonPath("$.unreadCount").value(12));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(teamMessageAdminFacade).getMessages(eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), pageableCaptor.capture(), eq(PROFESSOR_ID));
+        verify(teamMessageAdminFacade).getMessages(
+            eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(),
+            org.mockito.ArgumentMatchers.isNull(), eq(Sort.Direction.DESC), pageableCaptor.capture(), eq(PROFESSOR_ID));
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(20);
@@ -77,7 +82,9 @@ class TeamMessageAdminControllerTest {
     @Test
     @DisplayName("GET /messages는 teamId와 relatedType 필터를 전달한다")
     void getMessages_WithTeamAndRelatedTypeFilter() throws Exception {
-        given(teamMessageAdminFacade.getMessages(eq(1L), eq(10L), eq(TeamMessageRelatedType.MID_REPORT), any(Pageable.class), eq(PROFESSOR_ID)))
+        given(teamMessageAdminFacade.getMessages(
+                eq(1L), eq(10L), eq(TeamMessageRelatedType.MID_REPORT),
+                org.mockito.ArgumentMatchers.isNull(), eq(Sort.Direction.DESC), any(Pageable.class), eq(PROFESSOR_ID)))
             .willReturn(response());
 
         mockMvc.perform(get(BASE_URL)
@@ -87,7 +94,29 @@ class TeamMessageAdminControllerTest {
                 .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
             .andExpect(status().isOk());
 
-        verify(teamMessageAdminFacade).getMessages(eq(1L), eq(10L), eq(TeamMessageRelatedType.MID_REPORT), any(Pageable.class), eq(PROFESSOR_ID));
+        verify(teamMessageAdminFacade).getMessages(
+            eq(1L), eq(10L), eq(TeamMessageRelatedType.MID_REPORT),
+            org.mockito.ArgumentMatchers.isNull(), eq(Sort.Direction.DESC), any(Pageable.class), eq(PROFESSOR_ID));
+    }
+
+    @Test
+    @DisplayName("GET /messages는 senderKeyword와 sort 파라미터를 전달한다")
+    void getMessages_WithSenderKeywordAndSort() throws Exception {
+        given(teamMessageAdminFacade.getMessages(
+                eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(),
+                eq("홍길동"), eq(Sort.Direction.ASC), any(Pageable.class), eq(PROFESSOR_ID)))
+            .willReturn(response());
+
+        mockMvc.perform(get(BASE_URL)
+                .param("sectionId", "1")
+                .param("senderKeyword", "홍길동")
+                .param("sort", "ASC")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isOk());
+
+        verify(teamMessageAdminFacade).getMessages(
+            eq(1L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(),
+            eq("홍길동"), eq(Sort.Direction.ASC), any(Pageable.class), eq(PROFESSOR_ID));
     }
 
     @Test
@@ -106,6 +135,8 @@ class TeamMessageAdminControllerTest {
             -1L,
             null,
             null,
+            null,
+            Sort.Direction.DESC,
             0,
             20,
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
@@ -129,6 +160,8 @@ class TeamMessageAdminControllerTest {
             1L,
             null,
             null,
+            null,
+            Sort.Direction.DESC,
             0,
             101,
             new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
