@@ -16,6 +16,7 @@ import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -43,6 +44,7 @@ public class TeamMessageAdminFacade {
     private final TeamMessageCommandService teamMessageCommandService;
     private final TeamMessageQueryService teamMessageQueryService;
     private final UserQueryService userQueryService;
+    private final TeamMemberQueryService teamMemberQueryService;
 
     public TeamMessageAdminPageResponse getMessages(Long sectionId, Pageable pageable, String professorId) {
         return getMessages(sectionId, null, null, pageable, professorId);
@@ -96,9 +98,12 @@ public class TeamMessageAdminFacade {
         Map<String, String> senderNamesBySenderId = userQueryService
             .getUsersByStudentNumbersIncludingDeleted(senderIds).stream()
             .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService
+            .getLeaderNamesByTeamIds(teams.stream().map(Team::getId).toList());
 
         return TeamMessageAdminPageResponse.from(
-            messages, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId);
+            messages, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId,
+            leaderNamesByTeamId);
     }
 
     @Transactional

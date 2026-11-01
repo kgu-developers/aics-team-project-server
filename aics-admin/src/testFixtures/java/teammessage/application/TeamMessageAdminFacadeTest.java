@@ -24,6 +24,7 @@ import kgu.developers.domain.teammessage.application.command.TeamMessageCommandS
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -67,6 +68,9 @@ class TeamMessageAdminFacadeTest {
     @Mock
     private UserQueryService userQueryService;
 
+    @Mock
+    private TeamMemberQueryService teamMemberQueryService;
+
     @InjectMocks
     private TeamMessageAdminFacade teamMessageAdminFacade;
 
@@ -100,6 +104,8 @@ class TeamMessageAdminFacadeTest {
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202612345")))
             .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
                 UserGlobalRole.USER, "010-1234-5678")));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L, 20L)))
+            .willReturn(java.util.Map.of(20L, "이영희"));
 
         var response = teamMessageAdminFacade.getMessages(null, pageable, PROFESSOR_ID);
 
@@ -110,6 +116,7 @@ class TeamMessageAdminFacadeTest {
             assertThat(content.message()).isEqualTo("화면설계서 확인 부탁드립니다.");
             assertThat(content.read()).isFalse();
             assertThat(content.senderName()).isEqualTo("김학생");
+            assertThat(content.leaderName()).isEqualTo("이영희");
         });
         verify(teamRepository).findAllBySectionIdIn(List.of(1L, 2L));
         verify(teamMessageQueryService).getMessages(List.of(100L, 200L), latestFirstPageable);
@@ -180,6 +187,7 @@ class TeamMessageAdminFacadeTest {
             .willReturn(new PageImpl<>(List.of(message), latestFirstPageable, 1));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L))).willReturn(java.util.Map.of());
 
         var response = teamMessageAdminFacade.getMessages(1L, 10L, TeamMessageRelatedType.MID_REPORT, pageable, PROFESSOR_ID);
 

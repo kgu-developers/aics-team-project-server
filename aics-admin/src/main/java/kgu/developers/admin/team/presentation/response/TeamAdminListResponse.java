@@ -3,6 +3,7 @@ package kgu.developers.admin.team.presentation.response;
 import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
 
 import java.util.List;
+import java.util.Map;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import kgu.developers.domain.team.domain.Team;
@@ -13,9 +14,11 @@ public record TeamAdminListResponse(
     @Schema(description = "팀 리스트", requiredMode = REQUIRED)
     List<TeamAdminResponse> contents
 ) {
-    public static TeamAdminListResponse from(List<Team> teams) {
+    public static TeamAdminListResponse from(List<Team> teams, Map<Long, String> leaderNamesByTeamId) {
         return TeamAdminListResponse.builder()
-                .contents(teams.stream().map(TeamAdminResponse::from).toList())
+                .contents(teams.stream()
+                        .map(team -> TeamAdminResponse.from(team, leaderNamesByTeamId.get(team.getId())))
+                        .toList())
                 .build();
     }
 }

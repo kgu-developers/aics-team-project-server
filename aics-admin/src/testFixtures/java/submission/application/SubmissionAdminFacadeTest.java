@@ -46,6 +46,7 @@ import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
@@ -81,6 +82,7 @@ class SubmissionAdminFacadeTest {
     private FakeUserRepository userRepository;
     private MeetingRecordQueryService meetingRecordQueryService;
     private MidReportRepository midReportRepository;
+    private TeamMemberQueryService teamMemberQueryService;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -114,6 +116,9 @@ class SubmissionAdminFacadeTest {
 
         meetingRecordQueryService = mock(MeetingRecordQueryService.class);
         midReportRepository = mock(MidReportRepository.class);
+        teamMemberQueryService = mock(TeamMemberQueryService.class);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(org.mockito.ArgumentMatchers.anyList()))
+                .willReturn(Map.of());
         submissionAdminFacade = new SubmissionAdminFacade(
                 milestoneRepository,
                 sectionQueryService,
@@ -126,7 +131,8 @@ class SubmissionAdminFacadeTest {
                 fileStorage,
                 userQueryService,
                 meetingRecordQueryService,
-                midReportRepository
+                midReportRepository,
+                teamMemberQueryService
         );
     }
 

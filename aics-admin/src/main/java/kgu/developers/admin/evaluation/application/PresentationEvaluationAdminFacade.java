@@ -2,6 +2,7 @@ package kgu.developers.admin.evaluation.application;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -103,6 +104,9 @@ public class PresentationEvaluationAdminFacade {
         Map<Long, List<TeamEvaluationScore>> scoresByEvaluationId = allScores.stream()
             .collect(Collectors.groupingBy(TeamEvaluationScore::getTeamEvaluationId));
 
+        List<TeamMember> allMembers = teamIds.isEmpty() ? List.of() : teamMemberRepository.findAllByTeamIdIn(teamIds);
+        Map<Long, String> leaderNamesByTeamId = resolveLeaderNames(allMembers);
+
         List<PresentationEvaluationAdminTeamSummaryResponse> teamSummaries = teams.stream()
             .map(team -> {
                 List<TeamEvaluation> teamEvaluations = evaluationsByTeamId.getOrDefault(team.getId(), List.of());
@@ -148,6 +152,7 @@ public class PresentationEvaluationAdminFacade {
                     .evaluationCount(teamEvaluations.size())
                     .scores(scoreResponses)
                     .totalScore(totalScore)
+                    .leaderName(leaderNamesByTeamId.get(team.getId()))
                     .build();
             })
             .toList();
@@ -303,6 +308,20 @@ public class PresentationEvaluationAdminFacade {
             .filter(m -> m.getType() == MilestoneType.PRESENTATION)
             .findFirst()
             .orElse(null);
+    }
+
+    private Map<Long, String> resolveLeaderNames(List<TeamMember> members) {
+        List<TeamMember> leaders = members.stream().filter(TeamMember::isLeader).toList();
+        Map<String, String> namesByUserId = userQueryService
+            .getUsersByStudentNumbersIncludingDeleted(leaders.stream().map(TeamMember::getUserId).distinct().toList())
+            .stream()
+            .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
+        // namesByUserId.get(...)이 null일 수 있어(해당 학번을 못 찾은 경우) Collectors.toMap은 못 쓴다.
+        Map<Long, String> leaderNamesByTeamId = new HashMap<>();
+        for (TeamMember leader : leaders) {
+            leaderNamesByTeamId.putIfAbsent(leader.getTeamId(), namesByUserId.get(leader.getUserId()));
+        }
+        return leaderNamesByTeamId;
     }
 
     private void validateSectionAccess(Long sectionId, String professorId) {

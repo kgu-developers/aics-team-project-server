@@ -2,6 +2,7 @@ package kgu.developers.admin.evaluation.application;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -79,6 +80,7 @@ public class PeerEvaluationAdminFacade {
             .collect(Collectors.groupingBy(TeamMember::getTeamId));
 
         Map<Long, Long> meetingRecordCounts = meetingRecordQueryService.countMeetingRecords(teamIds);
+        Map<Long, String> leaderNamesByTeamId = resolveLeaderNames(allMembers);
 
         PeerEvaluationForm form = resolveForm(sectionId, formId);
         Map<String, PeerEvaluationSubmission> submissionsByEvaluator = form != null
@@ -108,6 +110,7 @@ public class PeerEvaluationAdminFacade {
                     .totalMemberCount(teamMembers.size())
                     .lastSubmittedAt(lastSubmittedAt)
                     .meetingRecordCount(meetingRecordCounts.getOrDefault(team.getId(), 0L))
+                    .leaderName(leaderNamesByTeamId.get(team.getId()))
                     .build();
             })
             .toList();
@@ -283,6 +286,20 @@ public class PeerEvaluationAdminFacade {
         }
         List<PeerEvaluationForm> forms = formRepository.findAllBySectionIdOrderByIdDesc(sectionId);
         return forms.isEmpty() ? null : forms.get(0);
+    }
+
+    private Map<Long, String> resolveLeaderNames(List<TeamMember> members) {
+        List<TeamMember> leaders = members.stream().filter(TeamMember::isLeader).toList();
+        Map<String, String> namesByUserId = userQueryService
+            .getUsersByStudentNumbersIncludingDeleted(leaders.stream().map(TeamMember::getUserId).distinct().toList())
+            .stream()
+            .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
+        // namesByUserId.get(...)이 null일 수 있어(해당 학번을 못 찾은 경우) Collectors.toMap은 못 쓴다.
+        Map<Long, String> leaderNamesByTeamId = new HashMap<>();
+        for (TeamMember leader : leaders) {
+            leaderNamesByTeamId.putIfAbsent(leader.getTeamId(), namesByUserId.get(leader.getUserId()));
+        }
+        return leaderNamesByTeamId;
     }
 
     private void validateSectionAccess(Long sectionId, String professorId) {

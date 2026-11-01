@@ -50,6 +50,7 @@ import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundExcep
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
@@ -71,6 +72,7 @@ public class SubmissionAdminFacade {
     private final UserQueryService userQueryService;
     private final MeetingRecordQueryService meetingRecordQueryService;
     private final kgu.developers.domain.midreport.domain.MidReportRepository midReportRepository;
+    private final TeamMemberQueryService teamMemberQueryService;
 
     // 팀은 그 마일스톤을 아직 한 번도 조회 안 했으면 Submission 행 자체가 없다(lazy get-or-create).
     // 그대로 findAllByMilestoneId만 쓰면 그런 팀이 목록에서 통째로 빠지므로, 분반의 팀 전체를
@@ -132,6 +134,10 @@ public class SubmissionAdminFacade {
                             meetingRecordCounts.getOrDefault(team.getId(), 0L),
                             totalMeetingRecordCounts.getOrDefault(team.getId(), 0L));
                 })
+                .toList();
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
+        contents = contents.stream()
+                .map(content -> content.toBuilder().leaderName(leaderNamesByTeamId.get(content.teamId())).build())
                 .toList();
         return SubmissionAdminListResponse.from(contents);
     }
