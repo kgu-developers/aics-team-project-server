@@ -11,6 +11,7 @@ import kgu.developers.admin.teamMember.presentation.request.TeamMemberUpdateRequ
 import kgu.developers.admin.teamMember.presentation.response.TeamMemberAdminResponse;
 import kgu.developers.domain.auditLog.application.command.AuditLogCommandService;
 import kgu.developers.domain.auditLog.domain.TeamMembersAuditSnapshot;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
@@ -30,6 +31,7 @@ public class TeamMemberAdminFacade {
   private final UserQueryService userQueryService;
   private final TeamQueryService teamQueryService;
   private final AuditLogCommandService auditLogCommandService;
+  private final ProjectCommandService projectCommandService;
 
   @Transactional
   public TeamMemberAdminResponse updateTeamMember(
@@ -81,6 +83,9 @@ public class TeamMemberAdminFacade {
   ) {
     if (before.equals(after)) {
       return;
+    }
+    if (!before.projectRolesEqual(after)) {
+      projectCommandService.invalidateProposalForKickoffChange(team.getId());
     }
 
     Map<String, Object> metadata = Map.of(

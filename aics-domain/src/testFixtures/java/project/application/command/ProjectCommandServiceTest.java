@@ -483,6 +483,7 @@ class ProjectCommandServiceTest {
         projectCommandService.invalidateProposalForKickoffChange(1L);
 
         assertThat(teamOperationSection.isCompleted()).isFalse();
+        assertThat(teamOperationSection.getContentVersion()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(teamOperationSection);
     }
@@ -512,6 +513,7 @@ class ProjectCommandServiceTest {
             new ObjectMapper().readTree("[]"), "기존 일정");
 
         assertThat(dataSection.isCompleted()).isFalse();
+        assertThat(dataSection.getContentVersion()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(dataSection);
     }
@@ -570,6 +572,7 @@ class ProjectCommandServiceTest {
             new ObjectMapper().readTree("[]"), "새 일정");
 
         assertThat(teamOperationSection.isCompleted()).isFalse();
+        assertThat(teamOperationSection.getContentVersion()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(teamOperationSection);
     }
@@ -601,6 +604,23 @@ class ProjectCommandServiceTest {
         assertThat(topicSection.isCompleted()).isFalse();
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(topicSection);
+    }
+
+    @Test
+    void saveProject_createsSectionStateWhenPreviouslyUntrackedContentChanges() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).version(4L)
+            .title("새 제목").description("새 설명").goal("새 목표")
+            .repositoryUrl("https://github.com/kgu/project").externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration(new ObjectMapper().readTree("[]"))
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .projectSchedule("4월: 설계, 5월: 개발, 6월: 통합 테스트").build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+        saveProject();
+        ArgumentCaptor<ProposalSection> changed = ArgumentCaptor.forClass(ProposalSection.class);
+        then(proposalSectionRepository).should().save(changed.capture());
+        assertThat(changed.getValue().getType()).isEqualTo(ProposalSectionType.DATA);
+        assertThat(changed.getValue().getContentVersion()).isEqualTo(5L);
     }
 
     private Project saveProject() throws Exception {

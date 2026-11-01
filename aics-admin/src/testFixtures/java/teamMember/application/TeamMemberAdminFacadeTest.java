@@ -24,6 +24,7 @@ import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import java.util.List;
@@ -47,6 +48,9 @@ class TeamMemberAdminFacadeTest {
 
   @Mock
   private AuditLogCommandService auditLogCommandService;
+
+  @Mock
+  private ProjectCommandService projectCommandService;
 
   @InjectMocks
   private TeamMemberAdminFacade teamMemberAdminFacade;
@@ -87,6 +91,8 @@ class TeamMemberAdminFacadeTest {
     assertThat(response.name()).isEqualTo("김철수");
     assertThat(response.isLeader()).isTrue();
     assertThat(response.projectRole()).isEqualTo("프론트엔드");
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+    verify(projectCommandService).invalidateProposalForKickoffChange(2L);
     InOrder lockOrder = inOrder(teamQueryService, teamMemberQueryService);
     lockOrder.verify(teamQueryService).getTeamByIdForUpdate(1L);
     lockOrder.verify(teamQueryService).getTeamByIdForUpdate(2L);
@@ -139,4 +145,43 @@ class TeamMemberAdminFacadeTest {
         org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
         org.mockito.ArgumentMatchers.any());
   }
+  @Test
+  void roleChangeInvalidatesTeamOperation() {
+    TeamMember before = member();
+    TeamMember after = TeamMember.builder().id(1L).teamId(1L).userId("202699999")
+        .isLeader(false).projectRole("프론트엔드").build();
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team(1L));
+    given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(before);
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(before), List.of(after));
+    given(teamMemberCommandService.updateTeamMember(before, null, "프론트엔드", null)).willReturn(after);
+
+    teamMemberAdminFacade.updateTeamMember(1L, "202699999", new TeamMemberUpdateRequest(null, "프론트엔드", null), "admin001");
+    verify(projectCommandService).invalidateProposalForKickoffChange(1L);
+  }
+
+  @Test
+  void leaderOnlyChangeDoesNotInvalidateTeamOperation() {
+    TeamMember before = member();
+    TeamMember after = TeamMember.builder().id(1L).teamId(1L).userId("202699999")
+        .isLeader(true).projectRole(before.getProjectRole()).build();
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team(1L));
+    given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(before);
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(before), List.of(after));
+    given(teamMemberCommandService.updateTeamMember(before, null, null, true)).willReturn(after);
+
+    teamMemberAdminFacade.updateTeamMember(1L, "202699999", new TeamMemberUpdateRequest(null, null, true), "admin001");
+    org.mockito.Mockito.verifyNoInteractions(projectCommandService);
+  }
+
+  @Test
+  void unchangedRoleDoesNotInvalidateTeamOperation() {
+    TeamMember before = member();
+    given(teamQueryService.getTeamByIdForUpdate(1L)).willReturn(team(1L));
+    given(teamMemberQueryService.getTeamMember(1L, "202699999")).willReturn(before);
+    given(teamMemberQueryService.getTeamMembersByTeamId(1L)).willReturn(List.of(before));
+    given(teamMemberCommandService.updateTeamMember(before, null, before.getProjectRole(), null)).willReturn(before);
+    teamMemberAdminFacade.updateTeamMember(1L, "202699999", new TeamMemberUpdateRequest(null, before.getProjectRole(), null), "admin001");
+    org.mockito.Mockito.verifyNoInteractions(projectCommandService);
+  }
+
 }

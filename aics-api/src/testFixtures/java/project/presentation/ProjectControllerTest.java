@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -102,21 +103,23 @@ class ProjectControllerTest {
     }
 
     @Test
+    void existingPutAcceptsOnlyTheSelectedSectionFields() throws Exception {
+        given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
+            .willReturn(response());
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"sectionKey\":\"DATA\",\"sectionVersion\":3,\"dataConfiguration\":[]}")
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 요청 값을 제안서 등록에 전달한다")
     void saveProject() throws Exception {
-        ProjectRequest request = new ProjectRequest(
-            "AI 학습 도우미",
-            "학습 기록을 분석하는 서비스",
-            "개인별 피드백 자동화",
-            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
-            objectMapper.readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"),
-            null,
-            null,
-            null,
-            "4월: 설계, 5월: 개발",
-            "https://github.com/kgu/project",
-            objectMapper.readTree("[{\"name\":\"Figma\",\"url\":\"https://figma.com/design\"}]")
-        );
+        ProjectRequest request = ProjectRequest.builder().sectionKey(ProposalSectionType.TOPIC).sectionVersion(0L)
+            .title("AI 학습 도우미").description("학습 기록을 분석하는 서비스").goal("개인별 피드백 자동화")
+            .repositoryUrl("https://github.com/kgu/project")
+            .externalLinks(objectMapper.readTree("[{\"name\":\"Figma\",\"url\":\"https://figma.com/design\"}]")).build();
         given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
             .willReturn(response());
 
@@ -158,19 +161,10 @@ class ProjectControllerTest {
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 DB 길이 제한 초과 시 400을 반환한다")
     void saveProjectRejectsTooLongField(String field, int length) throws Exception {
         String tooLong = "a".repeat(length);
-        ProjectRequest request = new ProjectRequest(
-            "title".equals(field) ? tooLong : "AI 학습 도우미",
-            "학습 기록을 분석하는 서비스",
-            "개인별 피드백 자동화",
-            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
-            objectMapper.readTree("[]"),
-            null,
-            null,
-            null,
-            "4월: 설계, 5월: 개발",
-            "repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project",
-            objectMapper.readTree("[]")
-        );
+        ProjectRequest request = ProjectRequest.builder().sectionKey(ProposalSectionType.TOPIC).sectionVersion(0L)
+            .title("title".equals(field) ? tooLong : "AI 학습 도우미")
+            .description("학습 기록을 분석하는 서비스").goal("개인별 피드백 자동화")
+            .repositoryUrl("repositoryUrl".equals(field) ? tooLong : "https://github.com/kgu/project").build();
 
         mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -188,7 +182,7 @@ class ProjectControllerTest {
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 화면 구성이 배열이 아니면 400을 반환한다")
     void saveProjectRejectsNonArrayScreenConfiguration(String screenConfigurationJson) throws Exception {
         String body = """
-            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+            {"sectionVersion":0,"sectionKey":"SCREEN","title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":[{"name":"학습 로그"}],"screenConfiguration":%s,
              "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(screenConfigurationJson);
@@ -209,7 +203,7 @@ class ProjectControllerTest {
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 화면 항목 모양이 잘못되면 400을 반환한다")
     void saveProjectRejectsMalformedScreenItem(String screenJson) throws Exception {
         String body = """
-            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+            {"sectionVersion":0,"sectionKey":"SCREEN","title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":[],"screenConfiguration":[%s],
              "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(screenJson);
@@ -229,7 +223,7 @@ class ProjectControllerTest {
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 배열이 아니면 400을 반환한다")
     void saveProjectRejectsNonArrayDataConfiguration(String dataConfigurationJson) throws Exception {
         String body = """
-            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+            {"sectionVersion":0,"sectionKey":"DATA","title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":%s,"screenConfiguration":[],
              "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """.formatted(dataConfigurationJson);
@@ -243,15 +237,15 @@ class ProjectControllerTest {
         then(projectFacade).shouldHaveNoInteractions();
     }
 
-    // 주제 확정이 데이터 구성을 빈 문자열로 만들어 두므로(ProjectCommandService.finalizeTopic),
+    // 주제 확정 시 데이터 구성은 빈 배열이므로,
     // 조회한 제안서를 그대로 다시 저장하는 것이 400이 나면 안 된다.
     @Test
-    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 미입력(빈 문자열)이어도 저장한다")
+    @DisplayName("PUT /api/v1/teams/{teamId}/project는 데이터 구성이 빈 배열이어도 저장한다")
     void saveProjectAcceptsEmptyDataConfiguration() throws Exception {
         given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
             .willReturn(response());
         String body = """
-            {"title":"AI 학습 도우미","description":"설명","goal":"목표",
+            {"sectionVersion":0,"sectionKey":"DATA","title":"AI 학습 도우미","description":"설명","goal":"목표",
              "dataConfiguration":[],"screenConfiguration":[],
              "repositoryUrl":"https://github.com/kgu/project","externalLinks":[]}
             """;
@@ -261,6 +255,21 @@ class ProjectControllerTest {
                 .content(body)
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "", "\"sectionVersion\":0,", "\"sectionKey\":\"SCREEN\",", "\"sectionVersion\":-1,\"sectionKey\":\"SCREEN\",",
+        "\"sectionVersion\":0,\"sectionKey\":\" \","
+    })
+    void saveProject_requiresVersionAndSectionKey(String concurrencyFields) throws Exception {
+        String body = "{" + concurrencyFields + "\"title\":\"title\",\"description\":\"description\",\"goal\":\"goal\","
+            + "\"dataConfiguration\":[],\"screenConfiguration\":[]}";
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON).content(body)
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+        then(projectFacade).shouldHaveNoInteractions();
     }
 
     @Test

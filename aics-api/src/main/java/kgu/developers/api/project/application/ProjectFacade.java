@@ -12,6 +12,7 @@ import java.io.IOException;
 
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
+import jakarta.validation.Validator;
 import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
@@ -26,6 +27,11 @@ import kgu.developers.domain.fileobject.exception.FileObjectInvalidTypeException
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.exception.ProjectVersionConflictException;
+import kgu.developers.domain.editlock.application.query.EditLockQueryService;
+import kgu.developers.domain.editlock.domain.EditLockTargetType;
+import kgu.developers.domain.editlock.exception.EditLockConflictException;
 import kgu.developers.domain.project.domain.ProposalSection;
 import kgu.developers.domain.project.domain.ProposalSectionRepository;
 import kgu.developers.domain.project.domain.ProposalSectionType;
@@ -66,6 +72,8 @@ public class ProjectFacade {
     private static final int MAX_FILE_NAME_LENGTH = 255;
 
     private final ProjectCommandService projectCommandService;
+    private final ProjectRepository projectRepository;
+    private final EditLockQueryService editLockQueryService;
     private final ProjectQueryService projectQueryService;
     private final TeamAccessValidator teamAccessValidator;
     private final ProjectApprovalRepository projectApprovalRepository;
@@ -76,38 +84,66 @@ public class ProjectFacade {
     private final ProposalSectionRepository proposalSectionRepository;
     private final UserRepository userRepository;
     private final TeamFacade teamFacade;
+    private final Validator validator;
 
     public ProjectResponse getProject(Long teamId, String userId) {
+        // 접근 검증도 Team을 읽으므로, 킥오프 본문과 섹션 버전을 읽기 전에 잠근다.
+        projectRepository.lockTeam(teamId);
         teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
         Project project = projectQueryService.getProjectByTeamId(teamId);
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
-            teamFacade.getKickoffByTeamId(teamId, userId));
+        return projectSnapshot(project, userId);
     }
 
     public ProjectResponse saveProject(Long teamId, String userId, ProjectRequest request) {
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new jakarta.validation.ConstraintViolationException(violations);
+        }
+        ProposalSectionType type = request.sectionKey();
+        // 팀원 역할도 응답 본문에 포함되므로 접근 검증이 읽기 전에 잠근다.
+        projectRepository.lockTeam(teamId);
         teamAccessValidator.validateMembership(teamId, userId);
-        validateScreenImagesOwnedByTeam(teamId, request.screenConfiguration());
+        Project current = projectQueryService.getProjectByTeamId(teamId);
+        if (current.getProposalCompletedAt() != null) {
+            throw new kgu.developers.domain.project.exception.ProjectProposalCompletedException();
+        }
+        ProposalSection section = projectCommandService.getOrCreateSection(current, type);
+        if (request.sectionVersion() != section.getContentVersion()) {
+            throw new ProjectVersionConflictException();
+        }
+        editLockQueryService.getActiveLock(EditLockTargetType.PROJECT, current.getId(), type.name())
+            .filter(lock -> lock.isOwnedBy(userId))
+            .orElseThrow(EditLockConflictException::new);
 
-        // 팀 운영방식 본문(팀규칙·회의방식·역할분담)은 킥오프와 저장소가 같아서 Team·team_member에 쓴다.
-        // TeamFacade가 감사로그와 동의 무효화까지 같이 처리한다.
-        if (request.kickoffRule() != null || request.meetingSchedule() != null || request.memberRoles() != null) {
+        if (type == ProposalSectionType.SCREEN) {
+            validateScreenImagesOwnedByTeam(teamId, request.screenConfiguration());
+        }
+        if (type == ProposalSectionType.TEAM_OPERATION
+            && (request.kickoffRule() != null || request.meetingSchedule() != null || request.memberRoles() != null)) {
             teamFacade.updateKickoffContent(teamId, userId,
                 request.kickoffRule(), request.meetingSchedule(), request.memberRoles());
         }
-
-        Project project = projectCommandService.saveProject(
+        Project saved = projectCommandService.saveProject(
             teamId,
-            request.title(),
-            request.description(),
-            request.goal(),
-            request.repositoryUrl(),
-            request.externalLinks(),
-            request.dataConfiguration(),
-            stripClientProvidedImageUrls(request.screenConfiguration()),
-            request.projectSchedule()
+            type == ProposalSectionType.TOPIC ? request.title() : current.getTitle(),
+            type == ProposalSectionType.TOPIC ? request.description() : current.getDescription(),
+            type == ProposalSectionType.TOPIC ? request.goal() : current.getGoal(),
+            type == ProposalSectionType.TOPIC ? request.repositoryUrl() : current.getRepositoryUrl(),
+            type == ProposalSectionType.TOPIC ? request.externalLinks() : current.getExternalLinks(),
+            type == ProposalSectionType.DATA ? request.dataConfiguration() : current.getDataConfiguration(),
+            type == ProposalSectionType.SCREEN ? stripClientProvidedImageUrls(request.screenConfiguration()) : current.getScreenConfiguration(),
+            type == ProposalSectionType.TEAM_OPERATION && request.projectSchedule() != null
+                ? request.projectSchedule() : current.getProjectSchedule()
         );
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
-            teamFacade.getKickoffByTeamId(teamId, userId));
+        return projectSnapshot(saved, userId);
+    }
+
+    private ProjectResponse projectSnapshot(Project project, String userId) {
+        Map<ProposalSectionType, Long> versions = Arrays.stream(ProposalSectionType.values())
+            .collect(toMap(Function.identity(), type -> projectCommandService.getOrCreateSection(project, type).getContentVersion()));
+        return ProjectResponse.from(project,
+            resolveScreenImageUrls(project.getTeamId(), project.getScreenConfiguration()),
+            teamFacade.getKickoffByTeamId(project.getTeamId(), userId), versions);
     }
 
     public ProjectImageUploadResponse uploadProjectImage(Long teamId, String userId, MultipartFile file) {

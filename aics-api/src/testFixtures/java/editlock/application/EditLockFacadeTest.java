@@ -68,7 +68,7 @@ public class EditLockFacadeTest {
     @BeforeEach
     public void init() {
         FakeEditLockRepository fakeEditLockRepository = new FakeEditLockRepository();
-        projectRepository = new FakeProjectRepository();
+        projectRepository = org.mockito.Mockito.spy(new FakeProjectRepository());
         teamRepository = new FakeTeamRepository();
         teamMemberRepository = new FakeTeamMemberRepository();
         enrollmentRepository = new FakeEnrollmentRepository();
@@ -228,7 +228,10 @@ public class EditLockFacadeTest {
     @DisplayName("잠금을 해제하면 미잠금 상태가 된다")
     public void release_Success() {
         facade.acquire(MEMBER, buildRequest());
+        org.mockito.Mockito.verify(projectRepository).lockTeam(TEAM_ID);
+        org.mockito.Mockito.clearInvocations(projectRepository);
         facade.release(EditLockTargetType.PROJECT, PROJECT_ID, SECTION_KEY, MEMBER);
+        org.mockito.Mockito.verify(projectRepository).lockTeam(TEAM_ID);
 
         EditLockStatusResponse status = facade.getStatus(EditLockTargetType.PROJECT, PROJECT_ID, SECTION_KEY, MEMBER);
 

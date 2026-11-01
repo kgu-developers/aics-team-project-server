@@ -70,12 +70,21 @@ public class EditLockFacade {
 
     public EditLockStatusResponse acquire(String userId, EditLockAcquireRequest request) {
         validateTargetAccess(request.targetType(), request.targetId(), userId);
+        lockProjectTeam(request.targetType(), request.targetId());
         editLockCommandService.acquire(request.targetType(), request.targetId(), request.sectionKey(), userId);
         return getStatusWithoutAccessCheck(request.targetType(), request.targetId(), request.sectionKey());
     }
 
     public void release(EditLockTargetType targetType, Long targetId, String sectionKey, String userId) {
+        lockProjectTeam(targetType, targetId);
         editLockCommandService.release(targetType, targetId, sectionKey, userId);
+    }
+
+    private void lockProjectTeam(EditLockTargetType targetType, Long targetId) {
+        if (targetType == EditLockTargetType.PROJECT) {
+            projectRepository.findById(targetId)
+                .ifPresent(project -> projectRepository.lockTeam(project.getTeamId()));
+        }
     }
 
     // 대상이 실제로 존재하고, 이 사용자가 그 대상을 편집할 권한이 있는지 확인한다.

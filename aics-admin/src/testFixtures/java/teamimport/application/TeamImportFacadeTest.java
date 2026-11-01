@@ -75,6 +75,7 @@ public class TeamImportFacadeTest {
   private UserRepository userRepository;
   private TransactionTemplate transactionTemplate;
   private TeamImportFacade facade;
+  private kgu.developers.domain.project.application.command.ProjectCommandService projectCommandService;
 
   @BeforeEach
   public void init() {
@@ -84,6 +85,7 @@ public class TeamImportFacadeTest {
     teamMemberRepository = mock(TeamMemberRepository.class);
     sectionRepository = mock(SectionRepository.class);
     userRepository = mock(UserRepository.class);
+    projectCommandService = mock(kgu.developers.domain.project.application.command.ProjectCommandService.class);
     transactionTemplate = mock(TransactionTemplate.class);
     given(transactionTemplate.execute(any())).willAnswer(invocation -> {
       TransactionCallback<?> callback = invocation.getArgument(0);
@@ -92,7 +94,7 @@ public class TeamImportFacadeTest {
     facade = new TeamImportFacade(importBatchRepository, enrollmentRepository, teamRepository,
         teamMemberRepository, userRepository, sectionRepository,
         new SectionStaffValidator(enrollmentRepository, sectionRepository, userRepository),
-        transactionTemplate);
+        transactionTemplate, projectCommandService);
 
     given(sectionRepository.findById(SECTION_ID)).willReturn(Optional.of(mock(SectionDetail.class)));
     given(teamRepository.findByIdForUpdate(any())).willAnswer(invocation -> {
@@ -114,6 +116,36 @@ public class TeamImportFacadeTest {
     given(importBatchRepository.save(any())).willAnswer(invocation -> withId(invocation.getArgument(0), 1L));
     given(sectionRepository.findActiveByIdForUpdate(SECTION_ID))
         .willReturn(Optional.of(mock(Section.class)));
+  }
+
+  @Test
+  void apply_InvalidatesChangedTeamOnlyOnce() {
+    Team team = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀")
+        .status(kgu.developers.domain.team.domain.Status.FORMING).build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of(
+        TeamMember.create(10L, STUDENT_A, false, "old A"), TeamMember.create(10L, STUDENT_B, false, "old B")));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(batch(0, List.of(
+        row(2, "1팀", STUDENT_A, false, "new A", RowStatus.UPDATE),
+        row(3, "1팀", STUDENT_B, false, "new B", RowStatus.UPDATE)))));
+
+    assertThat(facade.apply(1L, ASSISTANT).appliedMembers()).isEqualTo(2);
+    verify(projectCommandService).invalidateProposalForKickoffChange(10L);
+    org.mockito.Mockito.verifyNoMoreInteractions(projectCommandService);
+  }
+
+  @Test
+  void apply_DoesNotInvalidateUnchangedRoles() {
+    Team team = Team.builder().id(10L).sectionId(SECTION_ID).name("1팀")
+        .status(kgu.developers.domain.team.domain.Status.FORMING).build();
+    given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team));
+    given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
+        .willReturn(List.of(TeamMember.create(10L, STUDENT_A, false, "backend")));
+    given(importBatchRepository.findById(1L)).willReturn(Optional.of(
+        batch(0, List.of(row(2, "1팀", STUDENT_A, false, "backend", RowStatus.UPDATE)))));
+
+    assertThat(facade.apply(1L, ASSISTANT).appliedMembers()).isEqualTo(1);
+    org.mockito.Mockito.verifyNoInteractions(projectCommandService);
   }
 
   /** 전화번호·학년의 기준 데이터인 계정·수강 정보를 지정한 값으로 바꾼다. */
@@ -330,6 +362,7 @@ public class TeamImportFacadeTest {
     org.mockito.InOrder order = org.mockito.Mockito.inOrder(teamMemberRepository);
     order.verify(teamMemberRepository).save(leader);
     order.verify(teamMemberRepository).save(successor);
+    org.mockito.Mockito.verifyNoInteractions(projectCommandService);
   }
 
   private void givenLeaderHandover(TeamMember leader, TeamMember successor, List<TeamImportRow> rows) {
@@ -390,6 +423,7 @@ public class TeamImportFacadeTest {
     TeamImportApplyResponse response = facade.apply(1L, ASSISTANT);
 
     // then
+    verify(projectCommandService).invalidateProposalForKickoffChange(10L);
     assertThat(response.appliedMembers()).isEqualTo(1);
     assertThat(response.skipped()).isZero();
     ArgumentCaptor<TeamMember> captor = ArgumentCaptor.forClass(TeamMember.class);
@@ -547,6 +581,7 @@ public class TeamImportFacadeTest {
     assertThat(captor.getValue().getDeletedAt()).isNull();
     assertThat(captor.getValue().isLeader()).isTrue();
     assertThat(captor.getValue().getProjectRole()).isEqualTo("백엔드");
+    verify(projectCommandService).invalidateProposalForKickoffChange(10L);
   }
 
   @Test
@@ -667,6 +702,7 @@ public class TeamImportFacadeTest {
     assertThat(response.createdTeams()).isZero();
     assertThat(response.appliedMembers()).isEqualTo(1);
     verify(teamRepository, never()).save(any());
+    verify(projectCommandService).invalidateProposalForKickoffChange(10L);
   }
 
   @Test
@@ -715,6 +751,7 @@ public class TeamImportFacadeTest {
     assertThat(response.appliedMembers()).isZero();
     assertThat(response.skipped()).isEqualTo(2);
     verify(teamMemberRepository, never()).save(any());
+    org.mockito.Mockito.verifyNoInteractions(projectCommandService);
   }
 
   @Test
