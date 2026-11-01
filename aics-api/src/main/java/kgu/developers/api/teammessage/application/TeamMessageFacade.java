@@ -61,10 +61,11 @@ public class TeamMessageFacade {
         }
         List<Long> sectionTeamIds = teamRepository.findAllIdsBySectionId(sectionId);
         List<Long> teamIds = resolveTargetTeamIds(sectionTeamIds, request.teamIds());
+        String broadcastId = teamIds.isEmpty() ? null : java.util.UUID.randomUUID().toString();
         for (Long teamId : teamIds) {
             TeamThread thread = teamThreadCommandService.getOrCreateThread(teamId);
             teamMessageCommandService.postMessage(
-                thread.getId(), senderId, TeamMessageRelatedType.GENERAL, null, request.message());
+                thread.getId(), senderId, TeamMessageRelatedType.GENERAL, null, request.message(), broadcastId);
         }
         return new SectionTeamMessagePersistResponse(teamIds.size());
     }

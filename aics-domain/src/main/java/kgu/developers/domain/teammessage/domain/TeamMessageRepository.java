@@ -20,4 +20,6 @@ public interface TeamMessageRepository {
     Page<TeamMessage> findByThreadIdIn(List<Long> threadIds, Pageable pageable);
 
     Page<TeamMessage> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable);
+
+    List<TeamMessage> findAllByBroadcastId(String broadcastId);
 }

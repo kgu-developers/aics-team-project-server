@@ -69,4 +69,11 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
         }
         return jpaTeamMessageRepository.countUnreadByThreadIdIn(threadIds, userId);
     }
+
+    @Override
+    public List<TeamMessage> findAllByBroadcastId(String broadcastId) {
+        return jpaTeamMessageRepository.findAllByBroadcastId(broadcastId).stream()
+            .map(TeamMessageJpaEntity::toDomain)
+            .toList();
+    }
 }

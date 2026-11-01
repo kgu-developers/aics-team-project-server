@@ -49,6 +49,9 @@ public class TeamMessageJpaEntity extends BaseTimeEntity {
     @Column(name = "is_important", nullable = false)
     private boolean important;
 
+    @Column(name = "broadcast_id", length = 36)
+    private String broadcastId;
+
     public TeamMessage toDomain() {
         return TeamMessage.builder()
             .id(this.id)
@@ -58,6 +61,7 @@ public class TeamMessageJpaEntity extends BaseTimeEntity {
             .relatedType(this.relatedType)
             .relatedId(this.relatedId)
             .important(this.important)
+            .broadcastId(this.broadcastId)
             .createdAt(this.getCreatedAt())
             .build();
     }
@@ -71,6 +75,7 @@ public class TeamMessageJpaEntity extends BaseTimeEntity {
             .relatedType(teamMessage.getRelatedType())
             .relatedId(teamMessage.getRelatedId())
             .important(teamMessage.isImportant())
+            .broadcastId(teamMessage.getBroadcastId())
             .build();
     }
 }

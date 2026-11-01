@@ -17,10 +17,16 @@ public class TeamMessage {
     private TeamMessageRelatedType relatedType;
     private Long relatedId;
     private boolean important;
+    private String broadcastId;
     private LocalDateTime createdAt;
 
     public static TeamMessage create(Long threadId, String senderId, TeamMessageRelatedType relatedType,
                                       Long relatedId, String message) {
+        return create(threadId, senderId, relatedType, relatedId, message, null);
+    }
+
+    public static TeamMessage create(Long threadId, String senderId, TeamMessageRelatedType relatedType,
+                                      Long relatedId, String message, String broadcastId) {
         return TeamMessage.builder()
             .threadId(threadId)
             .senderId(senderId)
@@ -28,6 +34,7 @@ public class TeamMessage {
             .relatedId(relatedId)
             .message(message)
             .important(false)
+            .broadcastId(broadcastId)
             .build();
     }
 
