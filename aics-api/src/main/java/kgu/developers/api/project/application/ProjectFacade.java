@@ -87,6 +87,7 @@ public class ProjectFacade {
     private final Validator validator;
 
     public ProjectResponse getProject(Long teamId, String userId) {
+        teamAccessValidator.validateMembershipOrProfessorBeforeLock(teamId, userId);
         // 접근 검증도 Team을 읽으므로, 킥오프 본문과 섹션 버전을 읽기 전에 잠근다.
         projectRepository.lockTeam(teamId);
         teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
@@ -100,6 +101,7 @@ public class ProjectFacade {
             throw new jakarta.validation.ConstraintViolationException(violations);
         }
         ProposalSectionType type = request.sectionKey();
+        teamAccessValidator.validateMembershipBeforeLock(teamId, userId);
         // 팀원 역할도 응답 본문에 포함되므로 접근 검증이 읽기 전에 잠근다.
         projectRepository.lockTeam(teamId);
         teamAccessValidator.validateMembership(teamId, userId);

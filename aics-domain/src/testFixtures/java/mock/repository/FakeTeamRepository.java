@@ -40,6 +40,11 @@ public class FakeTeamRepository implements TeamRepository {
     }
 
     @Override
+    public Optional<Long> findSectionIdById(Long id) {
+        return findById(id).map(Team::getSectionId);
+    }
+
+    @Override
     public Optional<Team> findByIdForUpdate(Long id) {
         return Optional.ofNullable(store.get(id));
     }

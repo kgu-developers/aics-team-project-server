@@ -69,21 +69,24 @@ public class EditLockFacade {
     }
 
     public EditLockStatusResponse acquire(String userId, EditLockAcquireRequest request) {
+        lockProjectTeam(request.targetType(), request.targetId(), userId);
         validateTargetAccess(request.targetType(), request.targetId(), userId);
-        lockProjectTeam(request.targetType(), request.targetId());
         editLockCommandService.acquire(request.targetType(), request.targetId(), request.sectionKey(), userId);
         return getStatusWithoutAccessCheck(request.targetType(), request.targetId(), request.sectionKey());
     }
 
     public void release(EditLockTargetType targetType, Long targetId, String sectionKey, String userId) {
-        lockProjectTeam(targetType, targetId);
+        lockProjectTeam(targetType, targetId, userId);
         editLockCommandService.release(targetType, targetId, sectionKey, userId);
     }
 
-    private void lockProjectTeam(EditLockTargetType targetType, Long targetId) {
+    // 제안서 저장의 락 검증과 직렬화한다. 팀 밖 사용자는 다른 팀의 행을 잠그지 못하게 건너뛴다.
+    // 획득은 잠근 뒤의 validateTargetAccess가 거절하고, 해제는 본인 소유 락만 지우므로 아무 일도 없다.
+    private void lockProjectTeam(EditLockTargetType targetType, Long targetId, String userId) {
         if (targetType == EditLockTargetType.PROJECT) {
-            projectRepository.findById(targetId)
-                .ifPresent(project -> projectRepository.lockTeam(project.getTeamId()));
+            projectRepository.findTeamIdByProjectId(targetId)
+                .filter(teamId -> teamMemberRepository.existsByTeamIdAndUserId(teamId, userId))
+                .ifPresent(projectRepository::lockTeam);
         }
     }
 

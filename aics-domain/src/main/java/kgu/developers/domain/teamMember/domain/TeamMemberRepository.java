@@ -18,6 +18,8 @@ public interface TeamMemberRepository {
 
     Optional<TeamMember> findByTeamIdAndUserId(Long teamId, String userId);
 
+    boolean existsByTeamIdAndUserId(Long teamId, String userId);
+
     Optional<TeamMember> findIncludingDeleted(Long teamId, String userId);
 
     Optional<TeamMember> findLeaderByTeamId(Long teamId);

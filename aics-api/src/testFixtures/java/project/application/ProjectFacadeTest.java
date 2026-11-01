@@ -602,6 +602,28 @@ class ProjectFacadeTest {
         order.verify(projectQueryService).getProjectByTeamId(TEAM_ID);
     }
 
+    @Test
+    void getProject_doesNotLockTeamForOutsider() {
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembershipOrProfessorBeforeLock(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.getProject(TEAM_ID, MEMBER_ID))
+            .isInstanceOf(AccessDeniedException.class);
+
+        then(projectRepository).should(org.mockito.Mockito.never()).lockTeam(TEAM_ID);
+    }
+
+    @Test
+    void saveProject_doesNotLockTeamForOutsider() throws Exception {
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembershipBeforeLock(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
+            .isInstanceOf(AccessDeniedException.class);
+
+        then(projectRepository).should(org.mockito.Mockito.never()).lockTeam(TEAM_ID);
+    }
+
     private User member() {
         return User.create(MEMBER_ID, "member@kgu.ac.kr", "홍길동", "password", UserGlobalRole.USER, "01000000000");
     }

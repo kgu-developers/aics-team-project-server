@@ -225,6 +225,23 @@ public class EditLockFacadeTest {
     }
 
     @Test
+    @DisplayName("팀 밖 사용자의 해제 요청은 팀 행을 잠그지 않는다")
+    public void release_DoesNotLockTeamForOutsider() {
+        facade.release(EditLockTargetType.PROJECT, PROJECT_ID, SECTION_KEY, "outsider");
+
+        org.mockito.Mockito.verify(projectRepository, org.mockito.Mockito.never()).lockTeam(TEAM_ID);
+    }
+
+    @Test
+    @DisplayName("팀 밖 사용자의 획득 요청은 팀 행을 잠그지 않고 거부한다")
+    public void acquire_DoesNotLockTeamForOutsider() {
+        assertThatThrownBy(() -> facade.acquire("outsider", buildRequest()))
+            .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        org.mockito.Mockito.verify(projectRepository, org.mockito.Mockito.never()).lockTeam(TEAM_ID);
+    }
+
+    @Test
     @DisplayName("잠금을 해제하면 미잠금 상태가 된다")
     public void release_Success() {
         facade.acquire(MEMBER, buildRequest());

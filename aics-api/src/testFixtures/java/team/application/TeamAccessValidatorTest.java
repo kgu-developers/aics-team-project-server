@@ -47,6 +47,40 @@ class TeamAccessValidatorTest {
     }
 
     @Test
+    @DisplayName("잠금 전 사전 검사는 팀원이 아니면 엔티티를 읽지 않고 차단한다")
+    void beforeLockRejectsOutsiderWithoutLoadingEntities() {
+        given(teamMemberRepository.existsByTeamIdAndUserId(1L, "202699999")).willReturn(false);
+
+        assertThatThrownBy(() -> teamAccessValidator.validateMembershipBeforeLock(1L, "202699999"))
+                .isInstanceOf(AccessDeniedException.class);
+
+        org.mockito.Mockito.verify(teamMemberRepository, org.mockito.Mockito.never()).findByTeamIdAndUserId(1L, "202699999");
+    }
+
+    @Test
+    @DisplayName("교수 허용 사전 검사는 담당 교수를 통과시키고 Team을 읽지 않는다")
+    void beforeLockAllowsProfessorWithoutLoadingTeam() {
+        given(teamMemberRepository.existsByTeamIdAndUserId(1L, "202012345")).willReturn(false);
+        given(teamRepository.findSectionIdById(1L)).willReturn(Optional.of(10L));
+        given(sectionRepository.existsActiveByIdAndProfessorId(10L, "202012345")).willReturn(true);
+
+        assertThatCode(() -> teamAccessValidator.validateMembershipOrProfessorBeforeLock(1L, "202012345"))
+                .doesNotThrowAnyException();
+
+        org.mockito.Mockito.verify(teamRepository, org.mockito.Mockito.never()).findById(1L);
+    }
+
+    @Test
+    @DisplayName("교수 허용 사전 검사는 없는 팀과 권한 없는 사용자를 같은 예외로 차단한다")
+    void beforeLockHidesMissingTeam() {
+        given(teamMemberRepository.existsByTeamIdAndUserId(1L, "202699999")).willReturn(false);
+        given(teamRepository.findSectionIdById(1L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> teamAccessValidator.validateMembershipOrProfessorBeforeLock(1L, "202699999"))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("활성 팀 소속이 있는 사용자의 팀 접근을 허용한다")
     void allowsUserWithActiveMembership() {
         TeamMember member = TeamMember.builder().id(1L).teamId(1L).userId("202699999").build();
