@@ -6,6 +6,8 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.Collection;
+import java.util.Objects;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +38,9 @@ import kgu.developers.domain.milestone.domain.MilestoneType;
 import kgu.developers.domain.milestone.exception.MilestoneNotFoundException;
 import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryService;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProposalSection;
+import kgu.developers.domain.project.domain.ProposalSectionRepository;
+import kgu.developers.domain.project.domain.ProposalSectionType;
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.midreport.domain.MidReport;
 import kgu.developers.domain.teammessage.domain.DocumentFeedbackRepository;
@@ -77,6 +82,7 @@ public class SubmissionAdminFacade {
     private final MeetingRecordQueryService meetingRecordQueryService;
     private final kgu.developers.domain.midreport.domain.MidReportRepository midReportRepository;
     private final DocumentFeedbackRepository documentFeedbackRepository;
+    private final ProposalSectionRepository proposalSectionRepository;
 
     // 팀은 그 마일스톤을 아직 한 번도 조회 안 했으면 Submission 행 자체가 없다(lazy get-or-create).
     // 그대로 findAllByMilestoneId만 쓰면 그런 팀이 목록에서 통째로 빠지므로, 분반의 팀 전체를
@@ -108,6 +114,7 @@ public class SubmissionAdminFacade {
                         .collect(Collectors.toMap(kgu.developers.domain.midreport.domain.MidReport::getTeamId, Function.identity()))
                 : Map.of();
         Map<Long, DocumentFeedbackSummary> feedback = documentFeedback(milestone, teamIds, projects, midReports);
+        Set<Long> submittableProjects = submittableProjects(projects.values());
         List<SubmissionAdminResponse> contents = teams.stream()
                 .map(team -> {
                     Submission submission = submissionQueryService.getOrCreateSubmission(team.getId(), milestoneId);
@@ -132,16 +139,16 @@ public class SubmissionAdminFacade {
                                 midReport.getId(),
                                 status,
                                 midReport.getVersion() != null ? midReport.getVersion().intValue() : 0),
-                                milestone, project, midReport, feedback);
+                                milestone, project, midReport, feedback, submittableProjects);
                     }
                     return withDocumentFeedback(SubmissionAdminResponse.of(
                             submission, team,
-                            submissionQueryService.canSubmitNow(submission),
+                            milestone.getType() != MilestoneType.PROPOSAL && submissionQueryService.canSubmitNow(submission),
                             submissionQueryService.hasPendingReview(submission),
                             projectTitle,
                             meetingRecordCounts.getOrDefault(team.getId(), 0L),
                             totalMeetingRecordCounts.getOrDefault(team.getId(), 0L)),
-                            milestone, project, null, feedback);
+                            milestone, project, null, feedback, submittableProjects);
                 })
                 .toList();
         return SubmissionAdminListResponse.from(contents);
@@ -175,6 +182,7 @@ public class SubmissionAdminFacade {
         Map<Long, DocumentFeedbackSummary> feedback = documentFeedback(milestone, List.of(team.getId()),
                 project == null ? Map.of() : Map.of(team.getId(), project),
                 midReport == null ? Map.of() : Map.of(team.getId(), midReport));
+        Set<Long> submittableProjects = submittableProjects(project == null ? List.of() : List.of(project));
         if (milestone.getType() == MilestoneType.MID_REPORT) {
             if (midReport != null) {
                 SubmissionStatus status = switch (midReport.getStatus()) {
@@ -194,16 +202,16 @@ public class SubmissionAdminFacade {
                         midReport.getId(),
                         status,
                         midReport.getVersion() != null ? midReport.getVersion().intValue() : 0),
-                        milestone, project, midReport, feedback);
+                        milestone, project, midReport, feedback, submittableProjects);
             }
         }
         return withDocumentFeedback(SubmissionAdminResponse.of(
                 submission, team,
-                submissionQueryService.canSubmitNow(submission),
+                milestone.getType() != MilestoneType.PROPOSAL && submissionQueryService.canSubmitNow(submission),
                 submissionQueryService.hasPendingReview(submission),
                 projectTitle,
                 meetingRecordCount,
-                totalMeetingRecordCount), milestone, project, null, feedback);
+                totalMeetingRecordCount), milestone, project, null, feedback, submittableProjects);
     }
 
     private boolean canSubmitMidReportNow(Milestone milestone, kgu.developers.domain.midreport.domain.MidReport midReport) {
@@ -229,6 +237,20 @@ public class SubmissionAdminFacade {
             || (schedule.lateSubmissionUntil() != null && now.isBefore(schedule.lateSubmissionUntil()));
     }
 
+    private Set<Long> submittableProjects(Collection<Project> projects) {
+        List<Long> projectIds = projects.stream().map(Project::getId).filter(Objects::nonNull).toList();
+        if (projectIds.isEmpty()) {
+            return Set.of();
+        }
+        Map<Long, Set<ProposalSectionType>> completedSections = proposalSectionRepository.findAllByProjectIdIn(projectIds)
+                .stream().filter(ProposalSection::isCompleted)
+                .collect(Collectors.groupingBy(ProposalSection::getProjectId,
+                        Collectors.mapping(ProposalSection::getType, Collectors.toSet())));
+        return projects.stream()
+                .filter(project -> project.canCompleteProposal(completedSections.getOrDefault(project.getId(), Set.of())))
+                .map(Project::getId).collect(Collectors.toSet());
+    }
+
     private Map<Long, DocumentFeedbackSummary> documentFeedback(
             Milestone milestone, List<Long> teamIds, Map<Long, Project> projects,
             Map<Long, MidReport> midReports
@@ -246,7 +268,7 @@ public class SubmissionAdminFacade {
 
     private SubmissionAdminResponse withDocumentFeedback(
             SubmissionAdminResponse response, Milestone milestone, Project project, MidReport midReport,
-            Map<Long, DocumentFeedbackSummary> summaries
+            Map<Long, DocumentFeedbackSummary> summaries, Set<Long> submittableProjects
     ) {
         if (milestone.getType() != MilestoneType.PROPOSAL && milestone.getType() != MilestoneType.MID_REPORT) {
             return response;
@@ -265,7 +287,7 @@ public class SubmissionAdminFacade {
             builder.status(submittedAt != null ? SubmissionStatus.SUBMITTED
                     : revisionRequested ? SubmissionStatus.REVISION_REQUESTED : SubmissionStatus.NOT_SUBMITTED)
                     .hasPendingReview(revisionRequested)
-                    .canSubmitNow(submittedAt == null && response.canSubmitNow());
+                    .canSubmitNow(project != null && submittableProjects.contains(project.getId()));
         }
         return builder.build();
     }

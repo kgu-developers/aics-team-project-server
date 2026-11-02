@@ -37,6 +37,14 @@ import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryS
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.domain.ProposalSection;
+import kgu.developers.domain.project.domain.ProposalSectionRepository;
+import kgu.developers.domain.project.domain.ProposalSectionType;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
+import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import kgu.developers.domain.teammessage.domain.DocumentFeedbackRepository;
 import kgu.developers.domain.teammessage.domain.DocumentFeedbackSummary;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
@@ -85,6 +93,7 @@ class SubmissionAdminFacadeTest {
     private MeetingRecordQueryService meetingRecordQueryService;
     private MidReportRepository midReportRepository;
     private DocumentFeedbackRepository documentFeedbackRepository;
+    private ProposalSectionRepository proposalSectionRepository;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -119,6 +128,7 @@ class SubmissionAdminFacadeTest {
         meetingRecordQueryService = mock(MeetingRecordQueryService.class);
         midReportRepository = mock(MidReportRepository.class);
         documentFeedbackRepository = mock(DocumentFeedbackRepository.class);
+        proposalSectionRepository = mock(ProposalSectionRepository.class);
         submissionAdminFacade = new SubmissionAdminFacade(
                 milestoneRepository,
                 sectionQueryService,
@@ -132,7 +142,8 @@ class SubmissionAdminFacadeTest {
                 userQueryService,
                 meetingRecordQueryService,
                 midReportRepository,
-                documentFeedbackRepository
+                documentFeedbackRepository,
+                proposalSectionRepository
         );
     }
 
@@ -195,10 +206,11 @@ class SubmissionAdminFacadeTest {
     void getSubmissionsByMilestone_IncludesProjectTitleForProposal() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
-        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
-                teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
-                ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
-                JsonNodeFactory.instance.arrayNode(), null)));
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder().id(90L).teamId(teamId)
+                .title("AI 기반 팀 프로젝트 운영 플랫폼").description("설명").goal("목표")
+                .approvalStatus(ApprovalStatus.APPROVED)
+                .dataConfiguration(JsonNodeFactory.instance.arrayNode())
+                .screenConfiguration(JsonNodeFactory.instance.arrayNode()).build()));
 
         SubmissionAdminListResponse response = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
@@ -261,10 +273,11 @@ class SubmissionAdminFacadeTest {
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
-        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
-                teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
-                ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
-                JsonNodeFactory.instance.arrayNode(), null)));
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder().id(90L).teamId(teamId)
+                .title("AI 기반 팀 프로젝트 운영 플랫폼").description("설명").goal("목표")
+                .approvalStatus(ApprovalStatus.APPROVED)
+                .dataConfiguration(JsonNodeFactory.instance.arrayNode())
+                .screenConfiguration(JsonNodeFactory.instance.arrayNode()).build()));
 
         SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
@@ -605,6 +618,7 @@ class SubmissionAdminFacadeTest {
         assertThat(row.feedbackRequested()).isFalse();
         assertThat(row.hasPendingReview()).isFalse();
         assertThat(row.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(row.canSubmitNow()).isFalse();
     }
 
     private Milestone milestone() {
@@ -637,10 +651,98 @@ class SubmissionAdminFacadeTest {
                 MilestoneType.PROPOSAL);
     }
 
+    @Test
+    @DisplayName("마감 후 재개방된 제안서도 실제 제출 조건을 충족하면 목록과 상세에서 제출 가능하다")
+    void reopenedProposalCanBeSubmittedAfterDeadline() {
+        LocalDateTime past = LocalDateTime.now().minusDays(1);
+        Milestone closed = Milestone.restore(MILESTONE_ID, SECTION_ID, "제안서", null, 2,
+                MilestoneStatus.PUBLISHED, new MilestoneSchedule(null, past, past, past, null, null),
+                MilestoneType.PROPOSAL);
+        Project project = Project.builder().id(90L).teamId(teamId).title("제안서").goal("목표")
+                .approvalStatus(ApprovalStatus.REVISION_REQUESTED).build();
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(closed));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(project));
+        var completed = java.util.Arrays.stream(ProposalSectionType.values())
+                .map(type -> {
+                    var section = ProposalSection.create(90L, type);
+                    section.updateCompleted(true);
+                    return section;
+                }).toList();
+        given(proposalSectionRepository.findAllByProjectId(90L)).willReturn(completed);
+        given(proposalSectionRepository.findAllByProjectIdIn(List.of(90L))).willReturn(completed);
+        given(projectRepository.findTeamIdByProjectId(90L)).willReturn(Optional.of(teamId));
+        given(projectRepository.findByIdForUpdate(90L)).willReturn(Optional.of(project));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+        new ProjectCommandService(projectRepository, mock(ProjectApprovalRepository.class), proposalSectionRepository,
+                mock(TeamMemberRepository.class)).completeProposal(90L);
+
+        assertThat(project.getProposalCompletedAt()).isNotNull();
+        assertThat(listed.canSubmitNow()).isTrue();
+        assertThat(detail.canSubmitNow()).isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"목표,4,false,true", "' ',4,false,false", "목표,3,false,false",
+            "목표,0,false,false", "목표,4,true,false"})
+    @DisplayName("제안서 제출 가능 여부는 목표·모든 섹션 완료·미제출 조건으로 계산한다")
+    void proposalReadinessMatchesCompletionRules(String goal, int completedCount, boolean submitted, boolean expected) {
+        Project project = Project.builder().id(90L).teamId(teamId).title("제안서").goal(goal)
+                .approvalStatus(ApprovalStatus.DRAFT)
+                .proposalCompletedAt(submitted ? LocalDateTime.now() : null).build();
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(project));
+        var sections = java.util.Arrays.stream(ProposalSectionType.values()).map(type -> ProposalSection.create(90L, type))
+                .toList();
+        sections.stream().limit(completedCount).forEach(section -> section.updateCompleted(true));
+        given(proposalSectionRepository.findAllByProjectIdIn(List.of(90L))).willReturn(sections);
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(listed.canSubmitNow()).isEqualTo(expected);
+        assertThat(detail.canSubmitNow()).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("목록은 섹션을 일괄 조회하고 각 팀의 완료 상태를 분리해서 판단한다")
+    void proposalReadinessIsBatchedAndSeparatedByProject() {
+        Team other = teamRepository.save(Team.builder().sectionId(SECTION_ID).name("B팀").status(Status.CONFIRMED).build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(org.mockito.ArgumentMatchers.anyList())).willReturn(List.of(
+                Project.builder().id(90L).teamId(teamId).title("A제안서").goal("목표").build(),
+                Project.builder().id(91L).teamId(other.getId()).title("B제안서").goal("목표").build()));
+        var sections = java.util.stream.Stream.of(90L, 91L)
+                .flatMap(id -> java.util.Arrays.stream(ProposalSectionType.values()).map(type -> {
+                    var section = ProposalSection.create(id, type);
+                    section.updateCompleted(id == 90L || type != ProposalSectionType.TEAM_OPERATION);
+                    return section;
+                })).toList();
+        given(proposalSectionRepository.findAllByProjectIdIn(List.of(90L, 91L))).willReturn(sections);
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).filteredOn(row -> row.teamId().equals(teamId))
+                .singleElement().extracting(SubmissionAdminResponse::canSubmitNow).isEqualTo(true);
+        assertThat(response.contents()).filteredOn(row -> row.teamId().equals(other.getId()))
+                .singleElement().extracting(SubmissionAdminResponse::canSubmitNow).isEqualTo(false);
+        org.mockito.Mockito.verify(proposalSectionRepository).findAllByProjectIdIn(List.of(90L, 91L));
+    }
+
     private Milestone midReportMilestone() {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "중간보고서", null, 8, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
                 MilestoneType.MID_REPORT);
     }
+
 }

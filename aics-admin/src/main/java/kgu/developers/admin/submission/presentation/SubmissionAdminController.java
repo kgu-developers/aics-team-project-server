@@ -33,6 +33,7 @@ public interface SubmissionAdminController {
                 feedbackRequested(제출·재제출 또는 학생 답글 이후 교수 피드백 대기 여부)를 함께 응답한다.
                 hasPendingReview는 학생에게 수정요청된 상태이며, feedbackRequested와 동시에 true일 수 있다.
                 제안서의 status와 hasPendingReview는 실제 제안서 상태를 기준으로 응답한다.
+                제안서의 canSubmitNow는 실제 제출 API와 같이 미제출·목표 입력·모든 섹션 작성 완료로 판단하며 일정 제한을 적용하지 않는다.
             Assignee : 담당자명
             """
     )

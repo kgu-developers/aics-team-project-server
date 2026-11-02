@@ -41,7 +41,7 @@ public record SubmissionAdminResponse(
         @Schema(description = "최신 버전 번호(0이면 아직 제출 안 함)", example = "2", requiredMode = REQUIRED)
         int currentVersion,
 
-        @Schema(description = "지금 제출 가능한지(마감/수정기간/조기오픈 계산 결과)", example = "true", requiredMode = REQUIRED)
+        @Schema(description = "지금 제출 가능한지. 제안서는 목표·모든 섹션 작성 완료 및 미제출 여부로 판단하며 일정 제한을 적용하지 않는다. 그 외에는 마감/수정기간/조기오픈 계산 결과", example = "true", requiredMode = REQUIRED)
         boolean canSubmitNow,
 
         @Schema(description = "대기 중인 피드백(수정요청)이 있는지", example = "false", requiredMode = REQUIRED)
