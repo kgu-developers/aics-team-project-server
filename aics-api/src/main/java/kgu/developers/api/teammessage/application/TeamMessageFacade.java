@@ -59,13 +59,24 @@ public class TeamMessageFacade {
         if (!sectionRepository.existsActiveByIdAndProfessorId(sectionId, senderId)) {
             throw new AccessDeniedException("해당 분반의 담당 교수만 전체 팀에 메시지를 보낼 수 있습니다.");
         }
-        List<Long> teamIds = teamRepository.findAllIdsBySectionId(sectionId);
+        List<Long> sectionTeamIds = teamRepository.findAllIdsBySectionId(sectionId);
+        List<Long> teamIds = resolveTargetTeamIds(sectionTeamIds, request.teamIds());
         for (Long teamId : teamIds) {
             TeamThread thread = teamThreadCommandService.getOrCreateThread(teamId);
             teamMessageCommandService.postMessage(
                 thread.getId(), senderId, TeamMessageRelatedType.GENERAL, null, request.message());
         }
         return new SectionTeamMessagePersistResponse(teamIds.size());
+    }
+
+    private List<Long> resolveTargetTeamIds(List<Long> sectionTeamIds, List<Long> requestedTeamIds) {
+        if (requestedTeamIds == null || requestedTeamIds.isEmpty()) {
+            return sectionTeamIds;
+        }
+        if (!sectionTeamIds.containsAll(requestedTeamIds)) {
+            throw new AccessDeniedException("해당 분반에 속하지 않은 팀에는 메시지를 보낼 수 없습니다.");
+        }
+        return requestedTeamIds.stream().distinct().toList();
     }
 
     public TeamMessagePersistResponse postMessage(Long teamId, String senderId, TeamMessageCreateRequest request) {

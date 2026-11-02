@@ -37,7 +37,7 @@ class TeamMessageControllerTest {
 
     @Test
     void acceptsSectionMessage() throws Exception {
-        when(facade.postSectionMessages(1L, "202699999", new SectionTeamMessageCreateRequest("전체 팀 안내")))
+        when(facade.postSectionMessages(1L, "202699999", new SectionTeamMessageCreateRequest("전체 팀 안내", null)))
             .thenReturn(new SectionTeamMessagePersistResponse(3));
 
         mockMvc.perform(post("/api/v1/sections/{sectionId}/messages", 1L)
