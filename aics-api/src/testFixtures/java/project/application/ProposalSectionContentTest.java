@@ -83,7 +83,7 @@ class ProposalSectionContentTest {
             new TeamAccessValidator(teams, members, new FakeSectionRepository()),
             approvals, mock(ProjectApprovalCommandService.class), members, mock(FileObjectRepository.class),
             mock(FileStorage.class), sections, mock(UserRepository.class), mock(TeamFacade.class), validation.getValidator(),
-            teams, enrollments);
+            teams, enrollments, mock(org.springframework.transaction.PlatformTransactionManager.class));
         lockCommands.acquire(EditLockTargetType.PROJECT, 10L, "DATA", "A");
         lockCommands.acquire(EditLockTargetType.PROJECT, 10L, "SCREEN", "B");
     }

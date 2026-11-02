@@ -77,6 +77,7 @@ class ProjectFacadeTest {
     @Mock private jakarta.validation.Validator validator;
     @Mock private kgu.developers.domain.team.domain.TeamRepository teamRepository;
     @Mock private kgu.developers.domain.enrollment.domain.EnrollmentRepository enrollmentRepository;
+    @Mock private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @InjectMocks private ProjectFacade projectFacade;
 
     @org.junit.jupiter.api.BeforeEach
@@ -361,6 +362,48 @@ class ProjectFacadeTest {
         var screens = projectFacade.getProject(TEAM_ID, MEMBER_ID).screenConfiguration();
 
         assertThat(screens.get(0).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+    }
+
+    @Test
+    void getProject_signsImagesAfterSnapshotTransactionCompletes() throws Exception {
+        var transactions = new org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+            protected Object doGetTransaction() { return new Object(); }
+            protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {}
+            protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+            protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+        };
+        var proxy = new org.springframework.aop.framework.ProxyFactory(projectFacade);
+        org.springframework.test.util.ReflectionTestUtils.setField(projectFacade, "transactionManager", transactions);
+        var advice = new org.springframework.transaction.interceptor.TransactionInterceptor();
+        advice.setTransactionManager(transactions);
+        advice.setTransactionAttributeSource(new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource());
+        proxy.addAdvice(advice);
+        Project current = projectWithScreens("[{\"title\":\"홈\",\"imageFileId\":1}]");
+        current.updateDataConfiguration(new ObjectMapper().readTree("[{\"name\":\"기존 데이터\"}]"));
+        current.updateExternalLinks(new ObjectMapper().readTree("[{\"name\":\"기존 링크\"}]"));
+        var committed = new java.util.concurrent.atomic.AtomicBoolean();
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    public void afterCommit() { committed.set(true); }
+                });
+            return current;
+        });
+        givenImageUploadedBy(MEMBER_ID);
+        given(fileStorage.presignedUrl("teams/1/home.png")).willAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(committed).isTrue();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) current.getDataConfiguration().get(0)).put("name", "변경된 데이터");
+            ((com.fasterxml.jackson.databind.node.ObjectNode) current.getExternalLinks().get(0)).put("name", "변경된 링크");
+            return "https://s3/presigned";
+        });
+
+        var response = ((ProjectFacade) proxy.getProxy()).getProject(TEAM_ID, MEMBER_ID);
+
+        assertThat(response.screenConfiguration().get(0).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+        assertThat(response.dataConfiguration().get(0).get("name").asText()).isEqualTo("기존 데이터");
+        assertThat(response.externalLinks().get(0).get("name").asText()).isEqualTo("기존 링크");
     }
 
     @Test

@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import kgu.developers.domain.project.domain.ProposalSectionType;
 
-@Builder
+@Builder(toBuilder = true)
 public record ProjectResponse(
     Long id,
     Map<ProposalSectionType, Long> sectionVersions,

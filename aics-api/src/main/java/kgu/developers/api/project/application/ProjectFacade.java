@@ -50,11 +50,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -91,14 +95,20 @@ public class ProjectFacade {
     private final Validator validator;
     private final TeamRepository teamRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final PlatformTransactionManager transactionManager;
 
+    // 호출자의 트랜잭션이 팀 잠금과 URL 생성까지 묶지 않도록 스냅샷 트랜잭션을 분리한다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProjectResponse getProject(Long teamId, String userId) {
-        teamAccessValidator.validateMembershipOrProfessorBeforeLock(teamId, userId);
-        // 접근 검증도 Team을 읽으므로, 킥오프 본문과 섹션 버전을 읽기 전에 잠근다.
-        projectRepository.lockTeam(teamId);
-        teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
-        Project project = projectQueryService.getProjectByTeamId(teamId);
-        return projectSnapshot(project, userId);
+        ProjectSnapshot snapshot = new TransactionTemplate(transactionManager).execute(status -> {
+            teamAccessValidator.validateMembershipOrProfessorBeforeLock(teamId, userId);
+            // 접근 검증도 Team을 읽으므로, 킥오프 본문과 섹션 버전을 읽기 전에 잠근다.
+            projectRepository.lockTeam(teamId);
+            teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
+            Project project = projectQueryService.getProjectByTeamId(teamId);
+            return projectSnapshot(project, userId);
+        });
+        return resolveSnapshot(snapshot);
     }
 
     public ProjectResponse saveProject(Long teamId, String userId, ProjectRequest request) {
@@ -150,15 +160,38 @@ public class ProjectFacade {
             type == ProposalSectionType.TEAM_OPERATION && request.projectSchedule() != null
                 ? request.projectSchedule() : current.getProjectSchedule()
         );
-        return projectSnapshot(saved, userId);
+        return resolveSnapshot(projectSnapshot(saved, userId));
     }
 
-    private ProjectResponse projectSnapshot(Project project, String userId) {
+    private ProjectSnapshot projectSnapshot(Project project, String userId) {
         Map<ProposalSectionType, Long> versions = Arrays.stream(ProposalSectionType.values())
             .collect(toMap(Function.identity(), type -> projectCommandService.getOrCreateSection(project, type).getContentVersion()));
-        return ProjectResponse.from(project,
-            resolveScreenImageUrls(project.getTeamId(), project.getScreenConfiguration()),
-            teamFacade.getKickoffByTeamId(project.getTeamId(), userId), versions);
+        Map<Long, String> imageStorageKeys = new HashMap<>();
+        JsonNode screens = prepareScreenImages(project.getTeamId(), project.getScreenConfiguration(), imageStorageKeys);
+        ProjectResponse response = ProjectResponse.from(project, screens,
+            teamFacade.getKickoffByTeamId(project.getTeamId(), userId), Map.copyOf(versions)).toBuilder()
+            .dataConfiguration(project.getDataConfiguration() == null ? null : project.getDataConfiguration().deepCopy())
+            .externalLinks(project.getExternalLinks() == null ? null : project.getExternalLinks().deepCopy())
+            .build();
+        return new ProjectSnapshot(response, Map.copyOf(imageStorageKeys));
+    }
+
+    private record ProjectSnapshot(ProjectResponse response, Map<Long, String> imageStorageKeys) {}
+
+    private ProjectResponse resolveSnapshot(ProjectSnapshot snapshot) {
+        JsonNode screens = snapshot.response().screenConfiguration();
+        if (screens != null && screens.isArray()) {
+            for (JsonNode screen : screens) {
+                JsonNode imageFileId = screen.get("imageFileId");
+                if (screen.isObject() && imageFileId != null && imageFileId.isIntegralNumber()) {
+                    String storageKey = snapshot.imageStorageKeys().get(imageFileId.asLong());
+                    if (storageKey != null) {
+                        ((ObjectNode) screen).put("imageUrl", fileStorage.presignedUrl(storageKey));
+                    }
+                }
+            }
+        }
+        return snapshot.response();
     }
 
     public ProjectImageUploadResponse uploadProjectImage(Long teamId, String userId, MultipartFile file) {
@@ -314,7 +347,7 @@ public class ProjectFacade {
     // 계속 URL이 나가버린다. 그래서 여기서도 소유권을 다시 확인하고, 지금 시점에 소유가 아니면
     // URL을 만들지 않는다. "imageUrl"은 항상 먼저 지우고 다시 계산한다 — 클라이언트가 보낸 값이든
     // 과거에 잘못 저장된 값이든 그대로 흘려보내지 않기 위해서다.
-    private JsonNode resolveScreenImageUrls(Long teamId, JsonNode screens) {
+    private JsonNode prepareScreenImages(Long teamId, JsonNode screens, Map<Long, String> imageStorageKeys) {
         if (screens == null || !screens.isArray()) {
             return screens;
         }
@@ -350,7 +383,7 @@ public class ProjectFacade {
             if (imageFileId != null && imageFileId.isIntegralNumber()) {
                 FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
                 if (fileObject != null && memberIds.contains(fileObject.getUploadedBy()) && isAllowedImage(fileObject)) {
-                    sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey()));
+                    imageStorageKeys.put(fileObject.getId(), fileObject.getStorageKey());
                 }
             }
             resolved.add(sanitized);
