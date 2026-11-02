@@ -34,6 +34,10 @@ public interface SubmissionAdminController {
                 hasPendingReview는 학생에게 수정요청된 상태이며, feedbackRequested와 동시에 true일 수 있다.
                 제안서의 status와 hasPendingReview는 실제 제안서 상태를 기준으로 응답한다.
                 제안서의 canSubmitNow는 실제 제출 API와 같이 미제출·목표 입력·모든 섹션 작성 완료로 판단하며 일정 제한을 적용하지 않는다.
+                id는 일반 제출 식별자이며 제안서 식별자는 projectId, 제안서 제출 시각은 proposalCompletedAt이다.
+                submissionStatus는 일반 제출 상태를 유지하므로 문서 상태인 status와 다를 수 있다.
+                제안서의 currentVersion=0은 일반 제출 버전 이력이 없다는 뜻이며 제안서 미제출을 의미하지 않는다.
+                completedAt·completedBy는 일반 제출 단계의 COMPLETED 처리 이력이며 제안서 제출 정보와 별개다.
             Assignee : 담당자명
             """
     )

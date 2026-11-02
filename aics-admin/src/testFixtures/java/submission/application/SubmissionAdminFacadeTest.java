@@ -45,6 +45,7 @@ import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import kgu.developers.domain.teammessage.domain.DocumentFeedbackRepository;
 import kgu.developers.domain.teammessage.domain.DocumentFeedbackSummary;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
@@ -745,4 +746,64 @@ class SubmissionAdminFacadeTest {
                 MilestoneType.MID_REPORT);
     }
 
+    @Test
+    @DisplayName("제안서 제출 상태·시각과 일반 제출 버전·상태는 JSON 응답에서 구분된다")
+    void proposalSubmissionMetadataIsSeparateFromGenericHistory() {
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 11, 2, 16, 0);
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder()
+                .id(90L).teamId(teamId).title("제안서").goal("목표")
+                .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(submittedAt).build()));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(listed.id(), PROFESSOR);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
+                .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .valueToTree(listed);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(json.path("status").asText()).isEqualTo("SUBMITTED");
+        assertThat(json.path("submissionStatus").asText()).isEqualTo("NOT_SUBMITTED");
+        assertThat(json.path("projectId").asLong()).isEqualTo(90L);
+        assertThat(json.path("proposalCompletedAt").asText()).isEqualTo("2026-11-02T16:00:00");
+        assertThat(listed.currentVersion()).isZero();
+        assertThat(listed.completedAt()).isNull();
+        assertThat(submissionAdminFacade.getVersions(listed.id(), PROFESSOR).contents()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SubmissionStatus.class, names = {"SUBMITTED", "REVISION_REQUESTED", "COMPLETED"})
+    @DisplayName("미제출 제안서가 있어도 일반 제출·재개방·완료 이력은 응답과 버전 API에 유지된다")
+    void proposalDraftPreservesGenericSubmissionHistory(SubmissionStatus historyStatus) {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        submission.recordNewVersion(1);
+        if (historyStatus == SubmissionStatus.REVISION_REQUESTED) {
+            submission.reopen(PROFESSOR, LocalDateTime.now().plusDays(1));
+        } else if (historyStatus == SubmissionStatus.COMPLETED) {
+            submission.complete("202412345");
+        }
+        submissionRepository.save(submission);
+        submissionVersionRepository.save(SubmissionVersion.create(submission.getId(), 1,
+                "일반 제출 이력", "최초 제출", "202412345", false));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder()
+                .id(90L).teamId(teamId).title("제안서").goal("목표").approvalStatus(ApprovalStatus.DRAFT).build()));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().valueToTree(listed);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(listed.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(json.path("submissionStatus").asText()).isEqualTo(historyStatus.name());
+        assertThat(json.path("proposalCompletedAt").isNull()).isTrue();
+        assertThat(listed.currentVersion()).isEqualTo(1);
+        assertThat(listed.completedAt()).isEqualTo(submission.getCompletedAt());
+        assertThat(listed.completedBy()).isEqualTo(submission.getCompletedBy());
+        assertThat(submissionAdminFacade.getVersions(listed.id(), PROFESSOR).contents()).hasSize(1);
+    }
 }

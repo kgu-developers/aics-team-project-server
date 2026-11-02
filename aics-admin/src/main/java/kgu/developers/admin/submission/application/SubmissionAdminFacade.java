@@ -284,7 +284,9 @@ public class SubmissionAdminFacade {
         if (milestone.getType() == MilestoneType.PROPOSAL) {
             boolean revisionRequested = project != null && submittedAt == null
                     && project.getApprovalStatus() == ApprovalStatus.REVISION_REQUESTED;
-            builder.status(submittedAt != null ? SubmissionStatus.SUBMITTED
+            builder.projectId(project == null ? null : project.getId())
+                    .proposalCompletedAt(submittedAt)
+                    .status(submittedAt != null ? SubmissionStatus.SUBMITTED
                     : revisionRequested ? SubmissionStatus.REVISION_REQUESTED : SubmissionStatus.NOT_SUBMITTED)
                     .hasPendingReview(revisionRequested)
                     .canSubmitNow(project != null && submittableProjects.contains(project.getId()));
