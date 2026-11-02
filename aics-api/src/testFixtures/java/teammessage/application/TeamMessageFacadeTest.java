@@ -120,7 +120,7 @@ public class TeamMessageFacadeTest {
         teamMessageFacade.postMessage(1L, USER_A, createRequest("기존 메시지"));
 
         var result = teamMessageFacade.postSectionMessages(
-            1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내"));
+            1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내", null));
 
         assertEquals(4, result.sentCount());
         for (Long teamId : List.of(1L, 2L, 5L, 99L)) {
@@ -148,7 +148,7 @@ public class TeamMessageFacadeTest {
         fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
         for (String sender : List.of(USER_A, "202688888")) {
             assertThatThrownBy(() -> teamMessageFacade.postSectionMessages(
-                1L, sender, new SectionTeamMessageCreateRequest("전체 팀 안내")))
+                1L, sender, new SectionTeamMessageCreateRequest("전체 팀 안내", null)))
                 .isInstanceOf(AccessDeniedException.class);
         }
         assertTrue(fakeTeamThreadRepository.findByTeamId(1L).isEmpty());
@@ -161,10 +161,51 @@ public class TeamMessageFacadeTest {
             .deletedAt(LocalDateTime.now()).build());
         for (Long sectionId : List.of(1L, 999L)) {
             assertThatThrownBy(() -> teamMessageFacade.postSectionMessages(
-                sectionId, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내")))
+                sectionId, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내", null)))
                 .isInstanceOf(AccessDeniedException.class);
         }
         assertTrue(fakeTeamThreadRepository.findByTeamId(1L).isEmpty());
+    }
+
+    @Test
+    @DisplayName("teamIds를 지정하면 분반 내 해당 팀들에만 일반 메시지를 전송한다")
+    void postSectionMessages_SelectedTeamIds() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+
+        var result = teamMessageFacade.postSectionMessages(
+            1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("선택 팀 안내", List.of(1L, 99L)));
+
+        assertEquals(2, result.sentCount());
+        for (Long teamId : List.of(1L, 99L)) {
+            var sent = teamMessageFacade.getMessages(teamId, null, PageRequest.of(0, 10), PROFESSOR_ID)
+                .contents().get(0);
+            assertEquals("선택 팀 안내", sent.message());
+        }
+        assertTrue(fakeTeamThreadRepository.findByTeamId(2L).isEmpty());
+    }
+
+    @Test
+    @DisplayName("teamIds에 중복된 팀이 있으면 한 번만 전송한다")
+    void postSectionMessages_SelectedTeamIds_DeduplicatesDuplicates() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+
+        var result = teamMessageFacade.postSectionMessages(
+            1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("선택 팀 안내", List.of(1L, 1L)));
+
+        assertEquals(1, result.sentCount());
+    }
+
+    @Test
+    @DisplayName("teamIds에 다른 분반 소속 팀이 섞여 있으면 전체를 거부한다")
+    void postSectionMessages_SelectedTeamIds_RejectsOutOfSectionTeam() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+        fakeTeamRepository.save(Team.builder().id(3L).sectionId(2L).build());
+
+        assertThatThrownBy(() -> teamMessageFacade.postSectionMessages(
+            1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("선택 팀 안내", List.of(1L, 3L))))
+            .isInstanceOf(AccessDeniedException.class);
+        assertTrue(fakeTeamThreadRepository.findByTeamId(1L).isEmpty());
+        assertTrue(fakeTeamThreadRepository.findByTeamId(3L).isEmpty());
     }
 
     @Test
@@ -173,7 +214,7 @@ public class TeamMessageFacadeTest {
         fakeSectionRepository.save(Section.builder().id(2L).professorId(PROFESSOR_ID).build());
 
         var result = teamMessageFacade.postSectionMessages(
-            2L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내"));
+            2L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내", null));
 
         assertEquals(0, result.sentCount());
         assertTrue(fakeTeamThreadRepository.findByTeamId(1L).isEmpty());

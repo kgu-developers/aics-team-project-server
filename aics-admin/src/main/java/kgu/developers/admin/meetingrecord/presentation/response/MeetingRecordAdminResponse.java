@@ -47,11 +47,16 @@ public record MeetingRecordAdminResponse(
     String content,
 
     @Schema(description = "참석자 수", example = "4", requiredMode = REQUIRED)
-    int participantCount
+    int participantCount,
+
+    @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
+    String leaderName
 ) {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public static MeetingRecordAdminResponse from(MeetingRecord meetingRecord, Team team, Section section) {
+    public static MeetingRecordAdminResponse from(
+        MeetingRecord meetingRecord, Team team, Section section, String leaderName
+    ) {
         return MeetingRecordAdminResponse.builder()
             .id(meetingRecord.getId())
             .sectionId(section.getId())
@@ -65,6 +70,7 @@ public record MeetingRecordAdminResponse(
             .location(meetingRecord.getLocation())
             .content(meetingRecord.getContent())
             .participantCount(meetingRecord.getParticipantCount())
+            .leaderName(leaderName)
             .build();
     }
 }

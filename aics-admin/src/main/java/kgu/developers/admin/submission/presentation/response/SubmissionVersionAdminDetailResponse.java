@@ -14,6 +14,9 @@ import kgu.developers.domain.user.domain.User;
 @Builder
 public record SubmissionVersionAdminDetailResponse(
 
+        @Schema(description = "팀 식별자", example = "10", requiredMode = REQUIRED)
+        Long teamId,
+
         @Schema(description = "버전 번호", example = "2", requiredMode = REQUIRED)
         int version,
 
@@ -37,8 +40,9 @@ public record SubmissionVersionAdminDetailResponse(
 ) {
 
     public static SubmissionVersionAdminDetailResponse of(
-            SubmissionVersion version, User submitter, List<SubmissionArtifactAdminResponse> artifacts) {
+            Long teamId, SubmissionVersion version, User submitter, List<SubmissionArtifactAdminResponse> artifacts) {
         return SubmissionVersionAdminDetailResponse.builder()
+                .teamId(teamId)
                 .version(version.getVersion())
                 .description(version.getDescription())
                 .changeNote(version.getChangeNote())

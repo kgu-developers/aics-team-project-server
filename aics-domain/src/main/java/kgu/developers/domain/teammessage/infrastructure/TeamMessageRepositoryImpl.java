@@ -2,6 +2,10 @@ package kgu.developers.domain.teammessage.infrastructure;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.stream.Collectors;
+import kgu.developers.domain.teammessage.domain.DocumentFeedbackRepository;
+import kgu.developers.domain.teammessage.domain.DocumentFeedbackSummary;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.teammessage.domain.TeamMessageRepository;
@@ -13,9 +17,21 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMessageUnreadRepository {
+public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMessageUnreadRepository, DocumentFeedbackRepository {
 
     private final JpaTeamMessageRepository jpaTeamMessageRepository;
+
+    @Override
+    public Map<Long, DocumentFeedbackSummary> summarizeFeedback(
+        List<Long> teamIds, TeamMessageRelatedType relatedType, List<Long> relatedIds
+    ) {
+        if (teamIds.isEmpty() || relatedIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaTeamMessageRepository.summarizeFeedback(teamIds, relatedType, relatedIds).stream()
+            .collect(Collectors.toMap(JpaTeamMessageRepository.DocumentFeedbackProjection::getRelatedId,
+                row -> new DocumentFeedbackSummary(row.getFeedbackCount(), row.getLastFeedbackAt(), row.getLastStudentMessageAt())));
+    }
 
     @Override
     public TeamMessage save(TeamMessage teamMessage) {
@@ -45,20 +61,13 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
     }
 
     @Override
-    public Page<TeamMessage> findByThreadIdIn(List<Long> threadIds, Pageable pageable) {
+    public Page<TeamMessage> findByThreadIdIn(
+        List<Long> threadIds, TeamMessageRelatedType relatedType, List<String> senderIds, Pageable pageable
+    ) {
         if (threadIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        return jpaTeamMessageRepository.findByThreadIdIn(threadIds, pageable)
-            .map(TeamMessageJpaEntity::toDomain);
-    }
-
-    @Override
-    public Page<TeamMessage> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable) {
-        if (threadIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-        return jpaTeamMessageRepository.findByThreadIdInAndRelatedType(threadIds, relatedType, pageable)
+        return jpaTeamMessageRepository.findByThreadIdIn(threadIds, relatedType, senderIds, pageable)
             .map(TeamMessageJpaEntity::toDomain);
     }
 
@@ -68,5 +77,13 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
             return 0;
         }
         return jpaTeamMessageRepository.countUnreadByThreadIdIn(threadIds, userId);
+    }
+
+    @Override
+    public List<String> findDistinctSenderIdsByThreadIdIn(List<Long> threadIds) {
+        if (threadIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamMessageRepository.findDistinctSenderIdsByThreadIdIn(threadIds);
     }
 }

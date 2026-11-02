@@ -8,6 +8,8 @@ public interface ProposalSectionRepository {
 
     List<ProposalSection> findAllByProjectId(Long projectId);
 
+    List<ProposalSection> findAllByProjectIdIn(List<Long> projectIds);
+
     Optional<ProposalSection> findByProjectIdAndType(Long projectId, ProposalSectionType type);
 
     void deleteAllByProjectId(Long projectId);

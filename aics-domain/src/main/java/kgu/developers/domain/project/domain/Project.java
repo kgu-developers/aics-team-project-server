@@ -11,6 +11,8 @@ import static lombok.AccessLevel.PROTECTED;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.EnumSet;
+import java.util.Set;
 
 @Getter
 @Builder
@@ -107,6 +109,11 @@ public class Project {
 
     public boolean isProjectScheduleChanged(String newProjectSchedule) {
         return !Objects.equals(this.projectSchedule, newProjectSchedule);
+    }
+
+    public boolean canCompleteProposal(Set<ProposalSectionType> completedSections) {
+        return proposalCompletedAt == null && goal != null && !goal.isBlank()
+            && completedSections.containsAll(EnumSet.allOf(ProposalSectionType.class));
     }
 
     public void completeProposal() {

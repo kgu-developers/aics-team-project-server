@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -227,7 +228,7 @@ class SectionAdminControllerTest {
                 .id(1L).sectionId(1L).name("1팀").kickoffRule("규칙").meetingSchedule("매주 목 19:00")
                 .status(kgu.developers.domain.team.domain.Status.FORMING).build();
         given(sectionAdminFacade.getTeamsBySectionId(1L))
-                .willReturn(TeamAdminListResponse.from(List.of(team)));
+                .willReturn(TeamAdminListResponse.from(List.of(team), Map.of()));
 
         mockMvc.perform(get(BASE_URL + "/1/teams"))
                 .andExpect(status().isOk())

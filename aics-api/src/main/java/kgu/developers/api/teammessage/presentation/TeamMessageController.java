@@ -26,9 +26,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface TeamMessageController {
 
     @Operation(
-        summary = "분반 전체 팀 메시지 등록 API",
+        summary = "분반 전체/선택 팀 메시지 등록 API",
         description = """
-            Description : 담당 교수만 본인 분반의 삭제되지 않은 모든 팀에 동일한 GENERAL 메시지를 등록할 수 있다.
+            Description : 담당 교수만 본인 분반의 삭제되지 않은 팀에 동일한 GENERAL 메시지를 등록할 수 있다.
+                teamIds를 생략하거나 비우면 분반의 모든 팀에 전송하고, teamIds를 지정하면 그 팀들에만 전송한다.
+                teamIds에 해당 분반 소속이 아닌 teamId가 하나라도 포함되면 403으로 거부한다.
                 팀 status(FORMING/CONFIRMED)는 가리지 않으므로 아직 구성 중인 팀에도 전달된다.
                 발신자는 인증된 사용자로 기록하며, 팀별 스레드가 없으면 생성한다.
                 관련 문서 상태는 변경하지 않고, 읽음 여부는 기존 팀 메시지와 동일하게 사용자별로 관리한다.
@@ -37,7 +39,7 @@ public interface TeamMessageController {
             """
     )
     @ApiResponse(responseCode = "201", content = @Content(schema = @Schema(implementation = SectionTeamMessagePersistResponse.class)))
-    @ApiResponse(responseCode = "403", description = "담당 교수가 아니거나 존재하지 않는/삭제된 분반")
+    @ApiResponse(responseCode = "403", description = "담당 교수가 아니거나, 존재하지 않는/삭제된 분반이거나, teamIds에 분반 소속이 아닌 팀이 포함됨")
     ResponseEntity<SectionTeamMessagePersistResponse> postSectionMessages(
         @PathVariable Long sectionId,
         @Valid @RequestBody SectionTeamMessageCreateRequest request,

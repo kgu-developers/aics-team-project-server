@@ -143,29 +143,45 @@ class TeamMessageQueryServiceTest {
     @DisplayName("스레드 ID 목록으로 메시지를 페이징 조회한다")
     void getMessages_ByThreadIds() {
         Pageable pageable = PageRequest.of(0, 10);
-        given(teamMessageRepository.findByThreadIdIn(List.of(10L, 20L), pageable))
+        given(teamMessageRepository.findByThreadIdIn(List.of(10L, 20L), null, null, pageable))
             .willReturn(new PageImpl<>(List.of(), pageable, 0));
 
         Page<TeamMessage> result = teamMessageQueryService.getMessages(List.of(10L, 20L), pageable);
 
         assertThat(result.getContent()).isEmpty();
-        verify(teamMessageRepository).findByThreadIdIn(List.of(10L, 20L), pageable);
+        verify(teamMessageRepository).findByThreadIdIn(List.of(10L, 20L), null, null, pageable);
     }
 
     @Test
     @DisplayName("스레드 ID 목록과 연관 유형으로 메시지를 페이징 조회한다")
     void getMessages_ByThreadIdsAndRelatedType() {
         Pageable pageable = PageRequest.of(0, 10);
-        given(teamMessageRepository.findByThreadIdInAndRelatedType(
-            List.of(10L, 20L), TeamMessageRelatedType.MID_REPORT, pageable))
+        given(teamMessageRepository.findByThreadIdIn(
+            List.of(10L, 20L), TeamMessageRelatedType.MID_REPORT, null, pageable))
             .willReturn(new PageImpl<>(List.of(), pageable, 0));
 
         Page<TeamMessage> result = teamMessageQueryService.getMessages(
             List.of(10L, 20L), TeamMessageRelatedType.MID_REPORT, pageable);
 
         assertThat(result.getContent()).isEmpty();
-        verify(teamMessageRepository).findByThreadIdInAndRelatedType(
-            List.of(10L, 20L), TeamMessageRelatedType.MID_REPORT, pageable);
+        verify(teamMessageRepository).findByThreadIdIn(
+            List.of(10L, 20L), TeamMessageRelatedType.MID_REPORT, null, pageable);
+    }
+
+    @Test
+    @DisplayName("스레드 ID 목록, 연관 유형, 발신자 목록으로 메시지를 페이징 조회한다")
+    void getMessages_ByThreadIdsAndRelatedTypeAndSenderIds() {
+        Pageable pageable = PageRequest.of(0, 10);
+        given(teamMessageRepository.findByThreadIdIn(
+            List.of(10L, 20L), TeamMessageRelatedType.GENERAL, List.of("202412345"), pageable))
+            .willReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        Page<TeamMessage> result = teamMessageQueryService.getMessages(
+            List.of(10L, 20L), TeamMessageRelatedType.GENERAL, List.of("202412345"), pageable);
+
+        assertThat(result.getContent()).isEmpty();
+        verify(teamMessageRepository).findByThreadIdIn(
+            List.of(10L, 20L), TeamMessageRelatedType.GENERAL, List.of("202412345"), pageable);
     }
 
     @Test

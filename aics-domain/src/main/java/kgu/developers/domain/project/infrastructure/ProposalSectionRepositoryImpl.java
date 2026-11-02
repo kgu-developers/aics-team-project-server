@@ -29,6 +29,16 @@ public class ProposalSectionRepositoryImpl implements ProposalSectionRepository 
     }
 
     @Override
+    public List<ProposalSection> findAllByProjectIdIn(List<Long> projectIds) {
+        if (projectIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaProposalSectionRepository.findAllByProjectIdIn(projectIds).stream()
+            .map(ProposalSectionJpaEntity::toDomain)
+            .toList();
+    }
+
+    @Override
     public Optional<ProposalSection> findByProjectIdAndType(Long projectId, ProposalSectionType type) {
         return jpaProposalSectionRepository.findByProjectIdAndType(projectId, type)
             .map(ProposalSectionJpaEntity::toDomain);

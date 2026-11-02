@@ -18,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.EnumSet;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -304,15 +303,11 @@ public class ProjectCommandService {
         if (project.getProposalCompletedAt() != null) {
             throw new ProjectProposalCompletedException();
         }
-        // 직접 주제 확정은 목표를 빈 값으로 시작한다. 섹션 완료 표시만으로 빈 목표가 제출되는 걸 막는다.
-        if (project.getGoal().isBlank()) {
-            throw new ProposalSectionIncompleteException();
-        }
         Set<ProposalSectionType> completedSections = proposalSectionRepository.findAllByProjectId(projectId).stream()
             .filter(ProposalSection::isCompleted)
             .map(ProposalSection::getType)
             .collect(toSet());
-        if (!completedSections.containsAll(EnumSet.allOf(ProposalSectionType.class))) {
+        if (!project.canCompleteProposal(completedSections)) {
             throw new ProposalSectionIncompleteException();
         }
         project.completeProposal();

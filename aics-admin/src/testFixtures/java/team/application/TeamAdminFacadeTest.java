@@ -88,18 +88,20 @@ class TeamAdminFacadeTest {
 	}
 
 	@Test
-	@DisplayName("finalizeTeams는 확정된 팀 목록을 응답한다")
+	@DisplayName("finalizeTeams는 확정된 팀 목록을 팀장 이름과 함께 응답한다")
 	void finalizeTeams() {
 		given(teamCommandService.finalizeTeams(10L, "admin")).willReturn(List.of(
 			Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.CONFIRMED).build(),
 			Team.builder().id(2L).sectionId(10L).name("2팀").status(Status.CONFIRMED).build()));
+		given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(1L, 2L)))
+			.willReturn(java.util.Map.of(1L, "김철수"));
 
 		TeamAdminListResponse response = teamAdminFacade.finalizeTeams(10L, "admin");
 
-		assertThat(response.contents()).extracting("name", "status")
+		assertThat(response.contents()).extracting("name", "status", "leaderName")
 			.containsExactly(
-				org.assertj.core.groups.Tuple.tuple("1팀", Status.CONFIRMED),
-				org.assertj.core.groups.Tuple.tuple("2팀", Status.CONFIRMED));
+				org.assertj.core.groups.Tuple.tuple("1팀", Status.CONFIRMED, "김철수"),
+				org.assertj.core.groups.Tuple.tuple("2팀", Status.CONFIRMED, null));
 	}
 
 	@Test
@@ -107,6 +109,7 @@ class TeamAdminFacadeTest {
 	void unfinalizeTeams() {
 		given(teamCommandService.unfinalizeTeams(10L, "admin", REASON)).willReturn(List.of(
 			Team.builder().id(1L).sectionId(10L).name("1팀").status(Status.FORMING).build()));
+		given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(1L))).willReturn(java.util.Map.of());
 
 		assertThat(teamAdminFacade.unfinalizeTeams(10L, "admin", REASON).contents())
 			.singleElement().satisfies(team -> assertThat(team.status()).isEqualTo(Status.FORMING));

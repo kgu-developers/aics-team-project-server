@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,8 +22,14 @@ public interface TeamMessageAdminController {
     @Operation(
         summary = "담당 분반 통합 쪽지함 조회 API",
         description = """
-            Description : 담당 교수가 맡은 전체 분반의 팀 메시지를 최신순으로 조회한다.
+            Description : 담당 교수가 맡은 전체 분반의 팀 메시지를 조회한다.
                 sectionId를 전달하면 해당 분반으로 범위를 좁히며, 관리자 기준 읽음 여부와 전체 미확인 수를 반환한다.
+                sort로 생성 순서 기준 정렬 방향을 지정한다(DESC: 최신순 기본값, ASC: 오래된순). 동일 시각 생성 메시지의
+                순서가 흔들리지 않도록 createdAt이 아닌 id를 정렬 기준으로 사용한다.
+                senderKeyword를 전달하면 조회 범위(접근 가능한 스레드)에 실제로 메시지를 남긴 적 있는 모든 발신자 중
+                이름 또는 학번에 검색어가 포함되는 발신자의 메시지만 남긴다. 팀을 탈퇴한 학생이나 바뀐 담당 교수가
+                과거에 남긴 메시지도 검색 대상이다. 일치하는 발신자가 없어도 unreadCount는 조회 범위 전체 기준으로
+                유지되며, 메시지 목록만 빈 목록을 반환한다.
                 현재 권한 모델에서 ADMIN은 교수 계정이며, 조교는 USER의 Enrollment.role로 구분한다.
                 호출자의 인증 식별자를 교수 학번으로 사용하므로 본인이 담당하는 분반만 조회할 수 있다.
             Assignee : 최태양
@@ -36,6 +43,9 @@ public interface TeamMessageAdminController {
         @Parameter(description = "분반 필터") @RequestParam(required = false) @Positive Long sectionId,
         @Parameter(description = "팀 필터") @RequestParam(required = false) @Positive Long teamId,
         @Parameter(description = "메시지 관련 유형 필터") @RequestParam(required = false) kgu.developers.domain.teammessage.domain.TeamMessageRelatedType relatedType,
+        @Parameter(description = "발신자 검색어(이름 또는 학번 부분일치)") @RequestParam(required = false) String senderKeyword,
+        @Parameter(description = "생성 순서 기준 정렬 방향", example = "DESC")
+        @RequestParam(defaultValue = "DESC") Sort.Direction sort,
         @Parameter(description = "페이지 번호(0부터 시작)", example = "0")
         @RequestParam(defaultValue = "0") @PositiveOrZero int page,
         @Parameter(description = "페이지 크기(최대 100)", example = "20")

@@ -25,17 +25,21 @@ public record TeamAdminResponse(
     Status status,
 
     @Schema(description = "생성 일시")
-    LocalDateTime createdAt
+    LocalDateTime createdAt,
+
+    @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
+    String leaderName
 ) {
 
-    public static TeamAdminResponse from(Team team) {
+    public static TeamAdminResponse from(Team team, String leaderName) {
         return new TeamAdminResponse(
             team.getId(),
             team.getName(),
             team.getKickoffRule(),
             team.getMeetingSchedule(),
             team.getStatus(),
-            team.getCreatedAt()
+            team.getCreatedAt(),
+            leaderName
         );
     }
 }

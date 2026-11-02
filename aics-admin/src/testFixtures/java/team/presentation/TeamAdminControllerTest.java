@@ -82,8 +82,8 @@ class TeamAdminControllerTest {
 	@DisplayName("팀 배정을 확정하면 200과 확정된 팀 목록을 응답한다")
 	void finalizeTeams() throws Exception {
 		given(teamAdminFacade.finalizeTeams(10L, "admin")).willReturn(new TeamAdminListResponse(List.of(
-			new TeamAdminResponse(1L, "1팀", null, null, Status.CONFIRMED, null),
-			new TeamAdminResponse(2L, "2팀", null, null, Status.CONFIRMED, null))));
+			new TeamAdminResponse(1L, "1팀", null, null, Status.CONFIRMED, null, null),
+			new TeamAdminResponse(2L, "2팀", null, null, Status.CONFIRMED, null, null))));
 
 		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/finalize", 10L)
 			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
@@ -109,7 +109,7 @@ class TeamAdminControllerTest {
 	@DisplayName("취소 사유를 전달하여 분반 팀 배정 확정을 취소한다")
 	void unfinalizeTeamsWithReason() throws Exception {
 		given(teamAdminFacade.unfinalizeTeams(10L, "admin", REASON)).willReturn(new TeamAdminListResponse(List.of(
-			new TeamAdminResponse(1L, "1팀", null, null, Status.FORMING, null))));
+			new TeamAdminResponse(1L, "1팀", null, null, Status.FORMING, null, null))));
 		mockMvc.perform(patch(BASE_URL + "/sections/{sectionId}/teams/unfinalize", 10L)
 			.contentType("application/json").content("{\"reason\":\"  " + REASON + "  \"}")
 			.principal(new UsernamePasswordAuthenticationToken("admin", null)))
