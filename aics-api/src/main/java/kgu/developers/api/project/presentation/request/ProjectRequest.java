@@ -75,7 +75,7 @@ public record ProjectRequest(
 ) {
     @JsonIgnore
     @Valid
-    public List<MemberRole> getTeamOperationMemberRoles() {
+    public List<@NotNull MemberRole> getTeamOperationMemberRoles() {
         return sectionKey == ProposalSectionType.TEAM_OPERATION ? memberRoles : null;
     }
 

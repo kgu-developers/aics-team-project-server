@@ -201,7 +201,7 @@ class ProjectControllerTest {
                     {"sectionKey":"%s","sectionVersion":0,
                      "title":"제목","description":"설명","goal":"목표",
                      "dataConfiguration":[],"screenConfiguration":[],
-                     "memberRoles":[{"studentNumber":"","projectRole":"x"}]}
+                     "memberRoles":[{"studentNumber":"","projectRole":"x"},null]}
                     """.formatted(sectionKey))
                 .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
             .andExpect(status().isOk());
@@ -220,6 +220,35 @@ class ProjectControllerTest {
             .andExpect(status().isBadRequest());
 
         then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[null]", "[{\"studentNumber\":\"202412345\",\"projectRole\":\"백엔드\"},null]"})
+    void saveProjectRejectsNullMemberRoleForTeamOperation(String memberRoles) throws Exception {
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"sectionKey":"TEAM_OPERATION","sectionVersion":0,"memberRoles":%s}
+                    """.formatted(memberRoles))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", ",\"memberRoles\":null", ",\"memberRoles\":[]"})
+    void saveProjectAcceptsAbsentOrEmptyMemberRolesForTeamOperation(String memberRolesField) throws Exception {
+        given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
+            .willReturn(response());
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"sectionKey":"TEAM_OPERATION","sectionVersion":0%s}
+                    """.formatted(memberRolesField))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
     }
 
     @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")
