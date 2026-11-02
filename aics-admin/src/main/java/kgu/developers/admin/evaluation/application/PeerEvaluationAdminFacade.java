@@ -2,7 +2,6 @@ package kgu.developers.admin.evaluation.application;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +32,7 @@ import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -53,6 +53,7 @@ public class PeerEvaluationAdminFacade {
     private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamMemberQueryService teamMemberQueryService;
     private final EnrollmentRepository enrollmentRepository;
     private final UserQueryService userQueryService;
     private final MeetingRecordQueryService meetingRecordQueryService;
@@ -80,7 +81,7 @@ public class PeerEvaluationAdminFacade {
             .collect(Collectors.groupingBy(TeamMember::getTeamId));
 
         Map<Long, Long> meetingRecordCounts = meetingRecordQueryService.countMeetingRecords(teamIds);
-        Map<Long, String> leaderNamesByTeamId = resolveLeaderNames(allMembers);
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
 
         PeerEvaluationForm form = resolveForm(sectionId, formId);
         Map<String, PeerEvaluationSubmission> submissionsByEvaluator = form != null
@@ -286,20 +287,6 @@ public class PeerEvaluationAdminFacade {
         }
         List<PeerEvaluationForm> forms = formRepository.findAllBySectionIdOrderByIdDesc(sectionId);
         return forms.isEmpty() ? null : forms.get(0);
-    }
-
-    private Map<Long, String> resolveLeaderNames(List<TeamMember> members) {
-        List<TeamMember> leaders = members.stream().filter(TeamMember::isLeader).toList();
-        Map<String, String> namesByUserId = userQueryService
-            .getUsersByStudentNumbersIncludingDeleted(leaders.stream().map(TeamMember::getUserId).distinct().toList())
-            .stream()
-            .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
-        // namesByUserId.get(...)이 null일 수 있어(해당 학번을 못 찾은 경우) Collectors.toMap은 못 쓴다.
-        Map<Long, String> leaderNamesByTeamId = new HashMap<>();
-        for (TeamMember leader : leaders) {
-            leaderNamesByTeamId.putIfAbsent(leader.getTeamId(), namesByUserId.get(leader.getUserId()));
-        }
-        return leaderNamesByTeamId;
     }
 
     private void validateSectionAccess(Long sectionId, String professorId) {

@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import kgu.developers.admin.evaluation.application.PresentationEvaluationAdminFacade;
 import kgu.developers.admin.evaluation.presentation.response.PresentationEvaluationAdminListResponse;
@@ -36,6 +37,7 @@ import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -77,6 +79,9 @@ class PresentationEvaluationAdminFacadeTest {
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
+
+    @Mock
+    private TeamMemberQueryService teamMemberQueryService;
 
     @Mock
     private UserQueryService userQueryService;
@@ -130,6 +135,9 @@ class PresentationEvaluationAdminFacadeTest {
         given(teamEvaluationScoreRepository.findAllByTeamEvaluationIds(List.of(1001L, 1002L)))
             .willReturn(List.of(s1_c1, s1_c2, s2_c1, s2_c2));
 
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L, 20L)))
+            .willReturn(Map.of(10L, "팀장학생"));
+
         // when
         PresentationEvaluationAdminListResponse response =
             facade.getPresentationEvaluations(SECTION_ID, null, PROFESSOR_ID);
@@ -152,6 +160,7 @@ class PresentationEvaluationAdminFacadeTest {
         assertThat(t1.scores().get(0).score()).isEqualTo(35.0); // (40 + 30) / 2
         assertThat(t1.scores().get(1).score()).isEqualTo(45.0); // (50 + 40) / 2
         assertThat(t1.totalScore()).isEqualTo(80.0); // 35.0 + 45.0
+        assertThat(t1.leaderName()).isEqualTo("팀장학생");
 
         PresentationEvaluationAdminTeamSummaryResponse t2 = response.teams().get(1);
         assertThat(t2.teamId()).isEqualTo(20L);
@@ -161,6 +170,7 @@ class PresentationEvaluationAdminFacadeTest {
         assertThat(t2.scores().get(0).score()).isNull();
         assertThat(t2.scores().get(1).score()).isNull();
         assertThat(t2.totalScore()).isNull();
+        assertThat(t2.leaderName()).isNull();
     }
 
     @Test

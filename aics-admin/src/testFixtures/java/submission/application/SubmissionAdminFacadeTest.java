@@ -147,6 +147,22 @@ class SubmissionAdminFacadeTest {
         assertThat(response.contents()).hasSize(1);
         assertThat(response.contents().get(0).teamId()).isEqualTo(teamId);
         assertThat(response.contents().get(0).status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(response.contents().get(0).leaderName()).isNull();
+    }
+
+    @Test
+    @DisplayName("팀별 제출 현황 목록은 팀장이 있는 팀에 올바른 팀장 이름을 매핑한다")
+    void getSubmissionsByMilestone_IncludesLeaderName() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).singleElement()
+                .satisfies(content -> assertThat(content.leaderName()).isEqualTo("팀장학생"));
     }
 
     @Test
@@ -253,6 +269,21 @@ class SubmissionAdminFacadeTest {
         assertThat(response.teamName()).isEqualTo("A팀");
         assertThat(response.meetingRecordCount()).isEqualTo(2L);
         assertThat(response.totalMeetingRecordCount()).isEqualTo(5L);
+        assertThat(response.leaderName()).isNull();
+    }
+
+    @Test
+    @DisplayName("제출 상세 조회도 목록 조회처럼 팀장 이름을 포함한다")
+    void getSubmission_IncludesLeaderName() {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+
+        SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(response.leaderName()).isEqualTo("팀장학생");
     }
 
     @Test

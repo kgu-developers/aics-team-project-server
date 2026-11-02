@@ -159,6 +159,7 @@ public class SubmissionAdminFacade {
         String projectTitle = resolveProjectTitle(submission, team);
         long meetingRecordCount = meetingRecordQueryService.countMeetingRecords(team.getId(), submission.getMilestoneId());
         long totalMeetingRecordCount = meetingRecordQueryService.countMeetingRecords(team.getId());
+        String leaderName = teamMemberQueryService.getLeaderNamesByTeamIds(List.of(team.getId())).get(team.getId());
         Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
                 .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
         if (milestone.getType() == MilestoneType.MID_REPORT) {
@@ -181,7 +182,8 @@ public class SubmissionAdminFacade {
                         totalMeetingRecordCount,
                         midReport.getId(),
                         status,
-                        midReport.getVersion() != null ? midReport.getVersion().intValue() : 0);
+                        midReport.getVersion() != null ? midReport.getVersion().intValue() : 0)
+                        .toBuilder().leaderName(leaderName).build();
             }
         }
         return SubmissionAdminResponse.of(
@@ -190,7 +192,8 @@ public class SubmissionAdminFacade {
                 submissionQueryService.hasPendingReview(submission),
                 projectTitle,
                 meetingRecordCount,
-                totalMeetingRecordCount);
+                totalMeetingRecordCount)
+                .toBuilder().leaderName(leaderName).build();
     }
 
     private boolean canSubmitMidReportNow(Milestone milestone, kgu.developers.domain.midreport.domain.MidReport midReport) {
