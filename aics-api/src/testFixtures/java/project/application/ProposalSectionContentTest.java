@@ -11,6 +11,15 @@ import kgu.developers.domain.editlock.application.command.EditLockCommandService
 import kgu.developers.domain.editlock.application.query.EditLockQueryService;
 import kgu.developers.domain.editlock.domain.EditLockTargetType;
 import kgu.developers.domain.editlock.exception.EditLockConflictException;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.Role;
+import kgu.developers.domain.enrollment.domain.Status;
+import mock.repository.FakeEnrollmentRepository;
+import mock.repository.FakeTeamMemberRepository;
+import mock.repository.FakeTeamRepository;
+import mock.repository.FakeSectionRepository;
+import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
 import kgu.developers.domain.project.application.command.ProjectCommandService;
@@ -41,12 +50,15 @@ class ProposalSectionContentTest {
         .title("title").description("description").goal("goal").approvalStatus(ApprovalStatus.DRAFT)
         .dataConfiguration(json.arrayNode()).screenConfiguration(json.arrayNode()).build();
     private final FakeEditLockRepository locks = new FakeEditLockRepository();
+    private final FakeEnrollmentRepository enrollments = new FakeEnrollmentRepository();
     private final EditLockCommandService lockCommands = new EditLockCommandService(locks);
     private ValidatorFactory validation;
     private ProjectFacade facade;
 
     @BeforeEach
     void setUp() {
+        enrollments.save(Enrollment.create(100L, "A", Role.STUDENT, Status.ACTIVE));
+        enrollments.save(Enrollment.create(100L, "B", Role.STUDENT, Status.ACTIVE));
         when(projects.findAllByTeamId(1L)).thenAnswer(call -> List.of(project));
         when(projects.findIncludingDeletedByTeamId(1L)).thenAnswer(call -> Optional.of(project));
         when(projects.save(any())).thenAnswer(call -> {
@@ -59,13 +71,19 @@ class ProposalSectionContentTest {
             state.put(section.getType(), section);
             return section;
         });
-        var members = mock(TeamMemberRepository.class);
+        var members = new FakeTeamMemberRepository();
+        members.save(TeamMember.create(1L, "A", true, "개발"));
+        members.save(TeamMember.create(1L, "B", false, "개발"));
+        var teams = new FakeTeamRepository();
+        teams.save(Team.builder().id(1L).sectionId(100L).build());
         var approvals = mock(ProjectApprovalRepository.class);
         validation = Validation.buildDefaultValidatorFactory();
         facade = new ProjectFacade(new ProjectCommandService(projects, approvals, sections, members), projects,
-            new EditLockQueryService(locks), new ProjectQueryService(projects), mock(TeamAccessValidator.class),
+            new EditLockQueryService(locks), new ProjectQueryService(projects),
+            new TeamAccessValidator(teams, members, new FakeSectionRepository()),
             approvals, mock(ProjectApprovalCommandService.class), members, mock(FileObjectRepository.class),
-            mock(FileStorage.class), sections, mock(UserRepository.class), mock(TeamFacade.class), validation.getValidator());
+            mock(FileStorage.class), sections, mock(UserRepository.class), mock(TeamFacade.class), validation.getValidator(),
+            teams, enrollments);
         lockCommands.acquire(EditLockTargetType.PROJECT, 10L, "DATA", "A");
         lockCommands.acquire(EditLockTargetType.PROJECT, 10L, "SCREEN", "B");
     }
@@ -73,6 +91,22 @@ class ProposalSectionContentTest {
     @AfterEach
     void close() {
         validation.close();
+    }
+
+    @Test
+    void assistantCannotSaveWithAnExistingStudentLock() {
+        var snapshot = facade.getProject(1L, "A");
+        enrollments.findBySectionIdAndUserId(100L, "A").orElseThrow().updateRole(Role.ASSISTANT);
+
+        assertThatThrownBy(() -> facade.saveProject(1L, "A", ProjectRequest.builder()
+            .sectionKey(ProposalSectionType.DATA).sectionVersion(snapshot.sectionVersions().get(ProposalSectionType.DATA))
+            .dataConfiguration(json.arrayNode().add("unauthorized data")).build()))
+            .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        assertThat(project.getDataConfiguration()).isEmpty();
+        assertThat(state.get(ProposalSectionType.DATA).getContentVersion())
+            .isEqualTo(snapshot.sectionVersions().get(ProposalSectionType.DATA));
+        verify(projects, never()).save(any());
     }
 
     @Test

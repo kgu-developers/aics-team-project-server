@@ -20,6 +20,9 @@ import kgu.developers.api.project.presentation.response.ProposalSectionListRespo
 import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.team.application.TeamFacade;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
@@ -45,6 +48,7 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -85,6 +89,8 @@ public class ProjectFacade {
     private final UserRepository userRepository;
     private final TeamFacade teamFacade;
     private final Validator validator;
+    private final TeamRepository teamRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     public ProjectResponse getProject(Long teamId, String userId) {
         teamAccessValidator.validateMembershipOrProfessorBeforeLock(teamId, userId);
@@ -105,6 +111,13 @@ public class ProjectFacade {
         // 팀원 역할도 응답 본문에 포함되므로 접근 검증이 읽기 전에 잠근다.
         projectRepository.lockTeam(teamId);
         teamAccessValidator.validateMembership(teamId, userId);
+        boolean activeStudent = teamRepository.findSectionIdById(teamId)
+            .flatMap(sectionId -> enrollmentRepository.findBySectionIdAndUserId(sectionId, userId))
+            .map(Enrollment::isActiveStudent)
+            .orElse(false);
+        if (!activeStudent) {
+            throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 편집할 수 있습니다.");
+        }
         Project current = projectQueryService.getProjectByTeamId(teamId);
         if (current.getProposalCompletedAt() != null) {
             throw new kgu.developers.domain.project.exception.ProjectProposalCompletedException();

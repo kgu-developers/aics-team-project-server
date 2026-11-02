@@ -75,10 +75,17 @@ class ProjectFacadeTest {
     @Mock private UserRepository userRepository;
     @Mock private TeamFacade teamFacade;
     @Mock private jakarta.validation.Validator validator;
+    @Mock private kgu.developers.domain.team.domain.TeamRepository teamRepository;
+    @Mock private kgu.developers.domain.enrollment.domain.EnrollmentRepository enrollmentRepository;
     @InjectMocks private ProjectFacade projectFacade;
 
     @org.junit.jupiter.api.BeforeEach
     void sectionVersionFixtures() {
+        org.mockito.Mockito.lenient().when(teamRepository.findSectionIdById(TEAM_ID))
+            .thenReturn(Optional.of(100L));
+        org.mockito.Mockito.lenient().when(enrollmentRepository.findBySectionIdAndUserId(100L, MEMBER_ID))
+            .thenReturn(Optional.of(kgu.developers.domain.enrollment.domain.Enrollment.create(100L, MEMBER_ID,
+                kgu.developers.domain.enrollment.domain.Role.STUDENT, kgu.developers.domain.enrollment.domain.Status.ACTIVE)));
         org.mockito.Mockito.lenient().when(projectCommandService.getOrCreateSection(
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
             .thenAnswer(call -> ProposalSection.create(((Project) call.getArgument(0)).getId(), call.getArgument(1)));
@@ -596,9 +603,12 @@ class ProjectFacadeTest {
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request());
-        InOrder order = org.mockito.Mockito.inOrder(projectRepository, teamAccessValidator, projectQueryService);
+        InOrder order = org.mockito.Mockito.inOrder(projectRepository, teamAccessValidator, teamRepository,
+            enrollmentRepository, projectQueryService);
         order.verify(projectRepository).lockTeam(TEAM_ID);
         order.verify(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
+        order.verify(teamRepository).findSectionIdById(TEAM_ID);
+        order.verify(enrollmentRepository).findBySectionIdAndUserId(100L, MEMBER_ID);
         order.verify(projectQueryService).getProjectByTeamId(TEAM_ID);
     }
 
