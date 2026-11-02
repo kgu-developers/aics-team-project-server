@@ -411,6 +411,38 @@ public class TeamMessageFacadeTest {
     }
 
     @Test
+    @DisplayName("담당 교수가 일괄 발송 메시지 하나를 읽으면 같은 broadcastId의 다른 팀 메시지도 전부 읽음 처리된다 - 관리자 쪽지함 API를 거치지 않고 이 학생/교수용 API로 읽어도 동일해야 한다")
+    void markAsRead_Professor_BroadcastGroup_MarksAllTeamsAsRead() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+
+        teamMessageFacade.postSectionMessages(1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내", null));
+        var team1Message = teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), PROFESSOR_ID).contents().get(0);
+
+        teamMessageFacade.markAsRead(team1Message.id(), PROFESSOR_ID);
+
+        assertTrue(teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), PROFESSOR_ID).contents().get(0).read());
+        assertTrue(teamMessageFacade.getMessages(2L, null, PageRequest.of(0, 10), PROFESSOR_ID).contents().get(0).read());
+        assertTrue(teamMessageFacade.getMessages(99L, null, PageRequest.of(0, 10), PROFESSOR_ID).contents().get(0).read());
+        // 교수가 묶음 전체를 읽어도 학생 개인의 읽음 상태는 별개로 유지된다.
+        assertFalse(teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), USER_A).contents().get(0).read());
+    }
+
+    @Test
+    @DisplayName("학생이 본인 팀에 온 일괄 발송 메시지를 읽어도 다른 팀의 사본은 영향받지 않는다")
+    void markAsRead_Student_DoesNotCascadeAcrossTeams() {
+        fakeSectionRepository.save(Section.builder().id(1L).professorId(PROFESSOR_ID).build());
+
+        teamMessageFacade.postSectionMessages(1L, PROFESSOR_ID, new SectionTeamMessageCreateRequest("전체 팀 안내", null));
+        var team1Message = teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), USER_A).contents().get(0);
+
+        teamMessageFacade.markAsRead(team1Message.id(), USER_A);
+
+        assertTrue(teamMessageFacade.getMessages(1L, null, PageRequest.of(0, 10), USER_A).contents().get(0).read());
+        // 학생은 본인 팀 사본만 읽음 처리되고, 다른 팀(교수 입장)의 사본은 묶음으로 번지면 안 된다.
+        assertFalse(teamMessageFacade.getMessages(2L, null, PageRequest.of(0, 10), PROFESSOR_ID).contents().get(0).read());
+    }
+
+    @Test
     @DisplayName("담당 분반이 아닌 다른 교수는 팀 메시지 API에 접근할 수 없다")
     void teamOperations_OtherProfessorCannotAccessStudentApi() {
         // given

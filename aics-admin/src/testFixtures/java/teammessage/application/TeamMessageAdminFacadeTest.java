@@ -198,6 +198,8 @@ class TeamMessageAdminFacadeTest {
             .willReturn(new PageImpl<>(List.of(first, second), FETCH_ALL_PAGEABLE, 2));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1001L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L, 200L), PROFESSOR_ID)).willReturn(1L);
+        given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
+            .willReturn(List.of(first, second));
 
         var response = teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID);
 
@@ -205,6 +207,59 @@ class TeamMessageAdminFacadeTest {
             assertThat(content.id()).isEqualTo(1001L);
             assertThat(content.targetTeamCount()).isEqualTo(2);
         });
+        assertThat(response.pageable().totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("teamId로 필터링해도 대상 팀 수는 필터와 무관하게 실제 발송 대상 팀 수를 그대로 보여준다")
+    void getMessages_TargetTeamCount_IgnoresTeamIdFilter() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team firstTeam = team(10L, 1L, "A팀");
+        Team secondTeam = team(20L, 1L, "B팀");
+        TeamThread firstThread = TeamThread.builder().id(100L).teamId(10L).build();
+        TeamMessage first = message(1001L, 100L, "전체 공지", "broadcast-1");
+        TeamMessage second = message(1002L, 200L, "전체 공지", "broadcast-1");
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(firstTeam, secondTeam));
+        given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(firstThread));
+        given(teamMessageQueryService.getMessages(List.of(100L), FETCH_ALL_PAGEABLE))
+            .willReturn(new PageImpl<>(List.of(first), FETCH_ALL_PAGEABLE, 1));
+        given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1001L))).willReturn(Set.of());
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
+        // broadcast-1은 원래 26팀 중 2팀(A팀, B팀)에 보내졌지만, 지금 조회는 teamId=10(A팀)으로 좁혀져 있다.
+        given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
+            .willReturn(List.of(first, second));
+
+        var response = teamMessageAdminFacade.getMessages(1L, 10L, null, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).singleElement().satisfies(content ->
+            assertThat(content.targetTeamCount()).isEqualTo(2));
+    }
+
+    @Test
+    @DisplayName("page*size가 int 범위를 넘는 큰 페이지 번호를 요청해도 오버플로 없이 빈 페이지를 반환한다")
+    void getMessages_LargePageNumber_DoesNotOverflow() {
+        // page=1_000_000_000, size=10처럼 곱이 int 범위(약 21억)를 넘는 경우를 재현한다.
+        Pageable hugePage = PageRequest.of(1_000_000_000, 10);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team team = team(10L, 1L, "A팀");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+        TeamMessage message = message(1000L, 100L, "확인 부탁드립니다.");
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
+        given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
+        given(teamMessageQueryService.getMessages(List.of(100L), FETCH_ALL_PAGEABLE))
+            .willReturn(new PageImpl<>(List.of(message), FETCH_ALL_PAGEABLE, 1));
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(0L);
+
+        var response = teamMessageAdminFacade.getMessages(1L, hugePage, PROFESSOR_ID);
+
+        assertThat(response.contents()).isEmpty();
         assertThat(response.pageable().totalElements()).isEqualTo(1);
     }
 
@@ -235,6 +290,7 @@ class TeamMessageAdminFacadeTest {
         given(teamThreadQueryService.getThreadById(100L)).willReturn(thread);
         given(teamRepository.findById(10L)).willReturn(Optional.of(team));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(teamMessageQueryService.resolveMarkAsReadTargetIds(message, true)).willReturn(List.of(1000L));
 
         teamMessageAdminFacade.markAsRead(1000L, PROFESSOR_ID);
 
@@ -263,15 +319,14 @@ class TeamMessageAdminFacadeTest {
     @DisplayName("일괄 발송으로 묶인 메시지는 하나를 읽음 처리하면 같은 broadcastId의 나머지도 전부 읽음 처리된다")
     void markAsRead_BroadcastGroup_MarksAllSiblingsAsRead() {
         TeamMessage message = message(1001L, 100L, "전체 공지", "broadcast-1");
-        TeamMessage sibling = message(1002L, 200L, "전체 공지", "broadcast-1");
         TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
         Team team = team(10L, 1L, "A팀");
         given(teamMessageQueryService.getMessage(1001L)).willReturn(message);
         given(teamThreadQueryService.getThreadById(100L)).willReturn(thread);
         given(teamRepository.findById(10L)).willReturn(Optional.of(team));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
-        given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
-            .willReturn(List.of(message, sibling));
+        given(teamMessageQueryService.resolveMarkAsReadTargetIds(message, true))
+            .willReturn(List.of(1001L, 1002L));
 
         teamMessageAdminFacade.markAsRead(1001L, PROFESSOR_ID);
 

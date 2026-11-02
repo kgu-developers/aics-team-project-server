@@ -87,13 +87,19 @@ public class TeamMessageAdminFacade {
         }
         List<List<TeamMessage>> groups = new ArrayList<>(groupsByKey.values());
         int totalGroups = groups.size();
-        int from = Math.min(pageable.getPageNumber() * pageable.getPageSize(), totalGroups);
-        int to = Math.min(from + pageable.getPageSize(), totalGroups);
+        // pageNumber * pageSize를 int로 직접 곱하면 큰 page 값에서 오버플로로 음수가 될 수 있어
+        // Pageable.getOffset()(long 연산)으로 구하고, totalGroups와 비교해 범위를 넘으면 빈 페이지로 자른다.
+        int from = (int) Math.min(pageable.getOffset(), totalGroups);
+        int to = (int) Math.min(pageable.getOffset() + pageable.getPageSize(), totalGroups);
         List<List<TeamMessage>> pageGroups = groups.subList(from, to);
 
         List<TeamMessage> messages = pageGroups.stream().map(group -> group.get(0)).toList();
-        Map<Long, Integer> targetTeamCountByMessageId = pageGroups.stream()
-            .collect(Collectors.toMap(group -> group.get(0).getId(), List::size));
+        // 목록에 필터(teamId 등)가 걸려 있으면 group.size()는 필터링된 팀 수일 뿐이라,
+        // 일괄 발송 당시의 실제 대상 팀 수를 보려면 필터와 무관하게 broadcastId 전체를 다시 조회해야 한다.
+        Map<Long, Integer> targetTeamCountByMessageId = messages.stream()
+            .collect(Collectors.toMap(TeamMessage::getId, m -> m.getBroadcastId() == null
+                ? 1
+                : teamMessageQueryService.getMessagesByBroadcastId(m.getBroadcastId()).size()));
         Page<TeamMessage> page = new PageImpl<>(messages, pageable, totalGroups);
 
         List<Long> pageMessageIds = messages.stream().map(TeamMessage::getId).toList();
@@ -132,13 +138,7 @@ public class TeamMessageAdminFacade {
             throw new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다.");
         }
 
-        // 일괄 발송으로 묶인 메시지는 하나를 읽으면 같은 broadcastId를 가진 나머지도 전부 읽음 처리한다
-        // (교수 입장에서 한 번 보낸 공지는 한 번만 확인하면 되고, 안읽음 집계도 그룹 단위이기 때문).
-        List<Long> targetMessageIds = message.getBroadcastId() == null
-            ? List.of(messageId)
-            : teamMessageQueryService.getMessagesByBroadcastId(message.getBroadcastId()).stream()
-                .map(TeamMessage::getId)
-                .toList();
+        List<Long> targetMessageIds = teamMessageQueryService.resolveMarkAsReadTargetIds(message, true);
         targetMessageIds.forEach(id -> teamMessageCommandService.markAsRead(id, professorId));
     }
 
