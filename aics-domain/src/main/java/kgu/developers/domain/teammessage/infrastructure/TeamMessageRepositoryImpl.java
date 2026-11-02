@@ -62,4 +62,12 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
         }
         return jpaTeamMessageRepository.countUnreadByThreadIdIn(threadIds, userId);
     }
+
+    @Override
+    public List<String> findDistinctSenderIdsByThreadIdIn(List<Long> threadIds) {
+        if (threadIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamMessageRepository.findDistinctSenderIdsByThreadIdIn(threadIds);
+    }
 }

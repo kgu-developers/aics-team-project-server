@@ -19,4 +19,6 @@ public interface TeamMessageRepository {
 
     Page<TeamMessage> findByThreadIdIn(
         List<Long> threadIds, TeamMessageRelatedType relatedType, List<String> senderIds, Pageable pageable);
+
+    List<String> findDistinctSenderIdsByThreadIdIn(List<Long> threadIds);
 }

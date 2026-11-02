@@ -50,4 +50,10 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
         @Param("threadIds") List<Long> threadIds,
         @Param("userId") String userId
     );
+
+    @Query("""
+        SELECT DISTINCT message.senderId FROM TeamMessageJpaEntity message
+        WHERE message.threadId IN :threadIds AND message.senderId IS NOT NULL
+        """)
+    List<String> findDistinctSenderIdsByThreadIdIn(@Param("threadIds") List<Long> threadIds);
 }

@@ -21,8 +21,6 @@ import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
-import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
@@ -57,9 +55,6 @@ class TeamMessageAdminFacadeTest {
 
     @Mock
     private TeamRepository teamRepository;
-
-    @Mock
-    private TeamMemberRepository teamMemberRepository;
 
     @Mock
     private TeamThreadQueryService teamThreadQueryService;
@@ -229,19 +224,15 @@ class TeamMessageAdminFacadeTest {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
-        given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
-            .willReturn(List.of(mockMember(10L, "202612345")));
-        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(
-            org.mockito.ArgumentMatchers.argThat(ids -> ids.containsAll(List.of("202612345", PROFESSOR_ID)))))
+        given(teamMessageQueryService.findDistinctSenderIds(List.of(100L)))
+            .willReturn(List.of("202612345"));
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202612345")))
             .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
                 UserGlobalRole.USER, "010-1234-5678")));
         given(teamMessageQueryService.getMessages(List.of(100L), null, List.of("202612345"), sortedPageable))
             .willReturn(new PageImpl<>(List.of(message), sortedPageable, 1));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
-        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202612345")))
-            .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
-                UserGlobalRole.USER, "010-1234-5678")));
 
         var response = teamMessageAdminFacade.getMessages(
             1L, null, null, "김학생", Sort.Direction.DESC, pageable, PROFESSOR_ID);
@@ -252,7 +243,7 @@ class TeamMessageAdminFacadeTest {
     }
 
     @Test
-    @DisplayName("senderKeyword에 일치하는 발신자가 없으면 메시지 조회 없이 빈 목록을 반환한다")
+    @DisplayName("senderKeyword에 일치하는 발신자가 없으면 메시지 조회 없이 빈 목록을 반환하되, 안 읽은 개수는 검색과 무관하게 분반 전체 기준으로 응답한다")
     void getMessages_WithSenderKeyword_NoMatch() {
         Pageable pageable = PageRequest.of(0, 20);
         Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
@@ -263,17 +254,18 @@ class TeamMessageAdminFacadeTest {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
-        given(teamMemberRepository.findAllByTeamIdIn(List.of(10L)))
-            .willReturn(List.of(mockMember(10L, "202612345")));
+        given(teamMessageQueryService.findDistinctSenderIds(List.of(100L)))
+            .willReturn(List.of("202612345"));
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(anyList()))
             .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
                 UserGlobalRole.USER, "010-1234-5678")));
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(3L);
 
         var response = teamMessageAdminFacade.getMessages(
             1L, null, null, "존재하지않는이름", Sort.Direction.DESC, pageable, PROFESSOR_ID);
 
         assertThat(response.contents()).isEmpty();
-        assertThat(response.unreadCount()).isZero();
+        assertThat(response.unreadCount()).isEqualTo(3L);
         verify(teamMessageQueryService, never()).getMessages(anyList(), any(), anyList(), any());
     }
 
@@ -341,10 +333,6 @@ class TeamMessageAdminFacadeTest {
 
     private Team team(Long id, Long sectionId, String name) {
         return Team.builder().id(id).sectionId(sectionId).name(name).build();
-    }
-
-    private TeamMember mockMember(Long teamId, String userId) {
-        return TeamMember.create(teamId, userId, false, "팀원");
     }
 
     private TeamMessage message(Long id, Long threadId, String content) {

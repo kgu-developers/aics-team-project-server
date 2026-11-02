@@ -13,8 +13,6 @@ import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
-import kgu.developers.domain.teamMember.domain.TeamMember;
-import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
@@ -39,7 +37,6 @@ public class TeamMessageAdminFacade {
     private final SectionRepository sectionRepository;
     private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
-    private final TeamMemberRepository teamMemberRepository;
     private final TeamThreadQueryService teamThreadQueryService;
     private final TeamMessageCommandService teamMessageCommandService;
     private final TeamMessageQueryService teamMessageQueryService;
@@ -78,10 +75,11 @@ public class TeamMessageAdminFacade {
             Sort.by(sortDirection == null ? Sort.Direction.DESC : sortDirection, "id")
         );
 
-        List<String> senderIds = resolveSenderIds(senderKeyword, sections, teams);
+        List<String> senderIds = resolveSenderIds(senderKeyword, threadIds);
         if (senderIds != null && senderIds.isEmpty()) {
+            long unreadCountForEmptySearch = teamMessageQueryService.countUnread(threadIds, professorId);
             return TeamMessageAdminPageResponse.from(
-                Page.empty(sortedPageable), 0L, Set.of(), Map.of(), Map.of(), Map.of(), Map.of());
+                Page.empty(sortedPageable), unreadCountForEmptySearch, Set.of(), Map.of(), Map.of(), Map.of(), Map.of());
         }
 
         Page<TeamMessage> messages = (senderIds == null)
@@ -140,19 +138,17 @@ public class TeamMessageAdminFacade {
         return List.of(sectionQueryService.getSectionById(sectionId).section());
     }
 
-    private List<String> resolveSenderIds(String senderKeyword, List<Section> sections, List<Team> teams) {
+    private List<String> resolveSenderIds(String senderKeyword, List<Long> threadIds) {
         if (senderKeyword == null || senderKeyword.isBlank()) {
             return null;
         }
         String keyword = senderKeyword.trim();
 
-        List<String> candidateIds = teamMemberRepository.findAllByTeamIdIn(teams.stream().map(Team::getId).toList())
-            .stream()
-            .map(TeamMember::getUserId)
-            .collect(Collectors.toCollection(java.util.ArrayList::new));
-        sections.stream().map(Section::getProfessorId).forEach(candidateIds::add);
+        // 접근 가능한 스레드에 실제로 메시지를 남긴 적 있는 모든 발신자를 후보로 삼는다.
+        // 팀에서 탈퇴했거나 교수가 바뀐 경우에도 과거 발신자를 검색할 수 있어야 한다.
+        List<String> candidateIds = teamMessageQueryService.findDistinctSenderIds(threadIds);
 
-        return userQueryService.getUsersByStudentNumbersIncludingDeleted(candidateIds.stream().distinct().toList())
+        return userQueryService.getUsersByStudentNumbersIncludingDeleted(candidateIds)
             .stream()
             .filter(user -> user.getStudentNumber().contains(keyword) || user.getName().contains(keyword))
             .map(User::getStudentNumber)

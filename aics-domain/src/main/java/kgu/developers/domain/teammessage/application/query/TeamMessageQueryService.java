@@ -67,4 +67,8 @@ public class TeamMessageQueryService {
     public long countUnread(List<Long> threadIds, String userId) {
         return teamMessageUnreadRepository.countUnreadByThreadIdIn(threadIds, userId);
     }
+
+    public List<String> findDistinctSenderIds(List<Long> threadIds) {
+        return teamMessageRepository.findDistinctSenderIdsByThreadIdIn(threadIds);
+    }
 }
