@@ -60,7 +60,6 @@ public record ProjectRequest(
 
     @Schema(description = "팀 운영방식 - 역할분담. TEAM_OPERATION 저장 시 사용하며, 생략한 팀원의 역할은 유지된다. 킥오프 조회에도 반영된다.",
         example = "[{\"studentNumber\":\"202699999\",\"projectRole\":\"백엔드\"}]", requiredMode = NOT_REQUIRED)
-    @Valid
     List<MemberRole> memberRoles,
 
     @Schema(description = "팀 운영방식 - 진행 일정. TEAM_OPERATION 저장 시 사용하며, 생략/null이면 유지하고 빈 문자열이면 비운다.",
@@ -74,6 +73,12 @@ public record ProjectRequest(
         example = "[{\"name\":\"Figma\",\"url\":\"https://figma.com/...\"}]", requiredMode = NOT_REQUIRED)
     JsonNode externalLinks
 ) {
+    @JsonIgnore
+    @Valid
+    public List<MemberRole> getTeamOperationMemberRoles() {
+        return sectionKey == ProposalSectionType.TEAM_OPERATION ? memberRoles : null;
+    }
+
     @JsonIgnore
     @AssertTrue(message = "TOPIC 섹션의 제목·설명·목표는 필수입니다.")
     public boolean isTopicContentValid() {

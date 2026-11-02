@@ -189,6 +189,39 @@ class ProjectControllerTest {
             .andExpect(status().isOk());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"DATA", "SCREEN", "TOPIC"})
+    void saveProjectIgnoresInvalidMemberRolesForOtherSections(String sectionKey) throws Exception {
+        given(projectFacade.saveProject(eq(TEAM_ID), eq(USER_ID), org.mockito.ArgumentMatchers.any(ProjectRequest.class)))
+            .willReturn(response());
+
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"sectionKey":"%s","sectionVersion":0,
+                     "title":"제목","description":"설명","goal":"목표",
+                     "dataConfiguration":[],"screenConfiguration":[],
+                     "memberRoles":[{"studentNumber":"","projectRole":"x"}]}
+                    """.formatted(sectionKey))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\"\"", "\"   \"", "null"})
+    void saveProjectRejectsInvalidMemberRolesForTeamOperation(String studentNumber) throws Exception {
+        mockMvc.perform(put("/api/v1/teams/{teamId}/project", TEAM_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"sectionKey":"TEAM_OPERATION","sectionVersion":0,
+                     "memberRoles":[{"studentNumber":%s,"projectRole":"x"}]}
+                    """.formatted(studentNumber))
+                .principal(new UsernamePasswordAuthenticationToken(USER_ID, null)))
+            .andExpect(status().isBadRequest());
+
+        then(projectFacade).shouldHaveNoInteractions();
+    }
+
     @ParameterizedTest(name = "{0} 길이 초과는 400을 반환한다")
     @CsvSource({"title, 201", "repositoryUrl, 256"})
     @DisplayName("PUT /api/v1/teams/{teamId}/project는 DB 길이 제한 초과 시 400을 반환한다")
