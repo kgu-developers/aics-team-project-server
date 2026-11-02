@@ -70,6 +70,7 @@ class TeamMessageAdminPageResponseTest {
             teamsById,
             sectionsById,
             Map.of(),
+            Map.of(),
             Map.of()
         );
     }

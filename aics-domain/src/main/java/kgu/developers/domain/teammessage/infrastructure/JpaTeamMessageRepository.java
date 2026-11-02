@@ -65,8 +65,13 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
         Pageable pageable
     );
 
+    List<TeamMessageJpaEntity> findAllByBroadcastId(String broadcastId);
+
+    // 일괄 발송(broadcastId)은 항상 전체 동기화로 읽음 처리되므로(markAsRead가 같은 broadcastId 메시지를
+    // 전부 함께 처리) 한 그룹은 "전부 읽음" 또는 "전부 안읽음" 둘 중 하나뿐이다. 그래서 묶음 단위(그룹 수)로
+    // 안읽음 개수를 세도 메시지 단위로 센 것과 모순되지 않는다.
     @Query("""
-        SELECT COUNT(message)
+        SELECT COUNT(DISTINCT COALESCE(message.broadcastId, CAST(message.id AS string)))
         FROM TeamMessageJpaEntity message
         WHERE message.threadId IN :threadIds
           AND NOT EXISTS (

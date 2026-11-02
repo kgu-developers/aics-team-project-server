@@ -26,6 +26,7 @@ import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.midreport.application.command.MidReportCommandService;
 import kgu.developers.domain.midreport.application.query.MidReportQueryService;
 import kgu.developers.domain.section.domain.SectionRepository;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -61,10 +62,11 @@ public class TeamMessageFacade {
         }
         List<Long> sectionTeamIds = teamRepository.findAllIdsBySectionId(sectionId);
         List<Long> teamIds = resolveTargetTeamIds(sectionTeamIds, request.teamIds());
+        String broadcastId = teamIds.isEmpty() ? null : java.util.UUID.randomUUID().toString();
         for (Long teamId : teamIds) {
             TeamThread thread = teamThreadCommandService.getOrCreateThread(teamId);
             teamMessageCommandService.postMessage(
-                thread.getId(), senderId, TeamMessageRelatedType.GENERAL, null, request.message());
+                thread.getId(), senderId, TeamMessageRelatedType.GENERAL, null, request.message(), broadcastId);
         }
         return new SectionTeamMessagePersistResponse(teamIds.size());
     }
@@ -141,9 +143,12 @@ public class TeamMessageFacade {
     }
 
     public void markAsRead(Long messageId, String userId) {
-        Long teamId = resolveTeamId(messageId);
-        teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
-        teamMessageCommandService.markAsRead(messageId, userId);
+        TeamMessage message = teamMessageQueryService.getMessage(messageId);
+        Long teamId = teamThreadQueryService.getThreadById(message.getThreadId()).getTeamId();
+        Team team = teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
+        boolean isProfessor = sectionRepository.existsActiveByIdAndProfessorId(team.getSectionId(), userId);
+        List<Long> targetMessageIds = teamMessageQueryService.resolveMarkAsReadTargetIds(message, isProfessor);
+        targetMessageIds.forEach(id -> teamMessageCommandService.markAsRead(id, userId));
     }
 
     public UnreadMessageCountResponse getUnreadCount(Long teamId, String userId) {

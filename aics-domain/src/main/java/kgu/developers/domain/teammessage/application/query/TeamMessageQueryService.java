@@ -68,6 +68,23 @@ public class TeamMessageQueryService {
         return teamMessageUnreadRepository.countUnreadByThreadIdIn(threadIds, userId);
     }
 
+    public List<TeamMessage> getMessagesByBroadcastId(String broadcastId) {
+        return teamMessageRepository.findAllByBroadcastId(broadcastId);
+    }
+
+    // 일괄 발송(broadcastId)으로 묶인 메시지는, 묶음을 그룹 단위로 보는 교수가 하나를 읽으면
+    // 같은 묶음의 나머지도 전부 읽음 처리되어야 그룹 unreadCount와 실제 읽음 상태가 일치한다.
+    // 반면 학생은 본인 팀에 온 메시지 1건만 읽는 것이지 다른 팀에 전송된 사본과는 무관하므로
+    // 묶음 전체로 번지면 안 된다 — 호출자가 교수인 경우에만 묶음으로 확장한다.
+    public List<Long> resolveMarkAsReadTargetIds(TeamMessage message, boolean cascadeBroadcastGroup) {
+        if (!cascadeBroadcastGroup || message.getBroadcastId() == null) {
+            return List.of(message.getId());
+        }
+        return getMessagesByBroadcastId(message.getBroadcastId()).stream()
+            .map(TeamMessage::getId)
+            .toList();
+    }
+
     public List<String> findDistinctSenderIds(List<Long> threadIds) {
         return teamMessageRepository.findDistinctSenderIdsByThreadIdIn(threadIds);
     }

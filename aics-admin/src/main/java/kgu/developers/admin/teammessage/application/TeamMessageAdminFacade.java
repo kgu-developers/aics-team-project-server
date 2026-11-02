@@ -1,5 +1,7 @@
 package kgu.developers.admin.teammessage.application;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +25,7 @@ import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -71,9 +74,12 @@ public class TeamMessageAdminFacade {
         List<TeamThread> threads = teamThreadQueryService.getThreads(teams.stream().map(Team::getId).toList());
         List<Long> threadIds = threads.stream().map(TeamThread::getId).toList();
 
-        Pageable sortedPageable = PageRequest.of(
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
+        // 일괄 발송(broadcastId)으로 생성된 메시지는 관리자 쪽지함에서 한 줄로 묶어서 보여줘야 해서,
+        // DB 페이징이 아니라 조건에 맞는 메시지를 전부 가져온 뒤 애플리케이션에서 그룹 단위로 직접 페이징한다.
+        // 이 프로젝트 규모(학기 단위, 분반 몇 개)에서는 분반당 메시지 총량이 크지 않아 이 방식이 더 단순하다.
+        Pageable fetchAllPageable = PageRequest.of(
+            0,
+            Integer.MAX_VALUE,
             Sort.by(sortDirection == null ? Sort.Direction.DESC : sortDirection, "id")
         );
 
@@ -81,15 +87,37 @@ public class TeamMessageAdminFacade {
         if (senderIds != null && senderIds.isEmpty()) {
             long unreadCountForEmptySearch = teamMessageQueryService.countUnread(threadIds, professorId);
             return TeamMessageAdminPageResponse.from(
-                Page.empty(sortedPageable), unreadCountForEmptySearch, Set.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+                Page.empty(pageable), unreadCountForEmptySearch, Set.of(), Map.of(), Map.of(), Map.of(), Map.of(),
+                Map.of(), Map.of());
         }
 
-        Page<TeamMessage> messages = (senderIds == null)
-            ? (relatedType == null
-                ? teamMessageQueryService.getMessages(threadIds, sortedPageable)
-                : teamMessageQueryService.getMessages(threadIds, relatedType, sortedPageable))
-            : teamMessageQueryService.getMessages(threadIds, relatedType, senderIds, sortedPageable);
-        List<Long> pageMessageIds = messages.getContent().stream().map(TeamMessage::getId).toList();
+        Page<TeamMessage> allMatching = senderIds == null
+            ? teamMessageQueryService.getMessages(threadIds, relatedType, fetchAllPageable)
+            : teamMessageQueryService.getMessages(threadIds, relatedType, senderIds, fetchAllPageable);
+
+        LinkedHashMap<String, List<TeamMessage>> groupsByKey = new LinkedHashMap<>();
+        for (TeamMessage m : allMatching.getContent()) {
+            String key = m.getBroadcastId() != null ? m.getBroadcastId() : "msg-" + m.getId();
+            groupsByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(m);
+        }
+        List<List<TeamMessage>> groups = new ArrayList<>(groupsByKey.values());
+        int totalGroups = groups.size();
+        // pageNumber * pageSize를 int로 직접 곱하면 큰 page 값에서 오버플로로 음수가 될 수 있어
+        // Pageable.getOffset()(long 연산)으로 구하고, totalGroups와 비교해 범위를 넘으면 빈 페이지로 자른다.
+        int from = (int) Math.min(pageable.getOffset(), totalGroups);
+        int to = (int) Math.min(pageable.getOffset() + pageable.getPageSize(), totalGroups);
+        List<List<TeamMessage>> pageGroups = groups.subList(from, to);
+
+        List<TeamMessage> messages = pageGroups.stream().map(group -> group.get(0)).toList();
+        // 목록에 필터(teamId 등)가 걸려 있으면 group.size()는 필터링된 팀 수일 뿐이라,
+        // 일괄 발송 당시의 실제 대상 팀 수를 보려면 필터와 무관하게 broadcastId 전체를 다시 조회해야 한다.
+        Map<Long, Integer> targetTeamCountByMessageId = messages.stream()
+            .collect(Collectors.toMap(TeamMessage::getId, m -> m.getBroadcastId() == null
+                ? 1
+                : teamMessageQueryService.getMessagesByBroadcastId(m.getBroadcastId()).size()));
+        Page<TeamMessage> page = new PageImpl<>(messages, pageable, totalGroups);
+
+        List<Long> pageMessageIds = messages.stream().map(TeamMessage::getId).toList();
         Set<Long> readMessageIds = teamMessageQueryService.findReadMessageIds(professorId, pageMessageIds);
         long unreadCount = teamMessageQueryService.countUnread(threadIds, professorId);
 
@@ -100,7 +128,7 @@ public class TeamMessageAdminFacade {
         Map<Long, Section> sectionsById = sections.stream()
             .collect(Collectors.toMap(Section::getId, Function.identity()));
 
-        List<String> pageSenderIds = messages.getContent().stream()
+        List<String> pageSenderIds = messages.stream()
             .map(TeamMessage::getSenderId)
             .filter(id -> id != null && !id.isBlank())
             .distinct()
@@ -112,8 +140,8 @@ public class TeamMessageAdminFacade {
             .getLeaderNamesByTeamIds(teams.stream().map(Team::getId).toList());
 
         return TeamMessageAdminPageResponse.from(
-            messages, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId,
-            leaderNamesByTeamId);
+            page, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId,
+            targetTeamCountByMessageId, leaderNamesByTeamId);
     }
 
     @Transactional
@@ -127,7 +155,8 @@ public class TeamMessageAdminFacade {
             throw new AccessDeniedException("담당 분반의 메시지만 읽음 처리할 수 있습니다.");
         }
 
-        teamMessageCommandService.markAsRead(messageId, professorId);
+        List<Long> targetMessageIds = teamMessageQueryService.resolveMarkAsReadTargetIds(message, true);
+        targetMessageIds.forEach(id -> teamMessageCommandService.markAsRead(id, professorId));
     }
 
     private List<Section> resolveSections(Long sectionId, String professorId) {

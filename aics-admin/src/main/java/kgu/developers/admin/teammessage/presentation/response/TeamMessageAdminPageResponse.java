@@ -38,6 +38,7 @@ public record TeamMessageAdminPageResponse(
         Map<Long, Team> teamsById,
         Map<Long, Section> sectionsById,
         Map<String, String> senderNamesBySenderId,
+        Map<Long, Integer> targetTeamCountByMessageId,
         Map<Long, String> leaderNamesByTeamId
     ) {
         List<TeamMessageAdminResponse> contents = page.getContent().stream()
@@ -51,6 +52,7 @@ public record TeamMessageAdminPageResponse(
                 return TeamMessageAdminResponse.from(
                     message, team, section, readMessageIds.contains(message.getId()),
                     senderNamesBySenderId.get(message.getSenderId()),
+                    targetTeamCountByMessageId.getOrDefault(message.getId(), 1),
                     leaderNamesByTeamId.get(team.getId()));
             })
             .toList();

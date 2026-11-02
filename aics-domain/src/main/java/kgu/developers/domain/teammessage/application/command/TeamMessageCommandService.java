@@ -19,7 +19,12 @@ public class TeamMessageCommandService {
 
     public TeamMessage postMessage(Long threadId, String senderId, TeamMessageRelatedType relatedType,
                                     Long relatedId, String message) {
-        TeamMessage teamMessage = TeamMessage.create(threadId, senderId, relatedType, relatedId, message);
+        return postMessage(threadId, senderId, relatedType, relatedId, message, null);
+    }
+
+    public TeamMessage postMessage(Long threadId, String senderId, TeamMessageRelatedType relatedType,
+                                    Long relatedId, String message, String broadcastId) {
+        TeamMessage teamMessage = TeamMessage.create(threadId, senderId, relatedType, relatedId, message, broadcastId);
         // TODO: Review(B1)가 구현되면 REVIEW 유형 메시지를 리뷰 등록 시 자동으로 게시하는 훅을 여기에 연결한다.
         // TODO: Notification 도메인이 구현되면 QUESTION 유형 메시지 등록 시 담당 교수에게 알림을 발송하는 훅을 여기에 연결한다.
         return teamMessageRepository.save(teamMessage);

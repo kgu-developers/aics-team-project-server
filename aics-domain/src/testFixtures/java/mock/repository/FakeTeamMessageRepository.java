@@ -31,6 +31,7 @@ public class FakeTeamMessageRepository implements TeamMessageRepository {
             .relatedType(teamMessage.getRelatedType())
             .relatedId(teamMessage.getRelatedId())
             .important(teamMessage.isImportant())
+            .broadcastId(teamMessage.getBroadcastId())
             .createdAt(teamMessage.getCreatedAt() != null ? teamMessage.getCreatedAt() : LocalDateTime.now())
             .build();
         store.put(id, saved);
@@ -116,10 +117,16 @@ public class FakeTeamMessageRepository implements TeamMessageRepository {
         return Comparator.comparing(TeamMessage::getId);
     }
 
-    List<Long> findMessageIdsByThreadIdIn(List<Long> threadIds) {
+    List<TeamMessage> findMessagesByThreadIdIn(List<Long> threadIds) {
         return store.values().stream()
             .filter(message -> threadIds.contains(message.getThreadId()))
-            .map(TeamMessage::getId)
+            .toList();
+    }
+
+    @Override
+    public List<TeamMessage> findAllByBroadcastId(String broadcastId) {
+        return store.values().stream()
+            .filter(message -> broadcastId.equals(message.getBroadcastId()))
             .toList();
     }
 

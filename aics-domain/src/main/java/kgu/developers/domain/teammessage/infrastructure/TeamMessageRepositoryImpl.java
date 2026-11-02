@@ -80,6 +80,13 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
     }
 
     @Override
+    public List<TeamMessage> findAllByBroadcastId(String broadcastId) {
+        return jpaTeamMessageRepository.findAllByBroadcastId(broadcastId).stream()
+            .map(TeamMessageJpaEntity::toDomain)
+            .toList();
+    }
+
+    @Override
     public List<String> findDistinctSenderIdsByThreadIdIn(List<Long> threadIds) {
         if (threadIds.isEmpty()) {
             return List.of();

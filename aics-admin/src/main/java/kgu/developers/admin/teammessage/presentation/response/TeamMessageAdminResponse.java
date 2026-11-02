@@ -53,6 +53,9 @@ public record TeamMessageAdminResponse(
     @Schema(description = "생성일시", example = "2026-08-25 19:30", requiredMode = REQUIRED)
     String createdAt,
 
+    @Schema(description = "같은 일괄 발송으로 묶인 대상 팀 수(일괄 발송이 아니면 1)", example = "1", requiredMode = REQUIRED)
+    int targetTeamCount,
+
     @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
     String leaderName
 ) {
@@ -64,6 +67,7 @@ public record TeamMessageAdminResponse(
         Section section,
         boolean read,
         String senderName,
+        int targetTeamCount,
         String leaderName
     ) {
         return TeamMessageAdminResponse.builder()
@@ -80,6 +84,7 @@ public record TeamMessageAdminResponse(
             .important(teamMessage.isImportant())
             .read(read)
             .createdAt(teamMessage.getCreatedAt() != null ? teamMessage.getCreatedAt().format(FORMATTER) : null)
+            .targetTeamCount(targetTeamCount)
             .leaderName(leaderName)
             .build();
     }
