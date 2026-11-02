@@ -51,7 +51,10 @@ public record TeamMessageAdminResponse(
     boolean read,
 
     @Schema(description = "생성일시", example = "2026-08-25 19:30", requiredMode = REQUIRED)
-    String createdAt
+    String createdAt,
+
+    @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
+    String leaderName
 ) {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -60,7 +63,8 @@ public record TeamMessageAdminResponse(
         Team team,
         Section section,
         boolean read,
-        String senderName
+        String senderName,
+        String leaderName
     ) {
         return TeamMessageAdminResponse.builder()
             .id(teamMessage.getId())
@@ -76,6 +80,7 @@ public record TeamMessageAdminResponse(
             .important(teamMessage.isImportant())
             .read(read)
             .createdAt(teamMessage.getCreatedAt() != null ? teamMessage.getCreatedAt().format(FORMATTER) : null)
+            .leaderName(leaderName)
             .build();
     }
 }

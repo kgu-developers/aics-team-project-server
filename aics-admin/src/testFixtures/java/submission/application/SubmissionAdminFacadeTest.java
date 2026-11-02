@@ -58,6 +58,7 @@ import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
@@ -95,6 +96,7 @@ class SubmissionAdminFacadeTest {
     private MidReportRepository midReportRepository;
     private DocumentFeedbackRepository documentFeedbackRepository;
     private ProposalSectionRepository proposalSectionRepository;
+    private TeamMemberQueryService teamMemberQueryService;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -130,6 +132,9 @@ class SubmissionAdminFacadeTest {
         midReportRepository = mock(MidReportRepository.class);
         documentFeedbackRepository = mock(DocumentFeedbackRepository.class);
         proposalSectionRepository = mock(ProposalSectionRepository.class);
+        teamMemberQueryService = mock(TeamMemberQueryService.class);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(org.mockito.ArgumentMatchers.anyList()))
+                .willReturn(Map.of());
         submissionAdminFacade = new SubmissionAdminFacade(
                 milestoneRepository,
                 sectionQueryService,
@@ -144,7 +149,8 @@ class SubmissionAdminFacadeTest {
                 meetingRecordQueryService,
                 midReportRepository,
                 documentFeedbackRepository,
-                proposalSectionRepository
+                proposalSectionRepository,
+                teamMemberQueryService
         );
     }
 
@@ -159,6 +165,22 @@ class SubmissionAdminFacadeTest {
         assertThat(response.contents()).hasSize(1);
         assertThat(response.contents().get(0).teamId()).isEqualTo(teamId);
         assertThat(response.contents().get(0).status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(response.contents().get(0).leaderName()).isNull();
+    }
+
+    @Test
+    @DisplayName("팀별 제출 현황 목록은 팀장이 있는 팀에 올바른 팀장 이름을 매핑한다")
+    void getSubmissionsByMilestone_IncludesLeaderName() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).singleElement()
+                .satisfies(content -> assertThat(content.leaderName()).isEqualTo("팀장학생"));
     }
 
     @Test
@@ -266,6 +288,21 @@ class SubmissionAdminFacadeTest {
         assertThat(response.teamName()).isEqualTo("A팀");
         assertThat(response.meetingRecordCount()).isEqualTo(2L);
         assertThat(response.totalMeetingRecordCount()).isEqualTo(5L);
+        assertThat(response.leaderName()).isNull();
+    }
+
+    @Test
+    @DisplayName("제출 상세 조회도 목록 조회처럼 팀장 이름을 포함한다")
+    void getSubmission_IncludesLeaderName() {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+
+        SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(response.leaderName()).isEqualTo("팀장학생");
     }
 
     @Test
@@ -557,6 +594,8 @@ class SubmissionAdminFacadeTest {
     @Test
     @DisplayName("재제출한 제안서 목록과 상세는 누적 교수 피드백 수와 피드백 요청 여부를 동일하게 응답한다")
     void proposalFeedbackIsConsistentInListAndDetail() {
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
         LocalDateTime feedbackAt = LocalDateTime.of(2026, 11, 2, 15, 0);
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
@@ -572,6 +611,7 @@ class SubmissionAdminFacadeTest {
         SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
         assertThat(listed).isEqualTo(detail);
+        assertThat(listed.leaderName()).isEqualTo("팀장학생");
         assertThat(listed.feedbackCount()).isEqualTo(2);
         assertThat(listed.feedbackRequested()).isTrue();
         assertThat(listed.hasPendingReview()).isFalse();
@@ -582,6 +622,8 @@ class SubmissionAdminFacadeTest {
     @Test
     @DisplayName("중간보고서 수정요청 중 학생이 답글을 남기면 교수 피드백 요청도 함께 표시한다")
     void midReportStudentReplyRequestsFeedback() {
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
         LocalDateTime feedbackAt = LocalDateTime.of(2026, 11, 2, 15, 0);
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
@@ -600,6 +642,7 @@ class SubmissionAdminFacadeTest {
         SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
         assertThat(listed).isEqualTo(detail);
+        assertThat(listed.leaderName()).isEqualTo("팀장학생");
         assertThat(listed.feedbackCount()).isEqualTo(3);
         assertThat(listed.feedbackRequested()).isTrue();
         assertThat(listed.hasPendingReview()).isTrue();

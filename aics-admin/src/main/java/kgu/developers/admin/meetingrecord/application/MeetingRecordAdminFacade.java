@@ -17,6 +17,7 @@ import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -40,6 +41,7 @@ public class MeetingRecordAdminFacade {
     private final TeamRepository teamRepository;
     private final MeetingRecordQueryService meetingRecordQueryService;
     private final MilestoneRepository milestoneRepository;
+    private final TeamMemberQueryService teamMemberQueryService;
 
     public MeetingRecordAdminPageResponse getMeetingRecords(
         Long sectionId,
@@ -75,8 +77,9 @@ public class MeetingRecordAdminFacade {
             .collect(Collectors.toMap(Team::getId, Function.identity()));
         Map<Long, Section> sectionsById = sections.stream()
             .collect(Collectors.toMap(Section::getId, Function.identity()));
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
 
-        return MeetingRecordAdminPageResponse.from(meetingRecords, teamsById, sectionsById);
+        return MeetingRecordAdminPageResponse.from(meetingRecords, teamsById, sectionsById, leaderNamesByTeamId);
     }
 
     public MeetingRecordAdminDetailResponse getMeetingRecord(Long id, String professorId) {

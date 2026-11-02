@@ -1,5 +1,7 @@
 package kgu.developers.admin.section.application;
 
+import java.util.List;
+
 import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminRequest;
 import kgu.developers.admin.enrollment.presentation.request.EnrollmentAdminUpdateRequest;
 import kgu.developers.admin.section.presentation.request.SectionAdminRequest;
@@ -19,7 +21,9 @@ import kgu.developers.domain.enrollment.application.query.EnrollmentQueryService
 import kgu.developers.domain.enrollment.domain.Status;
 import kgu.developers.domain.section.application.command.SectionCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
+import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -36,6 +40,7 @@ public class SectionAdminFacade {
     private final EnrollmentCommandService enrollmentCommandService;
     private final TeamQueryService teamQueryService;
     private final TeamMemberCommandService teamMemberCommandService;
+    private final TeamMemberQueryService teamMemberQueryService;
 
     public SectionAdminPersistResponse createSection(SectionAdminRequest request) {
         Long id = sectionCommandService.createSection(
@@ -65,7 +70,9 @@ public class SectionAdminFacade {
     }
 
     public TeamAdminListResponse getTeamsBySectionId(Long sectionId) {
-        return TeamAdminListResponse.from(teamQueryService.getTeamsBySectionId(sectionId));
+        List<Team> teams = teamQueryService.getTeamsBySectionId(sectionId);
+        List<Long> teamIds = teams.stream().map(Team::getId).toList();
+        return TeamAdminListResponse.from(teams, teamMemberQueryService.getLeaderNamesByTeamIds(teamIds));
     }
 
     @Transactional

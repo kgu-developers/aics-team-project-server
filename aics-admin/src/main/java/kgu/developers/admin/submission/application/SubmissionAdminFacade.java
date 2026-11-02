@@ -60,6 +60,7 @@ import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundExcep
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
@@ -83,6 +84,7 @@ public class SubmissionAdminFacade {
     private final kgu.developers.domain.midreport.domain.MidReportRepository midReportRepository;
     private final DocumentFeedbackRepository documentFeedbackRepository;
     private final ProposalSectionRepository proposalSectionRepository;
+    private final TeamMemberQueryService teamMemberQueryService;
 
     // 팀은 그 마일스톤을 아직 한 번도 조회 안 했으면 Submission 행 자체가 없다(lazy get-or-create).
     // 그대로 findAllByMilestoneId만 쓰면 그런 팀이 목록에서 통째로 빠지므로, 분반의 팀 전체를
@@ -151,6 +153,10 @@ public class SubmissionAdminFacade {
                             milestone, project, null, feedback, submittableProjects);
                 })
                 .toList();
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
+        contents = contents.stream()
+                .map(content -> content.toBuilder().leaderName(leaderNamesByTeamId.get(content.teamId())).build())
+                .toList();
         return SubmissionAdminListResponse.from(contents);
     }
 
@@ -170,6 +176,7 @@ public class SubmissionAdminFacade {
         Team team = validateProfessorOwnsSubmission(submission, professorId);
         long meetingRecordCount = meetingRecordQueryService.countMeetingRecords(team.getId(), submission.getMilestoneId());
         long totalMeetingRecordCount = meetingRecordQueryService.countMeetingRecords(team.getId());
+        String leaderName = teamMemberQueryService.getLeaderNamesByTeamIds(List.of(team.getId())).get(team.getId());
         Milestone milestone = milestoneRepository.findById(submission.getMilestoneId())
                 .orElseThrow(() -> new MilestoneNotFoundException(submission.getMilestoneId()));
         Project project = milestone.getType() == MilestoneType.PROPOSAL
@@ -202,7 +209,8 @@ public class SubmissionAdminFacade {
                         midReport.getId(),
                         status,
                         midReport.getVersion() != null ? midReport.getVersion().intValue() : 0),
-                        milestone, project, midReport, feedback, submittableProjects);
+                        milestone, project, midReport, feedback, submittableProjects)
+                        .toBuilder().leaderName(leaderName).build();
             }
         }
         return withDocumentFeedback(SubmissionAdminResponse.of(
@@ -211,7 +219,8 @@ public class SubmissionAdminFacade {
                 submissionQueryService.hasPendingReview(submission),
                 projectTitle,
                 meetingRecordCount,
-                totalMeetingRecordCount), milestone, project, null, feedback, submittableProjects);
+                totalMeetingRecordCount), milestone, project, null, feedback, submittableProjects)
+                .toBuilder().leaderName(leaderName).build();
     }
 
     private boolean canSubmitMidReportNow(Milestone milestone, kgu.developers.domain.midreport.domain.MidReport midReport) {

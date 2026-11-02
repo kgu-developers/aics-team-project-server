@@ -24,6 +24,9 @@ public record PeerEvaluationAdminTeamSummaryResponse(
     LocalDateTime lastSubmittedAt,
 
     @Schema(description = "팀 회의록 수", example = "1", requiredMode = REQUIRED)
-    long meetingRecordCount
+    long meetingRecordCount,
+
+    @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
+    String leaderName
 ) {
 }

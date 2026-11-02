@@ -32,6 +32,7 @@ import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -52,6 +53,7 @@ public class PeerEvaluationAdminFacade {
     private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamMemberQueryService teamMemberQueryService;
     private final EnrollmentRepository enrollmentRepository;
     private final UserQueryService userQueryService;
     private final MeetingRecordQueryService meetingRecordQueryService;
@@ -79,6 +81,7 @@ public class PeerEvaluationAdminFacade {
             .collect(Collectors.groupingBy(TeamMember::getTeamId));
 
         Map<Long, Long> meetingRecordCounts = meetingRecordQueryService.countMeetingRecords(teamIds);
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
 
         PeerEvaluationForm form = resolveForm(sectionId, formId);
         Map<String, PeerEvaluationSubmission> submissionsByEvaluator = form != null
@@ -108,6 +111,7 @@ public class PeerEvaluationAdminFacade {
                     .totalMemberCount(teamMembers.size())
                     .lastSubmittedAt(lastSubmittedAt)
                     .meetingRecordCount(meetingRecordCounts.getOrDefault(team.getId(), 0L))
+                    .leaderName(leaderNamesByTeamId.get(team.getId()))
                     .build();
             })
             .toList();
