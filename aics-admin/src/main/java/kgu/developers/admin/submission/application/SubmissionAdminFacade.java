@@ -244,7 +244,7 @@ public class SubmissionAdminFacade {
                 .toList();
 
         User submitter = resolveSubmitters(List.of(submissionVersion)).get(submissionVersion.getSubmittedBy());
-        return SubmissionVersionAdminDetailResponse.of(submissionVersion, submitter, artifacts);
+        return SubmissionVersionAdminDetailResponse.of(submission.getTeamId(), submissionVersion, submitter, artifacts);
     }
 
     // 제출 이력은 그 시점의 기록이라, 제출자가 그 뒤 탈퇴(소프트 삭제)했더라도 이름이 계속

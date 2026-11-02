@@ -301,6 +301,7 @@ class SubmissionAdminFacadeTest {
         SubmissionVersionAdminDetailResponse response = submissionAdminFacade.getVersion(submission.getId(), version.getVersion(), PROFESSOR);
 
         assertThat(response.version()).isEqualTo(1);
+        assertThat(response.teamId()).isEqualTo(teamId);
         assertThat(response.submittedBy().userId()).isEqualTo("202412345");
         assertThat(response.submittedBy().name()).isEqualTo("팀원학생");
     }
