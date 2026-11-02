@@ -551,7 +551,7 @@ class SubmissionAdminFacadeTest {
                 .id(90L).teamId(teamId).title("제안서").approvalStatus(ApprovalStatus.APPROVED)
                 .proposalCompletedAt(feedbackAt.plusMinutes(1)).build()));
         given(documentFeedbackRepository.summarizeFeedback(List.of(teamId), TeamMessageRelatedType.PROPOSAL,
-                List.of(90L), PROFESSOR)).willReturn(Map.of(90L, new DocumentFeedbackSummary(2, feedbackAt, null)));
+                List.of(90L))).willReturn(Map.of(90L, new DocumentFeedbackSummary(2, feedbackAt, null)));
 
         SubmissionAdminResponse listed = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
@@ -578,7 +578,7 @@ class SubmissionAdminFacadeTest {
                 .willReturn(List.of(report));
         given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID)).willReturn(Optional.of(report));
         given(documentFeedbackRepository.summarizeFeedback(List.of(teamId), TeamMessageRelatedType.MID_REPORT,
-                List.of(77L), PROFESSOR)).willReturn(Map.of(77L,
+                List.of(77L))).willReturn(Map.of(77L,
                         new DocumentFeedbackSummary(3, feedbackAt, feedbackAt.plusMinutes(1))));
 
         SubmissionAdminResponse listed = submissionAdminFacade

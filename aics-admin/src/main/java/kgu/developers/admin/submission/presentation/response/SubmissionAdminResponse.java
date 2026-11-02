@@ -47,7 +47,7 @@ public record SubmissionAdminResponse(
         @Schema(description = "대기 중인 피드백(수정요청)이 있는지", example = "false", requiredMode = REQUIRED)
         boolean hasPendingReview,
 
-        @Schema(description = "해당 문서에 담당 교수가 남긴 피드백 메시지 수(완료 처리 알림 포함). 제안서·중간보고서 외에는 0", example = "2", requiredMode = REQUIRED)
+        @Schema(description = "해당 문서에 교수 계정이 남긴 피드백 메시지 수(완료 처리 알림 포함). 제안서·중간보고서 외에는 0", example = "2", requiredMode = REQUIRED)
         long feedbackCount,
 
         @Schema(description = "제출·재제출 또는 학생 답글이 마지막 교수 피드백보다 최신이어서 교수 피드백을 기다리는지. 제안서·중간보고서 외에는 false", example = "true", requiredMode = REQUIRED)

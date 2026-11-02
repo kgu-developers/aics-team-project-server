@@ -23,12 +23,12 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
 
     @Override
     public Map<Long, DocumentFeedbackSummary> summarizeFeedback(
-        List<Long> teamIds, TeamMessageRelatedType relatedType, List<Long> relatedIds, String professorId
+        List<Long> teamIds, TeamMessageRelatedType relatedType, List<Long> relatedIds
     ) {
         if (teamIds.isEmpty() || relatedIds.isEmpty()) {
             return Map.of();
         }
-        return jpaTeamMessageRepository.summarizeFeedback(teamIds, relatedType, relatedIds, professorId).stream()
+        return jpaTeamMessageRepository.summarizeFeedback(teamIds, relatedType, relatedIds).stream()
             .collect(Collectors.toMap(JpaTeamMessageRepository.DocumentFeedbackProjection::getRelatedId,
                 row -> new DocumentFeedbackSummary(row.getFeedbackCount(), row.getLastFeedbackAt(), row.getLastStudentMessageAt())));
     }

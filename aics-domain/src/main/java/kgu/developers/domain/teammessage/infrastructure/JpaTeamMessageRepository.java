@@ -11,13 +11,15 @@ import org.springframework.data.repository.query.Param;
 
 public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEntity, Long> {
 
+    // shortcut: 현재 계정 역할로 집계한다. 역할 변경 전 이력까지 고정해야 하면 메시지에 발신 역할을 저장한다.
     @Query("""
         select message.relatedId as relatedId,
-               sum(case when message.senderId = :professorId then 1 else 0 end) as feedbackCount,
-               max(case when message.senderId = :professorId then message.createdAt else null end) as lastFeedbackAt,
-               max(case when message.senderId <> :professorId then message.createdAt else null end) as lastStudentMessageAt
+               sum(case when sender.globalRole = kgu.developers.domain.user.domain.UserGlobalRole.ADMIN then 1 else 0 end) as feedbackCount,
+               max(case when sender.globalRole = kgu.developers.domain.user.domain.UserGlobalRole.ADMIN then message.createdAt else null end) as lastFeedbackAt,
+               max(case when sender.globalRole = kgu.developers.domain.user.domain.UserGlobalRole.USER then message.createdAt else null end) as lastStudentMessageAt
         from TeamMessageJpaEntity message
         join TeamThreadJpaEntity thread on thread.id = message.threadId
+        join UserJpaEntity sender on sender.studentNumber = message.senderId
         where thread.teamId in :teamIds
           and message.relatedType = :relatedType
           and message.relatedId in :relatedIds
@@ -28,8 +30,7 @@ public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEn
     List<DocumentFeedbackProjection> summarizeFeedback(
         @Param("teamIds") List<Long> teamIds,
         @Param("relatedType") TeamMessageRelatedType relatedType,
-        @Param("relatedIds") List<Long> relatedIds,
-        @Param("professorId") String professorId
+        @Param("relatedIds") List<Long> relatedIds
     );
 
     interface DocumentFeedbackProjection {

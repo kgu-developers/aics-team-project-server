@@ -107,7 +107,7 @@ public class SubmissionAdminFacade {
                 ? midReportRepository.findAllByTeamIdInAndMilestoneId(teamIds, milestoneId).stream()
                         .collect(Collectors.toMap(kgu.developers.domain.midreport.domain.MidReport::getTeamId, Function.identity()))
                 : Map.of();
-        Map<Long, DocumentFeedbackSummary> feedback = documentFeedback(milestone, teamIds, projects, midReports, professorId);
+        Map<Long, DocumentFeedbackSummary> feedback = documentFeedback(milestone, teamIds, projects, midReports);
         List<SubmissionAdminResponse> contents = teams.stream()
                 .map(team -> {
                     Submission submission = submissionQueryService.getOrCreateSubmission(team.getId(), milestoneId);
@@ -174,7 +174,7 @@ public class SubmissionAdminFacade {
                 : null;
         Map<Long, DocumentFeedbackSummary> feedback = documentFeedback(milestone, List.of(team.getId()),
                 project == null ? Map.of() : Map.of(team.getId(), project),
-                midReport == null ? Map.of() : Map.of(team.getId(), midReport), professorId);
+                midReport == null ? Map.of() : Map.of(team.getId(), midReport));
         if (milestone.getType() == MilestoneType.MID_REPORT) {
             if (midReport != null) {
                 SubmissionStatus status = switch (midReport.getStatus()) {
@@ -231,15 +231,15 @@ public class SubmissionAdminFacade {
 
     private Map<Long, DocumentFeedbackSummary> documentFeedback(
             Milestone milestone, List<Long> teamIds, Map<Long, Project> projects,
-            Map<Long, MidReport> midReports, String professorId
+            Map<Long, MidReport> midReports
     ) {
         if (milestone.getType() == MilestoneType.PROPOSAL) {
             return documentFeedbackRepository.summarizeFeedback(teamIds, TeamMessageRelatedType.PROPOSAL,
-                    projects.values().stream().map(Project::getId).filter(java.util.Objects::nonNull).toList(), professorId);
+                    projects.values().stream().map(Project::getId).filter(java.util.Objects::nonNull).toList());
         }
         if (milestone.getType() == MilestoneType.MID_REPORT) {
             return documentFeedbackRepository.summarizeFeedback(teamIds, TeamMessageRelatedType.MID_REPORT,
-                    midReports.values().stream().map(MidReport::getId).toList(), professorId);
+                    midReports.values().stream().map(MidReport::getId).toList());
         }
         return Map.of();
     }

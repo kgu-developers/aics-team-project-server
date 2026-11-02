@@ -5,6 +5,6 @@ import java.util.Map;
 
 public interface DocumentFeedbackRepository {
     Map<Long, DocumentFeedbackSummary> summarizeFeedback(
-        List<Long> teamIds, TeamMessageRelatedType relatedType, List<Long> relatedIds, String professorId
+        List<Long> teamIds, TeamMessageRelatedType relatedType, List<Long> relatedIds
     );
 }
