@@ -66,6 +66,7 @@ class ProposalSectionContentTest {
             return project;
         });
         when(sections.findByProjectIdAndType(eq(10L), any())).thenAnswer(call -> Optional.ofNullable(state.get(call.getArgument(1))));
+        when(sections.findAllByProjectId(10L)).thenAnswer(call -> List.copyOf(state.values()));
         when(sections.save(any())).thenAnswer(call -> {
             ProposalSection section = call.getArgument(0);
             state.put(section.getType(), section);

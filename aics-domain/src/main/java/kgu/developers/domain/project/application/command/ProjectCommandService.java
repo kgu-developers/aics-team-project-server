@@ -19,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -201,9 +203,23 @@ public class ProjectCommandService {
     // 행이 없는 기존 제안서·재생성 제안서도, 이전 생명주기의 버전으로 되돌아가지 않게 시작한다.
     public ProposalSection getOrCreateSection(Project project, ProposalSectionType type) {
         return proposalSectionRepository.findByProjectIdAndType(project.getId(), type)
-            .orElseGet(() -> proposalSectionRepository.save(ProposalSection.builder()
-                .projectId(project.getId()).type(type)
-                .contentVersion(project.getVersion() == null ? 0L : project.getVersion()).build()));
+            .orElseGet(() -> createSection(project, type));
+    }
+
+    public Map<ProposalSectionType, Long> getOrCreateSectionVersions(Project project) {
+        Map<ProposalSectionType, Long> versions = new EnumMap<>(ProposalSectionType.class);
+        proposalSectionRepository.findAllByProjectId(project.getId())
+            .forEach(section -> versions.put(section.getType(), section.getContentVersion()));
+        for (ProposalSectionType type : ProposalSectionType.values()) {
+            versions.computeIfAbsent(type, missing -> createSection(project, missing).getContentVersion());
+        }
+        return versions;
+    }
+
+    private ProposalSection createSection(Project project, ProposalSectionType type) {
+        return proposalSectionRepository.save(ProposalSection.builder()
+            .projectId(project.getId()).type(type)
+            .contentVersion(project.getVersion() == null ? 0L : project.getVersion()).build());
     }
 
     private void markSectionContentChanged(Project project, ProposalSectionType type) {

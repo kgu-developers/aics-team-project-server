@@ -44,6 +44,45 @@ class ProjectCommandServiceTest {
     @Mock private TeamMemberRepository teamMemberRepository;
     @InjectMocks private ProjectCommandService projectCommandService;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(longs = 7L)
+    void getOrCreateSectionVersions_initializesOnlyMissingSections(Long projectVersion) {
+        Project project = Project.builder().id(10L).teamId(1L).version(projectVersion).build();
+        ProposalSection topic = ProposalSection.builder().projectId(10L).type(ProposalSectionType.TOPIC)
+            .contentVersion(3L).assigneeUserId("member").completedAt(java.time.LocalDateTime.now()).build();
+        given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(List.of(topic));
+        given(proposalSectionRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(call -> call.getArgument(0));
+
+        var versions = projectCommandService.getOrCreateSectionVersions(project);
+
+        assertThat(versions).hasSize(4).containsEntry(ProposalSectionType.TOPIC, 3L);
+        for (ProposalSectionType type : List.of(ProposalSectionType.DATA, ProposalSectionType.SCREEN, ProposalSectionType.TEAM_OPERATION)) {
+            assertThat(versions).containsEntry(type, projectVersion == null ? 0L : projectVersion);
+        }
+        assertThat(topic.getAssigneeUserId()).isEqualTo("member");
+        assertThat(topic.isCompleted()).isTrue();
+        then(proposalSectionRepository).should().findAllByProjectId(10L);
+        then(proposalSectionRepository).should(org.mockito.Mockito.times(3)).save(org.mockito.ArgumentMatchers.any());
+        then(proposalSectionRepository).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    void getOrCreateSectionVersions_readsExistingSectionsWithoutWrites() {
+        var sections = java.util.Arrays.stream(ProposalSectionType.values())
+            .map(type -> ProposalSection.builder().projectId(10L).type(type).contentVersion(type.ordinal() + 1L).build())
+            .toList();
+        given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(sections);
+
+        var versions = projectCommandService.getOrCreateSectionVersions(Project.builder().id(10L).version(9L).build());
+
+        assertThat(versions).containsExactlyInAnyOrderEntriesOf(java.util.Map.of(
+            ProposalSectionType.TOPIC, 1L, ProposalSectionType.DATA, 2L,
+            ProposalSectionType.SCREEN, 3L, ProposalSectionType.TEAM_OPERATION, 4L));
+        then(proposalSectionRepository).should().findAllByProjectId(10L);
+        then(proposalSectionRepository).shouldHaveNoMoreInteractions();
+    }
+
     @Test
     @DisplayName("saveProject는 기존 제안서가 없으면 DRAFT 상태로 생성한다")
     void saveProject_createsProject() throws Exception {

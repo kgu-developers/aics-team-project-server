@@ -90,6 +90,10 @@ class ProjectFacadeTest {
         org.mockito.Mockito.lenient().when(projectCommandService.getOrCreateSection(
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
             .thenAnswer(call -> ProposalSection.create(((Project) call.getArgument(0)).getId(), call.getArgument(1)));
+        org.mockito.Mockito.lenient().when(projectCommandService.getOrCreateSectionVersions(
+            org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(
+                ProposalSectionType.TOPIC, 0L, ProposalSectionType.DATA, 0L,
+                ProposalSectionType.SCREEN, 0L, ProposalSectionType.TEAM_OPERATION, 0L));
     }
 
     @Test

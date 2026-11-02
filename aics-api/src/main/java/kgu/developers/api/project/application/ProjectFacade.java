@@ -164,8 +164,7 @@ public class ProjectFacade {
     }
 
     private ProjectSnapshot projectSnapshot(Project project, String userId) {
-        Map<ProposalSectionType, Long> versions = Arrays.stream(ProposalSectionType.values())
-            .collect(toMap(Function.identity(), type -> projectCommandService.getOrCreateSection(project, type).getContentVersion()));
+        Map<ProposalSectionType, Long> versions = projectCommandService.getOrCreateSectionVersions(project);
         Map<Long, String> imageStorageKeys = new HashMap<>();
         JsonNode screens = prepareScreenImages(project.getTeamId(), project.getScreenConfiguration(), imageStorageKeys);
         ProjectResponse response = ProjectResponse.from(project, screens,
