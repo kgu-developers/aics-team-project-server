@@ -774,6 +774,41 @@ class SubmissionAdminFacadeTest {
     }
 
     @ParameterizedTest
+    @CsvSource({"NOT_SUBMITTED,false", "SUBMITTED,false", "REVISION_REQUESTED,true", "COMPLETED,false"})
+    @DisplayName("중간보고서가 없으면 미제출로 표시하고 일반 제출 상태와 수정요청 여부는 유지한다")
+    void missingMidReportIsNotSubmittedWithoutChangingGenericHistory(SubmissionStatus historyStatus, boolean pendingReview) {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        if (historyStatus != SubmissionStatus.NOT_SUBMITTED) {
+            submission.recordNewVersion(1);
+        }
+        if (historyStatus == SubmissionStatus.REVISION_REQUESTED) {
+            submission.reopen(PROFESSOR, LocalDateTime.now().plusDays(1));
+        } else if (historyStatus == SubmissionStatus.COMPLETED) {
+            submission.complete("202412345");
+        }
+        submissionRepository.save(submission);
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MILESTONE_ID)).willReturn(List.of());
+        given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID)).willReturn(Optional.empty());
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(listed.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(listed.submissionStatus()).isEqualTo(historyStatus);
+        assertThat(listed.hasPendingReview()).isEqualTo(pendingReview);
+        assertThat(listed.midReportId()).isNull();
+        assertThat(listed.feedbackCount()).isZero();
+        assertThat(listed.feedbackRequested()).isFalse();
+        assertThat(listed.currentVersion()).isEqualTo(submission.getCurrentVersion());
+        assertThat(listed.completedAt()).isEqualTo(submission.getCompletedAt());
+        assertThat(listed.completedBy()).isEqualTo(submission.getCompletedBy());
+    }
+
+    @ParameterizedTest
     @EnumSource(value = SubmissionStatus.class, names = {"SUBMITTED", "REVISION_REQUESTED", "COMPLETED"})
     @DisplayName("미제출 제안서가 있어도 일반 제출·재개방·완료 이력은 응답과 버전 API에 유지된다")
     void proposalDraftPreservesGenericSubmissionHistory(SubmissionStatus historyStatus) {

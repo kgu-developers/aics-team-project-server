@@ -53,7 +53,7 @@ public record SubmissionAdminResponse(
         @Schema(description = "지금 제출 가능한지. 제안서는 목표·모든 섹션 작성 완료 및 미제출 여부로 판단하며 일정 제한을 적용하지 않는다. 그 외에는 마감/수정기간/조기오픈 계산 결과", example = "true", requiredMode = REQUIRED)
         boolean canSubmitNow,
 
-        @Schema(description = "대기 중인 피드백(수정요청)이 있는지", example = "false", requiredMode = REQUIRED)
+        @Schema(description = "수정요청 대기 여부. 제안서·중간보고서는 문서 상태 기준이며, 중간보고서가 없거나 그 외 마일스톤이면 일반 제출 상태 기준", example = "false", requiredMode = REQUIRED)
         boolean hasPendingReview,
 
         @Schema(description = "해당 문서에 교수 계정이 남긴 피드백 메시지 수(완료 처리 알림 포함). 제안서·중간보고서 외에는 0", example = "2", requiredMode = REQUIRED)

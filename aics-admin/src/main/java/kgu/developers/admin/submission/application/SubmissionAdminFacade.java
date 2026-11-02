@@ -290,6 +290,8 @@ public class SubmissionAdminFacade {
                     : revisionRequested ? SubmissionStatus.REVISION_REQUESTED : SubmissionStatus.NOT_SUBMITTED)
                     .hasPendingReview(revisionRequested)
                     .canSubmitNow(project != null && submittableProjects.contains(project.getId()));
+        } else if (milestone.getType() == MilestoneType.MID_REPORT && midReport == null) {
+            builder.status(SubmissionStatus.NOT_SUBMITTED);
         }
         return builder.build();
     }
