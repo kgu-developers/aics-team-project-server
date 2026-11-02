@@ -24,13 +24,15 @@ public record MeetingRecordAdminPageResponse(
     public static MeetingRecordAdminPageResponse from(
         Page<MeetingRecord> page,
         Map<Long, Team> teamsById,
-        Map<Long, Section> sectionsById
+        Map<Long, Section> sectionsById,
+        Map<Long, String> leaderNamesByTeamId
     ) {
         List<MeetingRecordAdminResponse> contents = page.getContent().stream()
             .map(meetingRecord -> {
                 Team team = teamsById.get(meetingRecord.getTeamId());
                 Section section = sectionsById.get(team.getSectionId());
-                return MeetingRecordAdminResponse.from(meetingRecord, team, section);
+                return MeetingRecordAdminResponse.from(
+                    meetingRecord, team, section, leaderNamesByTeamId.get(team.getId()));
             })
             .toList();
 

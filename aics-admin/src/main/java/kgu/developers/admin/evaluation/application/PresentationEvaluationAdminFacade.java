@@ -35,6 +35,7 @@ import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -58,6 +59,7 @@ public class PresentationEvaluationAdminFacade {
     private final TeamEvaluationScoreRepository teamEvaluationScoreRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamMemberQueryService teamMemberQueryService;
     private final UserQueryService userQueryService;
     private final MeetingRecordQueryService meetingRecordQueryService;
 
@@ -102,6 +104,8 @@ public class PresentationEvaluationAdminFacade {
             teamEvaluationScoreRepository.findAllByTeamEvaluationIds(evaluationIds);
         Map<Long, List<TeamEvaluationScore>> scoresByEvaluationId = allScores.stream()
             .collect(Collectors.groupingBy(TeamEvaluationScore::getTeamEvaluationId));
+
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
 
         List<PresentationEvaluationAdminTeamSummaryResponse> teamSummaries = teams.stream()
             .map(team -> {
@@ -148,6 +152,7 @@ public class PresentationEvaluationAdminFacade {
                     .evaluationCount(teamEvaluations.size())
                     .scores(scoreResponses)
                     .totalScore(totalScore)
+                    .leaderName(leaderNamesByTeamId.get(team.getId()))
                     .build();
             })
             .toList();

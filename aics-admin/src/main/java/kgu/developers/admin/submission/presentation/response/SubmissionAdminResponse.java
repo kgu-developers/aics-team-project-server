@@ -11,7 +11,7 @@ import kgu.developers.domain.submission.domain.Submission;
 import kgu.developers.domain.submission.domain.SubmissionStatus;
 import kgu.developers.domain.team.domain.Team;
 
-@Builder
+@Builder(toBuilder = true)
 public record SubmissionAdminResponse(
 
         @Schema(description = "제출 식별자", example = "1", requiredMode = REQUIRED)
@@ -57,7 +57,10 @@ public record SubmissionAdminResponse(
         String completedBy,
 
         @Schema(description = "중간보고서 식별자 (MID_REPORT 마일스톤 전용, 없으면 null)", example = "1")
-        Long midReportId
+        Long midReportId,
+
+        @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
+        String leaderName
 ) {
 
     public static SubmissionAdminResponse of(Submission submission, Team team, boolean canSubmitNow, boolean hasPendingReview) {

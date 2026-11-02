@@ -34,6 +34,7 @@ import kgu.developers.domain.section.application.command.SectionCommandService;
 import kgu.developers.domain.team.application.query.TeamQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.teamMember.application.command.TeamMemberCommandService;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -64,6 +65,9 @@ class SectionAdminFacadeTest {
 
     @Mock
     private TeamMemberCommandService teamMemberCommandService;
+
+    @Mock
+    private TeamMemberQueryService teamMemberQueryService;
 
     @InjectMocks
     private SectionAdminFacade sectionAdminFacade;
@@ -206,12 +210,15 @@ class SectionAdminFacadeTest {
                 .id(1L).sectionId(1L).name("1팀").kickoffRule("규칙").meetingSchedule("매주 목 19:00")
                 .status(kgu.developers.domain.team.domain.Status.CONFIRMED).build();
         given(teamQueryService.getTeamsBySectionId(1L)).willReturn(List.of(team));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(1L)))
+                .willReturn(java.util.Map.of(1L, "홍길동"));
 
         assertThat(sectionAdminFacade.getTeamsBySectionId(1L).contents())
                 .singleElement()
                 .satisfies(response -> {
                     assertThat(response.name()).isEqualTo("1팀");
                     assertThat(response.meetingSchedule()).isEqualTo("매주 목 19:00");
+                    assertThat(response.leaderName()).isEqualTo("홍길동");
                 });
     }
 

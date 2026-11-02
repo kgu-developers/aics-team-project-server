@@ -30,6 +30,7 @@ import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.team.exception.TeamNotFoundException;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamMember.domain.TeamMember;
 import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -62,6 +63,9 @@ class PeerEvaluationAdminFacadeTest {
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
+
+    @Mock
+    private TeamMemberQueryService teamMemberQueryService;
 
     @Mock
     private EnrollmentRepository enrollmentRepository;
@@ -99,6 +103,8 @@ class PeerEvaluationAdminFacadeTest {
         TeamMember m3 = TeamMember.builder().id(3L).teamId(20L).userId("20260003").isLeader(true).build();
         TeamMember m4 = TeamMember.builder().id(4L).teamId(20L).userId("20260004").isLeader(false).build();
         given(teamMemberRepository.findAllByTeamIdIn(List.of(10L, 20L))).willReturn(List.of(m1, m2, m3, m4));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L, 20L)))
+            .willReturn(Map.of(10L, "팀장1", 20L, "팀장2"));
 
         given(meetingRecordQueryService.countMeetingRecords(List.of(10L, 20L)))
             .willReturn(Map.of(10L, 3L, 20L, 1L));
@@ -142,6 +148,7 @@ class PeerEvaluationAdminFacadeTest {
         assertThat(team1Summary.totalMemberCount()).isEqualTo(2);
         assertThat(team1Summary.lastSubmittedAt()).isEqualTo(submittedAt);
         assertThat(team1Summary.meetingRecordCount()).isEqualTo(3L);
+        assertThat(team1Summary.leaderName()).isEqualTo("팀장1");
 
         PeerEvaluationAdminTeamSummaryResponse team2Summary = response.teams().get(1);
         assertThat(team2Summary.teamId()).isEqualTo(20L);
@@ -149,6 +156,7 @@ class PeerEvaluationAdminFacadeTest {
         assertThat(team2Summary.totalMemberCount()).isEqualTo(1); // 20260004 is inactive
         assertThat(team2Summary.lastSubmittedAt()).isNull();
         assertThat(team2Summary.meetingRecordCount()).isEqualTo(1L);
+        assertThat(team2Summary.leaderName()).isEqualTo("팀장2");
     }
 
     @Test
@@ -169,6 +177,7 @@ class PeerEvaluationAdminFacadeTest {
         given(teamRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of(team1));
         given(enrollmentRepository.findAllBySectionId(SECTION_ID)).willReturn(List.of());
         given(teamMemberRepository.findAllByTeamIdIn(List.of(10L))).willReturn(List.of());
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L))).willReturn(Map.of());
         given(meetingRecordQueryService.countMeetingRecords(List.of(10L))).willReturn(Map.of());
         given(formRepository.findAllBySectionIdOrderByIdDesc(SECTION_ID)).willReturn(List.of());
 
@@ -179,6 +188,7 @@ class PeerEvaluationAdminFacadeTest {
         assertThat(response.closesAt()).isNull();
         assertThat(response.teams()).hasSize(1);
         assertThat(response.teams().get(0).submittedCount()).isZero();
+        assertThat(response.teams().get(0).leaderName()).isNull();
     }
 
     @Test
