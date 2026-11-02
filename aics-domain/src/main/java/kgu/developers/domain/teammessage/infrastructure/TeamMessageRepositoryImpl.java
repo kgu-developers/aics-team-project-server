@@ -45,20 +45,13 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
     }
 
     @Override
-    public Page<TeamMessage> findByThreadIdIn(List<Long> threadIds, Pageable pageable) {
+    public Page<TeamMessage> findByThreadIdIn(
+        List<Long> threadIds, TeamMessageRelatedType relatedType, List<String> senderIds, Pageable pageable
+    ) {
         if (threadIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        return jpaTeamMessageRepository.findByThreadIdIn(threadIds, pageable)
-            .map(TeamMessageJpaEntity::toDomain);
-    }
-
-    @Override
-    public Page<TeamMessage> findByThreadIdInAndRelatedType(List<Long> threadIds, TeamMessageRelatedType relatedType, Pageable pageable) {
-        if (threadIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-        return jpaTeamMessageRepository.findByThreadIdInAndRelatedType(threadIds, relatedType, pageable)
+        return jpaTeamMessageRepository.findByThreadIdIn(threadIds, relatedType, senderIds, pageable)
             .map(TeamMessageJpaEntity::toDomain);
     }
 
@@ -68,5 +61,13 @@ public class TeamMessageRepositoryImpl implements TeamMessageRepository, TeamMes
             return 0;
         }
         return jpaTeamMessageRepository.countUnreadByThreadIdIn(threadIds, userId);
+    }
+
+    @Override
+    public List<String> findDistinctSenderIdsByThreadIdIn(List<Long> threadIds) {
+        if (threadIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaTeamMessageRepository.findDistinctSenderIdsByThreadIdIn(threadIds);
     }
 }

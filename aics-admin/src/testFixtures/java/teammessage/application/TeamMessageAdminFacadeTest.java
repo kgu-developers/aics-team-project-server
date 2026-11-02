@@ -2,6 +2,7 @@ package teammessage.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -181,7 +182,8 @@ class TeamMessageAdminFacadeTest {
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
 
-        var response = teamMessageAdminFacade.getMessages(1L, 10L, TeamMessageRelatedType.MID_REPORT, pageable, PROFESSOR_ID);
+        var response = teamMessageAdminFacade.getMessages(
+            1L, 10L, TeamMessageRelatedType.MID_REPORT, null, Sort.Direction.DESC, pageable, PROFESSOR_ID);
 
         assertThat(response.contents()).singleElement().satisfies(content -> {
             assertThat(content.teamName()).isEqualTo("A팀");
@@ -202,9 +204,69 @@ class TeamMessageAdminFacadeTest {
         given(teamRepository.findAllBySectionIdIn(List.of(1L)))
             .willReturn(List.of(firstTeam));
 
-        assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, 999L, TeamMessageRelatedType.MID_REPORT, pageable, PROFESSOR_ID))
+        assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(
+            1L, 999L, TeamMessageRelatedType.MID_REPORT, null, Sort.Direction.DESC, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 팀 메시지만 조회할 수 있습니다.");
+    }
+
+    @Test
+    @DisplayName("senderKeyword를 지정하면 조회 범위 내 이름 또는 학번이 일치하는 발신자의 메시지만 조회한다")
+    void getMessages_WithSenderKeyword() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Pageable sortedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.desc("id")));
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team team = team(10L, 1L, "A팀");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+        TeamMessage message = message(1000L, 100L, "화면설계서 확인 부탁드립니다.");
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
+        given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
+        given(teamMessageQueryService.findDistinctSenderIds(List.of(100L)))
+            .willReturn(List.of("202612345"));
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202612345")))
+            .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
+                UserGlobalRole.USER, "010-1234-5678")));
+        given(teamMessageQueryService.getMessages(List.of(100L), null, List.of("202612345"), sortedPageable))
+            .willReturn(new PageImpl<>(List.of(message), sortedPageable, 1));
+        given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
+
+        var response = teamMessageAdminFacade.getMessages(
+            1L, null, null, "김학생", Sort.Direction.DESC, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).singleElement().satisfies(content ->
+            assertThat(content.message()).isEqualTo("화면설계서 확인 부탁드립니다."));
+        verify(teamMessageQueryService).getMessages(List.of(100L), null, List.of("202612345"), sortedPageable);
+    }
+
+    @Test
+    @DisplayName("senderKeyword에 일치하는 발신자가 없으면 메시지 조회 없이 빈 목록을 반환하되, 안 읽은 개수는 검색과 무관하게 분반 전체 기준으로 응답한다")
+    void getMessages_WithSenderKeyword_NoMatch() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team team = team(10L, 1L, "A팀");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
+        given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
+        given(teamMessageQueryService.findDistinctSenderIds(List.of(100L)))
+            .willReturn(List.of("202612345"));
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(anyList()))
+            .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
+                UserGlobalRole.USER, "010-1234-5678")));
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(3L);
+
+        var response = teamMessageAdminFacade.getMessages(
+            1L, null, null, "존재하지않는이름", Sort.Direction.DESC, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).isEmpty();
+        assertThat(response.unreadCount()).isEqualTo(3L);
+        verify(teamMessageQueryService, never()).getMessages(anyList(), any(), anyList(), any());
     }
 
     @Test

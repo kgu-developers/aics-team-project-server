@@ -34,8 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TeamMessageAdminFacade {
 
-    private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("id"));
-
     private final SectionRepository sectionRepository;
     private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
@@ -45,13 +43,15 @@ public class TeamMessageAdminFacade {
     private final UserQueryService userQueryService;
 
     public TeamMessageAdminPageResponse getMessages(Long sectionId, Pageable pageable, String professorId) {
-        return getMessages(sectionId, null, null, pageable, professorId);
+        return getMessages(sectionId, null, null, null, Sort.Direction.DESC, pageable, professorId);
     }
 
     public TeamMessageAdminPageResponse getMessages(
         Long sectionId,
         Long teamId,
         kgu.developers.domain.teammessage.domain.TeamMessageRelatedType relatedType,
+        String senderKeyword,
+        Sort.Direction sortDirection,
         Pageable pageable,
         String professorId
     ) {
@@ -69,14 +69,24 @@ public class TeamMessageAdminFacade {
         List<TeamThread> threads = teamThreadQueryService.getThreads(teams.stream().map(Team::getId).toList());
         List<Long> threadIds = threads.stream().map(TeamThread::getId).toList();
 
-        Pageable latestFirstPageable = PageRequest.of(
+        Pageable sortedPageable = PageRequest.of(
             pageable.getPageNumber(),
             pageable.getPageSize(),
-            LATEST_FIRST
+            Sort.by(sortDirection == null ? Sort.Direction.DESC : sortDirection, "id")
         );
-        Page<TeamMessage> messages = relatedType == null
-            ? teamMessageQueryService.getMessages(threadIds, latestFirstPageable)
-            : teamMessageQueryService.getMessages(threadIds, relatedType, latestFirstPageable);
+
+        List<String> senderIds = resolveSenderIds(senderKeyword, threadIds);
+        if (senderIds != null && senderIds.isEmpty()) {
+            long unreadCountForEmptySearch = teamMessageQueryService.countUnread(threadIds, professorId);
+            return TeamMessageAdminPageResponse.from(
+                Page.empty(sortedPageable), unreadCountForEmptySearch, Set.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        }
+
+        Page<TeamMessage> messages = (senderIds == null)
+            ? (relatedType == null
+                ? teamMessageQueryService.getMessages(threadIds, sortedPageable)
+                : teamMessageQueryService.getMessages(threadIds, relatedType, sortedPageable))
+            : teamMessageQueryService.getMessages(threadIds, relatedType, senderIds, sortedPageable);
         List<Long> pageMessageIds = messages.getContent().stream().map(TeamMessage::getId).toList();
         Set<Long> readMessageIds = teamMessageQueryService.findReadMessageIds(professorId, pageMessageIds);
         long unreadCount = teamMessageQueryService.countUnread(threadIds, professorId);
@@ -88,13 +98,13 @@ public class TeamMessageAdminFacade {
         Map<Long, Section> sectionsById = sections.stream()
             .collect(Collectors.toMap(Section::getId, Function.identity()));
 
-        List<String> senderIds = messages.getContent().stream()
+        List<String> pageSenderIds = messages.getContent().stream()
             .map(TeamMessage::getSenderId)
             .filter(id -> id != null && !id.isBlank())
             .distinct()
             .toList();
         Map<String, String> senderNamesBySenderId = userQueryService
-            .getUsersByStudentNumbersIncludingDeleted(senderIds).stream()
+            .getUsersByStudentNumbersIncludingDeleted(pageSenderIds).stream()
             .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
 
         return TeamMessageAdminPageResponse.from(
@@ -126,5 +136,23 @@ public class TeamMessageAdminFacade {
             throw new AccessDeniedException("담당 분반의 메시지만 조회할 수 있습니다.");
         }
         return List.of(sectionQueryService.getSectionById(sectionId).section());
+    }
+
+    private List<String> resolveSenderIds(String senderKeyword, List<Long> threadIds) {
+        if (senderKeyword == null || senderKeyword.isBlank()) {
+            return null;
+        }
+        String keyword = senderKeyword.trim();
+
+        // 접근 가능한 스레드에 실제로 메시지를 남긴 적 있는 모든 발신자를 후보로 삼는다.
+        // 팀에서 탈퇴했거나 교수가 바뀐 경우에도 과거 발신자를 검색할 수 있어야 한다.
+        List<String> candidateIds = teamMessageQueryService.findDistinctSenderIds(threadIds);
+
+        return userQueryService.getUsersByStudentNumbersIncludingDeleted(candidateIds)
+            .stream()
+            .filter(user -> user.getStudentNumber().contains(keyword) || user.getName().contains(keyword))
+            .map(User::getStudentNumber)
+            .distinct()
+            .toList();
     }
 }
