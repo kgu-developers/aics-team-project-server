@@ -1,6 +1,7 @@
 package kgu.developers.domain.teammessage.infrastructure;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,35 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface JpaTeamMessageRepository extends JpaRepository<TeamMessageJpaEntity, Long> {
+
+    // shortcut: 현재 계정 역할로 집계한다. 역할 변경 전 이력까지 고정해야 하면 메시지에 발신 역할을 저장한다.
+    @Query("""
+        select message.relatedId as relatedId,
+               sum(case when sender.globalRole = kgu.developers.domain.user.domain.UserGlobalRole.ADMIN then 1 else 0 end) as feedbackCount,
+               max(case when sender.globalRole = kgu.developers.domain.user.domain.UserGlobalRole.ADMIN then message.createdAt else null end) as lastFeedbackAt,
+               max(case when sender.globalRole = kgu.developers.domain.user.domain.UserGlobalRole.USER then message.createdAt else null end) as lastStudentMessageAt
+        from TeamMessageJpaEntity message
+        join TeamThreadJpaEntity thread on thread.id = message.threadId
+        join UserJpaEntity sender on sender.studentNumber = message.senderId
+        where thread.teamId in :teamIds
+          and message.relatedType = :relatedType
+          and message.relatedId in :relatedIds
+          and message.deletedAt is null
+          and thread.deletedAt is null
+        group by message.relatedId
+        """)
+    List<DocumentFeedbackProjection> summarizeFeedback(
+        @Param("teamIds") List<Long> teamIds,
+        @Param("relatedType") TeamMessageRelatedType relatedType,
+        @Param("relatedIds") List<Long> relatedIds
+    );
+
+    interface DocumentFeedbackProjection {
+        Long getRelatedId();
+        long getFeedbackCount();
+        LocalDateTime getLastFeedbackAt();
+        LocalDateTime getLastStudentMessageAt();
+    }
 
     Page<TeamMessageJpaEntity> findByThreadId(Long threadId, Pageable pageable);
 

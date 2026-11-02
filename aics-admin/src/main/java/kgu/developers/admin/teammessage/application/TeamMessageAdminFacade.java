@@ -81,7 +81,7 @@ public class TeamMessageAdminFacade {
         if (senderIds != null && senderIds.isEmpty()) {
             long unreadCountForEmptySearch = teamMessageQueryService.countUnread(threadIds, professorId);
             return TeamMessageAdminPageResponse.from(
-                Page.empty(sortedPageable), unreadCountForEmptySearch, Set.of(), Map.of(), Map.of(), Map.of(), Map.of());
+                Page.empty(sortedPageable), unreadCountForEmptySearch, Set.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
         }
 
         Page<TeamMessage> messages = (senderIds == null)
