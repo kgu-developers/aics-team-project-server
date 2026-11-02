@@ -6,6 +6,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.editlock.application.query.EditLockQueryService;
+import kgu.developers.domain.editlock.domain.EditLock;
+import kgu.developers.domain.editlock.domain.EditLockTargetType;
+import kgu.developers.domain.editlock.exception.EditLockConflictException;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import javax.imageio.ImageIO;
@@ -55,6 +61,8 @@ class ProjectFacadeTest {
     private static final Long TEAM_ID = 1L;
     private static final String MEMBER_ID = "202412345";
 
+    @Mock private ProjectRepository projectRepository;
+    @Mock private EditLockQueryService editLockQueryService;
     @Mock private ProjectCommandService projectCommandService;
     @Mock private ProjectQueryService projectQueryService;
     @Mock private TeamAccessValidator teamAccessValidator;
@@ -66,7 +74,27 @@ class ProjectFacadeTest {
     @Mock private ProposalSectionRepository proposalSectionRepository;
     @Mock private UserRepository userRepository;
     @Mock private TeamFacade teamFacade;
+    @Mock private jakarta.validation.Validator validator;
+    @Mock private kgu.developers.domain.team.domain.TeamRepository teamRepository;
+    @Mock private kgu.developers.domain.enrollment.domain.EnrollmentRepository enrollmentRepository;
+    @Mock private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @InjectMocks private ProjectFacade projectFacade;
+
+    @org.junit.jupiter.api.BeforeEach
+    void sectionVersionFixtures() {
+        org.mockito.Mockito.lenient().when(teamRepository.findSectionIdById(TEAM_ID))
+            .thenReturn(Optional.of(100L));
+        org.mockito.Mockito.lenient().when(enrollmentRepository.findBySectionIdAndUserId(100L, MEMBER_ID))
+            .thenReturn(Optional.of(kgu.developers.domain.enrollment.domain.Enrollment.create(100L, MEMBER_ID,
+                kgu.developers.domain.enrollment.domain.Role.STUDENT, kgu.developers.domain.enrollment.domain.Status.ACTIVE)));
+        org.mockito.Mockito.lenient().when(projectCommandService.getOrCreateSection(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+            .thenAnswer(call -> ProposalSection.create(((Project) call.getArgument(0)).getId(), call.getArgument(1)));
+        org.mockito.Mockito.lenient().when(projectCommandService.getOrCreateSectionVersions(
+            org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(
+                ProposalSectionType.TOPIC, 0L, ProposalSectionType.DATA, 0L,
+                ProposalSectionType.SCREEN, 0L, ProposalSectionType.TEAM_OPERATION, 0L));
+    }
 
     @Test
     @DisplayName("getProject는 팀원과 담당 교수에게 프로젝트 제안서를 반환한다")
@@ -95,7 +123,10 @@ class ProjectFacadeTest {
 
         assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
             .isInstanceOf(AccessDeniedException.class);
-        then(projectCommandService).shouldHaveNoInteractions();
+        then(projectCommandService).should(org.mockito.Mockito.never()).saveProject(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -127,7 +158,10 @@ class ProjectFacadeTest {
                 && file.getContentType().equals("image/png")
                 && file.getSize() == image.getSize()
         ));
-        then(projectCommandService).shouldHaveNoInteractions();
+        then(projectCommandService).should(org.mockito.Mockito.never()).saveProject(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -157,7 +191,10 @@ class ProjectFacadeTest {
 
         then(fileStorage).shouldHaveNoInteractions();
         then(fileObjectRepository).shouldHaveNoInteractions();
-        then(projectCommandService).shouldHaveNoInteractions();
+        then(projectCommandService).should(org.mockito.Mockito.never()).saveProject(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -189,6 +226,7 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("saveProject는 요청 필드를 커맨드 서비스에 전달한다")
     void saveProject() throws Exception {
+        givenWritableSection(ProposalSectionType.SCREEN);
         org.mockito.BDDMockito.willDoNothing().given(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
         givenImageUploadedBy(MEMBER_ID);
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
@@ -202,11 +240,15 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("saveProject는 우리 팀이 올리지 않은 imageFileId를 거부한다")
     void saveProject_rejectsForeignImage() throws Exception {
+        givenWritableSection(ProposalSectionType.SCREEN);
         givenImageUploadedBy("999999999");
 
         assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
             .isInstanceOf(ProjectScreenImageOwnershipException.class);
-        then(projectCommandService).shouldHaveNoInteractions();
+        then(projectCommandService).should(org.mockito.Mockito.never()).saveProject(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -279,25 +321,28 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("saveProject는 우리 팀원이 올린 PDF를 화면 이미지로 연결하지 않는다")
     void saveProject_rejectsNonImageFile() throws Exception {
+        givenWritableSection(ProposalSectionType.SCREEN);
         givenImageUploadedBy(MEMBER_ID, "application/pdf");
 
         assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
             .isInstanceOf(FileObjectInvalidTypeException.class);
-        then(projectCommandService).shouldHaveNoInteractions();
+        then(projectCommandService).should(org.mockito.Mockito.never()).saveProject(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     @DisplayName("saveProject는 클라이언트가 보낸 imageUrl을 저장 전에 지운다")
     void saveProject_stripsClientImageUrl() throws Exception {
+        givenWritableSection(ProposalSectionType.SCREEN);
         givenImageUploadedBy(MEMBER_ID);
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
-        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
-            new ObjectMapper().readTree("[]"),
-            new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://evil/forever\"}]"),
-            null, null, null, null, null, new ObjectMapper().readTree("[]"));
+        ProjectRequest request = ProjectRequest.builder().sectionKey(ProposalSectionType.SCREEN).sectionVersion(0L)
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1,\"imageUrl\":\"https://evil/forever\"}]")).build();
 
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
 
@@ -321,6 +366,48 @@ class ProjectFacadeTest {
         var screens = projectFacade.getProject(TEAM_ID, MEMBER_ID).screenConfiguration();
 
         assertThat(screens.get(0).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+    }
+
+    @Test
+    void getProject_signsImagesAfterSnapshotTransactionCompletes() throws Exception {
+        var transactions = new org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+            protected Object doGetTransaction() { return new Object(); }
+            protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {}
+            protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+            protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+        };
+        var proxy = new org.springframework.aop.framework.ProxyFactory(projectFacade);
+        org.springframework.test.util.ReflectionTestUtils.setField(projectFacade, "transactionManager", transactions);
+        var advice = new org.springframework.transaction.interceptor.TransactionInterceptor();
+        advice.setTransactionManager(transactions);
+        advice.setTransactionAttributeSource(new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource());
+        proxy.addAdvice(advice);
+        Project current = projectWithScreens("[{\"title\":\"홈\",\"imageFileId\":1}]");
+        current.updateDataConfiguration(new ObjectMapper().readTree("[{\"name\":\"기존 데이터\"}]"));
+        current.updateExternalLinks(new ObjectMapper().readTree("[{\"name\":\"기존 링크\"}]"));
+        var committed = new java.util.concurrent.atomic.AtomicBoolean();
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    public void afterCommit() { committed.set(true); }
+                });
+            return current;
+        });
+        givenImageUploadedBy(MEMBER_ID);
+        given(fileStorage.presignedUrl("teams/1/home.png")).willAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(committed).isTrue();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) current.getDataConfiguration().get(0)).put("name", "변경된 데이터");
+            ((com.fasterxml.jackson.databind.node.ObjectNode) current.getExternalLinks().get(0)).put("name", "변경된 링크");
+            return "https://s3/presigned";
+        });
+
+        var response = ((ProjectFacade) proxy.getProxy()).getProject(TEAM_ID, MEMBER_ID);
+
+        assertThat(response.screenConfiguration().get(0).get("imageUrl").asText()).isEqualTo("https://s3/presigned");
+        assertThat(response.dataConfiguration().get(0).get("name").asText()).isEqualTo("기존 데이터");
+        assertThat(response.externalLinks().get(0).get("name").asText()).isEqualTo("기존 링크");
     }
 
     @Test
@@ -509,15 +596,14 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("saveProject는 팀 운영방식 본문을 킥오프 저장소에 반영한다")
     void saveProject_writesTeamOperationToKickoff() throws Exception {
-        givenImageUploadedBy(MEMBER_ID);
+        givenWritableSection(ProposalSectionType.TEAM_OPERATION);
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
         List<MemberRole> roles = List.of(new MemberRole(MEMBER_ID, "백엔드"));
-        ProjectRequest request = new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
-            JsonConverter.parse("[]"), new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
-            "매주 화요일 회고", "매주 목 19:00 온라인", roles, "4월: 설계", null, null);
+        ProjectRequest request = ProjectRequest.builder().sectionKey(ProposalSectionType.TEAM_OPERATION).sectionVersion(0L)
+            .kickoffRule("매주 화요일 회고").meetingSchedule("매주 목 19:00 온라인").memberRoles(roles).projectSchedule("4월: 설계").build();
 
         projectFacade.saveProject(TEAM_ID, MEMBER_ID, request);
 
@@ -528,6 +614,7 @@ class ProjectFacadeTest {
     @Test
     @DisplayName("saveProject는 팀 운영방식을 넘기지 않으면 킥오프를 건드리지 않는다")
     void saveProject_keepsKickoffWhenTeamOperationOmitted() throws Exception {
+        givenWritableSection(ProposalSectionType.SCREEN);
         givenImageUploadedBy(MEMBER_ID);
         given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
@@ -541,6 +628,57 @@ class ProjectFacadeTest {
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void getProject_locksTeamBeforeReadingKickoffAndSectionVersions() {
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(project());
+        projectFacade.getProject(TEAM_ID, MEMBER_ID);
+        InOrder order = org.mockito.Mockito.inOrder(projectRepository, teamAccessValidator, projectQueryService, teamFacade);
+        order.verify(projectRepository).lockTeam(TEAM_ID);
+        order.verify(teamAccessValidator).validateMembershipOrProfessor(TEAM_ID, MEMBER_ID);
+        order.verify(projectQueryService).getProjectByTeamId(TEAM_ID);
+        order.verify(teamFacade).getKickoffByTeamId(TEAM_ID, MEMBER_ID);
+    }
+
+    @Test
+    void saveProject_locksTeamBeforeMembershipCanCacheMemberRoles() throws Exception {
+        givenWritableSection(ProposalSectionType.SCREEN);
+        givenImageUploadedBy(MEMBER_ID);
+        given(projectCommandService.saveProject(org.mockito.ArgumentMatchers.eq(TEAM_ID), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(project());
+        projectFacade.saveProject(TEAM_ID, MEMBER_ID, request());
+        InOrder order = org.mockito.Mockito.inOrder(projectRepository, teamAccessValidator, teamRepository,
+            enrollmentRepository, projectQueryService);
+        order.verify(projectRepository).lockTeam(TEAM_ID);
+        order.verify(teamAccessValidator).validateMembership(TEAM_ID, MEMBER_ID);
+        order.verify(teamRepository).findSectionIdById(TEAM_ID);
+        order.verify(enrollmentRepository).findBySectionIdAndUserId(100L, MEMBER_ID);
+        order.verify(projectQueryService).getProjectByTeamId(TEAM_ID);
+    }
+
+    @Test
+    void getProject_doesNotLockTeamForOutsider() {
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembershipOrProfessorBeforeLock(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.getProject(TEAM_ID, MEMBER_ID))
+            .isInstanceOf(AccessDeniedException.class);
+
+        then(projectRepository).should(org.mockito.Mockito.never()).lockTeam(TEAM_ID);
+    }
+
+    @Test
+    void saveProject_doesNotLockTeamForOutsider() throws Exception {
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("접근 거부"))
+            .given(teamAccessValidator).validateMembershipBeforeLock(TEAM_ID, MEMBER_ID);
+
+        assertThatThrownBy(() -> projectFacade.saveProject(TEAM_ID, MEMBER_ID, request()))
+            .isInstanceOf(AccessDeniedException.class);
+
+        then(projectRepository).should(org.mockito.Mockito.never()).lockTeam(TEAM_ID);
     }
 
     private User member() {
@@ -558,10 +696,14 @@ class ProjectFacadeTest {
     }
 
     private ProjectRequest request() throws Exception {
-        return new ProjectRequest("AI 학습 도우미", "설명", "피드백 자동화",
-            JsonConverter.parse("[{\"name\":\"학습 로그\",\"description\":\"문제 풀이 기록\",\"expectedCount\":\"약 1만 건\"}]"),
-            new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]"),
-            null, null, null, "4월: 설계, 5월: 개발", "https://github.com/kgu/project", new ObjectMapper().readTree("[]"));
+        return ProjectRequest.builder().sectionKey(ProposalSectionType.SCREEN).sectionVersion(0L)
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"imageFileId\":1}]")).build();
+    }
+
+    private void givenWritableSection(ProposalSectionType type) {
+        given(projectQueryService.getProjectByTeamId(TEAM_ID)).willReturn(project());
+        given(editLockQueryService.getActiveLock(EditLockTargetType.PROJECT, 10L, type.name()))
+            .willReturn(Optional.of(EditLock.create(EditLockTargetType.PROJECT, 10L, type.name(), MEMBER_ID, java.time.LocalDateTime.now())));
     }
 
     private Project project() {

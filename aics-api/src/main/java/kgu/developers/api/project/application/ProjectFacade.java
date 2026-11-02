@@ -12,6 +12,7 @@ import java.io.IOException;
 
 import kgu.developers.api.project.presentation.request.ProjectRequest;
 import kgu.developers.api.project.presentation.request.ProposalSectionRequest;
+import jakarta.validation.Validator;
 import kgu.developers.api.project.presentation.response.ProjectImageUploadResponse;
 import kgu.developers.api.project.presentation.response.ProjectResponse;
 import kgu.developers.api.project.presentation.response.ProjectApprovalSummaryResponse;
@@ -19,6 +20,9 @@ import kgu.developers.api.project.presentation.response.ProposalSectionListRespo
 import kgu.developers.api.project.presentation.response.ProposalSectionResponse;
 import kgu.developers.api.team.application.TeamAccessValidator;
 import kgu.developers.api.team.application.TeamFacade;
+import kgu.developers.domain.enrollment.domain.Enrollment;
+import kgu.developers.domain.enrollment.domain.EnrollmentRepository;
+import kgu.developers.domain.team.domain.TeamRepository;
 import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.domain.FileObjectRepository;
 import kgu.developers.domain.fileobject.domain.FileStorage;
@@ -26,6 +30,11 @@ import kgu.developers.domain.fileobject.exception.FileObjectInvalidTypeException
 import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.project.application.query.ProjectQueryService;
 import kgu.developers.domain.project.domain.Project;
+import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.exception.ProjectVersionConflictException;
+import kgu.developers.domain.editlock.application.query.EditLockQueryService;
+import kgu.developers.domain.editlock.domain.EditLockTargetType;
+import kgu.developers.domain.editlock.exception.EditLockConflictException;
 import kgu.developers.domain.project.domain.ProposalSection;
 import kgu.developers.domain.project.domain.ProposalSectionRepository;
 import kgu.developers.domain.project.domain.ProposalSectionType;
@@ -39,12 +48,17 @@ import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -66,6 +80,8 @@ public class ProjectFacade {
     private static final int MAX_FILE_NAME_LENGTH = 255;
 
     private final ProjectCommandService projectCommandService;
+    private final ProjectRepository projectRepository;
+    private final EditLockQueryService editLockQueryService;
     private final ProjectQueryService projectQueryService;
     private final TeamAccessValidator teamAccessValidator;
     private final ProjectApprovalRepository projectApprovalRepository;
@@ -76,38 +92,105 @@ public class ProjectFacade {
     private final ProposalSectionRepository proposalSectionRepository;
     private final UserRepository userRepository;
     private final TeamFacade teamFacade;
+    private final Validator validator;
+    private final TeamRepository teamRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final PlatformTransactionManager transactionManager;
 
+    // 호출자의 트랜잭션이 팀 잠금과 URL 생성까지 묶지 않도록 스냅샷 트랜잭션을 분리한다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ProjectResponse getProject(Long teamId, String userId) {
-        teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
-        Project project = projectQueryService.getProjectByTeamId(teamId);
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
-            teamFacade.getKickoffByTeamId(teamId, userId));
+        ProjectSnapshot snapshot = new TransactionTemplate(transactionManager).execute(status -> {
+            teamAccessValidator.validateMembershipOrProfessorBeforeLock(teamId, userId);
+            // 접근 검증도 Team을 읽으므로, 킥오프 본문과 섹션 버전을 읽기 전에 잠근다.
+            projectRepository.lockTeam(teamId);
+            teamAccessValidator.validateMembershipOrProfessor(teamId, userId);
+            Project project = projectQueryService.getProjectByTeamId(teamId);
+            return projectSnapshot(project, userId);
+        });
+        return resolveSnapshot(snapshot);
     }
 
     public ProjectResponse saveProject(Long teamId, String userId, ProjectRequest request) {
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new jakarta.validation.ConstraintViolationException(violations);
+        }
+        ProposalSectionType type = request.sectionKey();
+        teamAccessValidator.validateMembershipBeforeLock(teamId, userId);
+        // 팀원 역할도 응답 본문에 포함되므로 접근 검증이 읽기 전에 잠근다.
+        projectRepository.lockTeam(teamId);
         teamAccessValidator.validateMembership(teamId, userId);
-        validateScreenImagesOwnedByTeam(teamId, request.screenConfiguration());
+        boolean activeStudent = teamRepository.findSectionIdById(teamId)
+            .flatMap(sectionId -> enrollmentRepository.findBySectionIdAndUserId(sectionId, userId))
+            .map(Enrollment::isActiveStudent)
+            .orElse(false);
+        if (!activeStudent) {
+            throw new AccessDeniedException("그 분반에 활성 학생으로 등록된 사용자만 편집할 수 있습니다.");
+        }
+        Project current = projectQueryService.getProjectByTeamId(teamId);
+        if (current.getProposalCompletedAt() != null) {
+            throw new kgu.developers.domain.project.exception.ProjectProposalCompletedException();
+        }
+        ProposalSection section = projectCommandService.getOrCreateSection(current, type);
+        if (request.sectionVersion() != section.getContentVersion()) {
+            throw new ProjectVersionConflictException();
+        }
+        editLockQueryService.getActiveLock(EditLockTargetType.PROJECT, current.getId(), type.name())
+            .filter(lock -> lock.isOwnedBy(userId))
+            .orElseThrow(EditLockConflictException::new);
 
-        // 팀 운영방식 본문(팀규칙·회의방식·역할분담)은 킥오프와 저장소가 같아서 Team·team_member에 쓴다.
-        // TeamFacade가 감사로그와 동의 무효화까지 같이 처리한다.
-        if (request.kickoffRule() != null || request.meetingSchedule() != null || request.memberRoles() != null) {
+        if (type == ProposalSectionType.SCREEN) {
+            validateScreenImagesOwnedByTeam(teamId, request.screenConfiguration());
+        }
+        if (type == ProposalSectionType.TEAM_OPERATION
+            && (request.kickoffRule() != null || request.meetingSchedule() != null || request.memberRoles() != null)) {
             teamFacade.updateKickoffContent(teamId, userId,
                 request.kickoffRule(), request.meetingSchedule(), request.memberRoles());
         }
-
-        Project project = projectCommandService.saveProject(
+        Project saved = projectCommandService.saveProject(
             teamId,
-            request.title(),
-            request.description(),
-            request.goal(),
-            request.repositoryUrl(),
-            request.externalLinks(),
-            request.dataConfiguration(),
-            stripClientProvidedImageUrls(request.screenConfiguration()),
-            request.projectSchedule()
+            type == ProposalSectionType.TOPIC ? request.title() : current.getTitle(),
+            type == ProposalSectionType.TOPIC ? request.description() : current.getDescription(),
+            type == ProposalSectionType.TOPIC ? request.goal() : current.getGoal(),
+            type == ProposalSectionType.TOPIC ? request.repositoryUrl() : current.getRepositoryUrl(),
+            type == ProposalSectionType.TOPIC ? request.externalLinks() : current.getExternalLinks(),
+            type == ProposalSectionType.DATA ? request.dataConfiguration() : current.getDataConfiguration(),
+            type == ProposalSectionType.SCREEN ? stripClientProvidedImageUrls(request.screenConfiguration()) : current.getScreenConfiguration(),
+            type == ProposalSectionType.TEAM_OPERATION && request.projectSchedule() != null
+                ? request.projectSchedule() : current.getProjectSchedule()
         );
-        return ProjectResponse.from(project, resolveScreenImageUrls(teamId, project.getScreenConfiguration()),
-            teamFacade.getKickoffByTeamId(teamId, userId));
+        return resolveSnapshot(projectSnapshot(saved, userId));
+    }
+
+    private ProjectSnapshot projectSnapshot(Project project, String userId) {
+        Map<ProposalSectionType, Long> versions = projectCommandService.getOrCreateSectionVersions(project);
+        Map<Long, String> imageStorageKeys = new HashMap<>();
+        JsonNode screens = prepareScreenImages(project.getTeamId(), project.getScreenConfiguration(), imageStorageKeys);
+        ProjectResponse response = ProjectResponse.from(project, screens,
+            teamFacade.getKickoffByTeamId(project.getTeamId(), userId), Map.copyOf(versions)).toBuilder()
+            .dataConfiguration(project.getDataConfiguration() == null ? null : project.getDataConfiguration().deepCopy())
+            .externalLinks(project.getExternalLinks() == null ? null : project.getExternalLinks().deepCopy())
+            .build();
+        return new ProjectSnapshot(response, Map.copyOf(imageStorageKeys));
+    }
+
+    private record ProjectSnapshot(ProjectResponse response, Map<Long, String> imageStorageKeys) {}
+
+    private ProjectResponse resolveSnapshot(ProjectSnapshot snapshot) {
+        JsonNode screens = snapshot.response().screenConfiguration();
+        if (screens != null && screens.isArray()) {
+            for (JsonNode screen : screens) {
+                JsonNode imageFileId = screen.get("imageFileId");
+                if (screen.isObject() && imageFileId != null && imageFileId.isIntegralNumber()) {
+                    String storageKey = snapshot.imageStorageKeys().get(imageFileId.asLong());
+                    if (storageKey != null) {
+                        ((ObjectNode) screen).put("imageUrl", fileStorage.presignedUrl(storageKey));
+                    }
+                }
+            }
+        }
+        return snapshot.response();
     }
 
     public ProjectImageUploadResponse uploadProjectImage(Long teamId, String userId, MultipartFile file) {
@@ -263,7 +346,7 @@ public class ProjectFacade {
     // 계속 URL이 나가버린다. 그래서 여기서도 소유권을 다시 확인하고, 지금 시점에 소유가 아니면
     // URL을 만들지 않는다. "imageUrl"은 항상 먼저 지우고 다시 계산한다 — 클라이언트가 보낸 값이든
     // 과거에 잘못 저장된 값이든 그대로 흘려보내지 않기 위해서다.
-    private JsonNode resolveScreenImageUrls(Long teamId, JsonNode screens) {
+    private JsonNode prepareScreenImages(Long teamId, JsonNode screens, Map<Long, String> imageStorageKeys) {
         if (screens == null || !screens.isArray()) {
             return screens;
         }
@@ -299,7 +382,7 @@ public class ProjectFacade {
             if (imageFileId != null && imageFileId.isIntegralNumber()) {
                 FileObject fileObject = fileObjectMap.get(imageFileId.asLong());
                 if (fileObject != null && memberIds.contains(fileObject.getUploadedBy()) && isAllowedImage(fileObject)) {
-                    sanitized.put("imageUrl", fileStorage.presignedUrl(fileObject.getStorageKey()));
+                    imageStorageKeys.put(fileObject.getId(), fileObject.getStorageKey());
                 }
             }
             resolved.add(sanitized);

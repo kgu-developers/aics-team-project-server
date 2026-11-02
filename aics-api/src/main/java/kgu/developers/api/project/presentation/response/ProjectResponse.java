@@ -7,10 +7,13 @@ import kgu.developers.domain.project.domain.Project;
 import lombok.Builder;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+import kgu.developers.domain.project.domain.ProposalSectionType;
 
-@Builder
+@Builder(toBuilder = true)
 public record ProjectResponse(
     Long id,
+    Map<ProposalSectionType, Long> sectionVersions,
     Long teamId,
     Long topicCandidateId,
     String title,
@@ -36,8 +39,14 @@ public record ProjectResponse(
     }
 
     public static ProjectResponse from(Project project, JsonNode resolvedScreenConfiguration, TeamKickoffResponse teamOperation) {
+        return from(project, resolvedScreenConfiguration, teamOperation, Map.of());
+    }
+
+    public static ProjectResponse from(Project project, JsonNode resolvedScreenConfiguration, TeamKickoffResponse teamOperation,
+                                       Map<ProposalSectionType, Long> sectionVersions) {
         return ProjectResponse.builder()
             .id(project.getId())
+            .sectionVersions(sectionVersions)
             .teamId(project.getTeamId())
             .topicCandidateId(project.getTopicCandidateId())
             .title(project.getTitle())

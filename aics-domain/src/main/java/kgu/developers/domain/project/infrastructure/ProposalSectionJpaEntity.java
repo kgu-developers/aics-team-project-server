@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 
@@ -35,6 +36,11 @@ public class ProposalSectionJpaEntity extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private ProposalSectionType type;
 
+    // ddl-auto: update가 데이터가 있는 테이블에 컬럼을 추가할 수 있도록 DB 기본값을 둔다.
+    @Column(nullable = false)
+    @ColumnDefault("0")
+    private long contentVersion;
+
     @Column(length = 20)
     private String assigneeUserId;
 
@@ -46,6 +52,7 @@ public class ProposalSectionJpaEntity extends BaseTimeEntity {
             .id(id)
             .projectId(projectId)
             .type(type)
+            .contentVersion(contentVersion)
             .assigneeUserId(assigneeUserId)
             .completedAt(completedAt)
             .createdAt(getCreatedAt())
@@ -58,6 +65,7 @@ public class ProposalSectionJpaEntity extends BaseTimeEntity {
             .id(proposalSection.getId())
             .projectId(proposalSection.getProjectId())
             .type(proposalSection.getType())
+            .contentVersion(proposalSection.getContentVersion())
             .assigneeUserId(proposalSection.getAssigneeUserId())
             .completedAt(proposalSection.getCompletedAt())
             .build();

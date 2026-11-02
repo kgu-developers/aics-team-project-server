@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -150,7 +152,7 @@ public class ProjectCommandService {
         }
 
         // 변경된 필드에 따라 해당 섹션의 완료 상태를 해제 (업데이트 전에 실행)
-        resetCompletedSectionsForChanges(project, title, description, goal, topicCandidateId,
+        resetCompletedSectionsForChanges(project, title, description, goal, repositoryUrl, externalLinks, topicCandidateId,
             dataConfiguration, screenConfiguration, projectSchedule, replaceTopicCandidate);
 
         project.updateTitle(title);
@@ -174,54 +176,57 @@ public class ProjectCommandService {
     }
 
     private void resetCompletedSectionsForChanges(
-        Project project,
-        String title,
-        String description,
-        String goal,
-        Long topicCandidateId,
-        JsonNode dataConfiguration,
-        JsonNode screenConfiguration,
-        String projectSchedule,
+        Project project, String title, String description, String goal, String repositoryUrl, JsonNode externalLinks,
+        Long topicCandidateId, JsonNode dataConfiguration, JsonNode screenConfiguration, String projectSchedule,
         boolean replaceTopicCandidate
     ) {
-        // TOPIC 섹션: title, description, goal, topicCandidateId 변경 시 완료 상태 해제
-        if (!Objects.equals(project.getTitle(), title) 
+        if (!Objects.equals(project.getTitle(), title)
             || !Objects.equals(project.getDescription(), description)
             || !Objects.equals(project.getGoal(), goal)
+            || !Objects.equals(project.getRepositoryUrl(), repositoryUrl)
+            || !Objects.equals(project.getExternalLinks(), externalLinks)
             || (replaceTopicCandidate && !Objects.equals(project.getTopicCandidateId(), topicCandidateId))) {
-            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.TOPIC)
-                .ifPresent(section -> {
-                    section.forceIncomplete();
-                    proposalSectionRepository.save(section);
-                });
+            markSectionContentChanged(project, ProposalSectionType.TOPIC);
         }
-
-        // DATA 섹션: dataConfiguration 변경 시 완료 상태 해제
         if (project.isDataConfigurationChanged(dataConfiguration)) {
-            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.DATA)
-                .ifPresent(section -> {
-                    section.forceIncomplete();
-                    proposalSectionRepository.save(section);
-                });
+            markSectionContentChanged(project, ProposalSectionType.DATA);
         }
-
-        // SCREEN 섹션: screenConfiguration 변경 시 완료 상태 해제
         if (project.isScreenConfigurationChanged(screenConfiguration)) {
-            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.SCREEN)
-                .ifPresent(section -> {
-                    section.forceIncomplete();
-                    proposalSectionRepository.save(section);
-                });
+            markSectionContentChanged(project, ProposalSectionType.SCREEN);
         }
-
-        // TEAM_OPERATION 섹션: projectSchedule 변경 시 완료 상태 해제
         if (project.isProjectScheduleChanged(projectSchedule)) {
-            proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.TEAM_OPERATION)
-                .ifPresent(section -> {
-                    section.forceIncomplete();
-                    proposalSectionRepository.save(section);
-                });
+            markSectionContentChanged(project, ProposalSectionType.TEAM_OPERATION);
         }
+    }
+
+    // 행이 없는 기존 제안서·재생성 제안서도, 이전 생명주기의 버전으로 되돌아가지 않게 시작한다.
+    public ProposalSection getOrCreateSection(Project project, ProposalSectionType type) {
+        return proposalSectionRepository.findByProjectIdAndType(project.getId(), type)
+            .orElseGet(() -> createSection(project, type));
+    }
+
+    public Map<ProposalSectionType, Long> getOrCreateSectionVersions(Project project) {
+        Map<ProposalSectionType, Long> versions = new EnumMap<>(ProposalSectionType.class);
+        proposalSectionRepository.findAllByProjectId(project.getId())
+            .forEach(section -> versions.put(section.getType(), section.getContentVersion()));
+        for (ProposalSectionType type : ProposalSectionType.values()) {
+            versions.computeIfAbsent(type, missing -> createSection(project, missing).getContentVersion());
+        }
+        return versions;
+    }
+
+    private ProposalSection createSection(Project project, ProposalSectionType type) {
+        return proposalSectionRepository.save(ProposalSection.builder()
+            .projectId(project.getId()).type(type)
+            .contentVersion(project.getVersion() == null ? 0L : project.getVersion()).build());
+    }
+
+    private void markSectionContentChanged(Project project, ProposalSectionType type) {
+        ProposalSection section = proposalSectionRepository.findByProjectIdAndType(project.getId(), type)
+            .orElseGet(() -> ProposalSection.builder().projectId(project.getId()).type(type)
+                .contentVersion(project.getVersion() == null ? 0L : project.getVersion()).build());
+        section.contentChanged();
+        proposalSectionRepository.save(section);
     }
 
     /**
@@ -239,12 +244,7 @@ public class ProjectCommandService {
                 projectRepository.save(project);
                 projectApprovalRepository.deleteAllByProjectId(project.getId());
                 
-                // 킥오프 내용 변경 시 TEAM_OPERATION 섹션의 완료 상태 해제
-                proposalSectionRepository.findByProjectIdAndType(project.getId(), ProposalSectionType.TEAM_OPERATION)
-                    .ifPresent(section -> {
-                        section.forceIncomplete();
-                        proposalSectionRepository.save(section);
-                    });
+                markSectionContentChanged(project, ProposalSectionType.TEAM_OPERATION);
             });
     }
 
@@ -286,7 +286,8 @@ public class ProjectCommandService {
         }
 
         ProposalSection section = proposalSectionRepository.findByProjectIdAndType(projectId, type)
-            .orElseGet(() -> ProposalSection.create(projectId, type));
+            .orElseGet(() -> ProposalSection.builder().projectId(projectId).type(type)
+                .contentVersion(project.getVersion() == null ? 0L : project.getVersion()).build());
         section.assign(assigneeUserId);
         section.updateCompleted(completed);
 

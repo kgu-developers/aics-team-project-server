@@ -36,6 +36,7 @@ import kgu.developers.domain.importBatch.domain.ImportBatch;
 import kgu.developers.domain.importBatch.domain.ImportBatchRepository;
 import kgu.developers.domain.importBatch.domain.Type;
 import kgu.developers.domain.importBatch.exception.ImportBatchNotFoundException;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.section.exception.SectionNotFoundException;
 import kgu.developers.domain.team.domain.Team;
@@ -62,6 +63,7 @@ public class TeamImportFacade {
     private final SectionRepository sectionRepository;
     private final SectionStaffValidator sectionStaffValidator;
     private final TransactionTemplate transactionTemplate;
+    private final ProjectCommandService projectCommandService;
 
     public TeamImportPreviewResponse preview(Long sectionId, String uploaderId, MultipartFile file) {
         sectionStaffValidator.validate(sectionId, uploaderId);
@@ -146,6 +148,7 @@ public class TeamImportFacade {
 
         int createdTeams = 0;
         List<PlannedRow> applied = new ArrayList<>();
+        Set<Long> changedRoleTeamIds = new TreeSet<>();
         // leaderOf 는 파일 전체를 놓고 "최종적으로 누가 팀장이어야 하는가"를 옳게 계산하지만,
         // DB 반영은 한 행씩 순서대로 저장되고 TeamMemberRepositoryImpl.save() 가 저장 시점의
         // 실제 DB 상태로 팀장 중복을 검사한다. 승격 행이 해제 행보다 먼저 저장되면 그 순간
@@ -164,6 +167,9 @@ public class TeamImportFacade {
                 if (teamStatusById.get(row.assigned().getTeamId()) == Status.CONFIRMED) {
                     skipped++;
                     continue;
+                }
+                if (!Objects.equals(row.assigned().getProjectRole(), row.projectRole())) {
+                    changedRoleTeamIds.add(row.assigned().getTeamId());
                 }
                 row.assigned().updateIsLeader(row.leader());
                 row.assigned().updateProjectRole(row.projectRole());
@@ -196,8 +202,10 @@ public class TeamImportFacade {
                 teamMemberRepository.save(
                     TeamMember.create(teamId, row.studentNumber(), row.leader(), row.projectRole()));
             }
+            changedRoleTeamIds.add(teamId);
             applied.add(row);
         }
+        changedRoleTeamIds.forEach(projectCommandService::invalidateProposalForKickoffChange);
         saveContacts(applied, roster);
         importBatchRepository.save(batch);
 

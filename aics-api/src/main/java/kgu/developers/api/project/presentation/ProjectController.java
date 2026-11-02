@@ -21,13 +21,16 @@ import org.springframework.web.multipart.MultipartFile;
 @Tag(name = "Project", description = "프로젝트 제안서 API")
 public interface ProjectController {
 
-    @Operation(summary = "프로젝트 제안서 조회", description = "팀원 또는 해당 분반 담당 교수가 조회한다.")
+    @Operation(summary = "프로젝트 제안서 조회", description = "팀원 또는 해당 분반 담당 교수가 조회한다. 본문과 sectionVersions 맵은 같은 시점의 스냅샷이다.")
     ResponseEntity<ProjectResponse> getProject(@PathVariable Long teamId, Authentication authentication);
 
-    @Operation(summary = "프로젝트 제안서 등록 또는 수정",
-        description = "팀 운영방식(kickoffRule·meetingSchedule·memberRoles)은 킥오프와 저장소가 같아서 "
-            + "여기서 수정한 값이 킥오프 조회에도 그대로 반영된다. 넘기지 않으면 지금 값을 유지한다."
-          + "memberRoles는 역할 분담을 의미한다. meetingSchedule는 회의 일정을 의미한다. kickoffRule은 협업 방식을 의미한다. projectSchedule은 진행 일정을 의미한다.")
+    @Operation(summary = "프로젝트 제안서 섹션 저장",
+        description = "sectionKey와 편집 시작 시 조회한 sectionVersions[sectionKey]를 sectionVersion으로 보낸다. "
+            + "지정한 섹션의 필드만 검증·반영하며 다른 섹션 필드는 무시한다. "
+            + "PROJECT/projectId/sectionKey의 본인 락이 필요하다. 같은 섹션의 버전 불일치 또는 락 상실은 409다. "
+            + "다른 섹션의 저장은 충돌시키지 않는다. TOPIC은 제목·설명·목표·저장소 URL·외부 링크, DATA는 데이터 구성, "
+            + "SCREEN은 화면 구성, TEAM_OPERATION은 진행 일정·킥오프 필드를 저장한다. "
+            + "TEAM_OPERATION의 생략/null 필드는 유지하며 진행 일정은 빈 문자열로 비울 수 있다.")
     ResponseEntity<ProjectResponse> saveProject(
         @PathVariable Long teamId,
         @Valid @RequestBody ProjectRequest request,

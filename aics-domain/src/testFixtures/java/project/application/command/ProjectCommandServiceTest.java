@@ -44,6 +44,45 @@ class ProjectCommandServiceTest {
     @Mock private TeamMemberRepository teamMemberRepository;
     @InjectMocks private ProjectCommandService projectCommandService;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(longs = 7L)
+    void getOrCreateSectionVersions_initializesOnlyMissingSections(Long projectVersion) {
+        Project project = Project.builder().id(10L).teamId(1L).version(projectVersion).build();
+        ProposalSection topic = ProposalSection.builder().projectId(10L).type(ProposalSectionType.TOPIC)
+            .contentVersion(3L).assigneeUserId("member").completedAt(java.time.LocalDateTime.now()).build();
+        given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(List.of(topic));
+        given(proposalSectionRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(call -> call.getArgument(0));
+
+        var versions = projectCommandService.getOrCreateSectionVersions(project);
+
+        assertThat(versions).hasSize(4).containsEntry(ProposalSectionType.TOPIC, 3L);
+        for (ProposalSectionType type : List.of(ProposalSectionType.DATA, ProposalSectionType.SCREEN, ProposalSectionType.TEAM_OPERATION)) {
+            assertThat(versions).containsEntry(type, projectVersion == null ? 0L : projectVersion);
+        }
+        assertThat(topic.getAssigneeUserId()).isEqualTo("member");
+        assertThat(topic.isCompleted()).isTrue();
+        then(proposalSectionRepository).should().findAllByProjectId(10L);
+        then(proposalSectionRepository).should(org.mockito.Mockito.times(3)).save(org.mockito.ArgumentMatchers.any());
+        then(proposalSectionRepository).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    void getOrCreateSectionVersions_readsExistingSectionsWithoutWrites() {
+        var sections = java.util.Arrays.stream(ProposalSectionType.values())
+            .map(type -> ProposalSection.builder().projectId(10L).type(type).contentVersion(type.ordinal() + 1L).build())
+            .toList();
+        given(proposalSectionRepository.findAllByProjectId(10L)).willReturn(sections);
+
+        var versions = projectCommandService.getOrCreateSectionVersions(Project.builder().id(10L).version(9L).build());
+
+        assertThat(versions).containsExactlyInAnyOrderEntriesOf(java.util.Map.of(
+            ProposalSectionType.TOPIC, 1L, ProposalSectionType.DATA, 2L,
+            ProposalSectionType.SCREEN, 3L, ProposalSectionType.TEAM_OPERATION, 4L));
+        then(proposalSectionRepository).should().findAllByProjectId(10L);
+        then(proposalSectionRepository).shouldHaveNoMoreInteractions();
+    }
+
     @Test
     @DisplayName("saveProject는 기존 제안서가 없으면 DRAFT 상태로 생성한다")
     void saveProject_createsProject() throws Exception {
@@ -483,6 +522,7 @@ class ProjectCommandServiceTest {
         projectCommandService.invalidateProposalForKickoffChange(1L);
 
         assertThat(teamOperationSection.isCompleted()).isFalse();
+        assertThat(teamOperationSection.getContentVersion()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(teamOperationSection);
     }
@@ -512,6 +552,7 @@ class ProjectCommandServiceTest {
             new ObjectMapper().readTree("[]"), "기존 일정");
 
         assertThat(dataSection.isCompleted()).isFalse();
+        assertThat(dataSection.getContentVersion()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(dataSection);
     }
@@ -570,6 +611,7 @@ class ProjectCommandServiceTest {
             new ObjectMapper().readTree("[]"), "새 일정");
 
         assertThat(teamOperationSection.isCompleted()).isFalse();
+        assertThat(teamOperationSection.getContentVersion()).isEqualTo(1L);
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(teamOperationSection);
     }
@@ -601,6 +643,23 @@ class ProjectCommandServiceTest {
         assertThat(topicSection.isCompleted()).isFalse();
         then(projectApprovalRepository).should().deleteAllByProjectId(10L);
         then(proposalSectionRepository).should().save(topicSection);
+    }
+
+    @Test
+    void saveProject_createsSectionStateWhenPreviouslyUntrackedContentChanges() throws Exception {
+        Project existing = Project.builder().id(10L).teamId(1L).version(4L)
+            .title("새 제목").description("새 설명").goal("새 목표")
+            .repositoryUrl("https://github.com/kgu/project").externalLinks(new ObjectMapper().readTree("[]"))
+            .dataConfiguration(new ObjectMapper().readTree("[]"))
+            .screenConfiguration(new ObjectMapper().readTree("[{\"title\":\"홈\",\"description\":\"요약\",\"imageFileId\":1}]"))
+            .projectSchedule("4월: 설계, 5월: 개발, 6월: 통합 테스트").build();
+        given(projectRepository.findIncludingDeletedByTeamId(1L)).willReturn(Optional.of(existing));
+        given(projectRepository.save(existing)).willReturn(existing);
+        saveProject();
+        ArgumentCaptor<ProposalSection> changed = ArgumentCaptor.forClass(ProposalSection.class);
+        then(proposalSectionRepository).should().save(changed.capture());
+        assertThat(changed.getValue().getType()).isEqualTo(ProposalSectionType.DATA);
+        assertThat(changed.getValue().getContentVersion()).isEqualTo(5L);
     }
 
     private Project saveProject() throws Exception {

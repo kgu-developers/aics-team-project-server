@@ -59,11 +59,16 @@ public class TeamRepositoryImpl implements TeamRepository {
     }
 
     @Override
-    public Optional<Team> findByIdForNameUpdate(Long id) {
-        // 확정 취소와 같은 분반 → 팀 순서로 잠가 이름 중복 검증의 교착을 막는다.
-        Optional<Long> sectionId = entityManager.createQuery(
+    public Optional<Long> findSectionIdById(Long id) {
+        return entityManager.createQuery(
                 "select t.section.id from TeamJpaEntity t where t.id = :id and t.deletedAt is null", Long.class)
             .setParameter("id", id).getResultList().stream().findFirst();
+    }
+
+    @Override
+    public Optional<Team> findByIdForNameUpdate(Long id) {
+        // 확정 취소와 같은 분반 → 팀 순서로 잠가 이름 중복 검증의 교착을 막는다.
+        Optional<Long> sectionId = findSectionIdById(id);
         if (sectionId.isEmpty()) {
             return Optional.empty();
         }

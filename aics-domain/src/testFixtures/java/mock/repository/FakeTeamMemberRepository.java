@@ -113,6 +113,11 @@ public class FakeTeamMemberRepository implements TeamMemberRepository {
     }
 
     @Override
+    public boolean existsByTeamIdAndUserId(Long teamId, String userId) {
+        return findByTeamIdAndUserId(teamId, userId).isPresent();
+    }
+
+    @Override
     public boolean existsByTeamIdAndIsLeaderTrue(Long teamId) {
         return findLeaderByTeamId(teamId).isPresent();
     }

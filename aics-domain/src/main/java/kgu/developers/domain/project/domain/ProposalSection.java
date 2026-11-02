@@ -22,6 +22,7 @@ public class ProposalSection {
 
     private Long projectId;
     private ProposalSectionType type;
+    private long contentVersion;
 
     private String assigneeUserId;  // 담당 팀원 학번 (미지정이면 null)
     private LocalDateTime completedAt;  // 작성 완료 시각 (미완료면 null)
@@ -49,6 +50,11 @@ public class ProposalSection {
 
     public void forceIncomplete() {
         this.completedAt = null;
+    }
+
+    public void contentChanged() {
+        contentVersion++;
+        forceIncomplete();
     }
 
     public boolean isCompleted() {

@@ -126,6 +126,11 @@ public class TeamMemberRepositoryImpl implements TeamMemberRepository {
   }
 
   @Override
+  public boolean existsByTeamIdAndUserId(Long teamId, String userId) {
+    return jpaTeamMemberRepository.existsByTeamIdAndUserStudentNumberAndDeletedAtIsNull(teamId, userId);
+  }
+
+  @Override
   public Optional<TeamMember> findIncludingDeleted(Long teamId, String userId) {
     return jpaTeamMemberRepository.findByTeamIdAndUserStudentNumber(teamId, userId)
         .map(TeamMemberJpaEntity::toDomain);

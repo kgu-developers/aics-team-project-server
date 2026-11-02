@@ -24,6 +24,26 @@ public class TeamAccessValidator {
         }
     }
 
+    // 아래 두 사전 검사는 팀 행을 잠그기 전에 팀 밖 사용자를 걸러낸다. 엔티티를 읽으면 잠금 후에도 오래된 값이
+    // 영속성 컨텍스트에 남으므로 값만 조회한다. 잠근 뒤 validateMembership·validateMembershipOrProfessor로 다시 확인한다.
+    public void validateMembershipBeforeLock(Long teamId, String userId) {
+        if (!teamMemberRepository.existsByTeamIdAndUserId(teamId, userId)) {
+            throw new AccessDeniedException("해당 팀에 소속된 사용자만 접근할 수 있습니다.");
+        }
+    }
+
+    public void validateMembershipOrProfessorBeforeLock(Long teamId, String userId) {
+        if (teamMemberRepository.existsByTeamIdAndUserId(teamId, userId)) {
+            return;
+        }
+        boolean professor = teamRepository.findSectionIdById(teamId)
+            .filter(sectionId -> sectionRepository.existsActiveByIdAndProfessorId(sectionId, userId))
+            .isPresent();
+        if (!professor) {
+            throw new AccessDeniedException("해당 팀에 소속된 사용자 또는 담당 교수만 접근할 수 있습니다.");
+        }
+    }
+
     public void validateLeader(Long teamId, String userId) {
         if (teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
             .filter(TeamMember::isLeader)
