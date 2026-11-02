@@ -54,7 +54,10 @@ public record TeamMessageAdminResponse(
     String createdAt,
 
     @Schema(description = "같은 일괄 발송으로 묶인 대상 팀 수(일괄 발송이 아니면 1)", example = "1", requiredMode = REQUIRED)
-    int targetTeamCount
+    int targetTeamCount,
+
+    @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
+    String leaderName
 ) {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -64,7 +67,8 @@ public record TeamMessageAdminResponse(
         Section section,
         boolean read,
         String senderName,
-        int targetTeamCount
+        int targetTeamCount,
+        String leaderName
     ) {
         return TeamMessageAdminResponse.builder()
             .id(teamMessage.getId())
@@ -81,6 +85,7 @@ public record TeamMessageAdminResponse(
             .read(read)
             .createdAt(teamMessage.getCreatedAt() != null ? teamMessage.getCreatedAt().format(FORMATTER) : null)
             .targetTeamCount(targetTeamCount)
+            .leaderName(leaderName)
             .build();
     }
 }

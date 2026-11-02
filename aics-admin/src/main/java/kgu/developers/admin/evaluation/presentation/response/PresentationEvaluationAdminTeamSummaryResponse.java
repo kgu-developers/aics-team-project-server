@@ -24,6 +24,9 @@ public record PresentationEvaluationAdminTeamSummaryResponse(
     List<PresentationEvaluationCriterionScoreResponse> scores,
 
     @Schema(description = "평가 항목별 평균 점수의 합계 (평가 데이터가 없으면 null)", example = "14.0")
-    Double totalScore
+    Double totalScore,
+
+    @Schema(description = "팀장 이름(팀장이 없으면 null)", example = "홍길동")
+    String leaderName
 ) {
 }

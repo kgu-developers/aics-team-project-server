@@ -2,6 +2,7 @@ package teammessage.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -24,6 +25,7 @@ import kgu.developers.domain.teammessage.application.command.TeamMessageCommandS
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
 import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -69,6 +71,9 @@ class TeamMessageAdminFacadeTest {
     @Mock
     private UserQueryService userQueryService;
 
+    @Mock
+    private TeamMemberQueryService teamMemberQueryService;
+
     @InjectMocks
     private TeamMessageAdminFacade teamMessageAdminFacade;
 
@@ -90,13 +95,15 @@ class TeamMessageAdminFacadeTest {
             .willReturn(List.of(firstTeam, secondTeam));
         given(teamThreadQueryService.getThreads(List.of(10L, 20L)))
             .willReturn(List.of(firstThread, secondThread));
-        given(teamMessageQueryService.getMessages(List.of(100L, 200L), FETCH_ALL_PAGEABLE))
+        given(teamMessageQueryService.getMessages(List.of(100L, 200L), null, FETCH_ALL_PAGEABLE))
             .willReturn(new PageImpl<>(List.of(message), FETCH_ALL_PAGEABLE, 1));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L, 200L), PROFESSOR_ID)).willReturn(3L);
         given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202612345")))
             .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
                 UserGlobalRole.USER, "010-1234-5678")));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L, 20L)))
+            .willReturn(java.util.Map.of(20L, "이영희"));
 
         var response = teamMessageAdminFacade.getMessages(null, pageable, PROFESSOR_ID);
 
@@ -108,9 +115,10 @@ class TeamMessageAdminFacadeTest {
             assertThat(content.read()).isFalse();
             assertThat(content.senderName()).isEqualTo("김학생");
             assertThat(content.targetTeamCount()).isEqualTo(1);
+            assertThat(content.leaderName()).isEqualTo("이영희");
         });
         verify(teamRepository).findAllBySectionIdIn(List.of(1L, 2L));
-        verify(teamMessageQueryService).getMessages(List.of(100L, 200L), FETCH_ALL_PAGEABLE);
+        verify(teamMessageQueryService).getMessages(List.of(100L, 200L), null, FETCH_ALL_PAGEABLE);
     }
 
     @Test
@@ -123,7 +131,7 @@ class TeamMessageAdminFacadeTest {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of());
         given(teamThreadQueryService.getThreads(List.of())).willReturn(List.of());
-        given(teamMessageQueryService.getMessages(List.of(), FETCH_ALL_PAGEABLE))
+        given(teamMessageQueryService.getMessages(List.of(), null, FETCH_ALL_PAGEABLE))
             .willReturn(new PageImpl<>(List.of(), FETCH_ALL_PAGEABLE, 0));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of())).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(), PROFESSOR_ID)).willReturn(0L);
@@ -168,8 +176,10 @@ class TeamMessageAdminFacadeTest {
             .willReturn(new PageImpl<>(List.of(message), FETCH_ALL_PAGEABLE, 1));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L))).willReturn(java.util.Map.of());
 
-        var response = teamMessageAdminFacade.getMessages(1L, 10L, TeamMessageRelatedType.MID_REPORT, pageable, PROFESSOR_ID);
+        var response = teamMessageAdminFacade.getMessages(
+            1L, 10L, TeamMessageRelatedType.MID_REPORT, null, Sort.Direction.DESC, pageable, PROFESSOR_ID);
 
         assertThat(response.contents()).singleElement().satisfies(content -> {
             assertThat(content.teamName()).isEqualTo("A팀");
@@ -194,20 +204,58 @@ class TeamMessageAdminFacadeTest {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(firstTeam, secondTeam));
         given(teamThreadQueryService.getThreads(List.of(10L, 20L))).willReturn(List.of(firstThread, secondThread));
-        given(teamMessageQueryService.getMessages(List.of(100L, 200L), FETCH_ALL_PAGEABLE))
+        given(teamMessageQueryService.getMessages(List.of(100L, 200L), null, FETCH_ALL_PAGEABLE))
             .willReturn(new PageImpl<>(List.of(first, second), FETCH_ALL_PAGEABLE, 2));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1001L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L, 200L), PROFESSOR_ID)).willReturn(1L);
         given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
             .willReturn(List.of(first, second));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L, 20L)))
+            .willReturn(java.util.Map.of(10L, "김팀장"));
 
         var response = teamMessageAdminFacade.getMessages(1L, pageable, PROFESSOR_ID);
 
         assertThat(response.contents()).singleElement().satisfies(content -> {
             assertThat(content.id()).isEqualTo(1001L);
             assertThat(content.targetTeamCount()).isEqualTo(2);
+            assertThat(content.leaderName()).isEqualTo("김팀장");
         });
         assertThat(response.pageable().totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("오름차순 조회에서도 broadcast 메시지는 한 묶음으로 유지되고 묶음 대표 순서가 보존된다")
+    void getMessages_GroupsBroadcastMessages_InAscendingOrder() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Pageable fetchAllAscending = PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Order.asc("id")));
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team firstTeam = team(10L, 1L, "A팀");
+        Team secondTeam = team(20L, 1L, "B팀");
+        TeamThread firstThread = TeamThread.builder().id(100L).teamId(10L).build();
+        TeamThread secondThread = TeamThread.builder().id(200L).teamId(20L).build();
+        TeamMessage first = message(1001L, 100L, "전체 공지", "broadcast-1");
+        TeamMessage second = message(1002L, 200L, "전체 공지", "broadcast-1");
+        TeamMessage standalone = message(1003L, 100L, "개별 공지");
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(firstTeam, secondTeam));
+        given(teamThreadQueryService.getThreads(List.of(10L, 20L))).willReturn(List.of(firstThread, secondThread));
+        given(teamMessageQueryService.getMessages(List.of(100L, 200L), null, fetchAllAscending))
+            .willReturn(new PageImpl<>(List.of(first, second, standalone), fetchAllAscending, 3));
+        given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1001L, 1003L)))
+            .willReturn(Set.of());
+        given(teamMessageQueryService.countUnread(List.of(100L, 200L), PROFESSOR_ID)).willReturn(2L);
+        given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
+            .willReturn(List.of(first, second));
+
+        var response = teamMessageAdminFacade.getMessages(
+            1L, null, null, null, Sort.Direction.ASC, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).extracting(content -> content.id())
+            .containsExactly(1001L, 1003L);
+        assertThat(response.contents().get(0).targetTeamCount()).isEqualTo(2);
+        assertThat(response.pageable().totalElements()).isEqualTo(2);
     }
 
     @Test
@@ -225,7 +273,7 @@ class TeamMessageAdminFacadeTest {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(firstTeam, secondTeam));
         given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(firstThread));
-        given(teamMessageQueryService.getMessages(List.of(100L), FETCH_ALL_PAGEABLE))
+        given(teamMessageQueryService.getMessages(List.of(100L), null, FETCH_ALL_PAGEABLE))
             .willReturn(new PageImpl<>(List.of(first), FETCH_ALL_PAGEABLE, 1));
         given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1001L))).willReturn(Set.of());
         given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
@@ -233,7 +281,8 @@ class TeamMessageAdminFacadeTest {
         given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
             .willReturn(List.of(first, second));
 
-        var response = teamMessageAdminFacade.getMessages(1L, 10L, null, pageable, PROFESSOR_ID);
+        var response = teamMessageAdminFacade.getMessages(
+            1L, 10L, null, null, Sort.Direction.DESC, pageable, PROFESSOR_ID);
 
         assertThat(response.contents()).singleElement().satisfies(content ->
             assertThat(content.targetTeamCount()).isEqualTo(2));
@@ -253,7 +302,7 @@ class TeamMessageAdminFacadeTest {
         given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
-        given(teamMessageQueryService.getMessages(List.of(100L), FETCH_ALL_PAGEABLE))
+        given(teamMessageQueryService.getMessages(List.of(100L), null, FETCH_ALL_PAGEABLE))
             .willReturn(new PageImpl<>(List.of(message), FETCH_ALL_PAGEABLE, 1));
         given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(0L);
 
@@ -275,9 +324,68 @@ class TeamMessageAdminFacadeTest {
         given(teamRepository.findAllBySectionIdIn(List.of(1L)))
             .willReturn(List.of(firstTeam));
 
-        assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(1L, 999L, TeamMessageRelatedType.MID_REPORT, pageable, PROFESSOR_ID))
+        assertThatThrownBy(() -> teamMessageAdminFacade.getMessages(
+            1L, 999L, TeamMessageRelatedType.MID_REPORT, null, Sort.Direction.DESC, pageable, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 팀 메시지만 조회할 수 있습니다.");
+    }
+
+    @Test
+    @DisplayName("senderKeyword를 지정하면 조회 범위 내 이름 또는 학번이 일치하는 발신자의 메시지만 조회한다")
+    void getMessages_WithSenderKeyword() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team team = team(10L, 1L, "A팀");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+        TeamMessage message = message(1000L, 100L, "화면설계서 확인 부탁드립니다.");
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
+        given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
+        given(teamMessageQueryService.findDistinctSenderIds(List.of(100L)))
+            .willReturn(List.of("202612345"));
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(List.of("202612345")))
+            .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
+                UserGlobalRole.USER, "010-1234-5678")));
+        given(teamMessageQueryService.getMessages(List.of(100L), null, List.of("202612345"), FETCH_ALL_PAGEABLE))
+            .willReturn(new PageImpl<>(List.of(message), FETCH_ALL_PAGEABLE, 1));
+        given(teamMessageQueryService.findReadMessageIds(PROFESSOR_ID, List.of(1000L))).willReturn(Set.of());
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(1L);
+
+        var response = teamMessageAdminFacade.getMessages(
+            1L, null, null, "김학생", Sort.Direction.DESC, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).singleElement().satisfies(content ->
+            assertThat(content.message()).isEqualTo("화면설계서 확인 부탁드립니다."));
+        verify(teamMessageQueryService).getMessages(List.of(100L), null, List.of("202612345"), FETCH_ALL_PAGEABLE);
+    }
+
+    @Test
+    @DisplayName("senderKeyword에 일치하는 발신자가 없으면 메시지 조회 없이 빈 목록을 반환하되, 안 읽은 개수는 검색과 무관하게 분반 전체 기준으로 응답한다")
+    void getMessages_WithSenderKeyword_NoMatch() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Team team = team(10L, 1L, "A팀");
+        TeamThread thread = TeamThread.builder().id(100L).teamId(10L).build();
+
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(sectionQueryService.getSectionById(1L)).willReturn(detail(section));
+        given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
+        given(teamThreadQueryService.getThreads(List.of(10L))).willReturn(List.of(thread));
+        given(teamMessageQueryService.findDistinctSenderIds(List.of(100L)))
+            .willReturn(List.of("202612345"));
+        given(userQueryService.getUsersByStudentNumbersIncludingDeleted(anyList()))
+            .willReturn(List.of(User.create("202612345", "kgu@kyonggi.ac.kr", "김학생", "encoded",
+                UserGlobalRole.USER, "010-1234-5678")));
+        given(teamMessageQueryService.countUnread(List.of(100L), PROFESSOR_ID)).willReturn(3L);
+
+        var response = teamMessageAdminFacade.getMessages(
+            1L, null, null, "존재하지않는이름", Sort.Direction.DESC, pageable, PROFESSOR_ID);
+
+        assertThat(response.contents()).isEmpty();
+        assertThat(response.unreadCount()).isEqualTo(3L);
+        verify(teamMessageQueryService, never()).getMessages(anyList(), any(), anyList(), any());
     }
 
     @Test

@@ -22,6 +22,7 @@ import kgu.developers.domain.section.domain.SectionDetail;
 import kgu.developers.domain.section.domain.SectionRepository;
 import kgu.developers.domain.team.domain.Team;
 import kgu.developers.domain.team.domain.TeamRepository;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,9 @@ class MeetingRecordAdminFacadeTest {
     @Mock
     private MilestoneRepository milestoneRepository;
 
+    @Mock
+    private TeamMemberQueryService teamMemberQueryService;
+
     @InjectMocks
     private MeetingRecordAdminFacade meetingRecordAdminFacade;
 
@@ -71,6 +75,8 @@ class MeetingRecordAdminFacadeTest {
             .willReturn(List.of(firstTeam, secondTeam));
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L, 20L), latestFirstPageable))
             .willReturn(new PageImpl<>(List.of(meetingRecord), latestFirstPageable, 1));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L, 20L)))
+            .willReturn(java.util.Map.of(20L, "김철수"));
 
         var response = meetingRecordAdminFacade.getMeetingRecords(null, null, pageable, PROFESSOR_ID);
 
@@ -81,6 +87,7 @@ class MeetingRecordAdminFacadeTest {
             assertThat(content.teamName()).isEqualTo("B팀");
             assertThat(content.title()).isEqualTo("3주차 정기 회의");
             assertThat(content.content()).isEqualTo("와이어프레임 기획 논의");
+            assertThat(content.leaderName()).isEqualTo("김철수");
         });
         assertThat(response.pageable().totalElements()).isEqualTo(1);
         verify(teamRepository).findAllBySectionIdIn(List.of(1L, 2L));

@@ -29,6 +29,15 @@ public interface SubmissionAdminController {
                 호출자의 인증 식별자를 교수 학번으로 사용하므로 본인이 담당하는 분반의 마일스톤만 조회할 수 있다.
                 teamId를 생략하면 분반 전체 팀을, 지정하면 해당 팀만 조회한다.
                 projectTitle은 제안서 마일스톤에서 프로젝트가 존재할 때만 값이 있으며 그 외에는 null이다.
+                제안서·중간보고서는 feedbackCount(교수 계정의 누적 피드백 메시지 수, 완료 처리 알림 포함),
+                feedbackRequested(제출·재제출 또는 학생 답글 이후 교수 피드백 대기 여부)를 함께 응답한다.
+                hasPendingReview는 학생에게 수정요청된 상태이며, feedbackRequested와 동시에 true일 수 있다.
+                제안서의 status와 hasPendingReview는 실제 제안서 상태를 기준으로 응답한다.
+                제안서의 canSubmitNow는 실제 제출 API와 같이 미제출·목표 입력·모든 섹션 작성 완료로 판단하며 일정 제한을 적용하지 않는다.
+                id는 일반 제출 식별자이며 제안서 식별자는 projectId, 제안서 제출 시각은 proposalCompletedAt이다.
+                submissionStatus는 일반 제출 상태를 유지하므로 문서 상태인 status와 다를 수 있다.
+                제안서의 currentVersion=0은 일반 제출 버전 이력이 없다는 뜻이며 제안서 미제출을 의미하지 않는다.
+                completedAt·completedBy는 일반 제출 단계의 COMPLETED 처리 이력이며 제안서 제출 정보와 별개다.
             Assignee : 담당자명
             """
     )
@@ -45,6 +54,7 @@ public interface SubmissionAdminController {
         description = """
             Description : 담당 교수가 특정 제출의 상세와 지금 제출 가능한지(canSubmitNow), 대기 중인
                 피드백이 있는지(hasPendingReview)를 함께 조회한다.
+                제안서·중간보고서는 목록과 동일한 feedbackCount와 feedbackRequested를 응답한다.
             Assignee : 담당자명
             """
     )

@@ -37,6 +37,18 @@ import kgu.developers.domain.meetingrecord.application.query.MeetingRecordQueryS
 import kgu.developers.domain.project.domain.ApprovalStatus;
 import kgu.developers.domain.project.domain.Project;
 import kgu.developers.domain.project.domain.ProjectRepository;
+import kgu.developers.domain.project.domain.ProposalSection;
+import kgu.developers.domain.project.domain.ProposalSectionRepository;
+import kgu.developers.domain.project.domain.ProposalSectionType;
+import kgu.developers.domain.project.application.command.ProjectCommandService;
+import kgu.developers.domain.projectApproval.domain.ProjectApprovalRepository;
+import kgu.developers.domain.teamMember.domain.TeamMemberRepository;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
+import kgu.developers.domain.teammessage.domain.DocumentFeedbackRepository;
+import kgu.developers.domain.teammessage.domain.DocumentFeedbackSummary;
+import kgu.developers.domain.teammessage.domain.TeamMessageRelatedType;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.submission.application.query.SubmissionQueryService;
 import kgu.developers.domain.submission.domain.Submission;
@@ -46,6 +58,7 @@ import kgu.developers.domain.submission.domain.SubmissionVersion;
 import kgu.developers.domain.submission.exception.SubmissionVersionNotFoundException;
 import kgu.developers.domain.team.domain.Status;
 import kgu.developers.domain.team.domain.Team;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.user.application.query.UserQueryService;
 import kgu.developers.domain.user.domain.User;
 import kgu.developers.domain.user.domain.UserGlobalRole;
@@ -81,6 +94,9 @@ class SubmissionAdminFacadeTest {
     private FakeUserRepository userRepository;
     private MeetingRecordQueryService meetingRecordQueryService;
     private MidReportRepository midReportRepository;
+    private DocumentFeedbackRepository documentFeedbackRepository;
+    private ProposalSectionRepository proposalSectionRepository;
+    private TeamMemberQueryService teamMemberQueryService;
     private SubmissionAdminFacade submissionAdminFacade;
     private Long teamId;
 
@@ -114,6 +130,11 @@ class SubmissionAdminFacadeTest {
 
         meetingRecordQueryService = mock(MeetingRecordQueryService.class);
         midReportRepository = mock(MidReportRepository.class);
+        documentFeedbackRepository = mock(DocumentFeedbackRepository.class);
+        proposalSectionRepository = mock(ProposalSectionRepository.class);
+        teamMemberQueryService = mock(TeamMemberQueryService.class);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(org.mockito.ArgumentMatchers.anyList()))
+                .willReturn(Map.of());
         submissionAdminFacade = new SubmissionAdminFacade(
                 milestoneRepository,
                 sectionQueryService,
@@ -126,7 +147,10 @@ class SubmissionAdminFacadeTest {
                 fileStorage,
                 userQueryService,
                 meetingRecordQueryService,
-                midReportRepository
+                midReportRepository,
+                documentFeedbackRepository,
+                proposalSectionRepository,
+                teamMemberQueryService
         );
     }
 
@@ -141,6 +165,22 @@ class SubmissionAdminFacadeTest {
         assertThat(response.contents()).hasSize(1);
         assertThat(response.contents().get(0).teamId()).isEqualTo(teamId);
         assertThat(response.contents().get(0).status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(response.contents().get(0).leaderName()).isNull();
+    }
+
+    @Test
+    @DisplayName("팀별 제출 현황 목록은 팀장이 있는 팀에 올바른 팀장 이름을 매핑한다")
+    void getSubmissionsByMilestone_IncludesLeaderName() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).singleElement()
+                .satisfies(content -> assertThat(content.leaderName()).isEqualTo("팀장학생"));
     }
 
     @Test
@@ -189,10 +229,11 @@ class SubmissionAdminFacadeTest {
     void getSubmissionsByMilestone_IncludesProjectTitleForProposal() {
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
-        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
-                teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
-                ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
-                JsonNodeFactory.instance.arrayNode(), null)));
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder().id(90L).teamId(teamId)
+                .title("AI 기반 팀 프로젝트 운영 플랫폼").description("설명").goal("목표")
+                .approvalStatus(ApprovalStatus.APPROVED)
+                .dataConfiguration(JsonNodeFactory.instance.arrayNode())
+                .screenConfiguration(JsonNodeFactory.instance.arrayNode()).build()));
 
         SubmissionAdminListResponse response = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
@@ -247,6 +288,21 @@ class SubmissionAdminFacadeTest {
         assertThat(response.teamName()).isEqualTo("A팀");
         assertThat(response.meetingRecordCount()).isEqualTo(2L);
         assertThat(response.totalMeetingRecordCount()).isEqualTo(5L);
+        assertThat(response.leaderName()).isNull();
+    }
+
+    @Test
+    @DisplayName("제출 상세 조회도 목록 조회처럼 팀장 이름을 포함한다")
+    void getSubmission_IncludesLeaderName() {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(milestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+
+        SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(response.leaderName()).isEqualTo("팀장학생");
     }
 
     @Test
@@ -255,10 +311,11 @@ class SubmissionAdminFacadeTest {
         Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
         given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
-        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.create(
-                teamId, "AI 기반 팀 프로젝트 운영 플랫폼", "설명", "목표", null, null,
-                ApprovalStatus.APPROVED, null, JsonNodeFactory.instance.arrayNode(),
-                JsonNodeFactory.instance.arrayNode(), null)));
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder().id(90L).teamId(teamId)
+                .title("AI 기반 팀 프로젝트 운영 플랫폼").description("설명").goal("목표")
+                .approvalStatus(ApprovalStatus.APPROVED)
+                .dataConfiguration(JsonNodeFactory.instance.arrayNode())
+                .screenConfiguration(JsonNodeFactory.instance.arrayNode()).build()));
 
         SubmissionAdminResponse response = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
 
@@ -534,10 +591,101 @@ class SubmissionAdminFacadeTest {
         assertThat(versionsResponse.contents()).isEmpty();
     }
 
+    @Test
+    @DisplayName("재제출한 제안서 목록과 상세는 누적 교수 피드백 수와 피드백 요청 여부를 동일하게 응답한다")
+    void proposalFeedbackIsConsistentInListAndDetail() {
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+        LocalDateTime feedbackAt = LocalDateTime.of(2026, 11, 2, 15, 0);
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder()
+                .id(90L).teamId(teamId).title("제안서").approvalStatus(ApprovalStatus.APPROVED)
+                .proposalCompletedAt(feedbackAt.plusMinutes(1)).build()));
+        given(documentFeedbackRepository.summarizeFeedback(List.of(teamId), TeamMessageRelatedType.PROPOSAL,
+                List.of(90L))).willReturn(Map.of(90L, new DocumentFeedbackSummary(2, feedbackAt, null)));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(listed.leaderName()).isEqualTo("팀장학생");
+        assertThat(listed.feedbackCount()).isEqualTo(2);
+        assertThat(listed.feedbackRequested()).isTrue();
+        assertThat(listed.hasPendingReview()).isFalse();
+        assertThat(listed.status()).isEqualTo(SubmissionStatus.SUBMITTED);
+        assertThat(listed.canSubmitNow()).isFalse();
+    }
+
+    @Test
+    @DisplayName("중간보고서 수정요청 중 학생이 답글을 남기면 교수 피드백 요청도 함께 표시한다")
+    void midReportStudentReplyRequestsFeedback() {
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(teamId)))
+                .willReturn(Map.of(teamId, "팀장학생"));
+        LocalDateTime feedbackAt = LocalDateTime.of(2026, 11, 2, 15, 0);
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        MidReport report = MidReport.builder().id(77L).teamId(teamId).milestoneId(MILESTONE_ID)
+                .status(MidReportStatus.REVISION_REQUESTED).submittedAt(feedbackAt.minusMinutes(1)).build();
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MILESTONE_ID))
+                .willReturn(List.of(report));
+        given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID)).willReturn(Optional.of(report));
+        given(documentFeedbackRepository.summarizeFeedback(List.of(teamId), TeamMessageRelatedType.MID_REPORT,
+                List.of(77L))).willReturn(Map.of(77L,
+                        new DocumentFeedbackSummary(3, feedbackAt, feedbackAt.plusMinutes(1))));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(listed.leaderName()).isEqualTo("팀장학생");
+        assertThat(listed.feedbackCount()).isEqualTo(3);
+        assertThat(listed.feedbackRequested()).isTrue();
+        assertThat(listed.hasPendingReview()).isTrue();
+        assertThat(listed.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+    }
+
+    @Test
+    @DisplayName("문서나 피드백이 없는 팀도 목록에 남고 피드백 정보는 0과 false다")
+    void proposalWithoutDocumentHasNoFeedbackRequest() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+
+        SubmissionAdminResponse row = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+
+        assertThat(row.feedbackCount()).isZero();
+        assertThat(row.feedbackRequested()).isFalse();
+        assertThat(row.hasPendingReview()).isFalse();
+        assertThat(row.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(row.canSubmitNow()).isFalse();
+    }
+
     private Milestone milestone() {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "마일스톤", null, 2, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null));
+    }
+
+    @Test
+    @DisplayName("제안서 목록의 수정요청 상태는 일반 제출 행이 아닌 제안서에서 읽는다")
+    void proposalListUsesProjectRevisionStatus() {
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder()
+                .id(90L).teamId(teamId).title("제안서")
+                .approvalStatus(ApprovalStatus.REVISION_REQUESTED).build()));
+
+        SubmissionAdminResponse row = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+
+        assertThat(row.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+        assertThat(row.hasPendingReview()).isTrue();
+        assertThat(row.feedbackRequested()).isFalse();
     }
 
     private Milestone proposalMilestone() {
@@ -547,10 +695,193 @@ class SubmissionAdminFacadeTest {
                 MilestoneType.PROPOSAL);
     }
 
+    @Test
+    @DisplayName("마감 후 재개방된 제안서도 실제 제출 조건을 충족하면 목록과 상세에서 제출 가능하다")
+    void reopenedProposalCanBeSubmittedAfterDeadline() {
+        LocalDateTime past = LocalDateTime.now().minusDays(1);
+        Milestone closed = Milestone.restore(MILESTONE_ID, SECTION_ID, "제안서", null, 2,
+                MilestoneStatus.PUBLISHED, new MilestoneSchedule(null, past, past, past, null, null),
+                MilestoneType.PROPOSAL);
+        Project project = Project.builder().id(90L).teamId(teamId).title("제안서").goal("목표")
+                .approvalStatus(ApprovalStatus.REVISION_REQUESTED).build();
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(closed));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(project));
+        var completed = java.util.Arrays.stream(ProposalSectionType.values())
+                .map(type -> {
+                    var section = ProposalSection.create(90L, type);
+                    section.updateCompleted(true);
+                    return section;
+                }).toList();
+        given(proposalSectionRepository.findAllByProjectId(90L)).willReturn(completed);
+        given(proposalSectionRepository.findAllByProjectIdIn(List.of(90L))).willReturn(completed);
+        given(projectRepository.findTeamIdByProjectId(90L)).willReturn(Optional.of(teamId));
+        given(projectRepository.findByIdForUpdate(90L)).willReturn(Optional.of(project));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+        new ProjectCommandService(projectRepository, mock(ProjectApprovalRepository.class), proposalSectionRepository,
+                mock(TeamMemberRepository.class)).completeProposal(90L);
+
+        assertThat(project.getProposalCompletedAt()).isNotNull();
+        assertThat(listed.canSubmitNow()).isTrue();
+        assertThat(detail.canSubmitNow()).isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"목표,4,false,true", "' ',4,false,false", "목표,3,false,false",
+            "목표,0,false,false", "목표,4,true,false"})
+    @DisplayName("제안서 제출 가능 여부는 목표·모든 섹션 완료·미제출 조건으로 계산한다")
+    void proposalReadinessMatchesCompletionRules(String goal, int completedCount, boolean submitted, boolean expected) {
+        Project project = Project.builder().id(90L).teamId(teamId).title("제안서").goal(goal)
+                .approvalStatus(ApprovalStatus.DRAFT)
+                .proposalCompletedAt(submitted ? LocalDateTime.now() : null).build();
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(project));
+        var sections = java.util.Arrays.stream(ProposalSectionType.values()).map(type -> ProposalSection.create(90L, type))
+                .toList();
+        sections.stream().limit(completedCount).forEach(section -> section.updateCompleted(true));
+        given(proposalSectionRepository.findAllByProjectIdIn(List.of(90L))).willReturn(sections);
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(listed.canSubmitNow()).isEqualTo(expected);
+        assertThat(detail.canSubmitNow()).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("목록은 섹션을 일괄 조회하고 각 팀의 완료 상태를 분리해서 판단한다")
+    void proposalReadinessIsBatchedAndSeparatedByProject() {
+        Team other = teamRepository.save(Team.builder().sectionId(SECTION_ID).name("B팀").status(Status.CONFIRMED).build());
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(org.mockito.ArgumentMatchers.anyList())).willReturn(List.of(
+                Project.builder().id(90L).teamId(teamId).title("A제안서").goal("목표").build(),
+                Project.builder().id(91L).teamId(other.getId()).title("B제안서").goal("목표").build()));
+        var sections = java.util.stream.Stream.of(90L, 91L)
+                .flatMap(id -> java.util.Arrays.stream(ProposalSectionType.values()).map(type -> {
+                    var section = ProposalSection.create(id, type);
+                    section.updateCompleted(id == 90L || type != ProposalSectionType.TEAM_OPERATION);
+                    return section;
+                })).toList();
+        given(proposalSectionRepository.findAllByProjectIdIn(List.of(90L, 91L))).willReturn(sections);
+
+        SubmissionAdminListResponse response = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR);
+
+        assertThat(response.contents()).filteredOn(row -> row.teamId().equals(teamId))
+                .singleElement().extracting(SubmissionAdminResponse::canSubmitNow).isEqualTo(true);
+        assertThat(response.contents()).filteredOn(row -> row.teamId().equals(other.getId()))
+                .singleElement().extracting(SubmissionAdminResponse::canSubmitNow).isEqualTo(false);
+        org.mockito.Mockito.verify(proposalSectionRepository).findAllByProjectIdIn(List.of(90L, 91L));
+    }
+
     private Milestone midReportMilestone() {
         return Milestone.restore(
                 MILESTONE_ID, SECTION_ID, "중간보고서", null, 8, MilestoneStatus.PUBLISHED,
                 new MilestoneSchedule(null, LocalDateTime.now().plusDays(1), null, null, null, null),
                 MilestoneType.MID_REPORT);
+    }
+
+    @Test
+    @DisplayName("제안서 제출 상태·시각과 일반 제출 버전·상태는 JSON 응답에서 구분된다")
+    void proposalSubmissionMetadataIsSeparateFromGenericHistory() {
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 11, 2, 16, 0);
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder()
+                .id(90L).teamId(teamId).title("제안서").goal("목표")
+                .approvalStatus(ApprovalStatus.APPROVED).proposalCompletedAt(submittedAt).build()));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(listed.id(), PROFESSOR);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
+                .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .valueToTree(listed);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(json.path("status").asText()).isEqualTo("SUBMITTED");
+        assertThat(json.path("submissionStatus").asText()).isEqualTo("NOT_SUBMITTED");
+        assertThat(json.path("projectId").asLong()).isEqualTo(90L);
+        assertThat(json.path("proposalCompletedAt").asText()).isEqualTo("2026-11-02T16:00:00");
+        assertThat(listed.currentVersion()).isZero();
+        assertThat(listed.completedAt()).isNull();
+        assertThat(submissionAdminFacade.getVersions(listed.id(), PROFESSOR).contents()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"NOT_SUBMITTED,false", "SUBMITTED,false", "REVISION_REQUESTED,true", "COMPLETED,false"})
+    @DisplayName("중간보고서가 없으면 미제출로 표시하고 일반 제출 상태와 수정요청 여부는 유지한다")
+    void missingMidReportIsNotSubmittedWithoutChangingGenericHistory(SubmissionStatus historyStatus, boolean pendingReview) {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        if (historyStatus != SubmissionStatus.NOT_SUBMITTED) {
+            submission.recordNewVersion(1);
+        }
+        if (historyStatus == SubmissionStatus.REVISION_REQUESTED) {
+            submission.reopen(PROFESSOR, LocalDateTime.now().plusDays(1));
+        } else if (historyStatus == SubmissionStatus.COMPLETED) {
+            submission.complete("202412345");
+        }
+        submissionRepository.save(submission);
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MILESTONE_ID)).willReturn(List.of());
+        given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID)).willReturn(Optional.empty());
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(listed.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(listed.submissionStatus()).isEqualTo(historyStatus);
+        assertThat(listed.hasPendingReview()).isEqualTo(pendingReview);
+        assertThat(listed.midReportId()).isNull();
+        assertThat(listed.feedbackCount()).isZero();
+        assertThat(listed.feedbackRequested()).isFalse();
+        assertThat(listed.currentVersion()).isEqualTo(submission.getCurrentVersion());
+        assertThat(listed.completedAt()).isEqualTo(submission.getCompletedAt());
+        assertThat(listed.completedBy()).isEqualTo(submission.getCompletedBy());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SubmissionStatus.class, names = {"SUBMITTED", "REVISION_REQUESTED", "COMPLETED"})
+    @DisplayName("미제출 제안서가 있어도 일반 제출·재개방·완료 이력은 응답과 버전 API에 유지된다")
+    void proposalDraftPreservesGenericSubmissionHistory(SubmissionStatus historyStatus) {
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        submission.recordNewVersion(1);
+        if (historyStatus == SubmissionStatus.REVISION_REQUESTED) {
+            submission.reopen(PROFESSOR, LocalDateTime.now().plusDays(1));
+        } else if (historyStatus == SubmissionStatus.COMPLETED) {
+            submission.complete("202412345");
+        }
+        submissionRepository.save(submission);
+        submissionVersionRepository.save(SubmissionVersion.create(submission.getId(), 1,
+                "일반 제출 이력", "최초 제출", "202412345", false));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(proposalMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        given(projectRepository.findAllByTeamIdIn(List.of(teamId))).willReturn(List.of(Project.builder()
+                .id(90L).teamId(teamId).title("제안서").goal("목표").approvalStatus(ApprovalStatus.DRAFT).build()));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().valueToTree(listed);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(listed.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
+        assertThat(json.path("submissionStatus").asText()).isEqualTo(historyStatus.name());
+        assertThat(json.path("proposalCompletedAt").isNull()).isTrue();
+        assertThat(listed.currentVersion()).isEqualTo(1);
+        assertThat(listed.completedAt()).isEqualTo(submission.getCompletedAt());
+        assertThat(listed.completedBy()).isEqualTo(submission.getCompletedBy());
+        assertThat(submissionAdminFacade.getVersions(listed.id(), PROFESSOR).contents()).hasSize(1);
     }
 }

@@ -18,6 +18,7 @@ import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
+import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
 import kgu.developers.domain.user.application.query.UserQueryService;
@@ -37,8 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TeamMessageAdminFacade {
 
-    private static final Sort LATEST_FIRST = Sort.by(Sort.Order.desc("id"));
-
     private final SectionRepository sectionRepository;
     private final SectionQueryService sectionQueryService;
     private final TeamRepository teamRepository;
@@ -46,15 +45,18 @@ public class TeamMessageAdminFacade {
     private final TeamMessageCommandService teamMessageCommandService;
     private final TeamMessageQueryService teamMessageQueryService;
     private final UserQueryService userQueryService;
+    private final TeamMemberQueryService teamMemberQueryService;
 
     public TeamMessageAdminPageResponse getMessages(Long sectionId, Pageable pageable, String professorId) {
-        return getMessages(sectionId, null, null, pageable, professorId);
+        return getMessages(sectionId, null, null, null, Sort.Direction.DESC, pageable, professorId);
     }
 
     public TeamMessageAdminPageResponse getMessages(
         Long sectionId,
         Long teamId,
         kgu.developers.domain.teammessage.domain.TeamMessageRelatedType relatedType,
+        String senderKeyword,
+        Sort.Direction sortDirection,
         Pageable pageable,
         String professorId
     ) {
@@ -75,10 +77,23 @@ public class TeamMessageAdminFacade {
         // 일괄 발송(broadcastId)으로 생성된 메시지는 관리자 쪽지함에서 한 줄로 묶어서 보여줘야 해서,
         // DB 페이징이 아니라 조건에 맞는 메시지를 전부 가져온 뒤 애플리케이션에서 그룹 단위로 직접 페이징한다.
         // 이 프로젝트 규모(학기 단위, 분반 몇 개)에서는 분반당 메시지 총량이 크지 않아 이 방식이 더 단순하다.
-        Pageable fetchAllPageable = PageRequest.of(0, Integer.MAX_VALUE, LATEST_FIRST);
-        Page<TeamMessage> allMatching = relatedType == null
-            ? teamMessageQueryService.getMessages(threadIds, fetchAllPageable)
-            : teamMessageQueryService.getMessages(threadIds, relatedType, fetchAllPageable);
+        Pageable fetchAllPageable = PageRequest.of(
+            0,
+            Integer.MAX_VALUE,
+            Sort.by(sortDirection == null ? Sort.Direction.DESC : sortDirection, "id")
+        );
+
+        List<String> senderIds = resolveSenderIds(senderKeyword, threadIds);
+        if (senderIds != null && senderIds.isEmpty()) {
+            long unreadCountForEmptySearch = teamMessageQueryService.countUnread(threadIds, professorId);
+            return TeamMessageAdminPageResponse.from(
+                Page.empty(pageable), unreadCountForEmptySearch, Set.of(), Map.of(), Map.of(), Map.of(), Map.of(),
+                Map.of(), Map.of());
+        }
+
+        Page<TeamMessage> allMatching = senderIds == null
+            ? teamMessageQueryService.getMessages(threadIds, relatedType, fetchAllPageable)
+            : teamMessageQueryService.getMessages(threadIds, relatedType, senderIds, fetchAllPageable);
 
         LinkedHashMap<String, List<TeamMessage>> groupsByKey = new LinkedHashMap<>();
         for (TeamMessage m : allMatching.getContent()) {
@@ -113,18 +128,20 @@ public class TeamMessageAdminFacade {
         Map<Long, Section> sectionsById = sections.stream()
             .collect(Collectors.toMap(Section::getId, Function.identity()));
 
-        List<String> senderIds = messages.stream()
+        List<String> pageSenderIds = messages.stream()
             .map(TeamMessage::getSenderId)
             .filter(id -> id != null && !id.isBlank())
             .distinct()
             .toList();
         Map<String, String> senderNamesBySenderId = userQueryService
-            .getUsersByStudentNumbersIncludingDeleted(senderIds).stream()
+            .getUsersByStudentNumbersIncludingDeleted(pageSenderIds).stream()
             .collect(Collectors.toMap(User::getStudentNumber, User::getName, (first, second) -> first));
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService
+            .getLeaderNamesByTeamIds(teams.stream().map(Team::getId).toList());
 
         return TeamMessageAdminPageResponse.from(
             page, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId,
-            targetTeamCountByMessageId);
+            targetTeamCountByMessageId, leaderNamesByTeamId);
     }
 
     @Transactional
@@ -153,5 +170,23 @@ public class TeamMessageAdminFacade {
             throw new AccessDeniedException("담당 분반의 메시지만 조회할 수 있습니다.");
         }
         return List.of(sectionQueryService.getSectionById(sectionId).section());
+    }
+
+    private List<String> resolveSenderIds(String senderKeyword, List<Long> threadIds) {
+        if (senderKeyword == null || senderKeyword.isBlank()) {
+            return null;
+        }
+        String keyword = senderKeyword.trim();
+
+        // 접근 가능한 스레드에 실제로 메시지를 남긴 적 있는 모든 발신자를 후보로 삼는다.
+        // 팀에서 탈퇴했거나 교수가 바뀐 경우에도 과거 발신자를 검색할 수 있어야 한다.
+        List<String> candidateIds = teamMessageQueryService.findDistinctSenderIds(threadIds);
+
+        return userQueryService.getUsersByStudentNumbersIncludingDeleted(candidateIds)
+            .stream()
+            .filter(user -> user.getStudentNumber().contains(keyword) || user.getName().contains(keyword))
+            .map(User::getStudentNumber)
+            .distinct()
+            .toList();
     }
 }

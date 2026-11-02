@@ -10,6 +10,8 @@ import kgu.developers.domain.project.domain.ProposalSectionType;
 public interface JpaProposalSectionRepository extends JpaRepository<ProposalSectionJpaEntity, Long> {
     List<ProposalSectionJpaEntity> findAllByProjectIdOrderByIdAsc(Long projectId);
 
+    List<ProposalSectionJpaEntity> findAllByProjectIdIn(List<Long> projectIds);
+
     Optional<ProposalSectionJpaEntity> findByProjectIdAndType(Long projectId, ProposalSectionType type);
 
     void deleteAllByProjectId(Long projectId);
