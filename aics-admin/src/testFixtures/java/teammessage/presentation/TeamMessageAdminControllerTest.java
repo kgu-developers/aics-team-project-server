@@ -179,6 +179,26 @@ class TeamMessageAdminControllerTest {
         verify(teamMessageAdminFacade).markAsRead(1L, PROFESSOR_ID);
     }
 
+    @Test
+    @DisplayName("GET /messages/{id}/recipients는 인증된 교수 기준으로 수신 팀 목록을 조회한다")
+    void getRecipientTeams() throws Exception {
+        given(teamMessageAdminFacade.getRecipientTeams(1L, PROFESSOR_ID))
+            .willReturn(List.of(
+                kgu.developers.admin.teammessage.presentation.response.TeamMessageRecipientResponse.builder()
+                    .teamId(10L).teamName("A팀").leaderName("김리더").build(),
+                kgu.developers.admin.teammessage.presentation.response.TeamMessageRecipientResponse.builder()
+                    .teamId(20L).teamName("B팀").build()));
+
+        mockMvc.perform(get(BASE_URL + "/1/recipients")
+                .principal(new UsernamePasswordAuthenticationToken(PROFESSOR_ID, null)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.contents.length()").value(2))
+            .andExpect(jsonPath("$.contents[0].teamId").value(10))
+            .andExpect(jsonPath("$.contents[0].teamName").value("A팀"))
+            .andExpect(jsonPath("$.contents[0].leaderName").value("김리더"))
+            .andExpect(jsonPath("$.contents[1].leaderName").doesNotExist());
+    }
+
     private TeamMessageAdminPageResponse response() {
         TeamMessageAdminResponse content = TeamMessageAdminResponse.builder()
             .id(1L)

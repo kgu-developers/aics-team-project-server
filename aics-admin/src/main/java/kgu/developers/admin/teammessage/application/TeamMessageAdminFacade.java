@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
+import kgu.developers.admin.teammessage.presentation.response.TeamMessageRecipientResponse;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -18,6 +20,7 @@ import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
+import kgu.developers.domain.teammessage.exception.TeamMessageNotGroupedException;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
@@ -142,6 +145,41 @@ public class TeamMessageAdminFacade {
         return TeamMessageAdminPageResponse.from(
             page, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId,
             targetTeamCountByMessageId, leaderNamesByTeamId);
+    }
+
+    public List<TeamMessageRecipientResponse> getRecipientTeams(Long messageId, String professorId) {
+        TeamMessage message = teamMessageQueryService.getMessage(messageId);
+        TeamThread thread = teamThreadQueryService.getThreadById(message.getThreadId());
+        Team representativeTeam = teamRepository.findById(thread.getTeamId())
+            .orElseThrow(TeamNotFoundException::new);
+
+        if (!sectionQueryService.isActiveSectionOwnedByProfessor(representativeTeam.getSectionId(), professorId)) {
+            throw new AccessDeniedException("담당 분반의 메시지만 조회할 수 있습니다.");
+        }
+
+        // 일괄발송은 분반 하나 안에서만 전송되므로, 대표 메시지의 분반 소유권 검증만으로
+        // 같은 broadcastId로 묶인 나머지 수신 팀 전체에 대한 권한도 보장된다.
+        List<TeamMessage> group = message.getBroadcastId() == null
+            ? List.of(message)
+            : teamMessageQueryService.getMessagesByBroadcastId(message.getBroadcastId());
+        if (group.size() <= 1) {
+            throw new TeamMessageNotGroupedException();
+        }
+
+        List<Long> teamIds = group.stream()
+            .map(m -> teamThreadQueryService.getThreadById(m.getThreadId()).getTeamId())
+            .distinct()
+            .toList();
+        Map<Long, Team> teamsById = teamRepository.findAllById(teamIds).stream()
+            .collect(Collectors.toMap(Team::getId, Function.identity()));
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
+
+        return teamIds.stream()
+            .map(teamId -> {
+                Team team = Optional.ofNullable(teamsById.get(teamId)).orElseThrow(TeamNotFoundException::new);
+                return TeamMessageRecipientResponse.from(team, leaderNamesByTeamId.get(teamId));
+            })
+            .toList();
     }
 
     @Transactional

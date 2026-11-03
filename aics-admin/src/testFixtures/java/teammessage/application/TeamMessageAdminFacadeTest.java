@@ -457,6 +457,91 @@ class TeamMessageAdminFacadeTest {
         verifyNoInteractions(teamMessageCommandService);
     }
 
+    @Test
+    @DisplayName("일괄발송으로 묶인 메시지는 대표 메시지의 분반 소유권만 검증하고 수신 팀 전체를 반환한다")
+    void getRecipientTeams_OwnedBroadcastGroup_ReturnsAllRecipients() {
+        TeamMessage representative = message(2001L, 100L, "전체 공지", "broadcast-1");
+        TeamMessage sibling = message(2002L, 200L, "전체 공지", "broadcast-1");
+        Team firstTeam = team(10L, 1L, "A팀");
+        Team secondTeam = team(20L, 1L, "B팀");
+
+        given(teamMessageQueryService.getMessage(2001L)).willReturn(representative);
+        given(teamThreadQueryService.getThreadById(100L))
+            .willReturn(TeamThread.builder().id(100L).teamId(10L).build());
+        given(teamRepository.findById(10L)).willReturn(Optional.of(firstTeam));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
+            .willReturn(List.of(representative, sibling));
+        given(teamThreadQueryService.getThreadById(200L))
+            .willReturn(TeamThread.builder().id(200L).teamId(20L).build());
+        given(teamRepository.findAllById(List.of(10L, 20L))).willReturn(List.of(firstTeam, secondTeam));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L, 20L)))
+            .willReturn(java.util.Map.of(10L, "김리더"));
+
+        var recipients = teamMessageAdminFacade.getRecipientTeams(2001L, PROFESSOR_ID);
+
+        assertThat(recipients).hasSize(2);
+        assertThat(recipients.get(0).teamId()).isEqualTo(10L);
+        assertThat(recipients.get(0).teamName()).isEqualTo("A팀");
+        assertThat(recipients.get(0).leaderName()).isEqualTo("김리더");
+        assertThat(recipients.get(1).teamId()).isEqualTo(20L);
+        assertThat(recipients.get(1).teamName()).isEqualTo("B팀");
+        assertThat(recipients.get(1).leaderName()).isNull();
+    }
+
+    @Test
+    @DisplayName("다른 교수 분반의 일괄발송 메시지는 수신 팀 목록을 조회할 수 없다")
+    void getRecipientTeams_ForeignSection_ThrowsAccessDenied() {
+        TeamMessage representative = message(2001L, 100L, "전체 공지", "broadcast-1");
+        Team team = team(10L, 1L, "A팀");
+
+        given(teamMessageQueryService.getMessage(2001L)).willReturn(representative);
+        given(teamThreadQueryService.getThreadById(100L))
+            .willReturn(TeamThread.builder().id(100L).teamId(10L).build());
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(false);
+
+        assertThatThrownBy(() -> teamMessageAdminFacade.getRecipientTeams(2001L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class)
+            .hasMessage("담당 분반의 메시지만 조회할 수 있습니다.");
+
+        verify(teamMessageQueryService, never()).getMessagesByBroadcastId(any());
+    }
+
+    @Test
+    @DisplayName("일괄발송이 아닌 단일 전송 메시지는 400으로 거절한다")
+    void getRecipientTeams_SingleMessage_ThrowsNotGrouped() {
+        TeamMessage single = message(3001L, 100L, "확인했습니다.");
+        Team team = team(10L, 1L, "A팀");
+
+        given(teamMessageQueryService.getMessage(3001L)).willReturn(single);
+        given(teamThreadQueryService.getThreadById(100L))
+            .willReturn(TeamThread.builder().id(100L).teamId(10L).build());
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+
+        assertThatThrownBy(() -> teamMessageAdminFacade.getRecipientTeams(3001L, PROFESSOR_ID))
+            .isInstanceOf(kgu.developers.domain.teammessage.exception.TeamMessageNotGroupedException.class);
+    }
+
+    @Test
+    @DisplayName("일괄발송으로 생성됐지만 대상 팀이 1개뿐이면 400으로 거절한다")
+    void getRecipientTeams_BroadcastGroupOfOne_ThrowsNotGrouped() {
+        TeamMessage representative = message(2001L, 100L, "전체 공지", "broadcast-2");
+        Team team = team(10L, 1L, "A팀");
+
+        given(teamMessageQueryService.getMessage(2001L)).willReturn(representative);
+        given(teamThreadQueryService.getThreadById(100L))
+            .willReturn(TeamThread.builder().id(100L).teamId(10L).build());
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-2"))
+            .willReturn(List.of(representative));
+
+        assertThatThrownBy(() -> teamMessageAdminFacade.getRecipientTeams(2001L, PROFESSOR_ID))
+            .isInstanceOf(kgu.developers.domain.teammessage.exception.TeamMessageNotGroupedException.class);
+    }
+
     private Section section(Long id, String classTime, String code, String professorId) {
         return Section.builder()
             .id(id)
