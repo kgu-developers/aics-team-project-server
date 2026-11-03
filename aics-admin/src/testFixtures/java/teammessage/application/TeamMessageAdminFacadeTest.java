@@ -509,8 +509,8 @@ class TeamMessageAdminFacadeTest {
     }
 
     @Test
-    @DisplayName("일괄발송이 아닌 단일 전송 메시지는 400으로 거절한다")
-    void getRecipientTeams_SingleMessage_ThrowsNotGrouped() {
+    @DisplayName("일괄발송이 아닌 단일 전송 메시지는 그 팀 하나만 반환한다")
+    void getRecipientTeams_SingleMessage_ReturnsThatTeamOnly() {
         TeamMessage single = message(3001L, 100L, "확인했습니다.");
         Team team = team(10L, 1L, "A팀");
 
@@ -519,14 +519,22 @@ class TeamMessageAdminFacadeTest {
             .willReturn(TeamThread.builder().id(100L).teamId(10L).build());
         given(teamRepository.findById(10L)).willReturn(Optional.of(team));
         given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(teamRepository.findAllById(List.of(10L))).willReturn(List.of(team));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L))).willReturn(java.util.Map.of());
 
-        assertThatThrownBy(() -> teamMessageAdminFacade.getRecipientTeams(3001L, PROFESSOR_ID))
-            .isInstanceOf(kgu.developers.domain.teammessage.exception.TeamMessageNotGroupedException.class);
+        var recipients = teamMessageAdminFacade.getRecipientTeams(3001L, PROFESSOR_ID);
+
+        assertThat(recipients).singleElement().satisfies(recipient -> {
+            assertThat(recipient.teamId()).isEqualTo(10L);
+            assertThat(recipient.teamName()).isEqualTo("A팀");
+            assertThat(recipient.leaderName()).isNull();
+        });
+        verify(teamMessageQueryService, never()).getMessagesByBroadcastId(any());
     }
 
     @Test
-    @DisplayName("일괄발송으로 생성됐지만 대상 팀이 1개뿐이면 400으로 거절한다")
-    void getRecipientTeams_BroadcastGroupOfOne_ThrowsNotGrouped() {
+    @DisplayName("일괄발송으로 생성됐지만 대상 팀이 1개뿐이어도 그 팀을 반환한다")
+    void getRecipientTeams_BroadcastGroupOfOne_ReturnsThatTeamOnly() {
         TeamMessage representative = message(2001L, 100L, "전체 공지", "broadcast-2");
         Team team = team(10L, 1L, "A팀");
 
@@ -537,9 +545,15 @@ class TeamMessageAdminFacadeTest {
         given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
         given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-2"))
             .willReturn(List.of(representative));
+        given(teamRepository.findAllById(List.of(10L))).willReturn(List.of(team));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(10L))).willReturn(java.util.Map.of());
 
-        assertThatThrownBy(() -> teamMessageAdminFacade.getRecipientTeams(2001L, PROFESSOR_ID))
-            .isInstanceOf(kgu.developers.domain.teammessage.exception.TeamMessageNotGroupedException.class);
+        var recipients = teamMessageAdminFacade.getRecipientTeams(2001L, PROFESSOR_ID);
+
+        assertThat(recipients).singleElement().satisfies(recipient -> {
+            assertThat(recipient.teamId()).isEqualTo(10L);
+            assertThat(recipient.teamName()).isEqualTo("A팀");
+        });
     }
 
     private Section section(Long id, String classTime, String code, String professorId) {

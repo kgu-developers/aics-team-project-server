@@ -20,7 +20,6 @@ import kgu.developers.domain.team.exception.TeamNotFoundException;
 import kgu.developers.domain.teammessage.application.command.TeamMessageCommandService;
 import kgu.developers.domain.teammessage.application.query.TeamMessageQueryService;
 import kgu.developers.domain.teammessage.domain.TeamMessage;
-import kgu.developers.domain.teammessage.exception.TeamMessageNotGroupedException;
 import kgu.developers.domain.teamMember.application.query.TeamMemberQueryService;
 import kgu.developers.domain.teamthread.application.query.TeamThreadQueryService;
 import kgu.developers.domain.teamthread.domain.TeamThread;
@@ -162,9 +161,6 @@ public class TeamMessageAdminFacade {
         List<TeamMessage> group = message.getBroadcastId() == null
             ? List.of(message)
             : teamMessageQueryService.getMessagesByBroadcastId(message.getBroadcastId());
-        if (group.size() <= 1) {
-            throw new TeamMessageNotGroupedException();
-        }
 
         List<Long> teamIds = group.stream()
             .map(m -> teamThreadQueryService.getThreadById(m.getThreadId()).getTeamId())
