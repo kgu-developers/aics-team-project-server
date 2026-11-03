@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -166,15 +165,11 @@ public class TeamMessageAdminFacade {
             .map(m -> teamThreadQueryService.getThreadById(m.getThreadId()).getTeamId())
             .distinct()
             .toList();
-        Map<Long, Team> teamsById = teamRepository.findAllById(teamIds).stream()
-            .collect(Collectors.toMap(Team::getId, Function.identity()));
         Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
 
-        return teamIds.stream()
-            .map(teamId -> {
-                Team team = Optional.ofNullable(teamsById.get(teamId)).orElseThrow(TeamNotFoundException::new);
-                return TeamMessageRecipientResponse.from(team, leaderNamesByTeamId.get(teamId));
-            })
+        // findAllById가 팀 ID순으로 정렬해 돌려주므로, 그 결과를 그대로 매핑하면 응답 순서가 고정된다.
+        return teamRepository.findAllById(teamIds).stream()
+            .map(team -> TeamMessageRecipientResponse.from(team, leaderNamesByTeamId.get(team.getId())))
             .toList();
     }
 

@@ -458,6 +458,32 @@ class TeamMessageAdminFacadeTest {
     }
 
     @Test
+    @DisplayName("수신 팀 목록은 메시지 순서와 무관하게 팀 조회 결과(팀 ID순) 순서로 반환한다")
+    void getRecipientTeams_ReturnsTeamsInRepositoryOrder() {
+        TeamMessage representative = message(2001L, 200L, "전체 공지", "broadcast-1");
+        TeamMessage sibling = message(2002L, 100L, "전체 공지", "broadcast-1");
+        Team firstTeam = team(10L, 1L, "A팀");
+        Team secondTeam = team(20L, 1L, "B팀");
+
+        given(teamMessageQueryService.getMessage(2001L)).willReturn(representative);
+        given(teamThreadQueryService.getThreadById(200L))
+            .willReturn(TeamThread.builder().id(200L).teamId(20L).build());
+        given(teamThreadQueryService.getThreadById(100L))
+            .willReturn(TeamThread.builder().id(100L).teamId(10L).build());
+        given(teamRepository.findById(20L)).willReturn(Optional.of(secondTeam));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(1L, PROFESSOR_ID)).willReturn(true);
+        given(teamMessageQueryService.getMessagesByBroadcastId("broadcast-1"))
+            .willReturn(List.of(representative, sibling));
+        given(teamRepository.findAllById(List.of(20L, 10L))).willReturn(List.of(firstTeam, secondTeam));
+        given(teamMemberQueryService.getLeaderNamesByTeamIds(List.of(20L, 10L)))
+            .willReturn(java.util.Map.of());
+
+        var recipients = teamMessageAdminFacade.getRecipientTeams(2001L, PROFESSOR_ID);
+
+        assertThat(recipients).extracting(r -> r.teamId()).containsExactly(10L, 20L);
+    }
+
+    @Test
     @DisplayName("일괄발송으로 묶인 메시지는 대표 메시지의 분반 소유권만 검증하고 수신 팀 전체를 반환한다")
     void getRecipientTeams_OwnedBroadcastGroup_ReturnsAllRecipients() {
         TeamMessage representative = message(2001L, 100L, "전체 공지", "broadcast-1");
