@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
+import kgu.developers.admin.teammessage.presentation.response.TeamMessageRecipientListResponse;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -63,6 +64,26 @@ public interface TeamMessageAdminController {
     )
     @ApiResponse(responseCode = "204")
     ResponseEntity<Void> markAsRead(
+        @Parameter(description = "메시지 식별자") @PathVariable @Positive Long id,
+        Authentication authentication
+    );
+
+    @Operation(
+        summary = "메시지 수신 팀 목록 조회 API",
+        description = """
+            Description : 메시지를 실제로 받은 팀 목록을 조회한다.
+                목록 조회 API가 내려주는 메시지 id를 그대로 전달하면, 일괄발송(전체/선택 팀)으로 묶인
+                메시지는 같은 broadcastId로 묶인 수신 팀 전체를, 단일 전송 메시지는 그 팀 하나만
+                반환한다. 대표 메시지의 분반 소유권만 검증하면 되는 것은 일괄발송이 분반 하나 안에서만
+                전송되기 때문이다.
+            Assignee : 황호찬
+            """
+    )
+    @ApiResponse(
+        responseCode = "200",
+        content = @Content(schema = @Schema(implementation = TeamMessageRecipientListResponse.class))
+    )
+    ResponseEntity<TeamMessageRecipientListResponse> getRecipientTeams(
         @Parameter(description = "메시지 식별자") @PathVariable @Positive Long id,
         Authentication authentication
     );

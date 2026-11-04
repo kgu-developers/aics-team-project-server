@@ -2,6 +2,7 @@ package kgu.developers.admin.teammessage.presentation;
 
 import kgu.developers.admin.teammessage.application.TeamMessageAdminFacade;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
+import kgu.developers.admin.teammessage.presentation.response.TeamMessageRecipientListResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -49,5 +50,15 @@ public class TeamMessageAdminControllerImpl implements TeamMessageAdminControlle
     ) {
         teamMessageAdminFacade.markAsRead(id, authentication.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @GetMapping("/{id}/recipients")
+    public ResponseEntity<TeamMessageRecipientListResponse> getRecipientTeams(
+        @PathVariable Long id,
+        Authentication authentication
+    ) {
+        return ResponseEntity.ok(TeamMessageRecipientListResponse.from(
+            teamMessageAdminFacade.getRecipientTeams(id, authentication.getName())));
     }
 }

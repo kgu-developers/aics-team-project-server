@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import kgu.developers.admin.teammessage.presentation.response.TeamMessageAdminPageResponse;
+import kgu.developers.admin.teammessage.presentation.response.TeamMessageRecipientResponse;
 import kgu.developers.domain.section.application.query.SectionQueryService;
 import kgu.developers.domain.section.domain.Section;
 import kgu.developers.domain.section.domain.SectionDetail;
@@ -142,6 +143,34 @@ public class TeamMessageAdminFacade {
         return TeamMessageAdminPageResponse.from(
             page, unreadCount, readMessageIds, threadsById, teamsById, sectionsById, senderNamesBySenderId,
             targetTeamCountByMessageId, leaderNamesByTeamId);
+    }
+
+    public List<TeamMessageRecipientResponse> getRecipientTeams(Long messageId, String professorId) {
+        TeamMessage message = teamMessageQueryService.getMessage(messageId);
+        TeamThread thread = teamThreadQueryService.getThreadById(message.getThreadId());
+        Team representativeTeam = teamRepository.findById(thread.getTeamId())
+            .orElseThrow(TeamNotFoundException::new);
+
+        if (!sectionQueryService.isActiveSectionOwnedByProfessor(representativeTeam.getSectionId(), professorId)) {
+            throw new AccessDeniedException("담당 분반의 메시지만 조회할 수 있습니다.");
+        }
+
+        // 일괄발송은 분반 하나 안에서만 전송되므로, 대표 메시지의 분반 소유권 검증만으로
+        // 같은 broadcastId로 묶인 나머지 수신 팀 전체에 대한 권한도 보장된다.
+        List<TeamMessage> group = message.getBroadcastId() == null
+            ? List.of(message)
+            : teamMessageQueryService.getMessagesByBroadcastId(message.getBroadcastId());
+
+        List<Long> teamIds = group.stream()
+            .map(m -> teamThreadQueryService.getThreadById(m.getThreadId()).getTeamId())
+            .distinct()
+            .toList();
+        Map<Long, String> leaderNamesByTeamId = teamMemberQueryService.getLeaderNamesByTeamIds(teamIds);
+
+        // findAllById가 팀 ID순으로 정렬해 돌려주므로, 그 결과를 그대로 매핑하면 응답 순서가 고정된다.
+        return teamRepository.findAllById(teamIds).stream()
+            .map(team -> TeamMessageRecipientResponse.from(team, leaderNamesByTeamId.get(team.getId())))
+            .toList();
     }
 
     @Transactional
