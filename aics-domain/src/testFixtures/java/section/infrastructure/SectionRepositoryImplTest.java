@@ -10,7 +10,6 @@ import jakarta.persistence.EntityManager;
 import kgu.developers.domain.section.infrastructure.JpaSectionRepository;
 import kgu.developers.domain.section.infrastructure.SectionJpaEntity;
 import kgu.developers.domain.section.infrastructure.SectionRepositoryImpl;
-import kgu.developers.domain.user.infrastructure.UserJpaEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,9 +27,6 @@ class SectionRepositoryImplTest {
 
     @Mock
     private SectionJpaEntity section;
-
-    @Mock
-    private UserJpaEntity professor;
 
     @Test
     @DisplayName("담당 교수가 아닌 분반은 잠금 대상에서 제외한다")
@@ -50,13 +46,11 @@ class SectionRepositoryImplTest {
     @Test
     @DisplayName("일반 조회와 잠금 조회가 같은 교수 소유권 기준을 사용한다")
     void usesSameOwnershipRuleForReadAndLock() {
-        given(jpaSectionRepository.findByIdAndDeletedAtIsNull(7L))
-                .willReturn(Optional.of(section));
+        given(jpaSectionRepository.existsByIdAndProfessorStudentNumberAndDeletedAtIsNull(7L, "20260001"))
+                .willReturn(true);
         given(jpaSectionRepository
                 .findByIdAndProfessorStudentNumberAndDeletedAtIsNull(7L, "20260001"))
                 .willReturn(Optional.of(section));
-        given(section.getProfessor()).willReturn(professor);
-        given(professor.getStudentNumber()).willReturn("20260001");
         SectionRepositoryImpl repository = repository();
 
         boolean readable = repository.existsActiveByIdAndProfessorId(7L, "20260001");

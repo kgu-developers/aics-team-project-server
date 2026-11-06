@@ -19,7 +19,7 @@ public interface UserController {
 
 	@Operation(summary = "내 정보 조회 API", description = """
 			- Description : 로그인한 사용자의 정보와 소속 분반 목록을 조회합니다.
-			- globalRole : ADMIN 또는 USER
+			- globalRole : ADMIN, SUPER_ADMIN 또는 USER
 			- sections[].semester : SPRING, SUMMER, FALL, WINTER
 			- sections[].status : DRAFT, ACTIVE, ARCHIVED
 			""")

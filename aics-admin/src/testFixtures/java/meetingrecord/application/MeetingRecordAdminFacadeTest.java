@@ -95,14 +95,18 @@ class MeetingRecordAdminFacadeTest {
             .getMeetingRecords(List.of(10L, 20L), latestFirstPageable);
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("분반 조회는 요청한 담당 분반의 팀만 조회한다")
-    void getMeetingRecords_OwnedSection() {
+    void getMeetingRecords_OwnedSection(boolean superAdmin) {
         Pageable pageable = PageRequest.of(0, 20);
         Pageable latestFirstPageable = latestFirst(pageable);
-        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Section section = section(1L, "월3,4", "1151", superAdmin ? "other" : PROFESSOR_ID);
         Team team = team(10L, 1L, "A팀");
 
+        if (superAdmin) {
+            given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
+        }
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L), latestFirstPageable))

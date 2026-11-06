@@ -62,10 +62,14 @@ class MeetingRecordEditLogAdminFacadeTest {
     @InjectMocks
     private MeetingRecordEditLogAdminFacade meetingRecordEditLogAdminFacade;
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("담당 교수는 분반 전체 팀의 수정 이력을 팀명·회의록 제목·수정자 이름과 함께 조회한다")
-    void getSectionMeetingRecordLogs_OwnedSection() {
-        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+    void getSectionMeetingRecordLogs_OwnedSection(boolean superAdmin) {
+        if (superAdmin) {
+            given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
+        }
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, superAdmin ? "other" : PROFESSOR_ID))));
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(10L, "1팀"), team(20L, "2팀")));
         given(meetingRecordEditLogQueryService.getSectionLogs(
             List.of(10L, 20L), null, latestFirst()))

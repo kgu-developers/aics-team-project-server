@@ -18,7 +18,12 @@ public interface JpaCourseRepository extends JpaRepository<CourseJpaEntity, Long
 			select c from CourseJpaEntity c
 			where c.deletedAt is null
 			and (
-				c.id in (
+				exists (
+					select u from UserJpaEntity u where u.studentNumber = :professorId
+					and u.deletedAt is null
+					and u.globalRole = kgu.developers.domain.user.domain.UserGlobalRole.SUPER_ADMIN
+				)
+				or c.id in (
 					select s.course.id from SectionJpaEntity s
 					where s.professor.studentNumber = :professorId
 					and s.deletedAt is null

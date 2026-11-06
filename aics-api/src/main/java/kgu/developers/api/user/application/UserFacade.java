@@ -37,7 +37,7 @@ public class UserFacade {
                 .orElse(null);
 
         List<SectionDetail> enrollmentSections = sectionQueryService.getEnrolledSections(user);
-        List<SectionDetail> professorSections = user.getGlobalRole() == UserGlobalRole.ADMIN
+        List<SectionDetail> professorSections = (user.getGlobalRole() == UserGlobalRole.ADMIN || user.getGlobalRole() == UserGlobalRole.SUPER_ADMIN)
                 ? sectionQueryService.getOwnedSections(user)
                 : List.of();
         List<SectionResponse> sections = mergeAndDeduplicateSections(enrollmentSections, professorSections);

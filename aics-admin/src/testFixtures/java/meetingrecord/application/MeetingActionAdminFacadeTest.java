@@ -63,15 +63,19 @@ class MeetingActionAdminFacadeTest {
     @InjectMocks
     private MeetingActionAdminFacade meetingActionAdminFacade;
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("담당 교수는 분반 전체 팀의 액션플랜을 팀명·회의록 제목·담당자 이름과 함께 조회한다")
-    void getSectionMeetingActions_OwnedSection() {
-        Section section = section(1L, PROFESSOR_ID);
+    void getSectionMeetingActions_OwnedSection(boolean superAdmin) {
+        Section section = section(1L, superAdmin ? "other" : PROFESSOR_ID);
         Team firstTeam = team(10L, 1L, "1팀");
         Team secondTeam = team(20L, 1L, "2팀");
         MeetingRecord meetingRecord = meetingRecord(100L, 20L);
         MeetingAction meetingAction = meetingAction(5L, 100L, "202412345", MeetingActionStatus.IN_PROGRESS);
 
+        if (superAdmin) {
+            given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
+        }
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(firstTeam, secondTeam));
         given(meetingActionQueryService.getSectionActions(
