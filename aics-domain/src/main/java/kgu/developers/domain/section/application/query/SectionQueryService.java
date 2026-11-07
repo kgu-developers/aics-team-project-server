@@ -35,12 +35,11 @@ public class SectionQueryService {
                 .orElseThrow(SectionNotFoundException::new);
     }
 
-    /** 마일스톤 등 외부 연동에서 sectionId를 다루기 전에 소유 교수인지 확인하는 용도 */
+    /** 활성 분반에 한해 담당 교수 또는 SUPER_ADMIN이면 true를 반환한다. */
     public boolean isActiveSectionOwnedByProfessor(Long sectionId, String professorId) {
         return sectionRepository.existsActiveByIdAndProfessorId(sectionId, professorId);
     }
 
-    /** 교수 소유 분반만 보이도록, courseId가 맞아도 본인 분반이 아니면 결과에서 빠진다. */
     public List<SectionDetail> getSectionsByCourseId(Long courseId, String professorId) {
         if (courseRepository.findById(courseId).isEmpty()) {
             throw new CourseNotFoundException();

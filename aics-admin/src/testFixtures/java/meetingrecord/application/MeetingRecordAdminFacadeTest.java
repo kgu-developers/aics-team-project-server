@@ -95,15 +95,17 @@ class MeetingRecordAdminFacadeTest {
             .getMeetingRecords(List.of(10L, 20L), latestFirstPageable);
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("분반 조회는 요청한 담당 분반의 팀만 조회한다")
-    void getMeetingRecords_OwnedSection() {
+    void getMeetingRecords_OwnedSection(boolean superAdmin) {
         Pageable pageable = PageRequest.of(0, 20);
         Pageable latestFirstPageable = latestFirst(pageable);
-        Section section = section(1L, "월3,4", "1151", PROFESSOR_ID);
+        Section section = section(1L, "월3,4", "1151", superAdmin ? "other" : PROFESSOR_ID);
         Team team = team(10L, 1L, "A팀");
 
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(meetingRecordQueryService.getMeetingRecords(List.of(10L), latestFirstPageable))
             .willReturn(new PageImpl<>(List.of(), latestFirstPageable, 0));
@@ -145,6 +147,7 @@ class MeetingRecordAdminFacadeTest {
         Team team = team(10L, 1L, "A팀");
         Milestone milestone = org.mockito.Mockito.mock(Milestone.class);
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionIdIn(List.of(1L))).willReturn(List.of(team));
         given(milestoneRepository.findById(3L)).willReturn(Optional.of(milestone));
         given(milestone.belongsToSection(1L)).willReturn(true);
@@ -234,6 +237,7 @@ class MeetingRecordAdminFacadeTest {
         given(meetingRecordQueryService.getMeetingRecord(100L)).willReturn(meetingRecord);
         given(teamRepository.findById(10L)).willReturn(Optional.of(team));
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
 
         var response = meetingRecordAdminFacade.getMeetingRecord(100L, PROFESSOR_ID);
 
@@ -258,6 +262,32 @@ class MeetingRecordAdminFacadeTest {
         assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecord(100L, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class)
             .hasMessage("담당 분반의 회의록만 조회할 수 있습니다.");
+    }
+
+    @Test
+    @DisplayName("교수 ID가 같아도 공통 권한 검사가 거부하면 회의록 목록을 조회할 수 없다")
+    void getMeetingRecords_RejectsWhenAccessCheckFails() {
+        given(sectionRepository.findById(1L)).willReturn(
+            Optional.of(detail(section(1L, "월3,4", "1151", PROFESSOR_ID))));
+
+        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecords(
+            1L, null, PageRequest.of(0, 20), PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(teamRepository, never()).findAllBySectionIdIn(anyList());
+    }
+
+    @Test
+    @DisplayName("교수 ID가 같아도 공통 권한 검사가 거부하면 회의록 상세를 조회할 수 없다")
+    void getMeetingRecord_RejectsWhenAccessCheckFails() {
+        given(meetingRecordQueryService.getMeetingRecord(100L))
+            .willReturn(meetingRecord(100L, 10L, "회의록"));
+        given(teamRepository.findById(10L)).willReturn(Optional.of(team(10L, 1L, "A팀")));
+        given(sectionRepository.findById(1L)).willReturn(
+            Optional.of(detail(section(1L, "월3,4", "1151", PROFESSOR_ID))));
+
+        assertThatThrownBy(() -> meetingRecordAdminFacade.getMeetingRecord(100L, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
     }
 
     private Section section(Long id, String classTime, String code, String professorId) {

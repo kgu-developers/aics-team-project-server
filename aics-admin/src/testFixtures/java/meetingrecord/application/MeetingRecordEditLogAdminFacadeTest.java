@@ -62,10 +62,12 @@ class MeetingRecordEditLogAdminFacadeTest {
     @InjectMocks
     private MeetingRecordEditLogAdminFacade meetingRecordEditLogAdminFacade;
 
-    @Test
-    @DisplayName("담당 교수는 분반 전체 팀의 수정 이력을 팀명·회의록 제목·수정자 이름과 함께 조회한다")
-    void getSectionMeetingRecordLogs_OwnedSection() {
-        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("공통 접근 검사가 허용하면 담당 교수 ID가 달라도 분반 수정 이력을 팀명·회의록 제목·수정자 이름과 함께 조회한다")
+    void getSectionMeetingRecordLogs_OwnedSection(boolean differentProfessorId) {
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, differentProfessorId ? "other" : PROFESSOR_ID))));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(10L, "1팀"), team(20L, "2팀")));
         given(meetingRecordEditLogQueryService.getSectionLogs(
             List.of(10L, 20L), null, latestFirst()))
@@ -92,6 +94,7 @@ class MeetingRecordEditLogAdminFacadeTest {
     @DisplayName("수정자가 탈퇴해도 과거 이력의 작성자 이름은 그대로 보여준다")
     void getSectionMeetingRecordLogs_KeepsWithdrawnEditorName() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(20L, "2팀")));
         given(meetingRecordEditLogQueryService.getSectionLogs(List.of(20L), null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(editLog(3L, 7L, 20L, "202412345")), latestFirst(), 1));
@@ -111,6 +114,7 @@ class MeetingRecordEditLogAdminFacadeTest {
     @DisplayName("조회는 최신순으로 고정되며 클라이언트 정렬은 적용하지 않는다")
     void getSectionMeetingRecordLogs_FixedSort() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(10L, "1팀")));
         given(meetingRecordEditLogQueryService.getSectionLogs(anyList(), any(), any(Pageable.class)))
             .willReturn(new PageImpl<>(List.of(), latestFirst(), 0));
@@ -128,6 +132,7 @@ class MeetingRecordEditLogAdminFacadeTest {
     @DisplayName("팀 필터는 담당 분반 소속 팀으로 범위를 좁힌다")
     void getSectionMeetingRecordLogs_TeamFilter() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(10L, "1팀"), team(20L, "2팀")));
         given(meetingRecordEditLogQueryService.getSectionLogs(List.of(20L), null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(), latestFirst(), 0));
@@ -141,6 +146,7 @@ class MeetingRecordEditLogAdminFacadeTest {
     @DisplayName("담당 분반 소속이 아닌 팀을 지정하면 403으로 막는다")
     void getSectionMeetingRecordLogs_ForeignTeam() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(10L, "1팀")));
 
         assertThatThrownBy(() -> meetingRecordEditLogAdminFacade.getSectionMeetingRecordLogs(
@@ -155,6 +161,7 @@ class MeetingRecordEditLogAdminFacadeTest {
     @DisplayName("담당 분반 밖 회의록을 지정하면 403으로 막는다")
     void getSectionMeetingRecordLogs_ForeignMeetingRecord() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(10L, "1팀")));
         given(meetingRecordQueryService.getMeetingRecords(List.of(7L))).willReturn(List.of(meetingRecord(7L, 99L)));
 
@@ -168,6 +175,7 @@ class MeetingRecordEditLogAdminFacadeTest {
     @DisplayName("존재하지 않는 회의록도 존재 여부를 노출하지 않고 403으로 막는다")
     void getSectionMeetingRecordLogs_MeetingRecordNotFound() {
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team(10L, "1팀")));
         given(meetingRecordQueryService.getMeetingRecords(List.of(7L))).willReturn(List.of());
 
@@ -188,6 +196,18 @@ class MeetingRecordEditLogAdminFacadeTest {
             .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> meetingRecordEditLogAdminFacade.getSectionMeetingRecordLogs(
             2L, null, null, PAGEABLE, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(teamRepository, never()).findAllBySectionId(anyLong());
+    }
+
+    @Test
+    @DisplayName("교수 ID가 같아도 공통 권한 검사가 거부하면 수정 이력을 조회할 수 없다")
+    void getSectionMeetingRecordLogs_RejectsWhenAccessCheckFails() {
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+
+        assertThatThrownBy(() -> meetingRecordEditLogAdminFacade.getSectionMeetingRecordLogs(
+            1L, null, null, PAGEABLE, PROFESSOR_ID))
             .isInstanceOf(AccessDeniedException.class);
 
         verify(teamRepository, never()).findAllBySectionId(anyLong());

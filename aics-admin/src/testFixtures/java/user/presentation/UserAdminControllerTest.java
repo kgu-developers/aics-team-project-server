@@ -74,7 +74,7 @@ class UserAdminControllerTest {
   @Test
   @DisplayName("POST /users는 201과 생성된 학번을 응답한다")
   void createUser() throws Exception {
-    given(userAdminFacade.createUser(request)).willReturn(UserAdminPersistResponse.of(STUDENT_NUMBER));
+    given(userAdminFacade.createUser(request, PROFESSOR_NUMBER)).willReturn(UserAdminPersistResponse.of(STUDENT_NUMBER));
 
     mockMvc.perform(post(BASE_URL)
             .contentType(MediaType.APPLICATION_JSON)
@@ -138,7 +138,7 @@ class UserAdminControllerTest {
             .content(objectMapper.writeValueAsString(updateRequest)))
         .andExpect(status().isNoContent());
 
-    verify(userAdminFacade).updateUser(STUDENT_NUMBER, updateRequest);
+    verify(userAdminFacade).updateUser(STUDENT_NUMBER, updateRequest, PROFESSOR_NUMBER);
   }
 
   @Test
@@ -157,6 +157,6 @@ class UserAdminControllerTest {
     mockMvc.perform(delete(BASE_URL + "/" + STUDENT_NUMBER))
         .andExpect(status().isNoContent());
 
-    verify(userAdminFacade).deleteUser(STUDENT_NUMBER);
+    verify(userAdminFacade).deleteUser(STUDENT_NUMBER, PROFESSOR_NUMBER);
   }
 }

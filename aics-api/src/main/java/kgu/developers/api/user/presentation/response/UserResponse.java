@@ -25,7 +25,7 @@ public record UserResponse(
         @Schema(
                 description = "전역 권한",
                 example = "USER",
-                allowableValues = {"ADMIN", "USER"},
+                allowableValues = {"ADMIN", "SUPER_ADMIN", "USER"},
                 requiredMode = REQUIRED
         )
         UserGlobalRole globalRole,

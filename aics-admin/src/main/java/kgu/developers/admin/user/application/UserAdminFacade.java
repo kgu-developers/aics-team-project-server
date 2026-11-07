@@ -23,20 +23,31 @@ public class UserAdminFacade {
     private final EnrollmentRepository enrollmentRepository;
     private final SectionRepository sectionRepository;
 
-    public UserAdminPersistResponse createUser(UserAdminRequest request) {
+    public UserAdminPersistResponse createUser(UserAdminRequest request, String callerStudentNumber) {
+        validateSuperAdmin(request.globalRole(), callerStudentNumber);
         String studentNumber = userCommandService.createUser(request.studentNumber(), request.email(), request.name(), request.password(), request.globalRole(), request.phone(), request.reactivate());
         return UserAdminPersistResponse.of(studentNumber);
     }
 
-    public void updateUser(String studentNumber, UserAdminUpdateRequest request) {
+    public void updateUser(String studentNumber, UserAdminUpdateRequest request, String callerStudentNumber) {
         User user = userQueryService.getUserByStudentNumber(studentNumber);
+        validateSuperAdmin(user.getGlobalRole() == UserGlobalRole.SUPER_ADMIN
+            ? user.getGlobalRole() : request.globalRole(), callerStudentNumber);
         userCommandService.updateUser(user, request.email(), request.name(), request.password(), request.globalRole(),
                 request.phone());
     }
 
-    public void deleteUser(String studentNumber) {
+    public void deleteUser(String studentNumber, String callerStudentNumber) {
         User user = userQueryService.getUserByStudentNumber(studentNumber);
+        validateSuperAdmin(user.getGlobalRole(), callerStudentNumber);
         userCommandService.deleteUser(user);
+    }
+
+    private void validateSuperAdmin(UserGlobalRole role, String callerStudentNumber) {
+        if (role == UserGlobalRole.SUPER_ADMIN
+            && userQueryService.getUserByStudentNumber(callerStudentNumber).getGlobalRole() != UserGlobalRole.SUPER_ADMIN) {
+            throw new AccessDeniedException("슈퍼 관리자 계정은 슈퍼 관리자만 관리할 수 있습니다.");
+        }
     }
 
     public void resetPassword(String studentNumber, String callerStudentNumber) {
