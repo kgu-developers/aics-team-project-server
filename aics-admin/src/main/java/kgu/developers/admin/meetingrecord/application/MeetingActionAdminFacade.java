@@ -77,8 +77,7 @@ public class MeetingActionAdminFacade {
     private Section resolveOwnedSection(Long sectionId, String professorId) {
         return sectionRepository.findById(sectionId)
             .map(SectionDetail::section)
-            .filter(section -> professorId.equals(section.getProfessorId())
-                || sectionRepository.existsActiveByIdAndProfessorId(section.getId(), professorId))
+            .filter(section -> sectionRepository.existsActiveByIdAndProfessorId(section.getId(), professorId))
             .orElseThrow(() -> new AccessDeniedException("담당 분반의 액션플랜만 조회할 수 있습니다."));
     }
 

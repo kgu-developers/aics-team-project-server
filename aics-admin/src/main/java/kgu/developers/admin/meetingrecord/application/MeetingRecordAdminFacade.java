@@ -88,8 +88,7 @@ public class MeetingRecordAdminFacade {
             .orElseThrow(TeamNotFoundException::new);
         Section section = sectionRepository.findById(team.getSectionId())
             .map(SectionDetail::section)
-            .filter(foundSection -> professorId.equals(foundSection.getProfessorId())
-                || sectionRepository.existsActiveByIdAndProfessorId(foundSection.getId(), professorId))
+            .filter(foundSection -> sectionRepository.existsActiveByIdAndProfessorId(foundSection.getId(), professorId))
             .orElseThrow(() -> new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다."));
 
         return MeetingRecordAdminDetailResponse.from(meetingRecord, team, section);
@@ -104,8 +103,7 @@ public class MeetingRecordAdminFacade {
 
         Section section = sectionRepository.findById(sectionId)
             .map(SectionDetail::section)
-            .filter(foundSection -> professorId.equals(foundSection.getProfessorId())
-                || sectionRepository.existsActiveByIdAndProfessorId(foundSection.getId(), professorId))
+            .filter(foundSection -> sectionRepository.existsActiveByIdAndProfessorId(foundSection.getId(), professorId))
             .orElseThrow(() -> new AccessDeniedException("담당 분반의 회의록만 조회할 수 있습니다."));
         return List.of(section);
     }

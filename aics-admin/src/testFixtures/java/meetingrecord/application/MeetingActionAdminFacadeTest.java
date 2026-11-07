@@ -73,10 +73,8 @@ class MeetingActionAdminFacadeTest {
         MeetingRecord meetingRecord = meetingRecord(100L, 20L);
         MeetingAction meetingAction = meetingAction(5L, 100L, "202412345", MeetingActionStatus.IN_PROGRESS);
 
-        if (superAdmin) {
-            given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
-        }
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(firstTeam, secondTeam));
         given(meetingActionQueryService.getSectionActions(
             List.of(10L, 20L), null, null, latestFirst()))
@@ -108,6 +106,7 @@ class MeetingActionAdminFacadeTest {
         Section section = section(1L, PROFESSOR_ID);
         Team team = team(10L, 1L, "1팀");
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingActionQueryService.getSectionActions(anyList(), any(), any(), any(Pageable.class)))
             .willReturn(new PageImpl<>(List.of(), latestFirst(), 0));
@@ -128,6 +127,7 @@ class MeetingActionAdminFacadeTest {
         Team firstTeam = team(10L, 1L, "1팀");
         Team secondTeam = team(20L, 1L, "2팀");
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(firstTeam, secondTeam));
         given(meetingActionQueryService.getSectionActions(List.of(20L), null, null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(), latestFirst(), 0));
@@ -143,6 +143,7 @@ class MeetingActionAdminFacadeTest {
         Section section = section(1L, PROFESSOR_ID);
         Team team = team(10L, 1L, "1팀");
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingActionQueryService.getSectionActions(
             List.of(10L), null, MeetingActionStatus.DONE, latestFirst()))
@@ -161,6 +162,7 @@ class MeetingActionAdminFacadeTest {
         Section section = section(1L, PROFESSOR_ID);
         Team team = team(10L, 1L, "1팀");
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
 
         assertThatThrownBy(() -> meetingActionAdminFacade.getSectionMeetingActions(
@@ -177,6 +179,7 @@ class MeetingActionAdminFacadeTest {
         Section section = section(1L, PROFESSOR_ID);
         Team team = team(10L, 1L, "1팀");
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingRecordQueryService.getMeetingRecords(List.of(100L)))
             .willReturn(List.of(meetingRecord(100L, 999L)));
@@ -195,6 +198,7 @@ class MeetingActionAdminFacadeTest {
         Section section = section(1L, PROFESSOR_ID);
         Team team = team(10L, 1L, "1팀");
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingRecordQueryService.getMeetingRecords(List.of(100L))).willReturn(List.of());
 
@@ -239,6 +243,7 @@ class MeetingActionAdminFacadeTest {
         MeetingAction meetingAction = meetingAction(5L, 100L, null, MeetingActionStatus.TODO);
 
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingActionQueryService.getSectionActions(List.of(10L), null, null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(meetingAction), latestFirst(), 1));
@@ -259,6 +264,7 @@ class MeetingActionAdminFacadeTest {
     void getSectionMeetingActions_EmptySection() {
         Section section = section(1L, PROFESSOR_ID);
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of());
         given(meetingActionQueryService.getSectionActions(List.of(), null, null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(), latestFirst(), 0));
@@ -279,6 +285,7 @@ class MeetingActionAdminFacadeTest {
         MeetingAction meetingAction = meetingAction(5L, 100L, "202412345", MeetingActionStatus.TODO);
 
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingActionQueryService.getSectionActions(List.of(10L), null, null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(meetingAction), latestFirst(), 1));
@@ -306,6 +313,7 @@ class MeetingActionAdminFacadeTest {
         MeetingAction orphanAction = meetingAction(6L, 101L, null, MeetingActionStatus.TODO);
 
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingActionQueryService.getSectionActions(List.of(10L), null, null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(orphanAction, survivingAction), latestFirst(), 2));
@@ -328,6 +336,7 @@ class MeetingActionAdminFacadeTest {
         MeetingAction meetingAction = meetingAction(5L, 100L, null, MeetingActionStatus.TODO);
 
         given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section)));
+        given(sectionRepository.existsActiveByIdAndProfessorId(1L, PROFESSOR_ID)).willReturn(true);
         given(teamRepository.findAllBySectionId(1L)).willReturn(List.of(team));
         given(meetingActionQueryService.getSectionActions(List.of(10L), null, null, latestFirst()))
             .willReturn(new PageImpl<>(List.of(meetingAction), latestFirst(), 1));
@@ -338,6 +347,18 @@ class MeetingActionAdminFacadeTest {
             1L, null, null, null, PAGEABLE, PROFESSOR_ID);
 
         assertThat(response.contents()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("교수 ID가 같아도 공통 권한 검사가 거부하면 액션플랜을 조회할 수 없다")
+    void getSectionMeetingActions_RejectsWhenAccessCheckFails() {
+        given(sectionRepository.findById(1L)).willReturn(Optional.of(detail(section(1L, PROFESSOR_ID))));
+
+        assertThatThrownBy(() -> meetingActionAdminFacade.getSectionMeetingActions(
+            1L, null, null, null, PAGEABLE, PROFESSOR_ID))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(teamRepository, never()).findAllBySectionId(anyLong());
     }
 
     private Pageable latestFirst() {
