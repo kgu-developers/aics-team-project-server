@@ -289,7 +289,9 @@ public class SubmissionAdminFacade {
                 : midReport != null ? midReport.getSubmittedAt() : null;
         var builder = response.toBuilder()
                 .feedbackCount(feedback.feedbackCount())
-                .feedbackRequested(feedback.feedbackRequested(submittedAt));
+                .feedbackRequested(feedback.feedbackRequested(submittedAt))
+                .studentFeedbackSubmitted(milestone.getType() == MilestoneType.MID_REPORT
+                        && feedback.lastStudentMessageAt() != null);
         if (milestone.getType() == MilestoneType.PROPOSAL) {
             boolean revisionRequested = project != null && submittedAt == null
                     && project.getApprovalStatus() == ApprovalStatus.REVISION_REQUESTED;
