@@ -15,6 +15,8 @@ import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -674,7 +676,7 @@ class SubmissionAdminFacadeTest {
         SubmissionAdminResponse listed = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
         SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
-        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().valueToTree(listed);
+        var json = new ObjectMapper().findAndRegisterModules().valueToTree(listed);
 
         assertThat(listed).isEqualTo(detail);
         assertThat(json.path("studentFeedbackSubmitted").isBoolean()).isTrue();
@@ -834,8 +836,8 @@ class SubmissionAdminFacadeTest {
         SubmissionAdminResponse listed = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
         SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(listed.id(), PROFESSOR);
-        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
-                .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        var json = new ObjectMapper().findAndRegisterModules()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .valueToTree(listed);
 
         assertThat(listed).isEqualTo(detail);
@@ -906,7 +908,7 @@ class SubmissionAdminFacadeTest {
         SubmissionAdminResponse listed = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
         SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
-        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().valueToTree(listed);
+        var json = new ObjectMapper().findAndRegisterModules().valueToTree(listed);
 
         assertThat(listed).isEqualTo(detail);
         assertThat(listed.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
