@@ -31,8 +31,9 @@ public interface SubmissionAdminController {
                 projectTitle은 제안서 마일스톤에서 프로젝트가 존재할 때만 값이 있으며 그 외에는 null이다.
                 제안서·중간보고서는 feedbackCount(교수 계정의 누적 피드백 메시지 수, 완료 처리 알림 포함),
                 feedbackRequested(제출·재제출 또는 학생 답글 이후 교수 피드백 대기 여부)를 함께 응답한다.
-                중간보고서는 studentFeedbackSubmitted(학생의 피드백 반영 방향 답글 제출 여부)를 함께 응답한다.
-                학생 답글이 한 번이라도 있으면 true이며 이후 교수 피드백과 무관하게 유지된다. 그 외 마일스톤은 false다.
+                중간보고서는 studentFeedbackSubmitted(학생 답글 이력 여부)를 함께 응답한다.
+                중간보고서에 연결된 학생 답글이 한 번이라도 있으면 true이며 교수 피드백 전 질문도 포함한다.
+                이후 교수 피드백과 무관하게 유지되며 그 외 마일스톤은 false다.
                 hasPendingReview는 학생에게 수정요청된 상태이며, feedbackRequested와 동시에 true일 수 있다.
                 제안서의 status와 hasPendingReview는 실제 제안서 상태를 기준으로 응답한다.
                 제안서의 canSubmitNow는 실제 제출 API와 같이 미제출·목표 입력·모든 섹션 작성 완료로 판단하며 일정 제한을 적용하지 않는다.
