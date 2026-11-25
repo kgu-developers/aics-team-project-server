@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - develop
-      # Bootstrap only: verify the isolated connection before merging to develop.
-      - codex/development-deployment-isolation
   workflow_dispatch:
     inputs:
       verify_only:
@@ -29,6 +27,7 @@ env:
 
 jobs:
   verify-development-target:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: pr-test
     permissions:
@@ -86,6 +85,16 @@ jobs:
         run: |
           set -euo pipefail
           registry=792854191046.dkr.ecr.ap-northeast-2.amazonaws.com
+          error_file=$(mktemp)
+          trap 'rm -f "$error_file"' EXIT
+          if aws ecr describe-images --repository-name "aics-pr-test/aics-$APP" \
+            --image-ids "imageTag=dev-$DEPLOY_SHA" --output json > /dev/null 2>"$error_file"; then
+            echo "Reusing the existing immutable development image."
+            exit 0
+          elif ! grep -q 'ImageNotFoundException' "$error_file"; then
+            echo "Cannot determine whether the development image exists." >&2
+            exit 1
+          fi
           aws ecr get-login-password --region "$AWS_REGION" | \
             docker login --username AWS --password-stdin "$registry"
           image="$registry/aics-pr-test/aics-$APP:dev-$DEPLOY_SHA"

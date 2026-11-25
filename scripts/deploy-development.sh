@@ -85,7 +85,7 @@ check_route() {
 wait_for_route() {
     local route=$1 expected=$2
     shift 2
-    local deadline=$((SECONDS + HEALTH_TIMEOUT))
+    local deadline=${readiness_deadline:-$((SECONDS + HEALTH_TIMEOUT))}
     until check_route "$route" "$expected" "$@"; do
         if (( SECONDS >= deadline )); then
             echo "Readiness timed out for $route (expected HTTP $expected)." >&2
@@ -96,6 +96,7 @@ wait_for_route() {
 }
 
 smoke_test() {
+    local readiness_deadline=$((SECONDS + HEALTH_TIMEOUT))
     local route
     for route in "${routes[@]}" /swagger-ui/index.html; do
         wait_for_route "$route" 200 || return 1

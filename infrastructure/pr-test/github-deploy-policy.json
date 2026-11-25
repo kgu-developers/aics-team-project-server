@@ -28,7 +28,8 @@
         "ecr:CompleteLayerUpload",
         "ecr:PutImage",
         "ecr:BatchGetImage",
-        "ecr:GetDownloadUrlForLayer"
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:DescribeImages"
       ],
       "Resource": [
         "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-api",
