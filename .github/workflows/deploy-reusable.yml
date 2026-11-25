@@ -45,7 +45,7 @@ jobs:
           # ref 를 안 주면 호출한 워크플로의 커밋(github.sha)이라, 기존 개발 배포(develop push)와 동작이 같다.
           ref: ${{ inputs.ref || github.sha }}
 
-      - name: backup current Caddyfile on server
+      - name: backup current config files on server
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -55,8 +55,17 @@ jobs:
           script: |
             set -euo pipefail
             cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
+            # 이번 배포가 설정 파일을 덮어쓰기 전에 직전 릴리스의 설정 파일을 백업한다. 배포가 실패해 이전 이미지로 롤백할 때
+            # 이미지 태그뿐 아니라 설정 파일도 함께 되돌리기 위해서다(compose 설정이 바뀐 커밋으로 배포하다 실패하면, 이전 이미지가
+            # 새 커밋의 compose 설정으로 뜨는 일을 막는다).
             if [ -f Caddyfile ]; then
               cp Caddyfile .Caddyfile.before-deploy
+            fi
+            if [ -f docker-compose.yml ]; then
+              cp docker-compose.yml .docker-compose.before-deploy.yml
+            fi
+            if [ -f pgadmin-servers.json ]; then
+              cp pgadmin-servers.json .pgadmin-servers.before-deploy.json
             fi
 
       - name: scp docker-compose and Caddyfile to server
@@ -96,10 +105,26 @@ jobs:
             # 태그로 되돌린다.
             LAST_GOOD_TAG_FILE=.last-successful-image-tag
             PREVIOUS_CADDYFILE=.Caddyfile.before-deploy
+            PREVIOUS_COMPOSE=.docker-compose.before-deploy.yml
+            PREVIOUS_PGADMIN_SERVERS=.pgadmin-servers.before-deploy.json
             PREVIOUS_IMAGE_TAG=""
             if [ -f "$LAST_GOOD_TAG_FILE" ]; then
               PREVIOUS_IMAGE_TAG=$(cat "$LAST_GOOD_TAG_FILE")
             fi
+
+            # 이전 이미지로 되돌리기 전에 이전 릴리스의 compose·pgadmin 설정을 먼저 복원한다. 복원하지 않으면 compose 설정이
+            # 바뀐 커밋으로 배포하다 실패했을 때, 되돌린 이전 이미지가 실패한 커밋의 compose 설정으로 뜬다.
+            restore_previous_compose_config() {
+              if [ -f "$PREVIOUS_COMPOSE" ]; then
+                echo "이전 docker-compose.yml로 되돌립니다." >&2
+                cp "$PREVIOUS_COMPOSE" docker-compose.yml
+              else
+                echo "복구할 이전 docker-compose.yml이 없습니다. 현재 설정으로 이전 이미지를 올립니다." >&2
+              fi
+              if [ -f "$PREVIOUS_PGADMIN_SERVERS" ]; then
+                cp "$PREVIOUS_PGADMIN_SERVERS" pgadmin-servers.json
+              fi
+            }
 
             restore_previous_caddy_config() {
               if [ ! -f "$PREVIOUS_CADDYFILE" ]; then
@@ -121,6 +146,7 @@ jobs:
                 echo "롤백할 이전 이미지 태그가 없습니다(첫 배포이거나 기록이 없음)." >&2
               else
                 echo "이전 이미지($PREVIOUS_IMAGE_TAG)로 되돌립니다." >&2
+                restore_previous_compose_config
                 docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
                 docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
                 IMAGE_TAG="$PREVIOUS_IMAGE_TAG" \
