@@ -140,7 +140,7 @@ gh workflow run server-preflight.yml -f environment=cloud-dev
 `develop`에 머지하면 `cloud-dev-build-deploy.yml`이 자동으로 실행된다.
 
 1. 이미지 3개(`aics-api`, `aics-admin`, `aics-auth`)를 빌드해 Docker Hub에 **커밋 sha 태그**로 올리고, 올린 이미지의 **digest를 기록**한다(아티팩트 `image-digests-<sha>`). 같은 커밋으로 빌드를 다시 돌리면 sha 태그가 다른 이미지로 덮어써질 수 있어서, 운영 승격은 태그가 아니라 이 digest로 "같은 이미지"인지 확인한다(7장).
-2. `deploy-reusable.yml`이 서버의 **`docker-compose.yml`·`Caddyfile`·`pgadmin-servers.json`을 백업**(`.*before-deploy*` 파일)한 뒤 새 설정을 복사하고, 이미지를 받아 앱을 **하나씩 순서대로** 교체한다.
+2. `deploy-reusable.yml`이 서버의 **`docker-compose.yml`·`Caddyfile`·`pgadmin-servers.json`을 백업**(`.*before-deploy*` 파일)한 뒤 새 설정을 복사하고, 이미지를 받아 앱을 **하나씩 순서대로** 교체한다. 설정을 복사한 뒤 **이미지 pull이나 기존 컨테이너 중지에 실패하거나 설정 전송이 중간에 끊기면** 설정 파일을 직전 릴리스 것으로 되돌리고 종료한다(실패한 설정이 서버에 남아 다음 배포의 "이전 정상 설정"으로 백업되는 일을 막는다). 운영 승격은 서버가 받은 이미지가 검증한 digest와 같은지도 **기존 컨테이너를 멈추기 전에** 확인한다(승인 대기 중 같은 태그가 다른 이미지로 덮어써져도 다른 이미지가 운영에 나가지 않는다).
 3. 서비스별 헬스체크(최대 3분), Caddy 설정 검증과 반영, 공개 로그인 경로와 구 Swagger 경로 스모크 테스트를 거친다.
 4. 실패하면 직전에 성공한 이미지(서버의 `.last-successful-image-tag`)로 **자동 롤백**한다. 이때 백업해 둔 compose·pgadmin 설정과 Caddyfile도 **함께 복원한 뒤** 이전 이미지를 올린다(설정이 바뀐 커밋이 실패해도 이전 이미지가 새 설정으로 뜨지 않게 하기 위해서). 첫 배포라 이전 기록이 없으면 롤백하지 못한다.
 
@@ -165,7 +165,7 @@ git log origin/develop --format='%H %ad %s' --date=short -10
 2. **Use workflow from**은 `develop`으로 둔다(다른 브랜치는 거부된다).
 3. `image_tag`에 커밋 sha를 입력한다. 먼저 `dry_run`을 켜고 실행하면 **검증만** 하고 배포하지 않는다. `allow_unrecorded_digest`는 기본 꺼짐이다(8장).
 4. 검증을 통과하면 `cloud-prod` 승인자에게 승인 요청이 간다. 승인하면 배포가 시작된다.
-5. 성공하면 `main`이 그 커밋으로 이동하고 `prod-날짜-sha` 태그가 붙는다.
+5. 배포가 성공하면 먼저 `prod-날짜-sha` 태그가 붙고, 이어서 `main`이 그 커밋으로 이동한다(`main` 이동이 실패해도 태그는 남는다).
 
 ```bash
 gh workflow run promote-to-production.yml -f image_tag=<커밋 sha 40자> -f dry_run=true
@@ -187,14 +187,14 @@ Docker Hub 사용자명은 세 곳에서 같아야 한다: 개발 빌드(시크�
 
 **운영 서버의 Spring 프로필**: 승격도 개발과 같은 compose(`docker/development`)를 쓰므로 세 앱이 `dev` 프로필(`ddl-auto: update`)로 뜬다. 지금 운영이 이미 이렇게 동작하고 승격이 바꾸지 않는다. `prod`(`validate`)로 바꾸려면 배포 설정과 DB 스키마 정리가 먼저 필요한 별도 결정이다(10장).
 
-승격은 한 번에 하나만 실행된다. 같은 실행의 마지막 단계(`main` 이동과 태그)가 실패해도 **운영 배포는 이미 성공한 상태**이므로, 로그의 안내대로 `main` 보호 설정 등을 확인한다.
+승격은 한 번에 하나만 실행된다. 같은 실행의 마지막 단계에서 `main` 이동이 실패해도 **운영 배포는 이미 성공했고 배포 태그도 이미 기록된 상태**이므로, 로그의 안내대로 `main` 보호 설정 등을 확인한다.
 
 ## 8. 롤백
 
 - **배포 중 실패**: 6장의 자동 롤백이 직전 성공 이미지로 **설정 파일과 함께** 되돌린다.
 - **배포 후 문제 발견**: 이전의 정상 커밋 sha로 **다시 승격**한다(7장과 같은 절차). 과거 커밋을 승격하면 `main`은 뒤로 옮기지 않고 **태그만** 남는다(`main` 이력을 되돌리지 않기 위해서).
 - 그 커밋이 digest 기록 도입 **이전**에 배포된 것이라 "digest 기록을 찾을 수 없다"로 막히면 `allow_unrecorded_digest`를 켜서 실행할 수 있다. 이 경우 개발 배포 이후 태그가 바뀌지 않았는지는 **확인하지 못한 채** 진행하므로, 꼭 필요한 롤백일 때만 쓴다.
-- **현재 운영에 올라간 커밋**은 `main`이 아니라 가장 최근의 배포 태그로 확인한다(롤백해도 새 태그가 생긴다): `git tag -l 'prod-*' --sort=-creatordate | head -1`. 과거 배포 이력은 `head` 없이 본다. 승격으로 배포한 것만 태그가 남는다.
+- **현재 운영에 올라간 커밋**은 `main`이 아니라 가장 최근의 배포 태그로 확인한다(롤백해도 새 태그가 생기고, `main` 이동이 실패해도 태그는 남는다): `git tag -l 'prod-*' --sort=-creatordate | head -1`. 과거 배포 이력은 `head` 없이 본다. 승격으로 배포한 것만 태그가 남는다.
 
 DB 스키마가 바뀐 커밋으로 올렸다면 코드만 되돌려서는 부족할 수 있다. 10장을 참고한다.
 
