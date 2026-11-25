@@ -30,6 +30,13 @@ on:
         type: string
         required: false
         default: ''
+      expected_digests:
+        description: >-
+          배포할 이미지가 이 digest 와 같은지 서버에서 pull 한 직후 확인한다("저장소@sha256:..." 를 공백으로 구분). 다르면 기존 컨테이너를
+          멈추기 전에 중단한다. 운영 승격이 "검증한 이미지"와 "실제 받은 이미지"를 같게 묶으려고 넘긴다. 비우면 확인하지 않는다.
+        type: string
+        required: false
+        default: ''
 
 jobs:
   deploy:
@@ -69,6 +76,7 @@ jobs:
             fi
 
       - name: scp docker-compose and Caddyfile to server
+        id: scp
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -79,9 +87,29 @@ jobs:
           target: ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
           strip_components: 2
 
-      - name: ssh to server and deploy
+      - name: restore config files if the transfer failed
+        # 설정 파일 전송이 중간에 실패하면 일부만 새 파일일 수 있다. 다음 배포가 이를 "이전 정상 설정"으로 백업하지 않도록 되돌린다.
+        if: ${{ failure() && steps.scp.outcome == 'failure' }}
         uses: appleboy/ssh-action@v1.1.0
         with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            set -eu
+            cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
+            if [ -f .Caddyfile.before-deploy ]; then cp .Caddyfile.before-deploy Caddyfile; fi
+            if [ -f .docker-compose.before-deploy.yml ]; then cp .docker-compose.before-deploy.yml docker-compose.yml; fi
+            if [ -f .pgadmin-servers.before-deploy.json ]; then cp .pgadmin-servers.before-deploy.json pgadmin-servers.json; fi
+            echo "설정 파일 전송이 실패해 이전 릴리스의 설정 파일로 되돌렸습니다."
+
+      - name: ssh to server and deploy
+        uses: appleboy/ssh-action@v1.1.0
+        env:
+          EXPECTED_DIGESTS: ${{ inputs.expected_digests }}
+        with:
+          envs: EXPECTED_DIGESTS
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -157,7 +185,63 @@ jobs:
               restore_previous_caddy_config || true
             }
 
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull
+            # 컨테이너는 건드리지 않고 설정 파일 3개만 직전 릴리스 것으로 되돌린다. 설정 파일을 덮어쓴 뒤 기존 컨테이너를 멈추기 전에
+            # 실패한 경우에 쓴다(되돌리지 않으면 실패한 설정이 서버에 남고, 다음 배포가 그것을 "이전 정상 설정"으로 백업한다).
+            restore_config_files_only() {
+              if [ -f "$PREVIOUS_COMPOSE" ]; then cp "$PREVIOUS_COMPOSE" docker-compose.yml; fi
+              if [ -f "$PREVIOUS_PGADMIN_SERVERS" ]; then cp "$PREVIOUS_PGADMIN_SERVERS" pgadmin-servers.json; fi
+              if [ -f "$PREVIOUS_CADDYFILE" ]; then cp "$PREVIOUS_CADDYFILE" Caddyfile; fi
+              return 0
+            }
+
+            # 서버가 받은 이미지가 검증한 digest 와 같은지 확인한다(승인 대기 중 태그가 덮어써져도 다른 이미지가 운영에 나가지 않게).
+            verify_expected_digests() {
+              if [ -z "${EXPECTED_DIGESTS:-}" ]; then
+                return 0
+              fi
+              local ref repo have
+              for ref in $EXPECTED_DIGESTS; do
+                if ! [[ "$ref" =~ ^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]]; then
+                  echo "expected_digests 형식이 올바르지 않습니다: $ref" >&2
+                  return 1
+                fi
+                repo=${ref%@*}
+                have=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "${repo}:${IMAGE_TAG}" 2>/dev/null || true)
+                if ! grep -qxF -- "$ref" <<<"$have"; then
+                  echo "서버가 받은 ${repo}:${IMAGE_TAG:0:7} 이미지가 검증한 digest 와 다릅니다. 기존 컨테이너는 그대로 둡니다." >&2
+                  return 1
+                fi
+                echo "${repo}: 검증한 digest 와 같습니다."
+              done
+              return 0
+            }
+
+            # 이미지를 받고(필요하면 digest 확인) 실패하면 설정 파일을 되돌린다. 아직 컨테이너를 멈추기 전이라 서비스는 그대로다.
+            pull_and_verify_images() {
+              if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull; then
+                echo "이미지 pull 에 실패했습니다. 기존 컨테이너는 그대로 두고 설정 파일을 이전 릴리스 것으로 되돌립니다." >&2
+                restore_config_files_only
+                return 1
+              fi
+              if ! verify_expected_digests; then
+                restore_config_files_only
+                return 1
+              fi
+              return 0
+            }
+
+            # 기존 앱 컨테이너를 멈추고 지운다. 중간에 실패하면 이전 릴리스로 롤백(설정 복원 포함)하고 실패로 끝낸다.
+            stop_and_remove_apps() {
+              if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth \
+                 || ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth; then
+                echo "기존 컨테이너를 멈추거나 지우는 데 실패했습니다. 이전 릴리스로 되돌립니다." >&2
+                rollback_deployment || true
+                return 1
+              fi
+              return 0
+            }
+
+            pull_and_verify_images || exit 1
 
             # KD3-170: "docker compose up -d" 한 번에 재생성을 맡기면, 기존 컨테이너를
             # 멈추고 지우는 것과 새 컨테이너에 원래 이름을 붙이는 것 사이에 타이밍 레이스가
@@ -166,8 +250,7 @@ jobs:
             # 수동으로 지워야 했음). stop/rm을 명시적인 별도 명령으로 분리하면 각 명령이
             # 끝날 때까지 확실히 기다린 뒤 다음 단계로 넘어가므로 이 레이스 자체가 없어진다.
             # postgres/redis/caddy/pgadmin은 매번 재시작할 필요가 없어 대상에서 제외한다.
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
+            stop_and_remove_apps || exit 1
 
             # KD3-170: up -d 가 일시적인 Docker 오류로 실패하면 set -e 로 바로
             # 스크립트가 종료되어 애플리케이션 컨테이너가 없는 상태로 남는다.
