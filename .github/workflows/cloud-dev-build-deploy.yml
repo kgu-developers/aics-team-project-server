@@ -1,360 +1,131 @@
-name: Build and Deploy to Development Server on Cloud
+name: Build and Deploy to Isolated Development Server
 
 on:
   push:
     branches:
       - develop
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: Verify the development connection without building or replacing apps
+        type: boolean
+        required: true
+        default: true
 
-# KD3-170: 이 워크플로의 실행 자체가 겹치면(#121, #128 배포에서 실제로 5분 이상
-# 동시 실행됨) 두 실행이 동시에 stop/rm/up을 수행할 수 있어 컨테이너 이름 충돌이
-# 재발한다. 배포를 한 번에 하나씩만 진행하도록 워크플로 단위로 직렬화한다.
+permissions:
+  contents: read
+
+# One deployment at a time; do not interrupt rollback or health checks.
 concurrency:
   group: cloud-dev-deployment
   cancel-in-progress: false
 
+env:
+  AWS_REGION: ap-northeast-2
+  DEV_INSTANCE_ID: i-0eb11976c412eb88b
+  DEV_DEPLOY_ROLE: arn:aws:iam::792854191046:role/aics-pr-test-github-deploy
+
 jobs:
-  build-docker-image:
+  verify-development-target:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
-    environment: cloud-dev
-
+    environment: pr-test
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: get repo from github
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Check deployment script behavior
+        run: |
+          bash -n scripts/deploy-development.sh scripts/run-development-command.sh
+          scripts/test-deploy-development.sh
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ env.DEV_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '792854191046'
+          role-session-name: aics-dev-check-${{ github.run_id }}
+      - name: Verify fixed development target without changing services
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: scripts/run-development-command.sh check "$DEPLOY_SHA"
 
-      # JDK setting
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+  build-docker-image:
+    needs: verify-development-target
+    if: github.event_name == 'push' || !inputs.verify_only
+    runs-on: ubuntu-latest
+    environment: pr-test
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, admin, auth]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
-
-      # gradle 빌드
-      - name: Setup Gradle
-        run: chmod +x gradlew
-
-      - name: Build with Gradle Wrapper
-        run: |
-          ./gradlew clean build -p aics-admin -x test
-          ./gradlew clean build -p aics-api -x test
-          ./gradlew clean build -p aics-auth -x test
-
-      # DockerHub 로그인
-      - name: Docker login
-        uses: docker/login-action@v3
+          distribution: temurin
+      - name: Build application
+        env:
+          APP: ${{ matrix.app }}
+        run: ./gradlew ":aics-$APP:bootJar" -x test
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      # Docker 이미지 빌드
-      - name: Docker image build for aics-admin
+          role-to-assume: ${{ env.DEV_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '792854191046'
+          role-session-name: aics-dev-build-${{ matrix.app }}-${{ github.run_id }}
+      - name: Publish immutable development image to private ECR
+        env:
+          APP: ${{ matrix.app }}
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:${{ github.sha }} -f aics-admin/Dockerfile .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:latest
-
-      - name: Docker image build for aics-api
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:${{ github.sha }} -f aics-api/Dockerfile .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:latest
-
-      - name: Docker image build for aics-auth
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:${{ github.sha }} -f aics-auth/Dockerfile .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:latest
-
-      # Docker Hub 이미지 푸시
-      - name: docker Hub push for aics-admin
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:latest
-
-      - name: docker Hub push for aics-api
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:latest
-
-      - name: docker Hub push for aics-auth
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:latest
+          set -euo pipefail
+          registry=792854191046.dkr.ecr.ap-northeast-2.amazonaws.com
+          error_file=$(mktemp)
+          trap 'rm -f "$error_file"' EXIT
+          if aws ecr describe-images --repository-name "aics-pr-test/aics-$APP" \
+            --image-ids "imageTag=dev-$DEPLOY_SHA" --output json > /dev/null 2>"$error_file"; then
+            echo "Reusing the existing immutable development image."
+            exit 0
+          elif ! grep -q 'ImageNotFoundException' "$error_file"; then
+            echo "Cannot determine whether the development image exists." >&2
+            exit 1
+          fi
+          aws ecr get-login-password --region "$AWS_REGION" | \
+            docker login --username AWS --password-stdin "$registry"
+          image="$registry/aics-pr-test/aics-$APP:dev-$DEPLOY_SHA"
+          docker build -t "$image" -f "aics-$APP/Dockerfile" .
+          docker push "$image"
 
   deploy-to-dev:
+    needs: [verify-development-target, build-docker-image]
+    timeout-minutes: 50
     runs-on: ubuntu-latest
-    needs: build-docker-image
-    environment: cloud-dev
-
+    environment: pr-test
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: checkout repository
-        uses: actions/checkout@v3
-
-      - name: backup current Caddyfile on server
-        uses: appleboy/ssh-action@v1.1.0
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          script: |
-            set -euo pipefail
-            cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
-            if [ -f Caddyfile ]; then
-              cp Caddyfile .Caddyfile.before-deploy
-            fi
-
-      - name: scp docker-compose and Caddyfile to server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          source: "docker/development/docker-compose.yml, docker/development/pgadmin-servers.json, caddy/development/Caddyfile"
-          target: ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
-          strip_components: 2
-
-      - name: ssh to server and deploy
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          # KD3-313(sunzx0428 리뷰): health check는 서비스당 180초 경과시간으로
-          # 상한을 걸어(아래 wait_for_service_health) 세 서비스 합산 최악
-          # 9분(540초)으로 보장한다. 여기에 이미지 pull·stop/rm·up 재시도·Caddy
-          # 재생성·로그인/구 Swagger 스모크 테스트까지 더해도 기본 10분을 넘길
-          # 수 있고, 그러면 rollback_deployment를 못 거친 채 액션이 스크립트를
-          # 강제 종료한다. 전체 예산(최악 약 18분 추산)보다 넉넉히 잡는다.
-          command_timeout: 25m
-          script: |
-            set -euo pipefail
-            cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
-            export IMAGE_TAG=${{ github.sha }}
-
-            # KD3-170 후속(sunzx0428 리뷰 09-06): 새 이미지 자체가 망가져서(재시도로
-            # 해결 안 되는 종류) 기동에 실패하면, 기존 컨테이너를 이미 지운 뒤라 세
-            # 서비스가 전부 내려간 채로 끝날 수 있었다. 직전에 정상 기동을 확인했던
-            # 이미지 태그를 마커 파일로 남겨두고, 이번 배포가 끝까지 실패하면 그
-            # 태그로 되돌린다.
-            LAST_GOOD_TAG_FILE=.last-successful-image-tag
-            PREVIOUS_CADDYFILE=.Caddyfile.before-deploy
-            PREVIOUS_IMAGE_TAG=""
-            if [ -f "$LAST_GOOD_TAG_FILE" ]; then
-              PREVIOUS_IMAGE_TAG=$(cat "$LAST_GOOD_TAG_FILE")
-            fi
-
-            restore_previous_caddy_config() {
-              if [ ! -f "$PREVIOUS_CADDYFILE" ]; then
-                echo "복구할 이전 Caddyfile이 없습니다." >&2
-                return 1
-              fi
-
-              echo "이전 Caddyfile로 되돌립니다." >&2
-              cp "$PREVIOUS_CADDYFILE" Caddyfile
-              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} run --rm --no-deps \
-                --entrypoint caddy caddy \
-                validate --config /etc/caddy/Caddyfile --adapter caddyfile
-              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
-                up -d --force-recreate --no-deps caddy
-            }
-
-            rollback_deployment() {
-              if [ -z "$PREVIOUS_IMAGE_TAG" ]; then
-                echo "롤백할 이전 이미지 태그가 없습니다(첫 배포이거나 기록이 없음)." >&2
-              else
-                echo "이전 이미지($PREVIOUS_IMAGE_TAG)로 되돌립니다." >&2
-                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
-                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
-                IMAGE_TAG="$PREVIOUS_IMAGE_TAG" \
-                  docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
-                  up -d aics-api aics-admin aics-auth
-              fi
-
-              restore_previous_caddy_config || true
-            }
-
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull
-
-            # KD3-170: "docker compose up -d" 한 번에 재생성을 맡기면, 기존 컨테이너를
-            # 멈추고 지우는 것과 새 컨테이너에 원래 이름을 붙이는 것 사이에 타이밍 레이스가
-            # 생겨 "컨테이너 이름 충돌"로 배포가 실패하는 경우가 반복됐다(#106, #128, #132
-            # 배포 때 실제로 겪음 — 재현할 때마다 서버에 직접 들어가 멈춰있는 컨테이너를
-            # 수동으로 지워야 했음). stop/rm을 명시적인 별도 명령으로 분리하면 각 명령이
-            # 끝날 때까지 확실히 기다린 뒤 다음 단계로 넘어가므로 이 레이스 자체가 없어진다.
-            # postgres/redis/caddy/pgadmin은 매번 재시작할 필요가 없어 대상에서 제외한다.
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
-            docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
-
-            # KD3-170: up -d 가 일시적인 Docker 오류로 실패하면 set -e 로 바로
-            # 스크립트가 종료되어 애플리케이션 컨테이너가 없는 상태로 남는다.
-            # 일시적 실패에 한해 제한된 횟수로 재시도한다.
-            up_one_service() {
-              local service="$1"
-              local attempt=1
-              until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} up -d --no-deps "$service"; do
-                if [ "$attempt" -ge 5 ]; then
-                  echo "docker compose up 실패 ($service, 재시도 $attempt회 초과)." >&2
-                  docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
-                  rollback_deployment || true
-                  exit 1
-                fi
-
-                echo "docker compose up 실패 ($service), 재시도합니다. ($attempt/5)"
-                attempt=$((attempt + 1))
-                sleep 5
-              done
-            }
-
-            # KD3-313: 2 vCPU/911MB 서버에서 세 JVM을 동시에 올리면 CPU·메모리 경합으로
-            # 기동이 3~5분까지 늘어나 아래 health check(최대 3분)가 반복 타임아웃됐다
-            # (#309 배포 2회 연속 실패, HikariCP housekeeper delta 최대 1m34s 관측 —
-            # 코드 문제가 아니라 세 앱이 동시에 CPU를 다투는 게 원인이었음). 한 번에
-            # 하나씩만 올리고 그 앱이 health check를 통과한 뒤에야 다음 앱을 올려서,
-            # 기동 중인 앱이 항상 vCPU를 혼자 쓰도록 한다.
-            # KD3-313(sunzx0428 재리뷰): 시도 횟수(90회)로 예산을 세면, wget -T 5가
-            # 매 시도마다 최대 5초까지 걸릴 수 있어 실제로는 90*(5+2)=630초까지
-            # 늘어날 수 있다(세 서비스 합산 최악 약 31분) — command_timeout을 아무리
-            # 넉넉히 잡아도 안전하다고 보장할 수 없다. 시도 횟수 대신 서비스별 실제
-            # 경과시간(180초)으로 상한을 건다.
-            # timeout_seconds는 생략하면 180초(최초 기동 대기용). 아래 최종
-            # 재확인(lee-seokmin 리뷰)처럼 이미 한 번 떴던 앱을 짧게 다시
-            # 찔러볼 때는 더 작은 값을 넘긴다.
-            wait_for_service_health() {
-              local service_label="$1"
-              local url="$2"
-              local timeout_seconds="${3:-180}"
-              local deadline=$(( $(date +%s) + timeout_seconds ))
-              until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
-                wget -T 5 -q -O /dev/null "$url"; do
-                if [ "$(date +%s)" -ge "$deadline" ]; then
-                  echo "$service_label 기동 확인에 실패했습니다 (${timeout_seconds}초 초과)." >&2
-                  docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} ps
-                  rollback_deployment || true
-                  exit 1
-                fi
-
-                echo "$service_label 기동을 기다립니다."
-                sleep 2
-              done
-            }
-
-            # KD3-313(lee-seokmin·sunzx0428 리뷰): 앱을 더 이상 "--no-deps 없는 전체
-            # up -d"로 올리지 않으므로, postgres/redis/caddy가 이미 내려가 있던 경우
-            # (서버 재부팅, 수동 정지, 최초 배포 등) 더는 자동으로 복구되지 않는다.
-            # 특히 health check는 뒤쪽 Caddy 재생성보다 먼저 caddy 컨테이너에 exec
-            # 하므로, caddy가 없으면 앱이 멀쩡히 떠도 probe 자체가 실패해 롤백된다.
-            # 순차 기동에 들어가기 전에 기반 서비스를 먼저 확보한다.
-            up_one_service postgres
-            up_one_service redis
-            up_one_service pgadmin
-            up_one_service caddy
-
-            up_one_service aics-api
-            wait_for_service_health aics-api http://aics-api:8080/v3/api-docs
-
-            up_one_service aics-admin
-            wait_for_service_health aics-admin http://aics-admin:8081/admin-api-docs
-
-            up_one_service aics-auth
-            wait_for_service_health aics-auth http://aics-auth:8082/auth-api-docs
-
-            # scp-action은 Caddyfile을 새 inode로 교체할 수 있다. 단일 파일 bind mount를
-            # 유지한 채 reload만 하면 실행 중인 Caddy가 이전 inode의 설정을 다시 읽어
-            # 최신 라우트가 반영되지 않는다. 새 파일을 일회성 컨테이너에서 먼저 검증한 뒤
-            # Caddy만 재생성해 새 bind mount를 잡는다.
-            if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} run --rm --no-deps \
-              --entrypoint caddy caddy \
-              validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
-              echo "새 Caddyfile 검증에 실패했습니다." >&2
-              rollback_deployment || true
-              exit 1
-            fi
-
-            if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
-              up -d --force-recreate --no-deps caddy; then
-              echo "Caddy 컨테이너 재생성에 실패했습니다." >&2
-              rollback_deployment || true
-              exit 1
-            fi
-
-            reload_attempt=1
-            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy \
-              caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; do
-              if [ "$reload_attempt" -ge 10 ]; then
-                echo "Caddy reload failed after $reload_attempt attempts." >&2
-                rollback_deployment || true
-                exit 1
-              fi
-
-              echo "Caddy admin API is not ready. Retrying reload ($reload_attempt/10)..."
-              reload_attempt=$((reload_attempt + 1))
-              sleep 1
-            done
-
-            # 문서 URL만 확인하면 Caddy가 구 prefix를 계속 사용해도 배포가 성공한다.
-            # 공개 도메인의 로그인 경로에 빈 JSON을 보내 Auth의 validation(400)까지
-            # 도달하는지 확인한다. catch-all API로 잘못 라우팅되면 CSRF 403이므로 실패한다.
-            login_smoke_attempt=1
-            until docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} exec -T caddy sh -c \
-              "wget -T 5 -S -O /dev/null --header='Content-Type: application/json' --post-data='{}' \
-              https://team-project-api.kgudevelopers.monster/api/v1/auth/login 2>&1 || true" \
-              | grep -Eq 'HTTP/[0-9.]+ 400'; do
-              if [ "$login_smoke_attempt" -ge 10 ]; then
-                echo "공개 로그인 경로 스모크 테스트에 실패했습니다." >&2
-                rollback_deployment || true
-                exit 1
-              fi
-
-              echo "공개 로그인 경로 반영을 기다립니다. ($login_smoke_attempt/10)"
-              login_smoke_attempt=$((login_smoke_attempt + 1))
-              sleep 2
-            done
-
-            # BusyBox wget은 리디렉션을 따라간 뒤 중간 308 헤더를 출력하는 방식이
-            # 실행 환경에 따라 달라 정상 응답도 실패로 판정했다(#241 배포). 서버의
-            # curl로 리디렉션을 따라가지 않은 최초 상태 코드 자체를 확인한다.
-            if ! command -v curl >/dev/null 2>&1; then
-              echo "구 Swagger URL 검증에 필요한 curl이 서버에 없습니다." >&2
-              rollback_deployment || true
-              exit 1
-            fi
-
-            for legacy_docs_path in admin-docs/index.html auth-docs/index.html; do
-              legacy_docs_attempt=1
-              while true; do
-                legacy_docs_status=$(curl --max-time 5 --silent --show-error \
-                  --output /dev/null --write-out '%{http_code}' \
-                  "https://team-project-api.kgudevelopers.monster/$legacy_docs_path" || true)
-
-                if [ "$legacy_docs_status" = "308" ]; then
-                  break
-                fi
-
-                if [ "$legacy_docs_attempt" -ge 10 ]; then
-                  echo "구 Swagger URL 리디렉션 스모크 테스트에 실패했습니다: $legacy_docs_path (HTTP $legacy_docs_status)" >&2
-                  rollback_deployment || true
-                  exit 1
-                fi
-
-                echo "구 Swagger URL 리디렉션 반영을 기다립니다: $legacy_docs_path ($legacy_docs_attempt/10)"
-                legacy_docs_attempt=$((legacy_docs_attempt + 1))
-                sleep 2
-              done
-            done
-
-            # KD3-313(lee-seokmin 리뷰): API를 먼저 확인한 뒤 Admin·Auth가 순차로
-            # 뜨는 동안 API가 죽는 경우를, 각 앱 기동 직후 1회성 체크만으로는 못
-            # 잡는다. 성공 태그를 기록하기 전에 세 앱 상태를 한 번 더 짧게(앱당
-            # 최대 10초) 재확인한다.
-            wait_for_service_health aics-api http://aics-api:8080/v3/api-docs 10
-            wait_for_service_health aics-admin http://aics-admin:8081/admin-api-docs 10
-            wait_for_service_health aics-auth http://aics-auth:8082/auth-api-docs 10
-
-            echo "API, Admin, Auth 애플리케이션 기동 확인을 완료했습니다."
-            echo "$IMAGE_TAG" > "$LAST_GOOD_TAG_FILE"
-
-            echo "이미지 정리 전 디스크 사용량:"
-            df -h .
-            docker image prune -af
-            echo "이미지 정리 후 디스크 사용량:"
-            df -h .
+          role-to-assume: ${{ env.DEV_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '792854191046'
+          role-session-name: aics-dev-deploy-${{ github.run_id }}
+      - name: Replace development apps and wait for health checks
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: scripts/run-development-command.sh deploy "$DEPLOY_SHA"
+      - name: Verify public development HTTPS
+        run: |
+          set -euo pipefail
+          for route in /swagger-ui/index.html /v3/api-docs /auth-api-docs /admin-api-docs; do
+            curl --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
+              --max-time 10 --fail --silent --show-error --output /dev/null \
+              "https://api.dev.kgudevelopers.monster$route"
+          done

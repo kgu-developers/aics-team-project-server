@@ -1,0 +1,41 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ssm:ap-northeast-2:792854191046:document/AicsPrTestDeploy",
+        "arn:aws:ec2:ap-northeast-2:792854191046:instance/i-0eb11976c412eb88b"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ssm:GetCommandInvocation",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:DescribeImages"
+      ],
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-api",
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-admin",
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-auth"
+      ]
+    }
+  ]
+}

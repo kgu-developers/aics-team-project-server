@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*",
+      "Condition": {
+        "ArnEquals": {
+          "ec2:SourceInstanceArn": "arn:aws:ec2:ap-northeast-2:792854191046:instance/i-0eb11976c412eb88b"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchCheckLayerAvailability"
+      ],
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-api",
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-admin",
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-auth"
+      ],
+      "Condition": {
+        "ArnEquals": {
+          "ec2:SourceInstanceArn": "arn:aws:ec2:ap-northeast-2:792854191046:instance/i-0eb11976c412eb88b"
+        }
+      }
+    }
+  ]
+}
