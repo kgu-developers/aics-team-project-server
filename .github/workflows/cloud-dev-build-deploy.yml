@@ -1,87 +1,110 @@
-name: Build and Deploy to Development Server on Cloud
+name: Build and Deploy to Isolated Development Server
 
 on:
   push:
-    branches:
-      - develop
+    branches: [develop]
   workflow_dispatch:
+    inputs:
+      verify_only:
+        description: Verify the development connection without building or replacing apps
+        type: boolean
+        required: true
+        default: true
 
-# KD3-170: 이 워크플로의 실행 자체가 겹치면(#121, #128 배포에서 실제로 5분 이상
-# 동시 실행됨) 두 실행이 동시에 stop/rm/up을 수행할 수 있어 컨테이너 이름 충돌이
-# 재발한다. 배포를 한 번에 하나씩만 진행하도록 워크플로 단위로 직렬화한다.
+permissions:
+  contents: read
+
+# One deployment at a time; do not interrupt rollback or health checks.
 concurrency:
   group: cloud-dev-deployment
   cancel-in-progress: false
 
+env:
+  AWS_REGION: ap-northeast-2
+  DEV_INSTANCE_ID: i-0eb11976c412eb88b
+  DEV_DEPLOY_ROLE: arn:aws:iam::792854191046:role/aics-pr-test-github-deploy
+
 jobs:
-  build-docker-image:
+  verify-development-target:
     runs-on: ubuntu-latest
-    environment: cloud-dev
-
+    environment: pr-test
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: get repo from github
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ env.DEV_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '792854191046'
+          role-session-name: aics-dev-check-${{ github.run_id }}
+      - name: Verify fixed development target without changing services
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: scripts/run-development-command.sh check "$DEPLOY_SHA"
 
-      # JDK setting
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+  build-docker-image:
+    needs: verify-development-target
+    if: github.event_name == 'push' || !inputs.verify_only
+    runs-on: ubuntu-latest
+    # Existing registry credentials only. No SSH/deployment secrets are used here.
+    environment: cloud-dev
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, admin, auth]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
-
-      # gradle 빌드
-      - name: Setup Gradle
-        run: chmod +x gradlew
-
-      - name: Build with Gradle Wrapper
-        run: |
-          ./gradlew clean build -p aics-admin -x test
-          ./gradlew clean build -p aics-api -x test
-          ./gradlew clean build -p aics-auth -x test
-
-      # DockerHub 로그인
-      - name: Docker login
-        uses: docker/login-action@v3
+          distribution: temurin
+      - name: Build application
+        env:
+          APP: ${{ matrix.app }}
+        run: ./gradlew ":aics-$APP:bootJar" -x test
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      # Docker 이미지 빌드
-      - name: Docker image build for aics-admin
+      - name: Publish development image without updating production tags
+        env:
+          APP: ${{ matrix.app }}
+          DEPLOY_SHA: ${{ github.sha }}
+          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:${{ github.sha }} -f aics-admin/Dockerfile .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:latest
-
-      - name: Docker image build for aics-api
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:${{ github.sha }} -f aics-api/Dockerfile .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:latest
-
-      - name: Docker image build for aics-auth
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:${{ github.sha }} -f aics-auth/Dockerfile .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:latest
-
-      # Docker Hub 이미지 푸시
-      - name: docker Hub push for aics-admin
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-admin:latest
-
-      - name: docker Hub push for aics-api
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-api:latest
-
-      - name: docker Hub push for aics-auth
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:${{ github.sha }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/aics-auth:latest
+          set -euo pipefail
+          test "$REGISTRY_USER" = hotan35
+          image="hotan35/aics-$APP:dev-$DEPLOY_SHA"
+          docker build -t "$image" -f "aics-$APP/Dockerfile" .
+          docker push "$image"
 
   deploy-to-dev:
-    needs: build-docker-image
-    uses: ./.github/workflows/deploy-reusable.yml
-    with:
-      environment: cloud-dev
-      image_tag: ${{ github.sha }}
-    secrets: inherit
+    needs: [verify-development-target, build-docker-image]
+    timeout-minutes: 50
+    runs-on: ubuntu-latest
+    environment: pr-test
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ env.DEV_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '792854191046'
+          role-session-name: aics-dev-deploy-${{ github.run_id }}
+      - name: Replace development apps and wait for health checks
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: scripts/run-development-command.sh deploy "$DEPLOY_SHA"
+      - name: Verify public development HTTPS
+        run: |
+          set -euo pipefail
+          for route in /swagger-ui/index.html /v3/api-docs /auth-api-docs /admin-api-docs; do
+            status=$(curl --max-time 15 --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' "https://api.dev.kgudevelopers.monster$route")
+            test "$status" = 200
+          done

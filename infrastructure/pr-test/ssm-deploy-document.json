@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Deploy app images only on the isolated AICS PR test EC2. No arbitrary commands or production targets.",
+  "parameters": {
+    "CommitSha": {
+      "type": "String",
+      "allowedPattern": "^[a-f0-9]{40}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "Mode": {
+      "type": "String",
+      "default": "check",
+      "allowedValues": [
+        "check",
+        "deploy"
+      ],
+      "interpolationType": "ENV_VAR"
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "deployPrTestApps",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "2400",
+        "runCommand": [
+          "set -eu",
+          "test \"$(cat /var/lib/cloud/data/instance-id)\" = \"i-0eb11976c412eb88b\"",
+          "test -n \"${SSM_CommitSha:-}\" && test -n \"${SSM_Mode:-}\"",
+          "if [ \"$SSM_Mode\" = check ]; then",
+          "  sudo -u ubuntu -H /home/ubuntu/aics-pr-test-app/deploy-development.sh --check \"$SSM_CommitSha\" hotan35",
+          "else",
+          "  sudo -u ubuntu -H /home/ubuntu/aics-pr-test-app/deploy-development.sh \"$SSM_CommitSha\" hotan35",
+          "fi"
+        ]
+      }
+    }
+  ]
+}
