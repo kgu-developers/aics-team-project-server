@@ -24,8 +24,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
@@ -62,6 +64,9 @@ class AnnouncementPopupRepositoryPostgresTest {
 
     @Autowired
     private JpaAnnouncementPopupRepository jpaRepository;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @SpringBootApplication
     @EntityScan(basePackageClasses = AnnouncementPopupJpaEntity.class)
@@ -194,6 +199,26 @@ class AnnouncementPopupRepositoryPostgresTest {
         assertThatThrownBy(() -> repository.save(second))
             .isInstanceOf(AnnouncementPopupConcurrentlyModifiedException.class);
         assertThat(repository.findById(id).orElseThrow().getContent()).isEqualTo("첫 번째 수정");
+    }
+
+    @Test
+    @DisplayName("수정 저장 직후 같은 트랜잭션에서 다시 읽어도 createdAt이 유지된다(수정 응답의 createdAt이 null로 나가던 문제)")
+    void save_ThenFindInSameTransaction_KeepsCreatedAt() {
+        // given: 이미 커밋된 팝업을 읽어 온 상태(수정 요청이 읽어 온 도메인 객체와 같다)
+        Long id = save(10L, 1L, "원래 내용", null).getId();
+        AnnouncementPopup stored = repository.findById(id).orElseThrow();
+        assertThat(stored.getCreatedAt()).isNotNull();
+        stored.updateContent("수정된 내용");
+
+        // when: 파사드처럼 한 트랜잭션 안에서 저장하고 바로 다시 읽는다
+        AnnouncementPopup reread = new TransactionTemplate(transactionManager).execute(status -> {
+            repository.save(stored);
+            return repository.findById(id).orElseThrow();
+        });
+
+        // then
+        assertThat(reread.getContent()).isEqualTo("수정된 내용");
+        assertThat(reread.getCreatedAt()).isNotNull();
     }
 
     @Test

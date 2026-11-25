@@ -11,6 +11,7 @@ import kgu.developers.domain.announcementpopup.exception.AnnouncementPopupImageC
 import kgu.developers.domain.announcementpopup.exception.AnnouncementPopupInvalidContentException;
 import kgu.developers.domain.announcementpopup.exception.AnnouncementPopupNotFoundException;
 import kgu.developers.domain.announcementpopup.exception.AnnouncementPopupTitleTooLongException;
+import kgu.developers.domain.fileobject.domain.FileObject;
 import kgu.developers.domain.fileobject.exception.FileObjectInvalidTypeException;
 import mock.repository.FakeAnnouncementPopupRepository;
 import mock.repository.FakeFileObjectRepository;
@@ -27,14 +28,16 @@ class AnnouncementPopupCommandServiceTest {
 
     private FakeAnnouncementPopupRepository fakePopupRepository;
     private FakeFileObjectRepository fakeFileObjectRepository;
+    private FakeFileStorage fakeFileStorage;
     private AnnouncementPopupCommandService commandService;
 
     @BeforeEach
     void init() {
         fakePopupRepository = new FakeAnnouncementPopupRepository();
         fakeFileObjectRepository = new FakeFileObjectRepository();
+        fakeFileStorage = new FakeFileStorage();
         commandService = new AnnouncementPopupCommandService(
-            fakePopupRepository, fakeFileObjectRepository, new FakeFileStorage());
+            fakePopupRepository, fakeFileObjectRepository, fakeFileStorage);
     }
 
     private MultipartFile image(String name, String contentType) {
@@ -263,6 +266,152 @@ class AnnouncementPopupCommandServiceTest {
     void updatePopup_NotFound() {
         assertThatThrownBy(() -> commandService.updatePopup(999L, null, "내용", null, false, null, UPLOADER))
             .isInstanceOf(AnnouncementPopupNotFoundException.class);
+    }
+
+    // ---------------------------------------------------------------- Content-Type이 없는 이미지
+
+    @Test
+    @DisplayName("createPopup은 Content-Type이 없는 파일이면 500이 아니라 잘못된 파일로 거부하고 아무것도 만들지 않는다")
+    void createPopup_NullContentType_RejectedWithoutSideEffects() {
+        // given: 파일 파트에 Content-Type 헤더가 없는 경우
+        MultipartFile noContentType = new MockMultipartFile("image", "안내.png", null, "bytes".getBytes());
+
+        // when & then
+        assertThatThrownBy(() -> commandService.createPopup(10L, 1L, null, "안내 내용", noContentType, UPLOADER))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+        assertThat(fakePopupRepository.existsByAnnouncementId(10L)).isFalse();
+        assertThat(fakeFileStorage.storedKeys()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("updatePopup은 Content-Type이 없는 파일이면 거부하고 기존 팝업을 바꾸지 않는다")
+    void updatePopup_NullContentType_RejectedAtomically() {
+        // given
+        Long id = createPopup();
+        MultipartFile noContentType = new MockMultipartFile("image", "안내.png", null, "bytes".getBytes());
+
+        // when & then
+        assertThatThrownBy(() -> commandService.updatePopup(
+            id, null, "바뀌면 안 되는 내용", null, false, noContentType, UPLOADER))
+            .isInstanceOf(FileObjectInvalidTypeException.class);
+        assertThat(fakePopupRepository.findById(id).orElseThrow().getContent()).isEqualTo("안내 내용");
+        assertThat(fakeFileStorage.storedKeys()).isEmpty();
+    }
+
+    // ---------------------------------------------------------------- 저장 실패 시 업로드한 이미지 정리
+
+    /** 팝업 저장만 실패하게 만든 저장소. 업로드 뒤 DB 저장이 실패하는 상황(유일 제약 위반, 동시 수정 충돌)을 흉내 낸다. */
+    private static class FailingSaveRepository extends FakeAnnouncementPopupRepository {
+        private boolean failOnSave;
+
+        void failOnSave() {
+            this.failOnSave = true;
+        }
+
+        @Override
+        public AnnouncementPopup save(AnnouncementPopup announcementPopup) {
+            if (failOnSave) {
+                throw new AnnouncementPopupAlreadyExistsException();
+            }
+            return super.save(announcementPopup);
+        }
+    }
+
+    @Test
+    @DisplayName("createPopup은 이미지를 올린 뒤 팝업 저장이 실패하면 올린 이미지를 지우고 원래 예외를 던진다")
+    void createPopup_SaveFails_DeletesUploadedImage() {
+        // given
+        FailingSaveRepository failingRepository = new FailingSaveRepository();
+        failingRepository.failOnSave();
+        AnnouncementPopupCommandService service = new AnnouncementPopupCommandService(
+            failingRepository, fakeFileObjectRepository, fakeFileStorage);
+
+        // when & then
+        assertThatThrownBy(() -> service.createPopup(
+            10L, 1L, null, "안내 내용", image("안내.png", "image/png"), UPLOADER))
+            .isInstanceOf(AnnouncementPopupAlreadyExistsException.class);
+        assertThat(fakeFileStorage.storedKeys()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("updatePopup은 새 이미지를 올린 뒤 저장이 실패하면 새로 올린 이미지만 지운다")
+    void updatePopup_SaveFails_DeletesOnlyNewUpload() {
+        // given: 기존 이미지가 있는 팝업(저장은 성공시켜 둔다)
+        FailingSaveRepository failingRepository = new FailingSaveRepository();
+        AnnouncementPopupCommandService service = new AnnouncementPopupCommandService(
+            failingRepository, fakeFileObjectRepository, fakeFileStorage);
+        Long id = service.createPopup(10L, 1L, null, "안내 내용", image("기존.png", "image/png"), UPLOADER);
+        assertThat(fakeFileStorage.storedKeys()).hasSize(1);
+        Long oldFileId = failingRepository.findById(id).orElseThrow().getImageFileId();
+
+        // when: 교체 업로드 뒤 저장이 실패한다
+        failingRepository.failOnSave();
+
+        // then
+        assertThatThrownBy(() -> service.updatePopup(
+            id, null, null, null, false, image("새이미지.png", "image/png"), UPLOADER))
+            .isInstanceOf(AnnouncementPopupAlreadyExistsException.class);
+        assertThat(fakeFileStorage.storedKeys()).hasSize(1);
+        assertThat(failingRepository.findById(id).orElseThrow().getImageFileId()).isEqualTo(oldFileId);
+    }
+
+    @Test
+    @DisplayName("이미지 삭제까지 실패해도 원래 예외를 가리지 않고 삭제 실패는 suppressed로 남긴다")
+    void createPopup_SaveFailsAndCleanupFails_KeepsOriginalException() {
+        // given
+        FailingSaveRepository failingRepository = new FailingSaveRepository();
+        failingRepository.failOnSave();
+        FakeFileStorage failingDeleteStorage = new FakeFileStorage() {
+            @Override
+            public void delete(String storageKey) {
+                throw new IllegalStateException("삭제 실패");
+            }
+        };
+        AnnouncementPopupCommandService service = new AnnouncementPopupCommandService(
+            failingRepository, fakeFileObjectRepository, failingDeleteStorage);
+
+        // when & then
+        assertThatThrownBy(() -> service.createPopup(
+            10L, 1L, null, "안내 내용", image("안내.png", "image/png"), UPLOADER))
+            .isInstanceOf(AnnouncementPopupAlreadyExistsException.class)
+            .satisfies(e -> assertThat(e.getSuppressed())
+                .hasSize(1)
+                .allSatisfy(s -> assertThat(s).isInstanceOf(IllegalStateException.class)));
+    }
+
+    @Test
+    @DisplayName("이미지를 올린 뒤 파일 정보(FileObject) 저장이 실패해도 올린 이미지를 지운다")
+    void createPopup_FileObjectSaveFails_DeletesUploadedImage() {
+        // given
+        FakeFileObjectRepository failingFileObjectRepository = new FakeFileObjectRepository() {
+            @Override
+            public FileObject save(FileObject fileObject) {
+                throw new IllegalStateException("파일 정보 저장 실패");
+            }
+        };
+        AnnouncementPopupCommandService service = new AnnouncementPopupCommandService(
+            fakePopupRepository, failingFileObjectRepository, fakeFileStorage);
+
+        // when & then
+        assertThatThrownBy(() -> service.createPopup(
+            10L, 1L, null, "안내 내용", image("안내.png", "image/png"), UPLOADER))
+            .isInstanceOf(IllegalStateException.class);
+        assertThat(fakeFileStorage.storedKeys()).isEmpty();
+        assertThat(fakePopupRepository.existsByAnnouncementId(10L)).isFalse();
+    }
+
+    @Test
+    @DisplayName("이미지 없이 등록하다 저장이 실패해도 지울 파일이 없어 그대로 예외만 던진다")
+    void createPopup_SaveFailsWithoutImage_NoCleanupNeeded() {
+        // given
+        FailingSaveRepository failingRepository = new FailingSaveRepository();
+        failingRepository.failOnSave();
+        AnnouncementPopupCommandService service = new AnnouncementPopupCommandService(
+            failingRepository, fakeFileObjectRepository, fakeFileStorage);
+
+        // when & then
+        assertThatThrownBy(() -> service.createPopup(10L, 1L, null, "안내 내용", null, UPLOADER))
+            .isInstanceOf(AnnouncementPopupAlreadyExistsException.class);
     }
 
     // ---------------------------------------------------------------- 제목(선택)

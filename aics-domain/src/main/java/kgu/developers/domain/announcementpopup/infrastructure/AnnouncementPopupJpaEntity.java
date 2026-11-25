@@ -72,7 +72,7 @@ public class AnnouncementPopupJpaEntity extends BaseTimeEntity {
     }
 
     public static AnnouncementPopupJpaEntity toEntity(AnnouncementPopup domain) {
-        return AnnouncementPopupJpaEntity.builder()
+        AnnouncementPopupJpaEntity entity = AnnouncementPopupJpaEntity.builder()
             .id(domain.getId())
             .announcementId(domain.getAnnouncementId())
             .sectionId(domain.getSectionId())
@@ -82,5 +82,11 @@ public class AnnouncementPopupJpaEntity extends BaseTimeEntity {
             .enabled(domain.isEnabled())
             .version(domain.getVersion())
             .build();
+        // createdAt은 @Column(updatable = false)라 UPDATE SQL에는 들어가지 않지만, 여기서 채우지 않으면
+        // merge()가 null을 이미 영속 상태인 엔티티에 복사해, 같은 트랜잭션에서 바로 다시 읽은 도메인 객체의
+        // createdAt이 null로 남는다. AnnouncementPopupFacade.updatePopup()이 수정 직후 같은 트랜잭션에서
+        // 다시 읽어 응답을 만들기 때문에 수정 응답의 createdAt이 null로 나갔다(MeetingActionJpaEntity와 같은 문제).
+        entity.createdAt = domain.getCreatedAt();
+        return entity;
     }
 }
