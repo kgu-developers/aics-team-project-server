@@ -23,6 +23,13 @@ on:
         type: string
         required: false
         default: development
+      ref:
+        description: >-
+          서버로 복사할 설정 파일(compose, Caddyfile)을 가져올 git ref(커밋 sha). 비우면 호출한 워크플로가 실행된 커밋을 쓴다.
+          운영 승격처럼 "개발에서 검증한 옛 커밋"을 배포할 때, 이미지와 같은 시점의 설정 파일을 보내려고 지정한다.
+        type: string
+        required: false
+        default: ''
 
 jobs:
   deploy:
@@ -34,6 +41,9 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v3
+        with:
+          # ref 를 안 주면 호출한 워크플로의 커밋(github.sha)이라, 기존 개발 배포(develop push)와 동작이 같다.
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: backup current Caddyfile on server
         uses: appleboy/ssh-action@v1.1.0

@@ -1,0 +1,189 @@
+name: Promote to Production
+
+# 개발 서버에서 검증된 커밋을 "다시 빌드하지 않고" 운영 서버에 배포한다.
+# develop 에 머지하면 cloud-dev-build-deploy.yml 이 이미지를 빌드해 Docker Hub 에 커밋 sha 태그로 올리고 개발 서버에 배포한다.
+# 개발에서 확인한 뒤, 이 워크플로를 직접 실행(workflow_dispatch)하면 같은 sha 의 이미지를 운영 서버에 올린다.
+# 검증한 이미지와 운영에 나가는 이미지가 같은 파일이라는 점이 핵심이다.
+#
+# 흐름
+#   1) validate  : 승인 요청 전에 입력을 검증한다(develop 이력, Docker Hub 이미지 3개, 개발 서버 배포 성공 이력).
+#   2) deploy    : cloud-prod 환경의 승인자가 승인하면 deploy-reusable.yml 로 운영 서버에 배포한다.
+#   3) record    : 배포가 성공하면 main 을 그 커밋으로 옮기고(fast-forward) 날짜 태그를 붙인다.
+#
+# 운영 서버 접속 정보는 cloud-prod 환경의 시크릿을 쓴다. 이 환경에 승인자(Required reviewers)와
+# 배포 브랜치 제한(develop 만)을 지정해 두는 것을 전제로 한다.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 운영에 배포할 커밋 sha(전체 40자). 개발 서버에 성공적으로 배포된 develop 커밋이어야 한다
+        type: string
+        required: true
+      dry_run:
+        description: 검증만 하고 배포하지 않는다(승격 대상이 통과하는지 미리 확인할 때)
+        type: boolean
+        required: false
+        default: false
+
+# 운영 배포가 겹치지 않게 한 번에 하나씩만 진행한다. 대기 중인 실행은 취소하지 않는다.
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: 1. 승격 대상 검증
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag }}
+      # Docker Hub 사용자명(이미지 이름 앞부분). 이미지 저장소가 공개라 로그인 없이 태그를 조회한다.
+      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || 'hotan35' }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: develop 브랜치에서 실행했는지 확인
+        run: |
+          # 운영 시크릿을 쓰는 워크플로이므로, 검토되지 않은 브랜치의 코드로는 실행하지 못하게 한다.
+          if [ "${GITHUB_REF}" != "refs/heads/develop" ]; then
+            echo "::error::운영 승격은 develop 브랜치에서만 실행할 수 있습니다(현재: ${GITHUB_REF}). 'Use workflow from'에서 develop 을 선택하세요."
+            exit 1
+          fi
+
+      - name: checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: 커밋 sha 형식 확인
+        run: |
+          if ! [[ "${IMAGE_TAG}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::image_tag 는 소문자 16진수 40자의 전체 커밋 sha 여야 합니다(입력: ${IMAGE_TAG})."
+            exit 1
+          fi
+          echo "커밋 sha 형식이 올바릅니다."
+
+      - name: develop 이력에 있는 커밋인지 확인
+        run: |
+          if ! git cat-file -e "${IMAGE_TAG}^{commit}" 2>/dev/null; then
+            echo "::error::저장소에서 커밋을 찾을 수 없습니다: ${IMAGE_TAG}"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${IMAGE_TAG}" origin/develop; then
+            echo "::error::develop 브랜치 이력에 없는 커밋입니다. develop 에 머지된 커밋만 운영에 올릴 수 있습니다."
+            exit 1
+          fi
+          echo "develop 이력에 있는 커밋입니다: $(git log -1 --format='%h %s' "${IMAGE_TAG}")"
+
+      - name: Docker Hub 에 이미지 3개가 있는지 확인
+        run: |
+          missing=()
+          for app in api admin auth; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
+              "https://hub.docker.com/v2/repositories/${DOCKERHUB_NAMESPACE}/aics-${app}/tags/${IMAGE_TAG}" || echo "000")
+            if [ "${code}" = "200" ]; then
+              echo "aics-${app}:${IMAGE_TAG:0:7} 있음"
+            else
+              echo "aics-${app}:${IMAGE_TAG:0:7} 확인 실패(HTTP ${code})"
+              missing+=("aics-${app}")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Docker Hub 에서 이미지를 확인하지 못했습니다: ${missing[*]} (태그 ${IMAGE_TAG}). 개발 서버 배포의 빌드가 성공했는지, 잠시 후 다시 시도해도 같은지 확인하세요."
+            exit 1
+          fi
+
+      - name: 개발 서버에 성공적으로 배포된 커밋인지 확인
+        run: |
+          # develop push 로 실행된 개발 배포(cloud-dev-build-deploy.yml)가 이 커밋으로 성공한 기록이 있어야 한다.
+          # 개발 서버에서 검증된 커밋만 운영에 올리기 위한 조건이다.
+          count=$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow cloud-dev-build-deploy.yml \
+            --branch develop --event push --commit "${IMAGE_TAG}" --status success \
+            --json databaseId --jq 'length')
+          if [ "${count:-0}" -lt 1 ]; then
+            echo "::error::이 커밋으로 개발 서버 배포가 성공한 기록이 없습니다. 개발 서버에 먼저 배포되어 확인된 커밋만 운영에 올릴 수 있습니다."
+            exit 1
+          fi
+          echo "개발 서버 배포 성공 기록이 ${count}건 있습니다."
+
+      - name: 검증 결과 요약
+        run: |
+          {
+            echo "### 승격 대상 검증 통과"
+            echo
+            echo "- 커밋: \`${IMAGE_TAG}\`"
+            echo "- $(git log -1 --format='%s' "${IMAGE_TAG}")"
+            echo "- Docker Hub 이미지(api, admin, auth)와 개발 서버 배포 성공 기록을 확인했습니다."
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "- **dry_run 이므로 여기서 멈춥니다. 운영 배포는 하지 않았습니다.**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: 2. 운영 배포
+    needs: validate
+    if: ${{ !inputs.dry_run }}
+    # 환경(cloud-prod)은 deploy-reusable.yml 의 job 이 지정하므로, 그 환경의 승인자가 이 단계에서 승인한다.
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      environment: cloud-prod
+      image_tag: ${{ inputs.image_tag }}
+      # 이미지와 같은 시점의 compose/Caddyfile 을 서버로 보낸다(develop 최신이 아니라 승격하는 커밋).
+      ref: ${{ inputs.image_tag }}
+    secrets: inherit
+
+  record:
+    name: 3. main 이동과 태그
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag }}
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: main 을 운영에 배포한 커밋으로 옮기고 태그 붙이기
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # main 은 "운영에 승격한 최신 커밋"을 가리킨다. 되돌리는(과거 커밋 승격) 경우에는 main 을 뒤로 옮기지 않는다
+          # (fast-forward 만 한다). 무엇이 언제 배포됐는지의 기록은 아래 태그가 남긴다.
+          if git rev-parse --verify -q origin/main >/dev/null; then
+            if git merge-base --is-ancestor "${IMAGE_TAG}" origin/main; then
+              echo "main 이 이미 이 커밋을 포함합니다. main 은 옮기지 않습니다."
+            elif git merge-base --is-ancestor origin/main "${IMAGE_TAG}"; then
+              if ! git push origin "${IMAGE_TAG}:refs/heads/main"; then
+                echo "::error::main 을 옮기지 못했습니다. 운영 배포는 성공했습니다. main 브랜치 보호 설정에서 GitHub Actions 의 푸시를 허용했는지 확인하세요."
+                exit 1
+              fi
+              echo "main 을 ${IMAGE_TAG:0:7} 로 옮겼습니다."
+            else
+              echo "::error::main 이 이 커밋의 조상이 아니라서 fast-forward 할 수 없습니다. 운영 배포는 성공했습니다. main 이 develop 과 갈라졌는지 확인하세요."
+              exit 1
+            fi
+          else
+            echo "::error::origin/main 브랜치가 없습니다. 운영 배포는 성공했습니다."
+            exit 1
+          fi
+
+          tag="prod-$(TZ=Asia/Seoul date +%Y%m%d-%H%M)-${IMAGE_TAG:0:7}"
+          git tag -a "${tag}" "${IMAGE_TAG}" -m "Production deploy ${IMAGE_TAG}"
+          git push origin "refs/tags/${tag}"
+          {
+            echo "### 운영 배포 완료"
+            echo
+            echo "- 커밋: \`${IMAGE_TAG}\`"
+            echo "- 태그: \`${tag}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
