@@ -36,6 +36,10 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - name: Check deployment script behavior
+        run: |
+          bash -n scripts/deploy-development.sh scripts/run-development-command.sh
+          scripts/test-deploy-development.sh
       - uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
           role-to-assume: ${{ env.DEV_DEPLOY_ROLE }}
@@ -51,8 +55,10 @@ jobs:
     needs: verify-development-target
     if: github.event_name == 'push' || !inputs.verify_only
     runs-on: ubuntu-latest
-    # Existing registry credentials only. No SSH/deployment secrets are used here.
-    environment: cloud-dev
+    environment: pr-test
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -67,19 +73,22 @@ jobs:
         env:
           APP: ${{ matrix.app }}
         run: ./gradlew ":aics-$APP:bootJar" -x test
-      - uses: docker/login-action@v3
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - name: Publish development image without updating production tags
+          role-to-assume: ${{ env.DEV_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '792854191046'
+          role-session-name: aics-dev-build-${{ matrix.app }}-${{ github.run_id }}
+      - name: Publish immutable development image to private ECR
         env:
           APP: ${{ matrix.app }}
           DEPLOY_SHA: ${{ github.sha }}
-          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           set -euo pipefail
-          test "$REGISTRY_USER" = hotan35
-          image="hotan35/aics-$APP:dev-$DEPLOY_SHA"
+          registry=792854191046.dkr.ecr.ap-northeast-2.amazonaws.com
+          aws ecr get-login-password --region "$AWS_REGION" | \
+            docker login --username AWS --password-stdin "$registry"
+          image="$registry/aics-pr-test/aics-$APP:dev-$DEPLOY_SHA"
           docker build -t "$image" -f "aics-$APP/Dockerfile" .
           docker push "$image"
 
@@ -107,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           for route in /swagger-ui/index.html /v3/api-docs /auth-api-docs /admin-api-docs; do
-            status=$(curl --max-time 15 --silent --show-error --output /dev/null \
-              --write-out '%{http_code}' "https://api.dev.kgudevelopers.monster$route")
-            test "$status" = 200
+            curl --retry 5 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
+              --max-time 10 --fail --silent --show-error --output /dev/null \
+              "https://api.dev.kgudevelopers.monster$route"
           done

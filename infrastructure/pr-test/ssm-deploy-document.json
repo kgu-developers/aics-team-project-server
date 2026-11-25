@@ -34,9 +34,9 @@
           "test \"$(cat /var/lib/cloud/data/instance-id)\" = \"i-0eb11976c412eb88b\"",
           "test -n \"${SSM_CommitSha:-}\" && test -n \"${SSM_Mode:-}\"",
           "if [ \"$SSM_Mode\" = check ]; then",
-          "  sudo -u ubuntu -H /home/ubuntu/aics-pr-test-app/deploy-development.sh --check \"$SSM_CommitSha\" hotan35",
+          "  sudo -u ubuntu -H /home/ubuntu/aics-pr-test-app/deploy-development.sh --check \"$SSM_CommitSha\" 792854191046.dkr.ecr.ap-northeast-2.amazonaws.com/aics-pr-test",
           "else",
-          "  sudo -u ubuntu -H /home/ubuntu/aics-pr-test-app/deploy-development.sh \"$SSM_CommitSha\" hotan35",
+          "  sudo -u ubuntu -H /home/ubuntu/aics-pr-test-app/deploy-development.sh \"$SSM_CommitSha\" 792854191046.dkr.ecr.ap-northeast-2.amazonaws.com/aics-pr-test",
           "fi"
         ]
       }

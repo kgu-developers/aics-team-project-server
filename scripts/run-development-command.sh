@@ -10,7 +10,7 @@ command_id=$(aws ssm send-command \
     --region ap-northeast-2 \
     --instance-ids "$instance" \
     --document-name AicsPrTestDeploy \
-    --document-version 2 \
+    --document-version 3 \
     --parameters "CommitSha=$2,Mode=$1" \
     --timeout-seconds 120 \
     --query Command.CommandId --output text --no-cli-pager)

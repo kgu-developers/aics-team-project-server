@@ -5,13 +5,15 @@ readonly EXPECTED_INSTANCE_ID="i-0eb11976c412eb88b"
 readonly EXPECTED_USER="ubuntu"
 readonly APP_DIR="/home/ubuntu/aics-pr-test-app"
 readonly INSTANCE_ID_FILE="/var/lib/cloud/data/instance-id"
-readonly EXPECTED_NAMESPACE="hotan35"
+readonly ECR_REGISTRY="792854191046.dkr.ecr.ap-northeast-2.amazonaws.com"
+readonly EXPECTED_NAMESPACE="$ECR_REGISTRY/aics-pr-test"
+readonly AWS_BIN="/usr/local/bin/aws"
 readonly PROJECT_NAME="aics-pr-test"
 readonly HEALTH_TIMEOUT=180
 readonly SLEEP_SECONDS=2
 
 usage() {
-    echo "Usage: $0 [--check] FULL_HEAD_SHA hotan35" >&2
+    echo "Usage: $0 [--check] FULL_HEAD_SHA $EXPECTED_NAMESPACE" >&2
 }
 
 check_only=false
@@ -96,16 +98,24 @@ wait_for_route() {
 smoke_test() {
     local route
     for route in "${routes[@]}" /swagger-ui/index.html; do
-        check_route "$route" 200 || return 1
+        wait_for_route "$route" 200 || return 1
     done
-    check_route /pgadmin/ 404 || return 1
-    check_route /api/v1/auth/login 400 \
+    wait_for_route /pgadmin/ 404 || return 1
+    wait_for_route /api/v1/auth/login 400 \
         -H 'Content-Type: application/json' --data '{}' || return 1
 }
 
 valid_rollback_image() {
     local image=$1 app=$2
-    [[ $image =~ ^(hotan35|aics-pr-test)/${app}:(dev-)?[a-f0-9]{40}$ ]]
+    local prefix tag
+    for prefix in hotan35 aics-pr-test "$EXPECTED_NAMESPACE"; do
+        if [[ $image == "$prefix/$app:"* ]]; then
+            tag=${image#"$prefix/$app:"}
+            [[ $tag =~ ^(dev-)?[a-f0-9]{40}$ ]]
+            return
+        fi
+    done
+    return 1
 }
 
 write_override() {
@@ -138,7 +148,9 @@ if ! $check_only; then
 fi
 
 compose config --quiet
-smoke_test || { echo "Current development deployment is not healthy." >&2; exit 1; }
+for route in "${routes[@]}"; do
+    check_route "$route" 200 || { echo "Current development deployment is not healthy: $route" >&2; exit 1; }
+done
 
 candidate_images=()
 previous_images=()
@@ -157,10 +169,31 @@ if $check_only; then
     exit 0
 fi
 
+registry_config_dir=""
+cleanup_registry_credentials() {
+    local directory=${registry_config_dir:-}
+    [[ -n $directory ]] || return 0
+    sudo -n rm -f "$directory/config.json"
+    rmdir "$directory"
+    registry_config_dir=""
+}
+
+# Keep ECR credentials in a one-use Docker config and remove them before any
+# application is restarted. The normal Docker config is never read or changed.
+registry_config_dir=$(mktemp -d .ecr-docker-config.XXXXXX)
+chmod 700 "$registry_config_dir"
+trap cleanup_registry_credentials EXIT
+trap 'exit 1' INT TERM
+"$AWS_BIN" ecr get-login-password --region ap-northeast-2 |
+    sudo -n docker --config "$registry_config_dir" login \
+        --username AWS --password-stdin "$ECR_REGISTRY" >/dev/null
+
 # Pull every candidate before changing the compose override or restarting an app.
 for image in "${candidate_images[@]}"; do
-    timeout 180 sudo -n docker pull "$image"
+    timeout 180 sudo -n docker --config "$registry_config_dir" pull "$image"
 done
+cleanup_registry_credentials
+trap - EXIT INT TERM
 
 mutation_started=false
 

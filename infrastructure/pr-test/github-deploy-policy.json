@@ -13,6 +13,28 @@
       "Effect": "Allow",
       "Action": "ssm:GetCommandInvocation",
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer"
+      ],
+      "Resource": [
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-api",
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-admin",
+        "arn:aws:ecr:ap-northeast-2:792854191046:repository/aics-pr-test/aics-auth"
+      ]
     }
   ]
 }
