@@ -20,6 +20,8 @@ flowchart LR
 - **운영 서버**: 사람이 **직접** 승격한다. 개발 서버에서 검증한 것과 **같은 이미지**(같은 커밋 sha)를 올리고, 다시 빌드하지 않는다.
 - `main` 브랜치는 "운영에 승격한 최신 커밋"을 가리키고, 무엇이 언제 배포됐는지는 `prod-날짜-sha` 태그가 기록한다.
 
+이 문서가 다루는 것은 **API 서버**(`team-project-api.kgudevelopers.monster`, 개발은 `api.dev.kgudevelopers.monster`)다. 프론트엔드(`team-project.kgudevelopers.monster`)는 Cloudflare Pages로 서버와 따로 배포되며 이 문서와 무관하다. 프론트 주소는 서버 설정에서 CORS 허용 주소로만 등장한다(4장).
+
 ## 2. 환경과 워크플로
 
 | 구분 | 이름 | 역할 |
@@ -55,7 +57,7 @@ flowchart LR
 
 시크릿 값은 GitHub에서 한 번 저장하면 다시 볼 수 없다. 서버 주소·사용자·경로와 Docker Hub 계정 정보는 **본인이 따로 보관**해 두자(개인키 파일 포함).
 
-**환경 변수(Variables)**: 배포 스크립트의 스모크 테스트가 호출할 공개 도메인은 환경의 변수 `PUBLIC_API_HOST`로 정한다. 없으면 운영 도메인(`team-project-api.kgudevelopers.monster`)을 쓰므로, **개발 서버 환경(`cloud-dev`)에는 개발 도메인을 반드시 지정**해야 한다. 지정하지 않으면 개발 배포가 운영 도메인을 검사한다.
+**환경 변수(Variables)**: 배포 스크립트의 스모크 테스트가 호출할 공개 도메인은 환경의 변수 `PUBLIC_API_HOST`로 정한다. 없으면 운영 API 도메인(`team-project-api.kgudevelopers.monster`)을 쓰므로, **개발 서버 환경(`cloud-dev`)에는 개발 API 도메인을 반드시 지정**해야 한다. 지정하지 않으면 개발 배포가 운영 API 도메인을 검사한다.
 
 ## 4. 서버 준비 체크리스트
 
@@ -67,8 +69,8 @@ flowchart LR
 - [ ] 서버에서 인터넷(Docker Hub)에 접근 가능
 - [ ] compose 폴더가 **미리 만들어져** 있음(배포 첫 단계가 이 폴더로 이동한다): `mkdir -p <DOCKER_COMPOSE_YAML_PATH>`
 - [ ] `.env` 파일이 준비됨(아래 키 참고), 권한은 `chmod 600`
-- [ ] 80, 443 포트가 비어 있고 외부에서 열려 있음(Caddy가 HTTPS를 처리한다)
-- [ ] 서비스 도메인의 DNS가 이 서버를 가리킴
+- [ ] 80, 443 포트가 **다른 스택에 점유되지 않았고** 외부에서 열려 있음(Caddy가 HTTPS를 처리한다). 같은 서버에 다른 compose 스택이 이 포트를 쓰고 있으면 배포가 포트를 잡지 못한다
+- [ ] 서비스 API 도메인의 DNS가 이 서버를 가리킴
 
 `docker-compose.yml`, `Caddyfile`, `pgadmin-servers.json`은 **배포 때 저장소에서 자동으로 복사**되므로 서버에 직접 만들지 않는다. 서버에서 고쳐도 다음 배포에 덮어써진다.
 
@@ -84,14 +86,16 @@ flowchart LR
 | `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD` | pgAdmin 로그인 |
 | `JWT_SECRET_KEY`, `JWT_ISSUER` | 인증 토큰 |
 | `FILE_SECRET_KEY` | 파일 처리 |
-| `AWS_S3_BUCKET`, `AWS_S3_ACCESS_KEY`, `AWS_S3_SECRET_KEY` | 파일 저장소(S3) |
+| `AWS_S3_BUCKET` | 파일 저장소(S3) 버킷 이름 |
 | `DOCKERHUB_USERNAME` | 이미지 이름 앞부분(`사용자명/aics-api:태그`). 이미지 저장소는 공개라 서버에서 `docker login`은 필요 없다 |
+
+**S3 자격 증명(둘 중 하나)**: `AWS_S3_ACCESS_KEY`와 `AWS_S3_SECRET_KEY`를 **둘 다** 넣거나, **둘 다 비워 두고 서버(EC2)에 IAM 역할을 연결**한다. 앱은 키가 비어 있으면 서버의 IAM 역할로 S3에 접근한다. 한쪽만 있으면 안 된다. 점검 워크플로는 이 중 하나가 갖춰졌는지 확인하지만, IAM 역할이 S3 버킷에 접근할 권한이 있는지까지는 확인하지 않는다.
 
 **선택(기본값이 있다)**
 
 | 키 | 기본값 | 개발 서버에서는 |
 |---|---|---|
-| `SITE_ADDRESS` | 운영 도메인 | **개발 도메인으로 지정**(Caddy가 쓸 사이트 주소) |
+| `SITE_ADDRESS` | 운영 API 도메인 | **개발 API 도메인으로 지정**(Caddy가 쓸 사이트 주소). 빈 값으로 두지 않는다(compose가 빈 값을 기본값으로 바꿔 넘긴다) |
 | `CORS_ALLOWED_ORIGINS` | 로컬·운영 프론트 주소 | 개발 프론트 주소로 지정 |
 | `CSRF_COOKIE_DOMAIN` | 운영 상위 도메인 | 개발 도메인에 맞게 지정 |
 | `AWS_S3_REGION`, `REDIS_PASSWORD`, `MAX_FILE_SIZE`, `MAX_REQUEST_SIZE`, `IMAGE_TAG` | 코드의 기본값 | 보통 생략 |
@@ -101,9 +105,9 @@ flowchart LR
 1. 위 4장의 체크리스트를 따라 서버를 준비한다.
 2. GitHub **Settings → Environments**에서 환경(`cloud-dev` 또는 `cloud-prod`)에 시크릿 6개를 입력한다.
 3. **Actions → Server Preflight → Run workflow**에서 점검할 환경을 골라 실행한다.
-4. 결과 로그에서 `[FAIL]`이 하나도 없으면 연결 준비가 끝난 것이다. `[FAIL]`은 모두 고치고, `[WARN]`은 읽고 판단한다.
+4. 결과 로그에서 `[FAIL]`을 모두 고치고, `[WARN]`은 읽고 판단한다. `[FAIL]`이 없으면 점검한 항목을 통과한 것이고, 앱이 실제로 뜨는지는 첫 배포와 스모크 테스트가 확인한다.
 
-점검은 서버에 아무것도 쓰지 않고 읽기만 하며, 비밀 값은 출력하지 않고 키 **이름**만 출력한다. 터미널에서는 아래로도 실행할 수 있다.
+점검은 서버에 아무것도 쓰거나 바꾸지 않고 읽기만 하며(임시 파일은 점검이 끝나면 지운다), 비밀 값은 출력하지 않고 키 **이름**만 출력한다. `.env` 값은 서버의 Docker Compose가 읽은 결과로 판단하므로 따옴표·주석 같은 해석 차이가 생기지 않는다. 터미널에서는 아래로도 실행할 수 있다.
 
 ```bash
 gh workflow run server-preflight.yml -f environment=cloud-dev
@@ -114,6 +118,11 @@ gh workflow run server-preflight.yml -f environment=cloud-dev
 | 러너에서 SSH 포트에 연결할 수 없음 | 보안그룹이 특정 IP만 허용 / `SERVER_PORT`가 실제 포트와 다름 |
 | compose 폴더가 없음 | 폴더를 미리 만들지 않음 |
 | `.env` 필수 키 없음 / 값이 비어 있음 | 4장의 필수 키 누락 |
+| `.env` 값이 `#`로 시작한다는 경고 | `KEY= # 주석`처럼 주석을 쓰려던 것이 값으로 읽힘. 값과 주석을 정리 |
+| `.env` 권한 경고 | 소유자 외에도 읽을 수 있음. `chmod 600` |
+| S3 자격 증명 실패 | 정적 키가 한쪽만 있거나, 키도 서버 IAM 역할도 없음(4장) |
+| 80/443을 **다른 compose 프로젝트**가 쓰고 있음(FAIL) | 같은 서버의 기존 스택이 포트를 점유. 그 스택을 중지하거나 정리해 인계해야 이 폴더의 배포가 포트를 잡는다 |
+| 80/443을 docker 컨테이너가 아닌 프로세스가 점유(WARN) | 서버에서 직접 실행 중인 웹 서버 등. `sudo ss -ltnp`로 소유자 확인 |
 | docker 데몬에 접근할 수 없음 | 접속 사용자가 `docker` 그룹에 없음 |
 | 디스크 사용률 경고 | 오래된 이미지·로그 정리 필요 |
 
