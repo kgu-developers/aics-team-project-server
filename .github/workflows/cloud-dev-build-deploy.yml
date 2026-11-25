@@ -2,7 +2,10 @@ name: Build and Deploy to Isolated Development Server
 
 on:
   push:
-    branches: [develop]
+    branches:
+      - develop
+      # Bootstrap only: verify the isolated connection before merging to develop.
+      - codex/development-deployment-isolation
   workflow_dispatch:
     inputs:
       verify_only:
@@ -46,7 +49,7 @@ jobs:
 
   build-docker-image:
     needs: verify-development-target
-    if: github.event_name == 'push' || !inputs.verify_only
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && !inputs.verify_only)
     runs-on: ubuntu-latest
     # Existing registry credentials only. No SSH/deployment secrets are used here.
     environment: cloud-dev
