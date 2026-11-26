@@ -72,12 +72,14 @@ class DocumentFeedbackQueryIntegrationTest {
         assertThat(answered.feedbackRequested(null)).isFalse();
     }
 
-    @Test
-    void countsProfessorFeedbackAndSeparatesDocumentTypeIdAndTeam() {
+    @ParameterizedTest
+    @EnumSource(value = UserGlobalRole.class, names = {"ADMIN", "SUPER_ADMIN"})
+    void countsProfessorFeedbackAndSeparatesDocumentTypeIdAndTeam(UserGlobalRole role) {
+        user("reviewer", role);
         var first = thread(1L);
         var second = thread(2L);
-        message(first, "professor", TeamMessageRelatedType.PROPOSAL, 10L, NOW);
-        message(first, "professor", TeamMessageRelatedType.PROPOSAL, 10L, NOW.plusMinutes(1));
+        message(first, "reviewer", TeamMessageRelatedType.PROPOSAL, 10L, NOW);
+        message(first, "reviewer", TeamMessageRelatedType.PROPOSAL, 10L, NOW.plusMinutes(1));
         message(first, "student", TeamMessageRelatedType.PROPOSAL, 10L, NOW.plusMinutes(2));
         message(first, "professor", TeamMessageRelatedType.MID_REPORT, 10L, NOW.plusMinutes(3));
         message(first, "professor", TeamMessageRelatedType.PROPOSAL, 11L, NOW.plusMinutes(4));

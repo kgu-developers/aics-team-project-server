@@ -59,6 +59,45 @@ class UserAdminFacadeTest {
   private final UserAdminUpdateRequest updateRequest =
       new UserAdminUpdateRequest("new@kyonggi.ac.kr", "김영희", "87654321", USER, "010-9876-5432");
 
+  @Test
+  void adminCannotCreateSuperAdmin() {
+    var role = kgu.developers.domain.user.domain.UserGlobalRole.SUPER_ADMIN;
+    given(userQueryService.getUserByStudentNumber(PROFESSOR_NUMBER)).willReturn(
+        User.create(PROFESSOR_NUMBER, "prof@kgu.ac.kr", "교수", "encoded", ADMIN, "01000000000"));
+    var request = new UserAdminRequest("super", "super@kgu.ac.kr", "관리자", "password", role, "01000000000", false);
+    assertThatThrownBy(() -> userAdminFacade.createUser(request, PROFESSOR_NUMBER))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    org.mockito.Mockito.verifyNoInteractions(userCommandService);
+  }
+
+  @Test
+  void adminCannotPromoteUserOrModifyOrDeleteSuperAdmin() {
+    var role = kgu.developers.domain.user.domain.UserGlobalRole.SUPER_ADMIN;
+    given(userQueryService.getUserByStudentNumber(PROFESSOR_NUMBER)).willReturn(
+        User.create(PROFESSOR_NUMBER, "prof@kgu.ac.kr", "교수", "encoded", ADMIN, "01000000000"));
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user());
+    var promotion = new UserAdminUpdateRequest("new@kgu.ac.kr", "관리자", null, role, "01000000000");
+    assertThatThrownBy(() -> userAdminFacade.updateUser(STUDENT_NUMBER, promotion, PROFESSOR_NUMBER))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(
+        User.create(STUDENT_NUMBER, "super@kgu.ac.kr", "관리자", "encoded", role, "01000000000"));
+    assertThatThrownBy(() -> userAdminFacade.updateUser(STUDENT_NUMBER, updateRequest, PROFESSOR_NUMBER))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    assertThatThrownBy(() -> userAdminFacade.deleteUser(STUDENT_NUMBER, PROFESSOR_NUMBER))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    org.mockito.Mockito.verifyNoInteractions(userCommandService);
+  }
+
+  @Test
+  void superAdminCanCreateSuperAdmin() {
+    var role = kgu.developers.domain.user.domain.UserGlobalRole.SUPER_ADMIN;
+    given(userQueryService.getUserByStudentNumber(PROFESSOR_NUMBER)).willReturn(
+        User.create(PROFESSOR_NUMBER, "super@kgu.ac.kr", "관리자", "encoded", role, "01000000000"));
+    var request = new UserAdminRequest("super", "super2@kgu.ac.kr", "관리자", "password", role, "01000000000", false);
+    userAdminFacade.createUser(request, PROFESSOR_NUMBER);
+    verify(userCommandService).createUser("super", "super2@kgu.ac.kr", "관리자", "password", role, "01000000000", false);
+  }
+
   private User user() {
     return User.create(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER, "010-1234-6789");
   }
@@ -69,7 +108,7 @@ class UserAdminFacadeTest {
     given(userCommandService.createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
         "010-1234-6789", false)).willReturn(STUDENT_NUMBER);
 
-    assertThat(userAdminFacade.createUser(request).studentNumber()).isEqualTo(STUDENT_NUMBER);
+    assertThat(userAdminFacade.createUser(request, PROFESSOR_NUMBER).studentNumber()).isEqualTo(STUDENT_NUMBER);
 
     verify(userCommandService).createUser(STUDENT_NUMBER, "kgu@kyonggi.ac.kr", "김철수", "12345678", USER,
         "010-1234-6789", false);
@@ -81,7 +120,7 @@ class UserAdminFacadeTest {
     User user = user();
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
 
-    userAdminFacade.updateUser(STUDENT_NUMBER, updateRequest);
+    userAdminFacade.updateUser(STUDENT_NUMBER, updateRequest, PROFESSOR_NUMBER);
 
     verify(userCommandService).updateUser(user, "new@kyonggi.ac.kr", "김영희", "87654321", USER,
         "010-9876-5432");
@@ -93,7 +132,7 @@ class UserAdminFacadeTest {
     User user = user();
     given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(user);
 
-    userAdminFacade.deleteUser(STUDENT_NUMBER);
+    userAdminFacade.deleteUser(STUDENT_NUMBER, PROFESSOR_NUMBER);
 
     verify(userCommandService).deleteUser(user);
   }

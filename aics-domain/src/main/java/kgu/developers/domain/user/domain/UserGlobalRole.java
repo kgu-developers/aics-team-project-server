@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum UserGlobalRole {
     ADMIN("관리자"),
+    SUPER_ADMIN("슈퍼 관리자"),
     USER("일반 유저");
 
     private final String description;

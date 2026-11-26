@@ -41,7 +41,8 @@ public class UserQueryService {
 
     public LoginRole getUserRole(User user) {
         return switch (user.getGlobalRole()) {
-            case ADMIN -> LoginRole.ADMIN;
+            // 관리자 로그인 계약은 유지하고 분반 접근 범위는 DB의 전역 권한으로 구분한다.
+            case ADMIN, SUPER_ADMIN -> LoginRole.ADMIN;
             case USER -> {
                 boolean assistant = enrollmentRepository.findAllByUserId(user.getStudentNumber()).stream()
                         .anyMatch(Enrollment::isActiveAssistant);

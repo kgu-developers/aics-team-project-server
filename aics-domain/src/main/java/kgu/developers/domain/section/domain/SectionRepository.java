@@ -16,6 +16,7 @@ public interface SectionRepository {
 
     List<SectionDetail> findAllByIdIn(List<Long> ids);
 
+    /** 활성 분반에 한해 담당 교수 또는 SUPER_ADMIN이면 true를 반환한다. */
     boolean existsActiveByIdAndProfessorId(Long id, String professorId);
 
     /**
@@ -26,5 +27,9 @@ public interface SectionRepository {
      */
     Optional<Section> findActiveByIdForUpdate(Long id);
 
+    /**
+     * 활성 분반에 한해 담당 교수 또는 SUPER_ADMIN이면 분반 행을 잠그고 true를 반환한다.
+     * 잠금은 호출부의 트랜잭션이 끝날 때까지 유지된다.
+     */
     boolean lockActiveByIdAndProfessorId(Long id, String professorId);
 }

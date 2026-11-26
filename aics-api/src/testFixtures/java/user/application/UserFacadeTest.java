@@ -124,9 +124,11 @@ class UserFacadeTest {
         assertThat(response.sections()).isEmpty();
     }
 
-    @Test
-    @DisplayName("수강 내역이 없는 관리자도 담당 분반을 조회한다")
-    void getMeIncludesProfessorSectionsWithoutEnrollments() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = UserGlobalRole.class, names = {"ADMIN", "SUPER_ADMIN"})
+    @DisplayName("수강 내역이 없는 관리자도 접근 가능한 분반을 조회한다")
+    void getMeIncludesProfessorSectionsWithoutEnrollments(UserGlobalRole role) {
+        User professor = User.create(STUDENT_NUMBER, "admin@kgu.ac.kr", "관리자", "encoded", role, "01000000000");
         given(userQueryService.getUserByStudentNumber(STUDENT_NUMBER)).willReturn(professor);
         given(sectionQueryService.getOwnedSections(professor)).willReturn(List.of(sectionDetail(1L)));
 

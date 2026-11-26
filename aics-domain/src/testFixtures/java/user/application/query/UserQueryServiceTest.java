@@ -74,6 +74,14 @@ class UserQueryServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
     }
 
+    @Test
+    void superAdminUsesExistingAdminLoginRole() {
+        User superAdmin = User.create("super", "super@kgu.ac.kr", "관리자", "encoded",
+                UserGlobalRole.SUPER_ADMIN, "01000000000");
+        assertThat(userQueryService.getUserRole(superAdmin))
+                .isEqualTo(kgu.developers.domain.auth.domain.LoginRole.ADMIN);
+    }
+
     private User user(String studentNumber, String name) {
         return User.create(studentNumber, studentNumber + "@kgu.ac.kr", name, "encoded",
                 UserGlobalRole.USER, "010-0000-0000");

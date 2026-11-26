@@ -27,7 +27,7 @@ public class UserAdminControllerImpl implements UserAdminController {
   @PostMapping
   public ResponseEntity<UserAdminPersistResponse> createUser(
       @Valid @RequestBody UserAdminRequest request) {
-    UserAdminPersistResponse response = userAdminFacade.createUser(request);
+    UserAdminPersistResponse response = userAdminFacade.createUser(request, SecurityContextHolder.getContext().getAuthentication().getName());
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
@@ -51,7 +51,7 @@ public class UserAdminControllerImpl implements UserAdminController {
   public ResponseEntity<Void> updateUser(
       @NotBlank @PathVariable String studentNumber,
       @Valid @RequestBody UserAdminUpdateRequest request) {
-    userAdminFacade.updateUser(studentNumber, request);
+    userAdminFacade.updateUser(studentNumber, request, SecurityContextHolder.getContext().getAuthentication().getName());
     return ResponseEntity.noContent().build();
   }
 
@@ -66,7 +66,7 @@ public class UserAdminControllerImpl implements UserAdminController {
   @DeleteMapping("/{studentNumber}")
   public ResponseEntity<Void> deleteUser(
       @NotBlank @PathVariable String studentNumber) {
-    userAdminFacade.deleteUser(studentNumber);
+    userAdminFacade.deleteUser(studentNumber, SecurityContextHolder.getContext().getAuthentication().getName());
     return ResponseEntity.noContent().build();
   }
 }

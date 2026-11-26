@@ -97,7 +97,8 @@ public class SectionCommandService {
     private void requireProfessor(String professorId) {
         User professor = userRepository.findByStudentNumber(professorId)
                 .orElseThrow(UserNotFoundException::new);
-        if (professor.getGlobalRole() != UserGlobalRole.ADMIN) {
+        if (professor.getGlobalRole() != UserGlobalRole.ADMIN
+            && professor.getGlobalRole() != UserGlobalRole.SUPER_ADMIN) {
             throw new ProfessorRoleRequiredException();
         }
     }

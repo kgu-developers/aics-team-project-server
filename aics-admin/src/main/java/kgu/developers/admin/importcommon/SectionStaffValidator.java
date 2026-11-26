@@ -44,7 +44,7 @@ public class SectionStaffValidator {
     private boolean isAdmin(String studentNumber) {
         return userRepository.findByStudentNumber(studentNumber)
             .map(User::getGlobalRole)
-            .filter(role -> role == UserGlobalRole.ADMIN)
+            .filter(role -> role == UserGlobalRole.ADMIN || role == UserGlobalRole.SUPER_ADMIN)
             .isPresent();
     }
 

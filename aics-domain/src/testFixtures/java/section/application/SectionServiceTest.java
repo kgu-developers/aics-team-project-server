@@ -82,9 +82,11 @@ class SectionServiceTest {
         return new SectionDetail(section(), course, professor);
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = UserGlobalRole.class, names = {"ADMIN", "SUPER_ADMIN"})
     @DisplayName("존재하는 강좌와 교수면 분반이 생성된다")
-    void createsSectionUnderExistingCourse() {
+    void createsSectionUnderExistingCourse(UserGlobalRole role) {
+        User professor = User.create("202012345", "prof@kgu.ac.kr", "김교수", "encoded", role, "01000000000");
         given(courseRepository.findById(1L)).willReturn(Optional.of(course));
         given(userRepository.findByStudentNumber("202012345")).willReturn(Optional.of(professor));
         given(sectionRepository.save(any(Section.class))).willReturn(
