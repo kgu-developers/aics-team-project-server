@@ -35,6 +35,13 @@ on:
         type: boolean
         required: false
         default: false
+      allow_infra_change:
+        description: >-
+          기반 서비스(postgres/redis/pgadmin)의 compose 설정이 운영 서버의 직전 성공 릴리스와 다른 커밋일 때만 켠다.
+          실패해도 롤백이 이들을 되돌리지 않으므로, 끄면(기본) 운영 서버를 바꾸기 전에 멈춘다
+        type: boolean
+        required: false
+        default: false
 
 # 운영 배포가 겹치지 않게 한 번에 하나씩만 진행한다. 대기 중인 실행은 취소하지 않는다.
 concurrency:
@@ -225,6 +232,7 @@ jobs:
       expected_digests: ${{ needs.validate.outputs.digests }}
       # 이미지와 같은 시점의 compose/Caddyfile 을 서버로 보낸다(develop 최신이 아니라 승격하는 커밋).
       ref: ${{ inputs.image_tag }}
+      allow_infra_change: ${{ inputs.allow_infra_change }}
     secrets: inherit
 
   record:

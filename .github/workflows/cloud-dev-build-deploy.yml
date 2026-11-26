@@ -5,6 +5,14 @@ on:
     branches:
       - develop
   workflow_dispatch:
+    inputs:
+      allow_infra_change:
+        description: >-
+          기반 서비스(postgres/redis/pgadmin)의 compose 설정이 바뀐 커밋을 배포할 때만 켠다(push 로 실행된 배포는 이런
+          커밋에서 서버를 바꾸기 전에 멈추므로, 변경을 확인한 뒤 이 입력을 켜고 직접 실행한다)
+        type: boolean
+        required: false
+        default: false
 
 # KD3-170: 이 워크플로의 실행 자체가 겹치면(#121, #128 배포에서 실제로 5분 이상
 # 동시 실행됨) 두 실행이 동시에 stop/rm/up을 수행할 수 있어 컨테이너 이름 충돌이
@@ -120,4 +128,6 @@ jobs:
     with:
       environment: cloud-dev
       image_tag: ${{ github.sha }}
+      # push 로 실행되면 입력이 없어 false 다.
+      allow_infra_change: ${{ inputs.allow_infra_change == true }}
     secrets: inherit
