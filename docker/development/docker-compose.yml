@@ -132,6 +132,11 @@ services:
   caddy:
     image: caddy:2.11.4
     restart: unless-stopped
+    environment:
+      # Caddyfile 의 사이트 주소({$SITE_ADDRESS}). 서버의 .env 에 SITE_ADDRESS 를 지정하면 그 도메인으로 동작하고,
+      # 없으면(빈 값 포함) 기존 운영 도메인을 쓴다. Caddyfile 의 기본값과 같아야 하며, 이 기본값을 지우면 안 된다
+      # (Caddy 는 빈 문자열을 "없음"으로 보지 않아 오류가 나므로, 빈 값을 여기서 기본값으로 바꿔 넘긴다).
+      SITE_ADDRESS: ${SITE_ADDRESS:-team-project-api.kgudevelopers.monster}
     ports:
       - "80:80"
       - "443:443"
