@@ -49,7 +49,7 @@ jobs:
     name: 1. 승격 대상 검증
     runs-on: ubuntu-latest
     outputs:
-      # 개발에서 검증한 이미지 3개의 "저장소@digest"(공백 구분). 운영 배포가 서버에서 pull 한 이미지와 대조한다.
+      # 개발에서 검증한 이미지 3개의 "서비스=저장소@digest"(공백 구분). 운영 배포가 서버의 compose 이미지 이름과 pull 한 이미지를 대조한다.
       # 개발 배포의 digest 기록이 없는 과거 커밋(allow_unrecorded_digest)은 비어 있다.
       digests: ${{ steps.digest.outputs.digests }}
     permissions:
@@ -189,7 +189,7 @@ jobs:
               exit 1
             fi
             echo "aics-${app}: 개발에서 검증한 이미지와 같습니다(${live:0:19}…)"
-            verified_refs="${verified_refs}${repo}@${live} "
+            verified_refs="${verified_refs}aics-${app}=${repo}@${live} "
           done
           rm -rf "${dir}"
           echo "digests=${verified_refs% }" >> "${GITHUB_OUTPUT:-/dev/null}"
@@ -221,7 +221,7 @@ jobs:
     with:
       environment: cloud-prod
       image_tag: ${{ inputs.image_tag }}
-      # 승인 대기 중 같은 태그가 다른 이미지로 덮어써져도, 서버가 pull 한 이미지가 검증한 digest 와 다르면 기존 컨테이너를 멈추기 전에 중단한다.
+      # 승인 대기 중 같은 태그가 다른 이미지로 덮어써지거나 서버 .env 의 Docker Hub 사용자명이 달라도, 서버를 바꾸기 전에 중단한다.
       expected_digests: ${{ needs.validate.outputs.digests }}
       # 이미지와 같은 시점의 compose/Caddyfile 을 서버로 보낸다(develop 최신이 아니라 승격하는 커밋).
       ref: ${{ inputs.image_tag }}
@@ -251,8 +251,10 @@ jobs:
           # 태그를 main 이동보다 먼저 만든다. main 이동이 실패해도 "배포 기록"(가장 최근 prod-* 태그)은 항상 남아,
           # 현재 운영 커밋을 태그로 확인한다는 안내가 맞도록 한다.
           tag="prod-$(TZ=Asia/Seoul date +%Y%m%d-%H%M)-${IMAGE_TAG:0:7}"
-          git tag -a "${tag}" "${IMAGE_TAG}" -m "Production deploy ${IMAGE_TAG}"
-          git push origin "refs/tags/${tag}"
+          if ! git tag -a "${tag}" "${IMAGE_TAG}" -m "Production deploy ${IMAGE_TAG}" || ! git push origin "refs/tags/${tag}"; then
+            echo "::error::운영 배포는 성공했지만 배포 태그(${tag})를 기록하지 못했습니다. 현재 운영 커밋은 이 실행의 대상 커밋(${IMAGE_TAG})이며 서버의 .last-successful-image-tag 로도 확인할 수 있습니다. 태그는 직접 붙이세요: git tag -a ${tag} ${IMAGE_TAG} -m 'Production deploy' && git push origin ${tag}"
+            exit 1
+          fi
 
           # main 은 "운영에 승격한 가장 앞선 커밋"을 가리킨다. 되돌리는(과거 커밋 승격) 경우에는 main 을 뒤로 옮기지 않는다
           # (fast-forward 만 한다). 그래서 main 이 곧 현재 운영 상태는 아니며, 현재 운영에 무엇이 올라가 있는지는
@@ -262,16 +264,16 @@ jobs:
               echo "main 이 이미 이 커밋을 포함합니다. main 은 옮기지 않습니다."
             elif git merge-base --is-ancestor origin/main "${IMAGE_TAG}"; then
               if ! git push origin "${IMAGE_TAG}:refs/heads/main"; then
-                echo "::error::main 을 옮기지 못했습니다. 운영 배포는 성공했고 배포 태그는 기록했습니다. main 브랜치 보호 설정에서 GitHub Actions 의 푸시를 허용했는지 확인하세요."
+                echo "::error::main 을 옮기지 못했습니다. 운영 배포는 성공했고 배포 태그(${tag})는 기록했습니다. main 브랜치 보호 설정에서 GitHub Actions 의 푸시를 허용했는지 확인하세요."
                 exit 1
               fi
               echo "main 을 ${IMAGE_TAG:0:7} 로 옮겼습니다."
             else
-              echo "::error::main 이 이 커밋의 조상이 아니라서 fast-forward 할 수 없습니다. 운영 배포는 성공했고 배포 태그는 기록했습니다. main 이 develop 과 갈라졌는지 확인하세요."
+              echo "::error::main 이 이 커밋의 조상이 아니라서 fast-forward 할 수 없습니다. 운영 배포는 성공했고 배포 태그(${tag})는 기록했습니다. main 이 develop 과 갈라졌는지 확인하세요."
               exit 1
             fi
           else
-            echo "::error::origin/main 브랜치가 없습니다. 운영 배포는 성공했고 배포 태그는 기록했습니다."
+            echo "::error::origin/main 브랜치가 없습니다. 운영 배포는 성공했고 배포 태그(${tag})는 기록했습니다."
             exit 1
           fi
 

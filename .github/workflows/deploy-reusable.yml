@@ -7,6 +7,12 @@ name: Deploy to Server (Reusable)
 # 서버 접속 정보와 경로(SERVER_HOST, SSH_PRIVATE_KEY, DOCKER_COMPOSE_YAML_PATH, ENVIRONMENT_PATH 등)는
 # `environment` 로 지정한 GitHub Environment 의 시크릿을 쓴다. 환경마다 같은 시크릿 이름에 다른 값을 넣으면 된다.
 # 공개 API 도메인은 그 Environment 의 변수 PUBLIC_API_HOST 로 지정하며, 없으면 기존 도메인을 쓴다.
+#
+# 실패해도 서버가 "반쯤 바뀐" 채로 남지 않게 하는 순서:
+#   1) 새 설정 파일은 실행 전용 임시 폴더로만 전송한다(실제 설정은 그대로).
+#   2) 배포 스크립트 안에서 잠금 → 이미지 확인·pull(아직 실제 설정은 그대로) → 실제 설정 교체 → 앱 교체.
+#   3) 설정을 바꾼 뒤 성공하지 못하면, 어떤 이유로 끝나든 직전에 성공한 릴리스(이미지 태그+설정 파일 짝)로 되돌린다.
+#   4) 끝까지 성공했을 때만 그 릴리스를 "직전 성공 릴리스"로 기록한다.
 on:
   workflow_call:
     inputs:
@@ -32,8 +38,9 @@ on:
         default: ''
       expected_digests:
         description: >-
-          배포할 이미지가 이 digest 와 같은지 서버에서 pull 한 직후 확인한다("저장소@sha256:..." 를 공백으로 구분). 다르면 기존 컨테이너를
-          멈추기 전에 중단한다. 운영 승격이 "검증한 이미지"와 "실제 받은 이미지"를 같게 묶으려고 넘긴다. 비우면 확인하지 않는다.
+          운영 승격이 검증한 이미지("aics-api=저장소@sha256:..." 형식 3개, 공백 구분). 넘기면 서버에서 ① pull 전에 이 서버의
+          compose 가 쓸 앱 이미지가 이 저장소의 그 태그인지, ② pull 한 뒤 받은 이미지가 이 digest 인지 확인하고, 다르면
+          서버를 바꾸지 않고 중단한다. 비우면(개발 배포 등) 확인하지 않는다.
         type: string
         required: false
         default: ''
@@ -52,31 +59,11 @@ jobs:
           # ref 를 안 주면 호출한 워크플로의 커밋(github.sha)이라, 기존 개발 배포(develop push)와 동작이 같다.
           ref: ${{ inputs.ref || github.sha }}
 
-      - name: backup current config files on server
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          script: |
-            set -euo pipefail
-            cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
-            # 이번 배포가 설정 파일을 덮어쓰기 전에 직전 릴리스의 설정 파일을 백업한다. 배포가 실패해 이전 이미지로 롤백할 때
-            # 이미지 태그뿐 아니라 설정 파일도 함께 되돌리기 위해서다(compose 설정이 바뀐 커밋으로 배포하다 실패하면, 이전 이미지가
-            # 새 커밋의 compose 설정으로 뜨는 일을 막는다).
-            if [ -f Caddyfile ]; then
-              cp Caddyfile .Caddyfile.before-deploy
-            fi
-            if [ -f docker-compose.yml ]; then
-              cp docker-compose.yml .docker-compose.before-deploy.yml
-            fi
-            if [ -f pgadmin-servers.json ]; then
-              cp pgadmin-servers.json .pgadmin-servers.before-deploy.json
-            fi
-
-      - name: scp docker-compose and Caddyfile to server
-        id: scp
+      - name: scp config files to a staging folder on server
+        # 설정 파일은 실제 위치가 아니라 "이번 실행 전용" 임시 폴더(.deploy-staging/<실행 번호>)로 보낸다.
+        # 실제 설정 파일을 바꾸는 일은 다음 단계의 배포 스크립트 안에서만 한다. 그래서 전송이 중간에 실패하거나,
+        # 전송 뒤 배포 SSH 접속이 실패해 스크립트가 시작되지 않아도 서버의 실제 설정은 그대로다.
+        # rm: true 는 이 임시 폴더만 비우고 다시 만든다(rm -rf <target> 후 mkdir -p <target>).
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -84,32 +71,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           source: "docker/${{ inputs.config_env }}/docker-compose.yml, docker/${{ inputs.config_env }}/pgadmin-servers.json, caddy/${{ inputs.config_env }}/Caddyfile"
-          target: ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
+          target: ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}/.deploy-staging/${{ github.run_id }}-${{ github.run_attempt }}
           strip_components: 2
-
-      - name: restore config files if the transfer failed
-        # 설정 파일 전송이 중간에 실패하면 일부만 새 파일일 수 있다. 다음 배포가 이를 "이전 정상 설정"으로 백업하지 않도록 되돌린다.
-        if: ${{ failure() && steps.scp.outcome == 'failure' }}
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          script: |
-            set -eu
-            cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
-            if [ -f .Caddyfile.before-deploy ]; then cp .Caddyfile.before-deploy Caddyfile; fi
-            if [ -f .docker-compose.before-deploy.yml ]; then cp .docker-compose.before-deploy.yml docker-compose.yml; fi
-            if [ -f .pgadmin-servers.before-deploy.json ]; then cp .pgadmin-servers.before-deploy.json pgadmin-servers.json; fi
-            echo "설정 파일 전송이 실패해 이전 릴리스의 설정 파일로 되돌렸습니다."
+          rm: true
 
       - name: ssh to server and deploy
         uses: appleboy/ssh-action@v1.1.0
         env:
           EXPECTED_DIGESTS: ${{ inputs.expected_digests }}
+          STAGING_NAME: ${{ github.run_id }}-${{ github.run_attempt }}
         with:
-          envs: EXPECTED_DIGESTS
+          envs: EXPECTED_DIGESTS,STAGING_NAME
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -126,122 +98,232 @@ jobs:
             cd ${{ secrets.DOCKER_COMPOSE_YAML_PATH }}
             export IMAGE_TAG=${{ inputs.image_tag }}
 
+            # ── 배포 상태 파일 ─────────────────────────────────────────────────────────────
+            # .last-successful-image-tag : 마지막으로 끝까지 성공한 릴리스의 이미지 태그(KD3-170 후속, 기존 파일 그대로).
+            # .releases/<태그>/          : 그 릴리스의 설정 파일 3개. 태그 파일과 항상 짝을 이룬다(롤백은 이 짝으로 되돌린다).
+            # .deploy-previous/          : 이번 실행이 롤백에 쓸 "직전 릴리스 설정"의 사본(실행마다 새로 만든다).
+            # .deploy-staging/<실행>/    : 이번 실행에서 받은 새 설정 파일(실행이 끝나면 지운다).
+            # 서버의 실제 설정 파일은 이 스크립트 안에서만 바뀌고, 바뀐 뒤에는 어떤 이유로 끝나든(아래 on_exit) 성공하지 못하면
+            # 직전 릴리스 설정으로 되돌린다. 그래서 실패한 설정이 서버에 남아 다음 배포의 "직전 설정"이 되는 일이 없다.
+            CONFIG_FILES="docker-compose.yml Caddyfile pgadmin-servers.json"
+            LAST_GOOD_TAG_FILE=.last-successful-image-tag
+            RELEASES_DIR=.releases
+            PREV_DIR=.deploy-previous
+            STAGING_DIR=".deploy-staging/${STAGING_NAME:?}"
+            ENV_FILE=${{ secrets.ENVIRONMENT_PATH }}
+            # start: 아직 아무것도 바꾸지 않음 / config_installed: 설정 파일만 바꿈 / apps_replacing: 앱 컨테이너를 건드리기 시작함
+            # finished: 성공. on_exit 이 이 값을 보고 무엇을 되돌릴지 정한다.
+            DEPLOY_PHASE=start
+            ROLLED_BACK=0
+
             # KD3-170 후속(sunzx0428 리뷰 09-06): 새 이미지 자체가 망가져서(재시도로
             # 해결 안 되는 종류) 기동에 실패하면, 기존 컨테이너를 이미 지운 뒤라 세
             # 서비스가 전부 내려간 채로 끝날 수 있었다. 직전에 정상 기동을 확인했던
             # 이미지 태그를 마커 파일로 남겨두고, 이번 배포가 끝까지 실패하면 그
             # 태그로 되돌린다.
-            LAST_GOOD_TAG_FILE=.last-successful-image-tag
-            PREVIOUS_CADDYFILE=.Caddyfile.before-deploy
-            PREVIOUS_COMPOSE=.docker-compose.before-deploy.yml
-            PREVIOUS_PGADMIN_SERVERS=.pgadmin-servers.before-deploy.json
             PREVIOUS_IMAGE_TAG=""
             if [ -f "$LAST_GOOD_TAG_FILE" ]; then
               PREVIOUS_IMAGE_TAG=$(cat "$LAST_GOOD_TAG_FILE")
             fi
 
-            # 이전 이미지로 되돌리기 전에 이전 릴리스의 compose·pgadmin 설정을 먼저 복원한다. 복원하지 않으면 compose 설정이
-            # 바뀐 커밋으로 배포하다 실패했을 때, 되돌린 이전 이미지가 실패한 커밋의 compose 설정으로 뜬다.
-            restore_previous_compose_config() {
-              if [ -f "$PREVIOUS_COMPOSE" ]; then
-                echo "이전 docker-compose.yml로 되돌립니다." >&2
-                cp "$PREVIOUS_COMPOSE" docker-compose.yml
-              else
-                echo "복구할 이전 docker-compose.yml이 없습니다. 현재 설정으로 이전 이미지를 올립니다." >&2
+            # 직전 릴리스 설정을 롤백용으로 따로 복사해 둔다. 직전 릴리스의 기록(.releases/<태그>)이 있으면 그것을, 없으면
+            # (이 방식 도입 전 첫 배포) 지금 서버의 설정 파일을 쓴다.
+            prepare_previous_config() {
+              local src=. f
+              rm -rf "$PREV_DIR"
+              mkdir "$PREV_DIR"
+              if [[ "$PREVIOUS_IMAGE_TAG" =~ ^[A-Za-z0-9._-]+$ ]] && [ -d "$RELEASES_DIR/$PREVIOUS_IMAGE_TAG" ]; then
+                src="$RELEASES_DIR/$PREVIOUS_IMAGE_TAG"
               fi
-              if [ -f "$PREVIOUS_PGADMIN_SERVERS" ]; then
-                cp "$PREVIOUS_PGADMIN_SERVERS" pgadmin-servers.json
-              fi
-            }
-
-            restore_previous_caddy_config() {
-              if [ ! -f "$PREVIOUS_CADDYFILE" ]; then
-                echo "복구할 이전 Caddyfile이 없습니다." >&2
-                return 1
-              fi
-
-              echo "이전 Caddyfile로 되돌립니다." >&2
-              cp "$PREVIOUS_CADDYFILE" Caddyfile
-              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} run --rm --no-deps \
-                --entrypoint caddy caddy \
-                validate --config /etc/caddy/Caddyfile --adapter caddyfile
-              docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
-                up -d --force-recreate --no-deps caddy
-            }
-
-            rollback_deployment() {
-              if [ -z "$PREVIOUS_IMAGE_TAG" ]; then
-                echo "롤백할 이전 이미지 태그가 없습니다(첫 배포이거나 기록이 없음)." >&2
-              else
-                echo "이전 이미지($PREVIOUS_IMAGE_TAG)로 되돌립니다." >&2
-                restore_previous_compose_config
-                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth
-                docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth
-                IMAGE_TAG="$PREVIOUS_IMAGE_TAG" \
-                  docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} \
-                  up -d aics-api aics-admin aics-auth
-              fi
-
-              restore_previous_caddy_config || true
-            }
-
-            # 컨테이너는 건드리지 않고 설정 파일 3개만 직전 릴리스 것으로 되돌린다. 설정 파일을 덮어쓴 뒤 기존 컨테이너를 멈추기 전에
-            # 실패한 경우에 쓴다(되돌리지 않으면 실패한 설정이 서버에 남고, 다음 배포가 그것을 "이전 정상 설정"으로 백업한다).
-            restore_config_files_only() {
-              if [ -f "$PREVIOUS_COMPOSE" ]; then cp "$PREVIOUS_COMPOSE" docker-compose.yml; fi
-              if [ -f "$PREVIOUS_PGADMIN_SERVERS" ]; then cp "$PREVIOUS_PGADMIN_SERVERS" pgadmin-servers.json; fi
-              if [ -f "$PREVIOUS_CADDYFILE" ]; then cp "$PREVIOUS_CADDYFILE" Caddyfile; fi
-              return 0
-            }
-
-            # 서버가 받은 이미지가 검증한 digest 와 같은지 확인한다(승인 대기 중 태그가 덮어써져도 다른 이미지가 운영에 나가지 않게).
-            verify_expected_digests() {
-              if [ -z "${EXPECTED_DIGESTS:-}" ]; then
-                return 0
-              fi
-              local ref repo have
-              for ref in $EXPECTED_DIGESTS; do
-                if ! [[ "$ref" =~ ^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]]; then
-                  echo "expected_digests 형식이 올바르지 않습니다: $ref" >&2
-                  return 1
+              for f in $CONFIG_FILES; do
+                if [ -f "$src/$f" ]; then
+                  cp "$src/$f" "$PREV_DIR/$f"
                 fi
-                repo=${ref%@*}
-                have=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "${repo}:${IMAGE_TAG}" 2>/dev/null || true)
-                if ! grep -qxF -- "$ref" <<<"$have"; then
-                  echo "서버가 받은 ${repo}:${IMAGE_TAG:0:7} 이미지가 검증한 digest 와 다릅니다. 기존 컨테이너는 그대로 둡니다." >&2
-                  return 1
+              done
+              echo "롤백용 직전 설정: $src"
+            }
+
+            # 실제 설정 파일을 직전 릴리스 것으로 되돌린다(컨테이너는 건드리지 않는다). 같은 이름의 임시 파일에 쓴 뒤 바꿔치기한다.
+            restore_previous_config_files() {
+              local f
+              for f in $CONFIG_FILES; do
+                if [ -f "$PREV_DIR/$f" ]; then
+                  cp "$PREV_DIR/$f" "$f.deploy-restore" && mv -f "$f.deploy-restore" "$f"
                 fi
-                echo "${repo}: 검증한 digest 와 같습니다."
               done
               return 0
             }
 
-            # 이미지를 받고(필요하면 digest 확인) 실패하면 설정 파일을 되돌린다. 아직 컨테이너를 멈추기 전이라 서비스는 그대로다.
-            pull_and_verify_images() {
-              if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} pull; then
-                echo "이미지 pull 에 실패했습니다. 기존 컨테이너는 그대로 두고 설정 파일을 이전 릴리스 것으로 되돌립니다." >&2
-                restore_config_files_only
+            # 되돌린 Caddyfile 을 검증한 뒤 Caddy 만 재생성해 반영한다(단일 파일 bind mount 가 새 파일을 잡도록).
+            restart_caddy_with_current_config() {
+              if [ ! -f "$PREV_DIR/Caddyfile" ]; then
+                echo "복구할 이전 Caddyfile이 없습니다." >&2
                 return 1
               fi
-              if ! verify_expected_digests; then
-                restore_config_files_only
-                return 1
-              fi
-              return 0
+              docker compose --env-file "$ENV_FILE" run --rm --no-deps \
+                --entrypoint caddy caddy \
+                validate --config /etc/caddy/Caddyfile --adapter caddyfile
+              docker compose --env-file "$ENV_FILE" \
+                up -d --force-recreate --no-deps caddy
             }
 
-            # 기존 앱 컨테이너를 멈추고 지운다. 중간에 실패하면 이전 릴리스로 롤백(설정 복원 포함)하고 실패로 끝낸다.
-            stop_and_remove_apps() {
-              if ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} stop aics-api aics-admin aics-auth \
-                 || ! docker compose --env-file ${{ secrets.ENVIRONMENT_PATH }} rm -f aics-api aics-admin aics-auth; then
-                echo "기존 컨테이너를 멈추거나 지우는 데 실패했습니다. 이전 릴리스로 되돌립니다." >&2
-                rollback_deployment || true
-                return 1
+            # 직전 릴리스로 되돌린다: 설정 파일을 먼저 되돌린 뒤(이전 이미지가 실패한 커밋의 compose 설정으로 뜨지 않게)
+            # 이전 이미지로 앱을 다시 올리고 Caddy 를 반영한다. 롤백에 쓰는 이전 이미지는 서버에 남아 있다
+            # (이미지 정리는 배포가 성공한 뒤에만 하고, 그때 실행 중이던 이미지는 지우지 않는다).
+            rollback_deployment() {
+              ROLLED_BACK=1
+              restore_previous_config_files
+              if [ -z "$PREVIOUS_IMAGE_TAG" ]; then
+                echo "롤백할 이전 이미지 태그가 없습니다(첫 배포이거나 기록이 없음). 설정 파일만 되돌렸습니다." >&2
+              else
+                echo "이전 이미지($PREVIOUS_IMAGE_TAG)로 되돌립니다." >&2
+                docker compose --env-file "$ENV_FILE" stop aics-api aics-admin aics-auth
+                docker compose --env-file "$ENV_FILE" rm -f aics-api aics-admin aics-auth
+                IMAGE_TAG="$PREVIOUS_IMAGE_TAG" \
+                  docker compose --env-file "$ENV_FILE" \
+                  up -d aics-api aics-admin aics-auth
               fi
-              return 0
+
+              restart_caddy_with_current_config || true
             }
 
-            pull_and_verify_images || exit 1
+            # 스크립트가 어떻게 끝나든(명시적 exit, 예상 못 한 명령 실패, 종료 신호) 여기를 거친다.
+            # 성공하지 못했고 아직 롤백하지 않았다면, 바꾼 것만큼 되돌린다.
+            on_exit() {
+              local code=$?
+              set +e
+              # 정리하는 동안에는 신호로 중단되지 않게 한다.
+              trap '' HUP INT TERM PIPE
+              # 신호로 중단됐거나 출력 통로(SSH)가 끊겼으면, 이후 출력은 서버의 로그 파일에 남긴다
+              # (끊긴 통로에 쓰다가 정리가 멈추지 않게. 무슨 일이 있었는지는 이 파일로 확인한다).
+              if [ "$code" -ge 129 ] || ! echo "" 2>/dev/null; then
+                exec >>.deploy-interrupted.log 2>&1
+                echo "[$(date '+%F %T')] 실행 ${STAGING_NAME:-?} 이(가) 중단됨(종료 코드 $code, 단계 $DEPLOY_PHASE)"
+              fi
+              if [ "$code" -ne 0 ] && [ "$ROLLED_BACK" = 0 ]; then
+                case "$DEPLOY_PHASE" in
+                  config_installed)
+                    echo "배포가 중단되어(종료 코드 $code) 설정 파일을 직전 릴리스 것으로 되돌립니다. 앱 컨테이너는 바꾸지 않았습니다." >&2
+                    restore_previous_config_files
+                    ;;
+                  apps_replacing)
+                    echo "배포가 중단되어(종료 코드 $code) 직전 릴리스로 되돌립니다." >&2
+                    rollback_deployment
+                    ;;
+                esac
+              fi
+              rm -rf "$STAGING_DIR"
+              exit "$code"
+            }
+            trap on_exit EXIT
+            # SSH 연결이 끊기거나 중지 신호를 받아도 바로 죽지 않고 위 정리 경로를 거치게 한다. 이 액션은 PTY 없이 실행되므로
+            # 연결이 끊기면 HUP 이 아니라 다음 출력에서 SIGPIPE 를 받는다(PIPE 도 같은 경로로 보낸다). 서버 자체가 꺼지거나
+            # 강제 종료(kill -9)되는 경우는 막을 수 없다.
+            trap 'exit 129' HUP
+            trap 'exit 130' INT
+            trap 'exit 141' PIPE
+            trap 'exit 143' TERM
+
+            # 같은 서버에 배포가 겹치지 않게 한다(개발 배포와 운영 승격이 같은 서버를 가리키는 동안에도). 이미 진행 중이면
+            # 아무것도 바꾸지 않고 끝낸다.
+            if command -v flock >/dev/null 2>&1; then
+              exec 9>.deploy.lock
+              if ! flock -n 9; then
+                echo "이 서버에서 다른 배포가 진행 중입니다. 서버는 바꾸지 않았습니다. 끝난 뒤 다시 실행하세요." >&2
+                exit 1
+              fi
+            else
+              echo "flock 이 없어 동시 배포 잠금 없이 진행합니다." >&2
+            fi
+
+            # 오래된(하루 넘은) 다른 실행의 임시 폴더를 정리한다.
+            if [ -d .deploy-staging ]; then
+              find .deploy-staging -mindepth 1 -maxdepth 1 -type d -mmin +1440 ! -name "$STAGING_NAME" -exec rm -rf {} + || true
+            fi
+
+            for f in $CONFIG_FILES; do
+              if [ ! -s "$STAGING_DIR/$f" ]; then
+                echo "전송된 설정 파일($f)이 없거나 비어 있습니다. 서버는 바꾸지 않았습니다." >&2
+                exit 1
+              fi
+            done
+            prepare_previous_config
+
+            # 새 설정으로 compose 를 읽되 실제 설정 파일은 아직 바꾸지 않는다(프로젝트 폴더는 실제 폴더와 같게).
+            staged_compose() {
+              docker compose -f "$STAGING_DIR/docker-compose.yml" --project-directory . --env-file "$ENV_FILE" "$@"
+            }
+
+            # 운영 승격이 넘긴 "검증한 이미지"(서비스=저장소@digest)와, 이 서버의 compose 가 실제로 쓸 이미지를 맞춘다.
+            # 비어 있으면(개발 배포, 또는 digest 기록이 없는 과거 커밋 승격) 확인하지 않는다.
+            EXPECTED_REFS=""
+            if [ -n "${EXPECTED_DIGESTS:-}" ]; then
+              for svc in aics-api aics-admin aics-auth; do
+                count=0
+                ref=""
+                for entry in $EXPECTED_DIGESTS; do
+                  if [ "${entry%%=*}" = "$svc" ]; then
+                    count=$((count + 1))
+                    ref=${entry#*=}
+                  fi
+                done
+                if [ "$count" -ne 1 ] || ! [[ "$ref" =~ ^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]]; then
+                  echo "expected_digests 에 $svc 항목이 없거나 형식이 올바르지 않습니다. 서버는 바꾸지 않았습니다." >&2
+                  exit 1
+                fi
+                EXPECTED_REFS="$EXPECTED_REFS $ref"
+              done
+              for entry in $EXPECTED_DIGESTS; do
+                case "${entry%%=*}" in
+                  aics-api|aics-admin|aics-auth) ;;
+                  *) echo "expected_digests 에 알 수 없는 항목이 있습니다: ${entry%%=*}" >&2; exit 1 ;;
+                esac
+              done
+
+              # pull 전에: 이 서버의 compose(.env 의 DOCKERHUB_USERNAME 포함)가 쓸 앱 이미지 3개가 검증한 저장소의 이 태그인지.
+              want=$(for ref in $EXPECTED_REFS; do echo "${ref%@*}:$IMAGE_TAG"; done | sort)
+              if ! images=$(staged_compose config --images); then
+                echo "새 compose 설정을 읽지 못했습니다(.env 값 확인 필요). 서버는 바꾸지 않았습니다." >&2
+                exit 1
+              fi
+              have=$(printf '%s\n' "$images" | grep -E '(^|/)aics-(api|admin|auth):' | sort || true)
+              if [ "$want" != "$have" ]; then
+                echo "이 서버의 compose 가 쓸 앱 이미지가 검증한 이미지와 다릅니다. 서버는 바꾸지 않았습니다." >&2
+                echo "  검증한 이미지: $(echo $want)" >&2
+                echo "  서버가 쓸 이미지: $(echo $have)" >&2
+                echo "  서버 .env 의 DOCKERHUB_USERNAME 과 저장소 변수 DOCKERHUB_NAMESPACE 가 같은지 확인하세요." >&2
+                exit 1
+              fi
+            fi
+
+            # 이미지는 실제 설정을 바꾸기 전에 받는다. 실패하면 서버는 그대로다.
+            if ! staged_compose pull; then
+              echo "이미지 pull 에 실패했습니다. 서버는 바꾸지 않았습니다." >&2
+              exit 1
+            fi
+
+            # pull 한 뒤에: 받은 이미지가 검증한 digest 인지(승인 대기 중 같은 태그가 다른 이미지로 덮어써진 경우를 막는다).
+            for ref in $EXPECTED_REFS; do
+              repo=${ref%@*}
+              found=0
+              while IFS= read -r line; do
+                if [ "${line#docker.io/}" = "$ref" ]; then
+                  found=1
+                fi
+              done < <(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$repo:$IMAGE_TAG" 2>/dev/null || true)
+              if [ "$found" != 1 ]; then
+                echo "서버가 받은 $repo:${IMAGE_TAG:0:7} 이미지가 검증한 digest 와 다릅니다. 서버는 바꾸지 않았습니다." >&2
+                exit 1
+              fi
+              echo "$repo: 검증한 digest 와 같습니다."
+            done
+
+            # 여기서부터 실제 설정 파일을 바꾼다. 같은 이름의 임시 파일에 쓴 뒤 바꿔치기한다(파일이 반쯤 쓰인 상태가 없게).
+            DEPLOY_PHASE=config_installed
+            for f in $CONFIG_FILES; do
+              cp "$STAGING_DIR/$f" "$f.deploy-new"
+              mv -f "$f.deploy-new" "$f"
+            done
 
             # KD3-170: "docker compose up -d" 한 번에 재생성을 맡기면, 기존 컨테이너를
             # 멈추고 지우는 것과 새 컨테이너에 원래 이름을 붙이는 것 사이에 타이밍 레이스가
@@ -250,7 +332,10 @@ jobs:
             # 수동으로 지워야 했음). stop/rm을 명시적인 별도 명령으로 분리하면 각 명령이
             # 끝날 때까지 확실히 기다린 뒤 다음 단계로 넘어가므로 이 레이스 자체가 없어진다.
             # postgres/redis/caddy/pgadmin은 매번 재시작할 필요가 없어 대상에서 제외한다.
-            stop_and_remove_apps || exit 1
+            # 여기서부터 실패하면 on_exit 이 직전 릴리스로 롤백한다.
+            DEPLOY_PHASE=apps_replacing
+            docker compose --env-file "$ENV_FILE" stop aics-api aics-admin aics-auth
+            docker compose --env-file "$ENV_FILE" rm -f aics-api aics-admin aics-auth
 
             # KD3-170: up -d 가 일시적인 Docker 오류로 실패하면 set -e 로 바로
             # 스크립트가 종료되어 애플리케이션 컨테이너가 없는 상태로 남는다.
@@ -325,7 +410,7 @@ jobs:
             up_one_service aics-auth
             wait_for_service_health aics-auth http://aics-auth:8082/auth-api-docs
 
-            # scp-action은 Caddyfile을 새 inode로 교체할 수 있다. 단일 파일 bind mount를
+            # 설정 파일은 새 파일로 바꿔치기(mv)하므로 Caddyfile이 새 inode가 된다. 단일 파일 bind mount를
             # 유지한 채 reload만 하면 실행 중인 Caddy가 이전 inode의 설정을 다시 읽어
             # 최신 라우트가 반영되지 않는다. 새 파일을 일회성 컨테이너에서 먼저 검증한 뒤
             # Caddy만 재생성해 새 bind mount를 잡는다.
@@ -418,10 +503,36 @@ jobs:
             wait_for_service_health aics-auth http://aics-auth:8082/auth-api-docs 10
 
             echo "API, Admin, Auth 애플리케이션 기동 확인을 완료했습니다."
-            echo "$IMAGE_TAG" > "$LAST_GOOD_TAG_FILE"
+            # 여기부터는 배포 성공이다. 아래 기록·정리 단계가 실패해도 롤백하지 않는다.
+            DEPLOY_PHASE=finished
+
+            # 성공한 릴리스를 기록한다: 설정 파일 3개를 .releases/<태그> 에 먼저 저장하고, 그다음 태그 파일을 바꿔치기한다.
+            # 태그 파일이 바뀌는 순간 "직전 릴리스(태그+설정)"가 한 번에 바뀐다. 기록에 실패해도 배포는 성공이므로 경고만 남기며,
+            # 그 경우 다음 배포의 롤백 대상은 그 전에 기록된 릴리스(태그와 설정이 짝을 이룬 것)다.
+            record_successful_release() {
+              local dir="$RELEASES_DIR/$IMAGE_TAG" d f
+              mkdir -p "$RELEASES_DIR" || return 1
+              rm -rf "$dir.tmp" && mkdir "$dir.tmp" || return 1
+              for f in $CONFIG_FILES; do
+                cp "$f" "$dir.tmp/$f" || return 1
+              done
+              rm -rf "$dir" && mv "$dir.tmp" "$dir" || return 1
+              echo "$IMAGE_TAG" > "$LAST_GOOD_TAG_FILE.tmp" && mv -f "$LAST_GOOD_TAG_FILE.tmp" "$LAST_GOOD_TAG_FILE" || return 1
+              # 지금 릴리스 외의 기록(이전 릴리스, 남은 .tmp)은 지운다. 태그 파일을 바꾼 뒤에 지우므로 짝이 깨지는 순간이 없다.
+              for d in "$RELEASES_DIR"/*; do
+                if [ "$d" != "$dir" ]; then
+                  rm -rf "$d"
+                fi
+              done
+              return 0
+            }
+            if ! record_successful_release; then
+              echo "경고: 성공한 릴리스 기록($RELEASES_DIR, $LAST_GOOD_TAG_FILE)을 저장하지 못했습니다. 배포는 성공했고, 다음 배포의 롤백 대상은 그 전에 기록된 릴리스입니다." >&2
+            fi
+            rm -rf "$PREV_DIR"
 
             echo "이미지 정리 전 디스크 사용량:"
-            df -h .
-            docker image prune -af
+            df -h . || true
+            docker image prune -af || echo "경고: 사용하지 않는 이미지 정리에 실패했습니다(배포는 성공)." >&2
             echo "이미지 정리 후 디스크 사용량:"
-            df -h .
+            df -h . || true
