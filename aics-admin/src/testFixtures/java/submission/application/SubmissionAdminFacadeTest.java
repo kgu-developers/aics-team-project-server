@@ -15,6 +15,8 @@ import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -166,6 +168,7 @@ class SubmissionAdminFacadeTest {
         assertThat(response.contents().get(0).teamId()).isEqualTo(teamId);
         assertThat(response.contents().get(0).status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);
         assertThat(response.contents().get(0).leaderName()).isNull();
+        assertThat(response.contents().get(0).studentFeedbackSubmitted()).isFalse();
     }
 
     @Test
@@ -604,7 +607,7 @@ class SubmissionAdminFacadeTest {
                 .id(90L).teamId(teamId).title("제안서").approvalStatus(ApprovalStatus.APPROVED)
                 .proposalCompletedAt(feedbackAt.plusMinutes(1)).build()));
         given(documentFeedbackRepository.summarizeFeedback(List.of(teamId), TeamMessageRelatedType.PROPOSAL,
-                List.of(90L))).willReturn(Map.of(90L, new DocumentFeedbackSummary(2, feedbackAt, null)));
+                List.of(90L))).willReturn(Map.of(90L, new DocumentFeedbackSummary(2, feedbackAt, feedbackAt.minusMinutes(1))));
 
         SubmissionAdminResponse listed = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
@@ -614,6 +617,7 @@ class SubmissionAdminFacadeTest {
         assertThat(listed.leaderName()).isEqualTo("팀장학생");
         assertThat(listed.feedbackCount()).isEqualTo(2);
         assertThat(listed.feedbackRequested()).isTrue();
+        assertThat(listed.studentFeedbackSubmitted()).isFalse();
         assertThat(listed.hasPendingReview()).isFalse();
         assertThat(listed.status()).isEqualTo(SubmissionStatus.SUBMITTED);
         assertThat(listed.canSubmitNow()).isFalse();
@@ -645,8 +649,38 @@ class SubmissionAdminFacadeTest {
         assertThat(listed.leaderName()).isEqualTo("팀장학생");
         assertThat(listed.feedbackCount()).isEqualTo(3);
         assertThat(listed.feedbackRequested()).isTrue();
+        assertThat(listed.studentFeedbackSubmitted()).isTrue();
         assertThat(listed.hasPendingReview()).isTrue();
         assertThat(listed.status()).isEqualTo(SubmissionStatus.REVISION_REQUESTED);
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"null,null,false", "null,1,true", "0,null,false", "0,1,true", "2,1,true", "0,0,true"}, nullValues = "null")
+    @DisplayName("중간보고서 학생 답글이 한 번이라도 있으면 이후 교수 답변과 무관하게 제출로 표시한다")
+    void midReportStudentFeedbackSubmitted(Integer professorMinute, Integer studentMinute, boolean expected) {
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 11, 2, 15, 0);
+        Submission submission = submissionRepository.save(Submission.create(teamId, MILESTONE_ID));
+        given(milestoneRepository.findById(MILESTONE_ID)).willReturn(Optional.of(midReportMilestone()));
+        given(sectionQueryService.isActiveSectionOwnedByProfessor(SECTION_ID, PROFESSOR)).willReturn(true);
+        MidReport report = MidReport.builder().id(77L).teamId(teamId).milestoneId(MILESTONE_ID)
+                .status(MidReportStatus.SUBMITTED).submittedAt(submittedAt).build();
+        given(midReportRepository.findAllByTeamIdInAndMilestoneId(List.of(teamId), MILESTONE_ID))
+                .willReturn(List.of(report));
+        given(midReportRepository.findByTeamIdAndMilestoneId(teamId, MILESTONE_ID)).willReturn(Optional.of(report));
+        given(documentFeedbackRepository.summarizeFeedback(List.of(teamId), TeamMessageRelatedType.MID_REPORT,
+                List.of(77L))).willReturn(Map.of(77L, new DocumentFeedbackSummary(
+                        professorMinute == null ? 0 : 1,
+                        professorMinute == null ? null : submittedAt.plusMinutes(professorMinute),
+                        studentMinute == null ? null : submittedAt.plusMinutes(studentMinute))));
+
+        SubmissionAdminResponse listed = submissionAdminFacade
+                .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
+        SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
+        var json = new ObjectMapper().findAndRegisterModules().valueToTree(listed);
+
+        assertThat(listed).isEqualTo(detail);
+        assertThat(json.path("studentFeedbackSubmitted").isBoolean()).isTrue();
+        assertThat(json.path("studentFeedbackSubmitted").asBoolean()).isEqualTo(expected);
     }
 
     @Test
@@ -802,8 +836,8 @@ class SubmissionAdminFacadeTest {
         SubmissionAdminResponse listed = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
         SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(listed.id(), PROFESSOR);
-        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
-                .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        var json = new ObjectMapper().findAndRegisterModules()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .valueToTree(listed);
 
         assertThat(listed).isEqualTo(detail);
@@ -846,6 +880,7 @@ class SubmissionAdminFacadeTest {
         assertThat(listed.midReportId()).isNull();
         assertThat(listed.feedbackCount()).isZero();
         assertThat(listed.feedbackRequested()).isFalse();
+        assertThat(listed.studentFeedbackSubmitted()).isFalse();
         assertThat(listed.currentVersion()).isEqualTo(submission.getCurrentVersion());
         assertThat(listed.completedAt()).isEqualTo(submission.getCompletedAt());
         assertThat(listed.completedBy()).isEqualTo(submission.getCompletedBy());
@@ -873,7 +908,7 @@ class SubmissionAdminFacadeTest {
         SubmissionAdminResponse listed = submissionAdminFacade
                 .getSubmissionsByMilestone(MILESTONE_ID, null, PROFESSOR).contents().get(0);
         SubmissionAdminResponse detail = submissionAdminFacade.getSubmission(submission.getId(), PROFESSOR);
-        var json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().valueToTree(listed);
+        var json = new ObjectMapper().findAndRegisterModules().valueToTree(listed);
 
         assertThat(listed).isEqualTo(detail);
         assertThat(listed.status()).isEqualTo(SubmissionStatus.NOT_SUBMITTED);

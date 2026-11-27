@@ -62,6 +62,9 @@ public record SubmissionAdminResponse(
         @Schema(description = "제출·재제출 또는 학생 답글이 마지막 교수 피드백보다 최신이어서 교수 피드백을 기다리는지. 제안서·중간보고서 외에는 false", example = "true", requiredMode = REQUIRED)
         boolean feedbackRequested,
 
+        @Schema(description = "중간보고서에 연결된 학생 답글이 한 번이라도 있는지. 교수 피드백 전 질문도 포함하며 이후 교수 피드백과 무관하게 유지된다. 학생 답글이 없거나 중간보고서 외 마일스톤이면 false", example = "true", requiredMode = REQUIRED)
+        boolean studentFeedbackSubmitted,
+
         @Schema(description = "발표 순서(발표 마일스톤 전용, 없으면 null)", example = "3")
         Integer presentationOrder,
 
