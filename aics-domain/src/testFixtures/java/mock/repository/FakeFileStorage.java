@@ -38,6 +38,11 @@ public class FakeFileStorage implements FileStorage {
         storageKeys.remove(storageKey);
     }
 
+    /** 지금 저장소에 남아 있는 파일 키. 업로드 뒤 정리(삭제)가 됐는지 확인하는 테스트용이다. */
+    public Set<String> storedKeys() {
+        return Set.copyOf(storageKeys);
+    }
+
     @Override
     public String presignedUrl(String storageKey) {
         return "https://fake-storage.local/" + storageKey;
