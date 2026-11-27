@@ -205,6 +205,23 @@ public class AnnouncementPopupFacadeTest {
         // then
         assertThat(response.content()).isEqualTo("수정된 내용");
         assertThat(response.enabled()).isFalse();
+        assertThat(response.contentVersion()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("updatePopup은 노출 여부만 바꾸면 응답의 contentVersion이 그대로다(학생 숨김 유지)")
+    public void updatePopup_ToggleOnly_ContentVersionUnchanged() {
+        // given
+        Long popupId = facade.createPopup(saveAnnouncement(sectionId), PROFESSOR, createRequest("원래 내용"), null).id();
+
+        // when
+        facade.updatePopup(popupId, PROFESSOR, AnnouncementPopupUpdateRequest.builder().enabled(false).build(), null);
+        AnnouncementPopupResponse response = facade.updatePopup(
+            popupId, PROFESSOR, AnnouncementPopupUpdateRequest.builder().enabled(true).build(), null);
+
+        // then
+        assertThat(response.enabled()).isTrue();
+        assertThat(response.contentVersion()).isZero();
     }
 
     @Test

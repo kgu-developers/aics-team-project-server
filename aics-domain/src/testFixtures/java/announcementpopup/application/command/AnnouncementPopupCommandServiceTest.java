@@ -504,4 +504,95 @@ class AnnouncementPopupCommandServiceTest {
             .isInstanceOf(AnnouncementPopupTitleTooLongException.class);
         assertThat(fakePopupRepository.findById(id).orElseThrow().getContent()).isEqualTo("안내 내용");
     }
+
+    // ---------------------------------------------------------------- contentVersion(학생 숨김 기준)
+
+    private long contentVersionOf(Long id) {
+        return fakePopupRepository.findById(id).orElseThrow().getContentVersion();
+    }
+
+    @Test
+    @DisplayName("contentVersion: 새로 등록한 팝업은 0이다")
+    void contentVersion_Created_IsZero() {
+        assertThat(contentVersionOf(createPopupWithImage())).isZero();
+    }
+
+    @Test
+    @DisplayName("contentVersion: 노출을 껐다 켜기만 하면 오르지 않는다(학생의 숨김 유지)")
+    void contentVersion_ToggleEnabled_Unchanged() {
+        Long id = createPopup();
+        commandService.updatePopup(id, null, null, false, false, null, UPLOADER);
+        commandService.updatePopup(id, null, null, true, false, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isZero();
+    }
+
+    @Test
+    @DisplayName("contentVersion: 같은 제목·내용을 다시 보내면 오르지 않는다")
+    void contentVersion_SameValues_Unchanged() {
+        Long id = commandService.createPopup(10L, 1L, "제목", "안내 내용", null, UPLOADER);
+        commandService.updatePopup(id, "제목", "안내 내용", true, false, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isZero();
+    }
+
+    @Test
+    @DisplayName("contentVersion: 제목이 없을 때 빈 제목을 보내면(둘 다 제목 없음) 오르지 않는다")
+    void contentVersion_BlankTitleWhenNoTitle_Unchanged() {
+        Long id = createPopup();
+        commandService.updatePopup(id, "  ", null, null, false, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isZero();
+    }
+
+    @Test
+    @DisplayName("contentVersion: 이미지가 없을 때 이미지 제거를 보내면 오르지 않는다")
+    void contentVersion_RemoveImageWhenNone_Unchanged() {
+        Long id = createPopup();
+        commandService.updatePopup(id, null, null, null, true, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isZero();
+    }
+
+    @Test
+    @DisplayName("contentVersion: 제목을 바꾸거나 지우면 1씩 오른다")
+    void contentVersion_TitleChangedOrCleared_Increments() {
+        Long id = commandService.createPopup(10L, 1L, "제목", "안내 내용", null, UPLOADER);
+        commandService.updatePopup(id, "새 제목", null, null, false, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isEqualTo(1L);
+        commandService.updatePopup(id, "", null, null, false, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("contentVersion: 내용을 바꾸면 노출 여부를 함께 바꿔도 한 번만 오른다")
+    void contentVersion_ContentChangedWithToggle_IncrementsOnce() {
+        Long id = createPopup();
+        commandService.updatePopup(id, null, "수정된 내용", false, false, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("contentVersion: 제목과 내용을 한 번에 바꾸면 바뀐 항목마다 올라 2가 된다(학생 쪽은 값이 달라졌는지만 본다)")
+    void contentVersion_TitleAndContentChanged_IncrementsPerField() {
+        Long id = createPopup();
+        commandService.updatePopup(id, "새 제목", "수정된 내용", null, false, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("contentVersion: 이미지를 교체하거나 제거하면 오른다")
+    void contentVersion_ImageReplacedOrRemoved_Increments() {
+        Long id = createPopupWithImage();
+        commandService.updatePopup(id, null, null, null, false, image("새.png", "image/png"), UPLOADER);
+        assertThat(contentVersionOf(id)).isEqualTo(1L);
+        commandService.updatePopup(id, null, null, null, true, null, UPLOADER);
+        assertThat(contentVersionOf(id)).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("contentVersion: 저장이 거부되면(제목 길이 초과) 오르지 않는다")
+    void contentVersion_RejectedUpdate_Unchanged() {
+        Long id = createPopup();
+        assertThatThrownBy(() -> commandService.updatePopup(
+            id, "가".repeat(201), "바뀌면 안 되는 내용", null, false, null, UPLOADER))
+            .isInstanceOf(AnnouncementPopupTitleTooLongException.class);
+        assertThat(contentVersionOf(id)).isZero();
+    }
 }

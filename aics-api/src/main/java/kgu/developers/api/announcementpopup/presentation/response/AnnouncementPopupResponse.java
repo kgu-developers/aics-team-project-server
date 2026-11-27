@@ -31,8 +31,11 @@ public record AnnouncementPopupResponse(
     @Schema(description = "노출 여부", example = "true", requiredMode = REQUIRED)
     boolean enabled,
 
-    @Schema(description = "수정할 때마다 오르는 값. 학생이 '일주일간 보지 않기'를 누른 뒤 팝업이 바뀌었는지 판단하는 기준", example = "0", requiredMode = REQUIRED)
+    @Schema(description = "저장할 때마다 오르는 값(노출 여부만 바꿔도 오른다). 동시 수정 충돌 판단용", example = "0", requiredMode = REQUIRED)
     long version,
+
+    @Schema(description = "제목·내용·이미지가 실제로 바뀔 때만 오르는 값. 학생이 '일주일간 보지 않기'를 누른 뒤 팝업 내용이 바뀌었는지 판단하는 기준(노출을 껐다 켜도 오르지 않는다)", example = "0", requiredMode = REQUIRED)
+    long contentVersion,
 
     @Schema(description = "생성 일시", requiredMode = REQUIRED)
     LocalDateTime createdAt,
@@ -51,6 +54,7 @@ public record AnnouncementPopupResponse(
             .imageUrl(imageUrl)
             .enabled(popup.isEnabled())
             .version(popup.getVersion())
+            .contentVersion(popup.getContentVersion())
             .createdAt(popup.getCreatedAt())
             .updatedAt(popup.getUpdatedAt())
             .build();

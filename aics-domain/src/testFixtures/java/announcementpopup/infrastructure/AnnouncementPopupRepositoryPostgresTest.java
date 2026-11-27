@@ -135,7 +135,7 @@ class AnnouncementPopupRepositoryPostgresTest {
     }
 
     @Test
-    @DisplayName("팝업을 수정해서 저장하면 version이 1 오른다")
+    @DisplayName("팝업 내용을 수정해서 저장하면 version과 contentVersion이 1씩 오르고 DB에 남는다")
     void save_Modified_IncrementsVersion() {
         // given
         AnnouncementPopup popup = save(10L, 1L, "원래 내용", null);
@@ -148,10 +148,12 @@ class AnnouncementPopupRepositoryPostgresTest {
         // then
         assertThat(updated.getVersion()).isEqualTo(1L);
         assertThat(repository.findById(popup.getId()).orElseThrow().getVersion()).isEqualTo(1L);
+        assertThat(updated.getContentVersion()).isEqualTo(1L);
+        assertThat(repository.findById(popup.getId()).orElseThrow().getContentVersion()).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("노출을 껐다 켜도 수정이므로 version이 오른다(학생에게 다시 보이게 하려는 의도)")
+    @DisplayName("노출을 껐다 켜면 version(낙관적 락)은 오르지만 contentVersion(학생 숨김 기준)은 그대로다")
     void save_ToggleEnabled_IncrementsVersion() {
         // given
         AnnouncementPopup popup = save(10L, 1L, "내용", null);
@@ -165,10 +167,11 @@ class AnnouncementPopupRepositoryPostgresTest {
         // then
         assertThat(disabled.getVersion()).isEqualTo(1L);
         assertThat(enabled.getVersion()).isEqualTo(2L);
+        assertThat(repository.findById(popup.getId()).orElseThrow().getContentVersion()).isZero();
     }
 
     @Test
-    @DisplayName("같은 내용으로 다시 저장해도 version이 오른다(저장할 때마다 오르고 변경 여부는 따지지 않는다)")
+    @DisplayName("같은 내용으로 다시 저장하면 version은 오르지만 contentVersion은 그대로다")
     void save_SameContent_StillIncrementsVersion() {
         // given
         AnnouncementPopup popup = save(10L, 1L, "내용", null);
@@ -177,9 +180,31 @@ class AnnouncementPopupRepositoryPostgresTest {
         popup.updateContent("내용");
         AnnouncementPopup resaved = repository.save(popup);
 
-        // then: 팝업은 교수가 등록·수정할 때만 저장되므로, 같은 내용으로 저장 버튼을 눌러도 학생에게 다시 보인다.
-        // 이 동작을 바꾸려면(변경이 없으면 유지) 저장 경로를 바꿔야 하고, 그때 이 테스트가 알려준다.
+        // then: version 은 저장할 때마다 오른다(낙관적 락). 학생에게 보이는 내용은 그대로라 contentVersion 은 유지되어,
+        // 같은 내용으로 저장 버튼을 눌러도 "일주일간 보지 않기"를 누른 학생에게 다시 뜨지 않는다.
         assertThat(resaved.getVersion()).isEqualTo(1L);
+        assertThat(resaved.getContentVersion()).isZero();
+    }
+
+    @Test
+    @DisplayName("노출을 끄는 저장과 내용 수정이 겹치면 늦은 쪽이 충돌로 거부된다(꺼 둔 팝업이 다시 켜지지 않는다)")
+    void save_ToggleThenStaleContentEdit_ThrowsConcurrentlyModified() {
+        // given: 두 요청이 켜진 팝업을 같이 읽는다
+        Long id = save(10L, 1L, "원래 내용", null).getId();
+        AnnouncementPopup toggling = repository.findById(id).orElseThrow();
+        AnnouncementPopup editing = repository.findById(id).orElseThrow();
+
+        // when: 한 요청이 먼저 노출을 끈다
+        toggling.changeEnabled(false);
+        repository.save(toggling);
+
+        // then: 켜진 상태를 읽었던 내용 수정은 덮어쓰지 못하고, 팝업은 꺼진 채로 남는다
+        editing.updateContent("내용 수정");
+        assertThatThrownBy(() -> repository.save(editing))
+            .isInstanceOf(AnnouncementPopupConcurrentlyModifiedException.class);
+        AnnouncementPopup stored = repository.findById(id).orElseThrow();
+        assertThat(stored.isEnabled()).isFalse();
+        assertThat(stored.getContent()).isEqualTo("원래 내용");
     }
 
     @Test

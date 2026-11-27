@@ -43,7 +43,8 @@ public interface AnnouncementPopupController {
                 제목은 빈 문자열을 보내면 지워진다(제목은 선택 항목).
                 노출을 끄려면 request.enabled를 false로 보낸다(삭제 API는 없다). 이미지는 image 파트로 교체하고,
                 request.removeImage를 true로 보내면 제거한다(둘을 함께 보낼 수 없다).
-                수정하면 응답의 version이 오른다.
+                저장하면 응답의 version이 오른다. 제목·내용·이미지가 실제로 바뀐 경우에만 contentVersion도 오른다
+                (노출 여부만 바꾸거나 같은 값으로 보내면 contentVersion은 그대로라 학생의 '일주일간 보지 않기'가 유지된다).
             Assignee : 담당자명
             """
     )
