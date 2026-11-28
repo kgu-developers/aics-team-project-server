@@ -29,7 +29,7 @@ flowchart LR
 | GitHub Environment | `cloud-dev` | 개발 서버 접속 정보. 이미지 빌드 job도 이 환경을 쓴다 |
 | GitHub Environment | `cloud-prod` | 운영 서버 접속 정보. **첫 승격 전에 승인자를 지정해야 한다**(9장) |
 | 워크플로 | `cloud-dev-build-deploy.yml` | `develop` push마다 빌드하고 개발 서버에 배포 |
-| 워크플로 | `deploy-reusable.yml` | 서버 배포 스크립트 본체. 개발·운영이 함께 쓴다 |
+| 워크플로 | `deploy-reusable.yml` | 서버 배포 워크플로. 개발·운영이 함께 쓴다. 서버에서 실행하는 스크립트는 `.github/scripts/deploy-server.sh` |
 | 워크플로 | `promote-to-production.yml` | 검증된 커밋을 운영 서버에 승격(수동 실행) |
 | 워크플로 | `server-preflight.yml` | 서버가 배포할 준비가 됐는지 점검(수동 실행, 읽기 전용) |
 
@@ -146,7 +146,7 @@ gh workflow run server-preflight.yml -f environment=cloud-dev
 `develop`에 머지하면 `cloud-dev-build-deploy.yml`이 자동으로 실행된다.
 
 1. 이미지 3개(`aics-api`, `aics-admin`, `aics-auth`)를 빌드해 Docker Hub에 **커밋 sha 태그**로 올리고, 올린 이미지의 **digest를 기록**한다(아티팩트 `image-digests-<sha>`). 같은 커밋으로 빌드를 다시 돌리면 sha 태그가 다른 이미지로 덮어써질 수 있어서, 운영 승격은 태그가 아니라 이 digest로 "같은 이미지"인지 확인한다(7장).
-2. `deploy-reusable.yml`이 새 설정 파일(`docker-compose.yml`·`Caddyfile`·`pgadmin-servers.json`)을 서버의 **실행 전용 임시 폴더**(`.deploy-staging/<실행 번호>`)로만 보낸다. 서버의 실제 설정은 아직 그대로다.
+2. `deploy-reusable.yml`이 새 설정 파일(`docker-compose.yml`·`Caddyfile`·`pgadmin-servers.json`)과 배포 스크립트(`deploy-server.sh`)를 서버의 **실행 전용 임시 폴더**(`.deploy-staging/<실행 번호>`)로만 보낸다. 서버의 실제 설정은 아직 그대로다. 설정 파일은 배포할 커밋의 것, 배포 스크립트는 워크플로를 실행한 커밋의 것이다(개발 배포는 둘이 같고, 운영 승격은 설정만 승격하는 커밋의 것을 쓴다).
 3. 서버의 배포 스크립트가 다음 순서로 진행한다.
    1. **잠금**: 같은 서버에서 다른 배포가 진행 중이면 아무것도 바꾸지 않고 실패한다(끝난 뒤 다시 실행). 잠금 도구(`flock`)가 없는 서버에서는 진행하지 않는다. 잠금을 얻은 **뒤에** compose 파일 목록(4장)을 정하고, 직전 성공 릴리스(태그+설정)를 읽어 롤백용으로 준비한다. 준비하지 못하면(기록된 설정 파일 누락, 태그 파일 손상) 서버를 바꾸기 전에 중단한다.
    2. **기반 서비스 확인**: 새 설정의 postgres·redis·pgadmin 설정이 직전 성공 릴리스와 다른지 compose의 서비스 설정 해시(`config --hash`, compose가 컨테이너를 다시 만들지 판단하는 값)로 비교한다. 다르면 **서버를 바꾸기 전에 멈춘다.** 실패해도 자동 롤백이 이들을 되돌리지 않기 때문이다(데이터가 있는 postgres를 이전 이미지로 내리면 위험하다). 변경을 확인했으면 `allow_infra_change`를 켜고 다시 실행한다. 개발은 **Actions → Build and Deploy to Development Server on Cloud → Run workflow**(`develop`), 운영은 승격 입력이다. 같은 `.env` 기준으로 비교하므로 `.env`만 바뀐 경우는 여기서 잡히지 않는다.
@@ -190,7 +190,7 @@ gh workflow run promote-to-production.yml -f image_tag=<커밋 sha 40자> -f dry
 | 소문자 16진수 40자 sha인가 | 짧은 sha, 대문자 |
 | `develop` 이력에 있는 커밋인가 | 머지되지 않은 커밋 |
 | Docker Hub에 이미지 3개가 있는가 | 빌드되지 않은 커밋 |
-| 그 커밋의 **가장 최근** 개발 배포 실행이 성공했는가 | 같은 커밋을 다시 빌드하다 실패해 이미지가 일부만 덮어써진 상태에서, 과거 성공 기록 때문에 통과하는 것 |
+| 그 커밋의 **가장 최근** 개발 배포 실행(`develop`의 push 실행과 직접 실행 모두)이 성공했는가 | 같은 커밋을 다시 빌드하다 실패해 이미지가 일부만 덮어써진 상태에서, 과거 성공 기록 때문에 통과하는 것 |
 | 이미지 digest가 개발 배포 때 기록한 값과 같은가 | 개발에서 검증한 뒤 같은 태그가 다른 이미지로 덮어써진 경우 |
 | 기록된 이미지 저장소가 `DOCKERHUB_NAMESPACE`와 같은가 | 빌드와 승격 검증이 서로 다른 Docker Hub 사용자명을 쓰는 것 |
 
