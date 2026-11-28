@@ -1,0 +1,296 @@
+name: Promote to Production
+
+# 개발 서버에서 검증된 커밋을 "다시 빌드하지 않고" 운영 서버에 배포한다.
+# develop 에 머지하면 cloud-dev-build-deploy.yml 이 이미지를 빌드해 Docker Hub 에 커밋 sha 태그로 올리고(올린 이미지의 digest 도
+# 기록한다) 개발 서버에 배포한다. 개발에서 확인한 뒤, 이 워크플로를 직접 실행(workflow_dispatch)하면 같은 sha 의 이미지를 운영 서버에 올린다.
+# 검증한 이미지와 운영에 나가는 이미지가 같은 파일이라는 점이 핵심이라, 태그가 아니라 digest 로 대조한다.
+#
+# 흐름
+#   1) validate  : 승인 요청 전에 입력을 검증한다(develop 이력, Docker Hub 이미지 3개, 개발 서버 배포 성공,
+#                  개발 배포 이후 이미지 태그가 바뀌지 않았는지).
+#   2) deploy    : cloud-prod 환경의 승인자가 승인하면 deploy-reusable.yml 로 운영 서버에 배포한다.
+#   3) record    : 배포가 성공하면 main 을 그 커밋으로 옮기고(fast-forward) 날짜 태그를 붙인다.
+#
+# 운영 서버 접속 정보는 cloud-prod 환경의 시크릿을 쓴다. 이 환경에 승인자(Required reviewers)와
+# 배포 브랜치 제한(develop 만)을 지정해 두는 것을 전제로 한다.
+#
+# 참고: 운영 승격도 개발과 같은 compose(docker/development)를 쓰므로 세 앱의 Spring 프로필은 dev(ddl-auto=update)다.
+# 이것은 기존 운영 동작이며 이 워크플로가 바꾸지 않는다. validate 로 전환하는 것은 DB 스키마 정리가 선행돼야 하는 별도 결정이다.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 운영에 배포할 커밋 sha(전체 40자). 개발 서버에 성공적으로 배포된 develop 커밋이어야 한다
+        type: string
+        required: true
+      dry_run:
+        description: 검증만 하고 배포하지 않는다(승격 대상이 통과하는지 미리 확인할 때)
+        type: boolean
+        required: false
+        default: false
+      allow_unrecorded_digest:
+        description: >-
+          개발 배포가 이미지 digest 를 기록하기 전의 과거 커밋(예 롤백 대상)이라 기록이 없을 때만 켠다.
+          켜면 "개발 배포 이후 태그가 바뀌지 않았는지"를 확인하지 못한 채 진행하므로 위험을 알고 있을 때만 쓴다
+        type: boolean
+        required: false
+        default: false
+      allow_infra_change:
+        description: >-
+          기반 서비스(postgres/redis/pgadmin)의 compose 설정이 운영 서버의 직전 성공 릴리스와 다른 커밋일 때만 켠다.
+          실패해도 롤백이 이들을 되돌리지 않으므로, 끄면(기본) 운영 서버를 바꾸기 전에 멈춘다
+        type: boolean
+        required: false
+        default: false
+
+# 운영 배포가 겹치지 않게 한 번에 하나씩만 진행한다. 대기 중인 실행은 취소하지 않는다.
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: 1. 승격 대상 검증
+    runs-on: ubuntu-latest
+    outputs:
+      # 개발에서 검증한 이미지 3개의 "서비스=저장소@digest"(공백 구분). 운영 배포가 서버의 compose 이미지 이름과 pull 한 이미지를 대조한다.
+      # 개발 배포의 digest 기록이 없는 과거 커밋(allow_unrecorded_digest)은 비어 있다.
+      digests: ${{ steps.digest.outputs.digests }}
+    permissions:
+      contents: read
+      actions: read
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag }}
+      ALLOW_UNRECORDED_DIGEST: ${{ inputs.allow_unrecorded_digest }}
+      # Docker Hub 사용자명(이미지 이름 앞부분). 이미지 저장소가 공개라 로그인 없이 조회한다.
+      # 개발 빌드가 올린 저장소, 이 값, 서버 .env 의 DOCKERHUB_USERNAME 이 모두 같아야 한다(서버 점검이 .env 쪽을 확인한다).
+      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || 'hotan35' }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: develop 브랜치에서 실행했는지 확인
+        run: |
+          # 운영 시크릿을 쓰는 워크플로이므로, 검토되지 않은 브랜치의 코드로는 실행하지 못하게 한다.
+          if [ "${GITHUB_REF}" != "refs/heads/develop" ]; then
+            echo "::error::운영 승격은 develop 브랜치에서만 실행할 수 있습니다(현재: ${GITHUB_REF}). 'Use workflow from'에서 develop 을 선택하세요."
+            exit 1
+          fi
+
+      - name: checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 커밋 sha 형식 확인
+        run: |
+          if ! [[ "${IMAGE_TAG}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::image_tag 는 소문자 16진수 40자의 전체 커밋 sha 여야 합니다(입력: ${IMAGE_TAG})."
+            exit 1
+          fi
+          echo "커밋 sha 형식이 올바릅니다."
+
+      - name: develop 이력에 있는 커밋인지 확인
+        run: |
+          if ! git cat-file -e "${IMAGE_TAG}^{commit}" 2>/dev/null; then
+            echo "::error::저장소에서 커밋을 찾을 수 없습니다: ${IMAGE_TAG}"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${IMAGE_TAG}" origin/develop; then
+            echo "::error::develop 브랜치 이력에 없는 커밋입니다. develop 에 머지된 커밋만 운영에 올릴 수 있습니다."
+            exit 1
+          fi
+          echo "develop 이력에 있는 커밋입니다: $(git log -1 --format='%h %s' "${IMAGE_TAG}")"
+
+      - name: Docker Hub 에 이미지 3개가 있는지 확인
+        run: |
+          missing=()
+          for app in api admin auth; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
+              "https://hub.docker.com/v2/repositories/${DOCKERHUB_NAMESPACE}/aics-${app}/tags/${IMAGE_TAG}" || echo "000")
+            if [ "${code}" = "200" ]; then
+              echo "aics-${app}:${IMAGE_TAG:0:7} 있음"
+            else
+              echo "aics-${app}:${IMAGE_TAG:0:7} 확인 실패(HTTP ${code})"
+              missing+=("aics-${app}")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Docker Hub 에서 이미지를 확인하지 못했습니다: ${missing[*]} (태그 ${IMAGE_TAG}). 개발 서버 배포의 빌드가 성공했는지, 잠시 후 다시 시도해도 같은지 확인하세요."
+            exit 1
+          fi
+
+      - name: 개발 배포의 가장 최근 실행이 성공했는지 확인
+        id: devrun
+        run: |
+          # develop 에서 실행된 개발 배포(cloud-dev-build-deploy.yml) 중 이 커밋의 "가장 최근" 실행이 성공이어야 한다.
+          # push 로 실행된 것과 직접 실행(workflow_dispatch)한 것을 함께 본다. 기반 서비스 설정이 바뀌는 커밋은 push 배포가
+          # 서버를 바꾸기 전에 멈추고 allow_infra_change 를 켠 직접 실행으로만 배포되므로, push 만 보면 승격할 수 없다.
+          # 과거에 한 번 성공했더라도 같은 커밋을 다시 빌드하다 실패했다면(일부 이미지만 덮어써졌을 수 있음) 통과시키지 않는다.
+          runs=$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow cloud-dev-build-deploy.yml \
+            --branch develop --commit "${IMAGE_TAG}" --limit 100 \
+            --json databaseId,status,conclusion,createdAt,event)
+          latest=$(printf '%s' "${runs}" | python3 -c '
+          import sys, json
+          runs = [r for r in json.load(sys.stdin) if r.get("event") in ("push", "workflow_dispatch")]
+          if not runs:
+              print("NONE")
+          else:
+              r = sorted(runs, key=lambda x: x["createdAt"])[-1]
+              print("%s|%s|%s|%d" % (r["databaseId"], r["status"], r.get("conclusion") or "", len(runs)))
+          ')
+          if [ "${latest}" = "NONE" ]; then
+            echo "::error::이 커밋으로 개발 서버 배포가 실행된 기록이 없습니다. 개발 서버에 먼저 배포되어 확인된 커밋만 운영에 올릴 수 있습니다."
+            exit 1
+          fi
+          IFS='|' read -r run_id run_status run_conclusion run_count <<< "${latest}"
+          if [ "${run_status}" != "completed" ]; then
+            echo "::error::이 커밋의 가장 최근 개발 배포(run ${run_id})가 아직 진행 중입니다(상태: ${run_status}). 끝난 뒤 다시 실행하세요."
+            exit 1
+          fi
+          if [ "${run_conclusion}" != "success" ]; then
+            echo "::error::이 커밋의 가장 최근 개발 배포(run ${run_id})가 성공하지 않았습니다(결과: ${run_conclusion}). 같은 커밋을 다시 빌드하다 실패했다면 이미지 태그가 바뀌었을 수 있어 통과시키지 않습니다."
+            exit 1
+          fi
+          echo "가장 최근 개발 배포(run ${run_id})가 성공했습니다(이 커밋의 실행 ${run_count}건 중 최근)."
+          echo "run_id=${run_id}" >> "${GITHUB_OUTPUT:-/dev/null}"
+
+      - name: 개발 배포 이후 이미지 태그가 바뀌지 않았는지 확인(digest 대조)
+        id: digest
+        env:
+          RUN_ID: ${{ steps.devrun.outputs.run_id }}
+        run: |
+          # 개발 빌드가 올린 이미지의 digest 를 기록해 둔 아티팩트와, 지금 Docker Hub 태그의 digest 를 대조한다.
+          # 다르면 개발에서 검증한 뒤 같은 태그가 다른 이미지로 덮어써진 것이다.
+          digest_script="${REGISTRY_DIGEST_SCRIPT:-.github/scripts/registry-digest.sh}"
+          dir=$(mktemp -d)
+          verified_refs=""
+          if ! gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --name "image-digests-${IMAGE_TAG}" --dir "${dir}" >/dev/null 2>&1 \
+              || [ ! -f "${dir}/digests.txt" ]; then
+            if [ "${ALLOW_UNRECORDED_DIGEST}" = "true" ]; then
+              echo "::warning::이 커밋의 개발 배포에는 이미지 digest 기록이 없습니다(기록 기능 도입 전 배포로 보입니다). allow_unrecorded_digest 가 켜져 있어 개발 배포 이후 태그가 바뀌지 않았는지 확인하지 못한 채 진행합니다."
+              exit 0
+            fi
+            echo "::error::개발 배포(run ${RUN_ID})의 이미지 digest 기록(image-digests-${IMAGE_TAG})을 찾을 수 없어 개발 배포 이후 태그가 바뀌지 않았는지 확인할 수 없습니다. digest 기록 기능 도입 전의 과거 커밋이라면 allow_unrecorded_digest 를 켜서 실행할 수 있지만, 위험을 알고 있을 때만 쓰세요."
+            exit 1
+          fi
+          for app in api admin auth; do
+            line=$(grep -E "^aics-${app}=" "${dir}/digests.txt" || true)
+            if [ -z "${line}" ]; then
+              echo "::error::digest 기록에 aics-${app} 항목이 없습니다."
+              exit 1
+            fi
+            ref=${line#*=}
+            repo=${ref%@*}
+            recorded=${ref#*@}
+            if [ "${repo}" != "${DOCKERHUB_NAMESPACE}/aics-${app}" ]; then
+              echo "::error::개발 빌드가 올린 이미지 저장소(${repo})가 승격 대상 저장소(${DOCKERHUB_NAMESPACE}/aics-${app})와 다릅니다. 빌드, 승격 검증(DOCKERHUB_NAMESPACE), 서버 .env 의 DOCKERHUB_USERNAME 이 모두 같은 Docker Hub 사용자명이어야 합니다."
+              exit 1
+            fi
+            if ! live=$(bash "${digest_script}" "${repo}" "${IMAGE_TAG}"); then
+              echo "::error::Docker Hub 에서 ${repo}:${IMAGE_TAG:0:7} 의 digest 를 조회하지 못했습니다."
+              exit 1
+            fi
+            if [ "${live}" != "${recorded}" ]; then
+              echo "::error::${repo}:${IMAGE_TAG:0:7} 태그의 digest 가 개발 배포 이후 바뀌었습니다(개발 검증 시 ${recorded:0:19}…, 현재 ${live:0:19}…). 같은 커밋을 다시 빌드해 이미지가 덮어써졌을 수 있습니다. 개발 서버에 다시 배포해 검증한 뒤 승격하세요."
+              exit 1
+            fi
+            echo "aics-${app}: 개발에서 검증한 이미지와 같습니다(${live:0:19}…)"
+            verified_refs="${verified_refs}aics-${app}=${repo}@${live} "
+          done
+          rm -rf "${dir}"
+          echo "digests=${verified_refs% }" >> "${GITHUB_OUTPUT:-/dev/null}"
+
+      - name: 검증 결과 요약
+        run: |
+          {
+            echo "### 승격 대상 검증 통과"
+            echo
+            echo "- 커밋: \`${IMAGE_TAG}\`"
+            echo "- $(git log -1 --format='%s' "${IMAGE_TAG}")"
+            echo "- Docker Hub 이미지(api, admin, auth)가 있고, 개발 서버 배포의 가장 최근 실행이 성공했습니다."
+            if [ "${ALLOW_UNRECORDED_DIGEST}" = "true" ]; then
+              echo "- **allow_unrecorded_digest 가 켜져 있어 개발 배포 이후 이미지 태그가 바뀌지 않았는지는 확인하지 못했습니다.**"
+            else
+              echo "- 이미지 digest 가 개발 배포 때 기록한 값과 같습니다."
+            fi
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "- **dry_run 이므로 여기서 멈춥니다. 운영 배포는 하지 않았습니다.**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: 2. 운영 배포
+    needs: validate
+    if: ${{ !inputs.dry_run }}
+    # 환경(cloud-prod)은 deploy-reusable.yml 의 job 이 지정하므로, 그 환경의 승인자가 이 단계에서 승인한다.
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      environment: cloud-prod
+      image_tag: ${{ inputs.image_tag }}
+      # 승인 대기 중 같은 태그가 다른 이미지로 덮어써지거나 서버 .env 의 Docker Hub 사용자명이 달라도, 서버를 바꾸기 전에 중단한다.
+      expected_digests: ${{ needs.validate.outputs.digests }}
+      # 이미지와 같은 시점의 compose/Caddyfile 을 서버로 보낸다(develop 최신이 아니라 승격하는 커밋).
+      ref: ${{ inputs.image_tag }}
+      allow_infra_change: ${{ inputs.allow_infra_change }}
+    secrets: inherit
+
+  record:
+    name: 3. main 이동과 태그
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag }}
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: main 을 운영에 배포한 커밋으로 옮기고 태그 붙이기
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 태그를 main 이동보다 먼저 만든다. main 이동이 실패해도 "배포 기록"(가장 최근 prod-* 태그)은 항상 남아,
+          # 현재 운영 커밋을 태그로 확인한다는 안내가 맞도록 한다.
+          tag="prod-$(TZ=Asia/Seoul date +%Y%m%d-%H%M)-${IMAGE_TAG:0:7}"
+          if ! git tag -a "${tag}" "${IMAGE_TAG}" -m "Production deploy ${IMAGE_TAG}" || ! git push origin "refs/tags/${tag}"; then
+            echo "::error::운영 배포는 성공했지만 배포 태그(${tag})를 기록하지 못했습니다. 현재 운영 커밋은 이 실행의 대상 커밋(${IMAGE_TAG})이며 서버의 .last-successful-image-tag 로도 확인할 수 있습니다. 태그는 직접 붙이세요: git tag -a ${tag} ${IMAGE_TAG} -m 'Production deploy' && git push origin ${tag}"
+            exit 1
+          fi
+
+          # main 은 "운영에 승격한 가장 앞선 커밋"을 가리킨다. 되돌리는(과거 커밋 승격) 경우에는 main 을 뒤로 옮기지 않는다
+          # (fast-forward 만 한다). 그래서 main 이 곧 현재 운영 상태는 아니며, 현재 운영에 무엇이 올라가 있는지는
+          # 가장 최근의 prod-* 태그(배포 기록)로 확인한다.
+          if git rev-parse --verify -q origin/main >/dev/null; then
+            if git merge-base --is-ancestor "${IMAGE_TAG}" origin/main; then
+              echo "main 이 이미 이 커밋을 포함합니다. main 은 옮기지 않습니다."
+            elif git merge-base --is-ancestor origin/main "${IMAGE_TAG}"; then
+              if ! git push origin "${IMAGE_TAG}:refs/heads/main"; then
+                echo "::error::main 을 옮기지 못했습니다. 운영 배포는 성공했고 배포 태그(${tag})는 기록했습니다. main 브랜치 보호 설정에서 GitHub Actions 의 푸시를 허용했는지 확인하세요."
+                exit 1
+              fi
+              echo "main 을 ${IMAGE_TAG:0:7} 로 옮겼습니다."
+            else
+              echo "::error::main 이 이 커밋의 조상이 아니라서 fast-forward 할 수 없습니다. 운영 배포는 성공했고 배포 태그(${tag})는 기록했습니다. main 이 develop 과 갈라졌는지 확인하세요."
+              exit 1
+            fi
+          else
+            echo "::error::origin/main 브랜치가 없습니다. 운영 배포는 성공했고 배포 태그(${tag})는 기록했습니다."
+            exit 1
+          fi
+
+          {
+            echo "### 운영 배포 완료"
+            echo
+            echo "- 커밋: \`${IMAGE_TAG}\`"
+            echo "- 태그: \`${tag}\` (현재 운영 상태는 가장 최근의 prod-* 태그로 확인)"
+            echo "- 운영은 기존처럼 dev 프로필(ddl-auto=update)로 기동됩니다. 이 워크플로가 바꾸지 않습니다."
+          } >> "$GITHUB_STEP_SUMMARY"
