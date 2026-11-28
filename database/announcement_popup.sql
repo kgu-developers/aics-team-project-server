@@ -19,9 +19,10 @@ CREATE TABLE IF NOT EXISTS announcement_popup (
     content TEXT NOT NULL,
     image_file_id BIGINT,
     enabled BOOLEAN NOT NULL,
-    -- JPA @Version. 교수가 팝업을 수정할 때만 오른다(알림 발송처럼 내용과 무관하게 저장하는 경로가 없다).
-    -- 학생이 '일주일간 보지 않기'를 누른 시점의 값과 비교해 팝업이 바뀌었으면 다시 보여준다.
+    -- JPA @Version(낙관적 락). 저장할 때마다 오른다(노출 여부만 바꿔도 오른다). 동시 수정 충돌 판단에만 쓴다.
     version BIGINT NOT NULL,
+    -- 제목·내용·이미지가 실제로 바뀔 때만 오른다. 학생이 '일주일간 보지 않기'를 누른 시점의 값과 다르면 다시 보여준다.
+    content_version BIGINT NOT NULL,
     PRIMARY KEY (id),
     -- 공지사항 하나에 팝업은 하나. AnnouncementPopupRepositoryImpl.save 는 동시 등록이 이 제약에 걸리면
     -- AnnouncementPopupAlreadyExistsException 으로 바꾼다(서비스의 존재 확인만으로는 동시 요청을 못 막는다).

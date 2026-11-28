@@ -56,6 +56,10 @@ public class AnnouncementPopupJpaEntity extends BaseTimeEntity {
     @Version
     private long version;
 
+    // 학생에게 보이는 내용(제목·내용·이미지)이 바뀔 때만 오른다. 학생 숨김의 기준(AnnouncementPopup 참고).
+    @Column(name = "content_version", nullable = false)
+    private long contentVersion;
+
     public AnnouncementPopup toDomain() {
         return AnnouncementPopup.builder()
             .id(this.id)
@@ -66,6 +70,7 @@ public class AnnouncementPopupJpaEntity extends BaseTimeEntity {
             .imageFileId(this.imageFileId)
             .enabled(this.enabled)
             .version(this.version)
+            .contentVersion(this.contentVersion)
             .createdAt(this.getCreatedAt())
             .updatedAt(this.getUpdatedAt())
             .build();
@@ -81,6 +86,7 @@ public class AnnouncementPopupJpaEntity extends BaseTimeEntity {
             .imageFileId(domain.getImageFileId())
             .enabled(domain.isEnabled())
             .version(domain.getVersion())
+            .contentVersion(domain.getContentVersion())
             .build();
         // createdAt은 @Column(updatable = false)라 UPDATE SQL에는 들어가지 않지만, 여기서 채우지 않으면
         // merge()가 null을 이미 영속 상태인 엔티티에 복사해, 같은 트랜잭션에서 바로 다시 읽은 도메인 객체의

@@ -28,6 +28,7 @@ public class FakeAnnouncementPopupRepository implements AnnouncementPopupReposit
             .imageFileId(announcementPopup.getImageFileId())
             .enabled(announcementPopup.isEnabled())
             .version(announcementPopup.getVersion())
+            .contentVersion(announcementPopup.getContentVersion())
             .createdAt(announcementPopup.getCreatedAt() != null ? announcementPopup.getCreatedAt() : LocalDateTime.now())
             .updatedAt(LocalDateTime.now())
             .build();
@@ -67,6 +68,7 @@ public class FakeAnnouncementPopupRepository implements AnnouncementPopupReposit
             .imageFileId(popup.getImageFileId())
             .enabled(popup.isEnabled())
             .version(popup.getVersion())
+            .contentVersion(popup.getContentVersion())
             .createdAt(popup.getCreatedAt())
             .updatedAt(popup.getUpdatedAt())
             .build();
