@@ -24,6 +24,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create")  // 실 DB이므로 스키마 생성을 명시해야 한다
 @AutoConfigureTestDatabase(replace = NONE)
 @Import(AnnouncementPopupRepositoryImpl.class)
+@ContextConfiguration(classes = AnnouncementPopupRepositoryPostgresTest.TestApp.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)  // 호출마다 커밋돼야 version 증가와 충돌을 볼 수 있다
 @DirtiesContext
 class AnnouncementPopupRepositoryPostgresTest {
@@ -69,7 +71,7 @@ class AnnouncementPopupRepositoryPostgresTest {
     private PlatformTransactionManager transactionManager;
 
     @SpringBootApplication
-    @EntityScan(basePackageClasses = AnnouncementPopupJpaEntity.class)
+    @EntityScan(basePackages = "kgu.developers.domain")
     @EnableJpaRepositories(basePackageClasses = JpaAnnouncementPopupRepository.class)
     static class TestApp {
     }
