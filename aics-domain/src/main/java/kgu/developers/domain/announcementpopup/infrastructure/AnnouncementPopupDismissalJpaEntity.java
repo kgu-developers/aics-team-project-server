@@ -30,13 +30,14 @@ public class AnnouncementPopupDismissalJpaEntity extends BaseTimeEntity {
     @Column(name = "popup_id", nullable = false)
     private Long popupId;
 
+    // 기존 컬럼명이며, 낙관적 락 version이 아닌 내용 변경용 contentVersion을 저장한다.
     @Column(name = "popup_version", nullable = false)
-    private long popupVersion;
+    private long contentVersion;
 
     @Column(name = "hidden_until", nullable = false)
     private LocalDateTime hiddenUntil;
 
     public AnnouncementPopupDismissal toDomain() {
-        return new AnnouncementPopupDismissal(userId, popupId, popupVersion, hiddenUntil);
+        return new AnnouncementPopupDismissal(userId, popupId, contentVersion, hiddenUntil);
     }
 }

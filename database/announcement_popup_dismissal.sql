@@ -11,3 +11,5 @@ CREATE TABLE IF NOT EXISTS announcement_popup_dismissal (
     hidden_until TIMESTAMP(6) NOT NULL,
     CONSTRAINT uk_popup_dismissal_user_popup UNIQUE (user_id, popup_id)
 );
+
+COMMENT ON COLUMN announcement_popup_dismissal.popup_version IS '학생 숨김 기준인 announcement_popup.content_version. 낙관적 락 version과 무관하다';

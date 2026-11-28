@@ -73,7 +73,7 @@ class StudentAnnouncementPopupRepositoryPostgresTest {
         for (long id = 1; id <= 3; id++) {
             long section = id == 3 ? 2 : 1;
             jdbc.update("INSERT INTO section_announcement (id,section_id,title,content,published_at,version,created_at,updated_at) VALUES (?,?,'제목','본문',?,0,?,?)", id, section, NOW, NOW, NOW);
-            jdbc.update("INSERT INTO announcement_popup (id,announcement_id,section_id,title,content,enabled,version,created_at,updated_at) VALUES (?,?,?,'제목','내용',true,0,?,?)", id, id, section, NOW, NOW);
+            jdbc.update("INSERT INTO announcement_popup (id,announcement_id,section_id,title,content,enabled,version,content_version,created_at,updated_at) VALUES (?,?,?,'제목','내용',true,0,0,?,?)", id, id, section, NOW, NOW);
         }
     }
 

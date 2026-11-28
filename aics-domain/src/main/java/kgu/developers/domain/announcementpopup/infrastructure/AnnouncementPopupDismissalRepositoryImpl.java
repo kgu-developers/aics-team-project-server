@@ -19,7 +19,7 @@ public class AnnouncementPopupDismissalRepositoryImpl implements AnnouncementPop
 
     @Override
     public AnnouncementPopupDismissal save(AnnouncementPopupDismissal dismissal, LocalDateTime now) {
-        return repository.upsert(dismissal.userId(), dismissal.popupId(), dismissal.popupVersion(),
+        return repository.upsert(dismissal.userId(), dismissal.popupId(), dismissal.contentVersion(),
             dismissal.hiddenUntil(), now).toDomain();
     }
 }

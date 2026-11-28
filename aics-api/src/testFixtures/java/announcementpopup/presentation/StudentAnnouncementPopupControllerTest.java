@@ -51,7 +51,7 @@ class StudentAnnouncementPopupControllerTest {
 
     @Test
     @DisplayName("PUT 숨김 API는 인증 사용자와 팝업 버전을 facade에 전달한다")
-    void dismiss_UsesAuthenticatedUserAndVersion() throws Exception {
+    void dismiss_UsesAuthenticatedUserAndContentVersion() throws Exception {
         LocalDateTime hiddenUntil = LocalDateTime.of(2026, 12, 2, 10, 0);
         given(facade.dismiss(7L, USER_ID, 2L))
             .willReturn(new AnnouncementPopupDismissalResponse(7L, 2L, hiddenUntil));
@@ -59,33 +59,33 @@ class StudentAnnouncementPopupControllerTest {
         mockMvc.perform(put("/api/v1/announcement-popups/7/dismissal")
                 .principal(authentication())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"version\":2}"))
+                .content("{\"contentVersion\":2}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.popupId").value(7L))
-            .andExpect(jsonPath("$.version").value(2L));
+            .andExpect(jsonPath("$.contentVersion").value(2L));
 
         then(facade).should().dismiss(7L, USER_ID, 2L);
     }
 
     @Test
-    @DisplayName("PUT 숨김 API는 version 필드가 없으면 400을 반환한다")
-    void dismiss_MissingVersion_ReturnsBadRequest() throws Exception {
-        assertInvalidVersion("{}");
+    @DisplayName("PUT 숨김 API는 contentVersion 필드가 없으면 400을 반환한다")
+    void dismiss_MissingContentVersion_ReturnsBadRequest() throws Exception {
+        assertInvalidContentVersion("{}");
     }
 
     @Test
-    @DisplayName("PUT 숨김 API는 version이 null이면 400을 반환한다")
-    void dismiss_NullVersion_ReturnsBadRequest() throws Exception {
-        assertInvalidVersion("{\"version\":null}");
+    @DisplayName("PUT 숨김 API는 contentVersion이 null이면 400을 반환한다")
+    void dismiss_NullContentVersion_ReturnsBadRequest() throws Exception {
+        assertInvalidContentVersion("{\"contentVersion\":null}");
     }
 
     @Test
-    @DisplayName("PUT 숨김 API는 version이 음수이면 400을 반환한다")
-    void dismiss_NegativeVersion_ReturnsBadRequest() throws Exception {
-        assertInvalidVersion("{\"version\":-1}");
+    @DisplayName("PUT 숨김 API는 contentVersion이 음수이면 400을 반환한다")
+    void dismiss_NegativeContentVersion_ReturnsBadRequest() throws Exception {
+        assertInvalidContentVersion("{\"contentVersion\":-1}");
     }
 
-    private void assertInvalidVersion(String content) throws Exception {
+    private void assertInvalidContentVersion(String content) throws Exception {
         mockMvc.perform(put("/api/v1/announcement-popups/7/dismissal")
                 .principal(authentication())
                 .contentType(MediaType.APPLICATION_JSON)

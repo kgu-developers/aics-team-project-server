@@ -113,7 +113,7 @@ class StudentAnnouncementPopupFacadeTest {
 
         assertThat(response.contents()).singleElement().satisfies(content -> {
             assertThat(content.id()).isEqualTo(1L);
-            assertThat(content.version()).isEqualTo(4L);
+            assertThat(content.contentVersion()).isEqualTo(4L);
         });
     }
 
@@ -148,7 +148,7 @@ class StudentAnnouncementPopupFacadeTest {
         AnnouncementPopupDismissalResponse response = facade.dismiss(7L, USER_ID, 2L);
 
         assertThat(response.popupId()).isEqualTo(7L);
-        assertThat(response.version()).isEqualTo(2L);
+        assertThat(response.contentVersion()).isEqualTo(2L);
         assertThat(response.hiddenUntil()).isEqualTo(NOW.plusDays(7));
         ArgumentCaptor<AnnouncementPopupDismissal> captor = ArgumentCaptor.forClass(AnnouncementPopupDismissal.class);
         then(dismissalRepository).should().save(captor.capture(), eq(NOW));
@@ -179,6 +179,36 @@ class StudentAnnouncementPopupFacadeTest {
         then(dismissalRepository).should(never()).save(any(), any());
     }
 
+    @Test
+    @DisplayName("노출을 껐다 켜도 내용 버전이 같으면 숨김이 유지된다")
+    void getPopups_ToggleEnabled_KeepsDismissal() {
+        AnnouncementPopup popup = popup(1L, 3L, null);
+        popup.changeEnabled(false);
+        popup.changeEnabled(true);
+        given(dismissalRepository.findAllByUserId(USER_ID)).willReturn(List.of(
+            new AnnouncementPopupDismissal(USER_ID, 1L, 3L, NOW.plusDays(1))
+        ));
+        given(popupRepository.findAvailable(USER_ID, null, NOW)).willReturn(List.of(popup));
+
+        assertThat(facade.getPopups(USER_ID).contents()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("같은 내용을 다시 저장하면 숨김을 유지하고 실제 내용을 바꾸면 다시 노출한다")
+    void getPopups_ActualContentChange_ResurfacesPopup() {
+        AnnouncementPopup popup = popup(1L, 3L, null);
+        given(dismissalRepository.findAllByUserId(USER_ID)).willReturn(List.of(
+            new AnnouncementPopupDismissal(USER_ID, 1L, 3L, NOW.plusDays(1))
+        ));
+        given(popupRepository.findAvailable(USER_ID, null, NOW)).willReturn(List.of(popup));
+        popup.updateContent("팝업 내용");
+        assertThat(facade.getPopups(USER_ID).contents()).isEmpty();
+
+        popup.updateContent("수정한 팝업 내용");
+        assertThat(facade.getPopups(USER_ID).contents()).singleElement()
+            .satisfies(response -> assertThat(response.contentVersion()).isEqualTo(4L));
+    }
+
     private AnnouncementPopup popup(Long id, long version, Long imageFileId) {
         return AnnouncementPopup.builder()
             .id(id)
@@ -188,7 +218,8 @@ class StudentAnnouncementPopupFacadeTest {
             .content("팝업 내용")
             .imageFileId(imageFileId)
             .enabled(true)
-            .version(version)
+            .version(version + 10)
+            .contentVersion(version)
             .createdAt(NOW.minusDays(1))
             .updatedAt(NOW.minusHours(1))
             .build();

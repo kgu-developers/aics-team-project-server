@@ -50,15 +50,15 @@ public class StudentAnnouncementPopupFacade {
     }
 
     @Transactional
-    public AnnouncementPopupDismissalResponse dismiss(Long popupId, String userId, long version) {
+    public AnnouncementPopupDismissalResponse dismiss(Long popupId, String userId, long contentVersion) {
         LocalDateTime now = LocalDateTime.now(serviceClock);
         AnnouncementPopup popup = popupRepository.findAvailable(userId, popupId, now).stream().findFirst()
             .orElseThrow(AnnouncementPopupNotFoundException::new);
-        if (popup.getVersion() != version) {
+        if (popup.getContentVersion() != contentVersion) {
             throw new AnnouncementPopupConcurrentlyModifiedException();
         }
         AnnouncementPopupDismissal saved = dismissalRepository.save(
             AnnouncementPopupDismissal.create(userId, popup, now), now);
-        return new AnnouncementPopupDismissalResponse(saved.popupId(), saved.popupVersion(), saved.hiddenUntil());
+        return new AnnouncementPopupDismissalResponse(saved.popupId(), saved.contentVersion(), saved.hiddenUntil());
     }
 }

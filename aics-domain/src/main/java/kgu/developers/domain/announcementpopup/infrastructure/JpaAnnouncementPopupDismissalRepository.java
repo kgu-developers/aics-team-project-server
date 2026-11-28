@@ -13,7 +13,7 @@ public interface JpaAnnouncementPopupDismissalRepository extends JpaRepository<A
     @Query(value = """
         INSERT INTO announcement_popup_dismissal
             (user_id, popup_id, popup_version, hidden_until, created_at, updated_at)
-        VALUES (:userId, :popupId, :popupVersion, :hiddenUntil, :now, :now)
+        VALUES (:userId, :popupId, :contentVersion, :hiddenUntil, :now, :now)
         ON CONFLICT (user_id, popup_id) DO UPDATE SET
             popup_version = GREATEST(announcement_popup_dismissal.popup_version, EXCLUDED.popup_version),
             hidden_until = CASE
@@ -26,6 +26,6 @@ public interface JpaAnnouncementPopupDismissalRepository extends JpaRepository<A
         """, nativeQuery = true)
     AnnouncementPopupDismissalJpaEntity upsert(
         @Param("userId") String userId, @Param("popupId") Long popupId,
-        @Param("popupVersion") long popupVersion, @Param("hiddenUntil") LocalDateTime hiddenUntil,
+        @Param("contentVersion") long contentVersion, @Param("hiddenUntil") LocalDateTime hiddenUntil,
         @Param("now") LocalDateTime now);
 }

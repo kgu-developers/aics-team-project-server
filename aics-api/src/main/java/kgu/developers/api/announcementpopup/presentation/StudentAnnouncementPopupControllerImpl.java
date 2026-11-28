@@ -33,6 +33,6 @@ public class StudentAnnouncementPopupControllerImpl implements StudentAnnounceme
         @PathVariable Long id, @Valid @RequestBody AnnouncementPopupDismissRequest request,
         Authentication authentication
     ) {
-        return ResponseEntity.ok(facade.dismiss(id, authentication.getName(), request.version()));
+        return ResponseEntity.ok(facade.dismiss(id, authentication.getName(), request.contentVersion()));
     }
 }
